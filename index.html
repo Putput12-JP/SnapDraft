@@ -10752,7 +10752,11 @@ function sortedPlayers(){
   // "my-col" sort = your My Rankings board order (rank asc), in the ACTIVE mode
   if(sortKey==='my-col'){
     const f = (window._dvMode==='redraft') ? 'redraft' : 'dynasty';
-    const gi = (n)=>{ const mi = window.MyRankings && MyRankings.getRankInfo(n,f); return mi?mi.myRank:99999; };
+    const gi = (n)=>{
+      let mi = window.MyRankings && MyRankings.getRankInfo(n,f);
+      if(!mi && window.MyRankings) mi = MyRankings.getRankInfo(n,'dynasty'); // fall back to dynasty board so Mine always sorts
+      return mi ? mi.myRank : 99999;
+    };
     return [...src].sort((a,b)=>gi(a.name)-gi(b.name));
   }
   // "my" sort = user's uploaded CSV ranks (stored in p.rMy)
@@ -21998,6 +22002,7 @@ body .page,body .page.on{background:transparent!important}
   #plist-mobile-sort{ display:none!important; }
   .dvg-sort2{ display:none!important; }
   #pm-sortbar #pmsort-rk, #pm-sortbar #pmsort-dyn{ display:none!important; }
+  #pm-sortbar #pmsort-my{ display:inline-flex!important; }   /* show Mine for synced rankings, not just CSV import */
   #pm-sortbar .pm-chip-dot{ display:none!important; }
   #pm-sortbar{ top:0!important; }
   /* shrink the draft KPI cards so the board comes up sooner */
