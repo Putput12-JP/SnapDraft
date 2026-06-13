@@ -21950,6 +21950,24 @@ body .page,body .page.on{background:transparent!important}
 @media(max-width:1160px){ .glassnav #theme-toggle{display:none!important} }
 @media(max-width:1080px){ .glassnav .gn-search{display:none!important} .glassnav .vlg-trigger{max-width:120px!important} }
 
+/* ════ MOBILE: expand header league name + compact Draft Vault top ════ */
+@media(max-width:700px){
+  /* expand the team/league name in the header (the general 160px cap was truncating it) */
+  .glassnav .vlg-trigger{ max-width:100%!important; width:100%!important; min-width:0!important; }
+  .glassnav .gn-leaguewrap{ flex:1 1 auto!important; min-width:0!important; }
+  .glassnav .vlg-name{ font-size:13px!important; }
+  /* compact the bulky/empty KPI cards so the board isn't buried */
+  #page-draft .draft-summary{ gap:7px!important; margin-top:6px!important; }
+  #page-draft .ds-card.dsc{ gap:7px!important; }
+  #page-draft .dsc-pickblock,#page-draft .dsc-stat,#page-draft .dsc-clockwrap,#page-draft .dsc-progwrap{ padding:8px 11px!important; border-radius:12px!important; min-height:0!important; }
+  #page-draft .dsc-stat .ds-stat-val{ font-size:15px!important; }
+  #page-draft .dsc-lbl{ font-size:7.5px!important; letter-spacing:.08em!important; }
+  #page-draft .dsc-eyebrow{ font-size:8px!important; }
+  #page-draft .dsc .ds-pick-no{ font-size:18px!important; }
+  #page-draft .dsc .ds-pick-away{ font-size:11px!important; }
+  #page-draft .dsc-clock .ds-clock-val{ font-size:13px!important; }
+}
+
 /* ---- Portfolio hero strip → frosted glass (was hardcoded dark, broke light mode) ---- */
 .pf-v2-strip{
   background:linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0) 46%),rgba(17,29,54,0.30)!important;
@@ -21991,14 +22009,33 @@ body .page,body .page.on{background:transparent!important}
   #page-draft .dsc-clock .ds-clock-val{ font-size:14px!important; }
 }
 
-/* ════ DRAFT VAULT — mobile search & filters: themed, glassy, tighter ════ */
+/* ════ DRAFT VAULT — remove the black control box at ALL widths + glassify ════ */
+#page-draft .controls.dvc{ background:transparent!important; border-top:none!important; }
+#page-draft .controls.dvc .dvc-seg{
+  background:rgba(17,29,54,0.42)!important;
+  backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%);
+  border:1px solid rgba(123,170,240,0.16)!important;
+}
+#page-draft .controls.dvc .dvc-search{
+  background:rgba(17,29,54,0.42)!important;
+  backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%);
+  border:1px solid rgba(123,170,240,0.16)!important;
+}
+[data-theme="light"] #page-draft .controls.dvc .dvc-seg,
+[data-theme="light"] #page-draft .controls.dvc .dvc-search{
+  background:rgba(255,255,255,0.55)!important; border:1px solid rgba(29,40,66,0.14)!important;
+}
+
+/* ════ DRAFT VAULT — mobile search & filters: Format+Pos one row, search under ════ */
 @media(max-width:700px){
   /* kill the flat near-black control box; let the Silk show through */
   #page-draft .controls.dvc{
     background:transparent!important; border-top:none!important; border-bottom:none!important;
-    padding:4px 2px 10px!important; gap:9px!important; flex-wrap:wrap!important;
+    padding:4px 2px 10px!important; gap:8px!important; flex-wrap:wrap!important; align-items:center!important;
   }
   #page-draft .controls.dvc .dvg-src{ display:none!important; }   /* source lives in Sort row */
+  #page-draft .controls.dvc .dv-spacer{ display:none!important; } /* so search wraps directly under */
+  #page-draft .controls.dvc > .dv-grp{ flex:0 1 auto!important; }
   #page-draft .controls.dvc .mode-seg{ flex:0 0 auto; }
   #page-draft .controls.dvc .pos-seg{ flex:1 1 auto; justify-content:space-between; }
   /* frosted-glass segments */
