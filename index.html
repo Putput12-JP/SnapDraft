@@ -4187,6 +4187,14 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
         <button class="fbtn TE" onclick="setF('TE')">TE</button>
       </div>
     </div>
+    <div class="dv-grp dvg-sort2">
+      <span class="dv-ctl-label">Sort</span>
+      <div class="dvc-seg sort2-seg">
+        <button class="sbtn dv-sort2" onclick="setSort('redraft-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Redraft</button>
+        <button class="sbtn dv-sort2" onclick="setSort('adp-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">ADP</button>
+        <button class="sbtn dv-sort2" onclick="setSort('my-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Mine</button>
+      </div>
+    </div>
     <div class="dv-spacer"></div>
     <div class="dvc-search">
       <span class="dvc-search-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"/><path d="m20.5 20.5-4-4"/></svg></span>
@@ -21963,6 +21971,24 @@ body .page,body .page.on{background:transparent!important}
 [data-theme="light"] .rdv-card{
   background:linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0.42))!important;
   border:1px solid rgba(29,40,66,0.13)!important;
+}
+
+/* ════ DRAFT VAULT control cleanup (desktop Sort segment + mobile consolidation) ════ */
+#page-draft .controls.dvc .sort2-seg .sbtn.on{ background:var(--accent)!important; color:#fff!important; }
+@media(max-width:700px){
+  /* ONE clean mobile sort row — Redraft · ADP · Mine (kill the duplicate bar + Rank/Dynasty/dots) */
+  #plist-mobile-sort{ display:none!important; }
+  .dvg-sort2{ display:none!important; }
+  #pm-sortbar #pmsort-rk, #pm-sortbar #pmsort-dyn{ display:none!important; }
+  #pm-sortbar .pm-chip-dot{ display:none!important; }
+  #pm-sortbar{ top:0!important; }
+  /* shrink the draft KPI cards so the board comes up sooner */
+  #page-draft .draft-summary{ gap:8px!important; margin-top:8px!important; }
+  #page-draft .ds-card.dsc{ gap:8px!important; }
+  #page-draft .dsc-pickblock,#page-draft .dsc-stat,#page-draft .dsc-clockwrap,#page-draft .dsc-progwrap{ padding:10px 12px!important; border-radius:12px!important; }
+  #page-draft .dsc .ds-pick-no{ font-size:22px!important; }
+  #page-draft .dsc-stat .ds-stat-val{ font-size:17px!important; }
+  #page-draft .dsc-clock .ds-clock-val{ font-size:14px!important; }
 }
 
 /* ---- accessibility: respect reduced motion ---- */
