@@ -4190,7 +4190,7 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
     <div class="dv-grp dvg-sort2">
       <span class="dv-ctl-label">Sort</span>
       <div class="dvc-seg sort2-seg">
-        <button class="sbtn dv-sort2" onclick="setSort('redraft-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Redraft</button>
+        <button class="sbtn dv-sort2" id="dvs-value" onclick="setSort((window._dvMode==='redraft')?'redraft-col':'dynasty-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Dynasty</button>
         <button class="sbtn dv-sort2" onclick="setSort('adp-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">ADP</button>
         <button class="sbtn dv-sort2" onclick="setSort('my-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Mine</button>
       </div>
@@ -9146,9 +9146,17 @@ function setSortMode(mode){
 // ===== Option A: Dynasty/Redraft board mode — collapses the two value columns to ONE =====
 window._dvMode = window._dvMode || (function(){ try{ return localStorage.getItem('dcmd-v5-dvmode')||'dynasty'; }catch(e){ return 'dynasty'; } })();
 window._dvModeUserSet = false;
+function _dvSyncSortLabels(){
+  var rd = (window._dvMode==='redraft');
+  var v=document.getElementById('dvs-value'); if(v) v.textContent = rd?'Redraft':'Dynasty';
+  var pd=document.getElementById('pmsort-dyn'), pr=document.getElementById('pmsort-rdr');
+  if(pd) pd.style.display = rd?'none':'inline-flex';
+  if(pr) pr.style.display = rd?'inline-flex':'none';
+}
 function setDvMode(m, fromAuto){
   if (m!=='redraft') m='dynasty';
   window._dvMode = m;
+  try{ _dvSyncSortLabels(); }catch(e){}
   if (!fromAuto) window._dvModeUserSet = true;
   document.getElementById('dvm-dynasty')?.classList.toggle('on', m==='dynasty');
   document.getElementById('dvm-redraft')?.classList.toggle('on', m==='redraft');
@@ -22001,7 +22009,7 @@ body .page,body .page.on{background:transparent!important}
   /* ONE clean mobile sort row — Redraft · ADP · Mine (kill the duplicate bar + Rank/Dynasty/dots) */
   #plist-mobile-sort{ display:none!important; }
   .dvg-sort2{ display:none!important; }
-  #pm-sortbar #pmsort-rk, #pm-sortbar #pmsort-dyn{ display:none!important; }
+  #pm-sortbar #pmsort-rk{ display:none!important; }   /* Dynasty/Redraft chip toggled by JS per format */
   #pm-sortbar #pmsort-my{ display:inline-flex!important; }   /* show Mine for synced rankings, not just CSV import */
   #pm-sortbar .pm-chip-dot{ display:none!important; }
   #pm-sortbar{ top:0!important; }
@@ -22043,6 +22051,10 @@ body .page,body .page.on{background:transparent!important}
   #page-draft .controls.dvc > .dv-grp{ flex:0 1 auto!important; }
   #page-draft .controls.dvc .mode-seg{ flex:0 0 auto; }
   #page-draft .controls.dvc .pos-seg{ flex:1 1 auto; justify-content:space-between; }
+  /* shrink Format + Pos so they share ONE row (search wraps under) */
+  #page-draft .controls.dvc .mode-seg .sbtn{ padding:8px 9px!important; font-size:11.5px!important; }
+  #page-draft .controls.dvc .pos-seg .fbtn{ padding:8px 8px!important; font-size:11.5px!important; }
+  #page-draft .controls.dvc .dvc-seg{ padding:3px!important; }
   /* frosted-glass segments */
   #page-draft .controls.dvc .dvc-seg{
     background:rgba(17,29,54,0.42)!important;
