@@ -3559,6 +3559,14 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
         </span>
         <span class="dcp-choice-go">→</span>
       </button>
+      <button class="dcp-choice" onclick="chooseConnectDifferent()">
+        <span class="dcp-choice-icon">🔗</span>
+        <span class="dcp-choice-txt">
+          <span class="dcp-choice-title">Connect a different draft</span>
+          <span class="dcp-choice-sub">Pick an upcoming/live draft, or link a Sleeper or ESPN draft</span>
+        </span>
+        <span class="dcp-choice-go">→</span>
+      </button>
     </div>
   </div>
 </div>
@@ -9380,6 +9388,17 @@ function showPage(p){
     if (typeof fcLoaded!=='undefined' && !fcLoaded && typeof fcLoading!=='undefined' && !fcLoading && typeof fetchFantasyCalc==='function') {
       fetchFantasyCalc().then(() => { try { if (document.getElementById('page-draft')?.classList.contains('on')) { if(window.MyRankings&&MyRankings.refresh)MyRankings.refresh(); renderList(); } } catch(e){} });
     }
+    // Reconcile the connected draft with the selected league. If the league you're
+    // viewing hasn't drafted yet (pre_draft/live) but the Vault is connected to a
+    // DIFFERENT draft (e.g. another league's finished board), retie it so you see
+    // the right team's board — or drop the stale one and show the connect flow.
+    try {
+      const _selLg = myTeamsData && myTeamsData.find(l => l.league_id === (teamsLeagueId || window._currentLeagueId));
+      if (_selLg && ['pre_draft','drafting','in_progress','paused'].includes(_selLg.status)){
+        const _selDid = (_selLg.draft_id && _selLg.draft_id !== '0') ? _selLg.draft_id : null;
+        if (_selDid !== sleeperDraftId) syncDraftToLeague(_selLg);
+      }
+    } catch(e){}
     // Draft Board is now merged into #page-draft — initialize it too
     try { renderBoard(); } catch(e) {}
     try { ldInitPage(); } catch(e) {}
@@ -11485,6 +11504,69 @@ function chooseBrowseRankings(){
   try { renderDraftSummary(); renderAll(); } catch(e){}
 }
 
+// Drop the connected draft entirely (Sleeper or ESPN) and fall back to the clean
+// rankings + connect view. Used when the selected league has no live/upcoming
+// draft, or when the user wants to connect a different one.
+function disconnectDraft(){
+  try { if (syncTimer){ clearTimeout(syncTimer); clearInterval(syncTimer); syncTimer = null; } } catch(e){}
+  sleeperDraftId = '';
+  espnDraftLid = '';
+  window._activeDraft = null;
+  draftState = {};
+  manualOverrides = {};
+  window._completedDraftChoice = null;
+  window._curSyncMs = null;
+  try { localStorage.removeItem(SK+'-did'); localStorage.removeItem(SK+'-espn-draft'); } catch(e){}
+  try { _rebuildCaches(); } catch(e){}
+  try { renderDraftSummary(); renderAll(); renderBoard(); } catch(e){}
+}
+
+// From the "this draft is complete" prompt → clear the stale draft and open the
+// connect picker (which lists upcoming/live drafts + Sleeper/ESPN manual entry).
+function chooseConnectDifferent(){
+  document.getElementById('draft-complete-modal')?.classList.add('gone');
+  window._completedDraftChoice = null;
+  window._draftPromptDismissed = false;
+  disconnectDraft();
+  try { openDraftConnect(); } catch(e){}
+}
+
+// Keep the Draft Vault's connected draft tied to the currently-selected league so
+// it never shows a DIFFERENT league's (often stale/completed) board. Auto-connects
+// to the selected league's live/upcoming draft; otherwise drops the stale one.
+function syncDraftToLeague(leagueObj){
+  if (!leagueObj){ return; }
+  const did = (leagueObj.draft_id && leagueObj.draft_id !== '0') ? leagueObj.draft_id : null;
+  const status = leagueObj.status;
+  const isLiveOrUpcoming = (status==='pre_draft' || status==='drafting' || status==='in_progress' || status==='paused');
+  // New league → re-evaluate prompts from scratch.
+  window._completedDraftChoice = null;
+  window._draftPromptDismissed = false;
+  if (did && isLiveOrUpcoming){
+    if (did === sleeperDraftId) return;   // already on this league's draft
+    // Connect to the selected league's own draft board.
+    try { if (syncTimer){ clearTimeout(syncTimer); clearInterval(syncTimer); syncTimer = null; } } catch(e){}
+    espnDraftLid = '';
+    try { localStorage.removeItem(SK+'-espn-draft'); } catch(e){}
+    sleeperDraftId = did;
+    try { localStorage.setItem(SK+'-did', did); } catch(e){}
+    draftState = {}; manualOverrides = {}; window._curSyncMs = null;
+    try { _rebuildCaches(); } catch(e){}
+    try {
+      syncSleeper().then(() => {
+        try { scheduleSync(); } catch(e){}
+        if (document.getElementById('page-draft')?.classList.contains('on')){
+          try { ldShowBoard(); renderAll(); renderBoard(); renderDraftSummary(); } catch(e){}
+        }
+      }).catch(()=>{});
+    } catch(e){}
+  } else {
+    // In-season / complete / no draft → don't keep showing some other league's
+    // finished board. Clear it so the Vault shows rankings + a connect prompt.
+    if (sleeperDraftId || espnDraftLid){ disconnectDraft(); }
+  }
+}
+
 function ldShowBoard() {
   const section = document.getElementById('ld-board-section');
   const board = document.getElementById('ld-board-wrap');
@@ -13396,6 +13478,10 @@ async function switchGlobalLeague(leagueId) {
     const sel = document.getElementById(id);
     if (sel && leagueId) sel.value = leagueId;
   });
+
+  // Keep the Draft Vault's connected draft in sync with the chosen league so it
+  // never shows another league's stale/completed board for a team that hasn't drafted.
+  try { syncDraftToLeague(leagueObj); } catch(e){}
 
   const active = document.querySelector('.page.on')?.id;
   if (active === 'page-teams') {
