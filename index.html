@@ -21744,10 +21744,15 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .tab-fab-live[hidden]{display:none}
   .page.on{padding-bottom:108px!important}
 
-  /* connect landing — frosted card fits phones */
-  .vg-card{padding:24px 18px;border-radius:22px}
-  .vg-logo{max-width:170px}
-  .vg-head{font-size:26px}
+  /* connect landing — frosted card fills the phone, only a hair of border, fits iOS viewport */
+  #setup-step1{min-height:100svh}
+  .setup-screen{min-height:100svh}
+  #setup-step1 > div[style*="1100px"]{padding:12px 6px calc(34px + env(safe-area-inset-bottom)) !important;}
+  #setup-step1 section{margin-bottom:16px !important;}
+  .vg-card{width:100% !important;max-width:100% !important;padding:20px 15px 18px !important;border-radius:20px;}
+  .vg-logo{max-width:150px}
+  .vg-head{font-size:24px}
+  .vg-sub{font-size:13.5px;margin-top:8px}
 
   /* matchup hero compaction (redraft My Team view) — Gameday layout */
   .rdv-mu-top{grid-template-columns:1fr 34px 1fr;padding:16px 14px 12px;gap:4px}
