@@ -18272,6 +18272,11 @@ function pickYear(year) {
     // for Draft Vault MINE column (dynasty context)
     getRankInfo(name, f){
       f = f || 'dynasty';
+      // Self-initialize: load() pulls the user's saved board (pins/reorders) from
+      // storage. Without this, calling getValue/getRankInfo before the My Rankings
+      // page has ever been opened computes an UN-customized board, so "Mine"
+      // collapses back to market values everywhere it's read globally.
+      if (!_booted) init();
       maybeRebuild();
       if (!_cache[f]) _cache[f] = boardFor(f);
       const e = _cache[f].map.get(norm(name));
