@@ -8919,6 +8919,38 @@ function clearImportRankings() {
   toast('Rankings reset to RosterAudit default');
 }
 
+// ── Draft Vault data-readiness helpers ───────────────────────────────
+// Fixes the "change the sort right after a hard refresh does nothing until you
+// navigate away and come back" bug. Root cause: the Mine / FantasyCalc sorts read
+// value data (fcValues) that hasn't finished loading on a cold Draft Vault open,
+// and there was only a single 450ms retry. These kick the needed fetch and
+// re-render the list the moment the data lands.
+function _dvEnsureData(){
+  try {
+    const needFC = (valueSource==='fc' || valueSource==='my' || sortKey==='my-col' || sortKey==='fc-value' || sortKey==='my-value');
+    const needRA = (valueSource==='ra' || sortKey==='ra-value');
+    if (needFC && typeof fcLoaded!=='undefined' && !fcLoaded && typeof fcLoading!=='undefined' && !fcLoading && typeof fetchFantasyCalc==='function') fetchFantasyCalc();
+    if (needRA && typeof raLoaded!=='undefined' && !raLoaded && typeof raLoading!=='undefined' && !raLoading && typeof fetchRosterAudit==='function') fetchRosterAudit();
+  } catch(e){}
+}
+let _dvSortWaitT = null;
+function _dvRenderWhenReady(){
+  _dvEnsureData();
+  if (_dvSortWaitT){ clearInterval(_dvSortWaitT); _dvSortWaitT = null; }
+  let tries = 0;
+  _dvSortWaitT = setInterval(() => {
+    tries++;
+    const needFC = (valueSource==='fc' || valueSource==='my' || sortKey==='my-col' || sortKey==='fc-value' || sortKey==='my-value');
+    const needRA = (valueSource==='ra' || sortKey==='ra-value');
+    const ready = (needFC ? (typeof fcLoaded!=='undefined' && fcLoaded) : true) && (needRA ? (typeof raLoaded!=='undefined' && raLoaded) : true);
+    if (ready || tries > 40){
+      clearInterval(_dvSortWaitT); _dvSortWaitT = null;
+      try { if (window.MyRankings && MyRankings.refresh) MyRankings.refresh(); } catch(e){}
+      try { renderList(); } catch(e){}
+    }
+  }, 200);
+}
+
 function setSort(k){
   sortKey=k;
 
@@ -8954,7 +8986,12 @@ function setSort(k){
   if (k === 'my-col') {
     sortKey = 'my-col';
     updateColumnHdrIndicators('my');
+    // immediate-after-load: make sure the My Rankings board is built before we sort by it
+    try{ if(window.MyRankings && MyRankings.getBoard) MyRankings.getBoard(window._dvMode==='redraft'?'redraft':'dynasty'); }catch(e){}
     renderList();
+    // board may still be assembling on a cold load (fcValues not fetched yet) →
+    // ensure the data is loading and re-sort the instant it lands, every time.
+    _dvRenderWhenReady();
     return;
   }
 
@@ -9141,6 +9178,10 @@ function setSortMode(mode){
     try{ _adpSyncToValueMode('dynasty'); }catch(e){}
     renderList();
   }
+  // Make the source switch resilient on a cold load: ensure the underlying value
+  // data is fetched and re-render the moment it arrives (prevents the "nothing
+  // changes until you navigate away and back" bug).
+  try{ _dvRenderWhenReady(); }catch(e){}
 }
 
 // ===== Option A: Dynasty/Redraft board mode — collapses the two value columns to ONE =====
@@ -9333,6 +9374,11 @@ function showPage(p){
       fetchLiveRankings().then(() => { window._rankingsFetched = true; renderAll(); });
     } else {
       renderAll();
+    }
+    // The Dynasty column (FC) and the Mine sort both read FantasyCalc values —
+    // start that fetch on entry so an immediate sort change has data to work with.
+    if (typeof fcLoaded!=='undefined' && !fcLoaded && typeof fcLoading!=='undefined' && !fcLoading && typeof fetchFantasyCalc==='function') {
+      fetchFantasyCalc().then(() => { try { if (document.getElementById('page-draft')?.classList.contains('on')) { if(window.MyRankings&&MyRankings.refresh)MyRankings.refresh(); renderList(); } } catch(e){} });
     }
     // Draft Board is now merged into #page-draft — initialize it too
     try { renderBoard(); } catch(e) {}
@@ -11287,12 +11333,39 @@ async function ldRescan() {
 
     
     const year = new Date().getFullYear();
-    const res = await fetch(`https://api.sleeper.app/v1/user/${myTeamsUserId}/drafts/nfl/${year}`);
-    const drafts = await res.json();
+    // 1) User-drafts endpoint across adjacent years (covers most active drafts).
+    const userDraftLists = await Promise.all([year, year-1, year+1].map(y =>
+      fetch(`https://api.sleeper.app/v1/user/${myTeamsUserId}/drafts/nfl/${y}`).then(r=>r.ok?r.json():[]).catch(()=>[])
+    ));
+    let drafts = [].concat(...userDraftLists).filter(Boolean);
 
-    const active = (drafts||[]).filter(d => ['drafting','in_progress','paused'].includes(d.status));
-    const upcoming = (drafts||[]).filter(d => d.status === 'pre_draft').slice(0,3);
-    const completed = (drafts||[]).filter(d => d.status === 'complete').slice(0,5);
+    // 2) Per-league sweep — guarantees EVERY connected league's draft is caught,
+    //    especially brand-new pre_draft leagues the user-drafts endpoint misses.
+    //    Make sure the league list is loaded first, then pull each league's draft
+    //    object by its draft_id so we can see its real status.
+    if (!myTeamsData.length) { try { await loadMyTeams(); } catch(e){} }
+    const seen = new Set(drafts.map(d => d && d.draft_id).filter(Boolean));
+    const leagueByDraft = {};
+    (myTeamsData||[]).forEach(l => { if (l && l.draft_id && l.draft_id !== '0') leagueByDraft[l.draft_id] = l; });
+    const missingIds = Object.keys(leagueByDraft).filter(id => !seen.has(id));
+    if (missingIds.length) {
+      const extra = await Promise.all(missingIds.map(id =>
+        fetch(`https://api.sleeper.app/v1/draft/${id}`).then(r=>r.ok?r.json():null).catch(()=>null)
+      ));
+      extra.forEach(d => { if (d && d.draft_id && !seen.has(d.draft_id)) { seen.add(d.draft_id); drafts.push(d); } });
+    }
+    // Nicer labels: borrow the league name when the draft has none.
+    drafts.forEach(d => {
+      if (!d) return;
+      if (!d.metadata) d.metadata = {};
+      if (!d.metadata.name && leagueByDraft[d.draft_id]) d.metadata.name = leagueByDraft[d.draft_id].name;
+    });
+    // Dedupe by draft_id.
+    drafts = drafts.filter((d,i,arr) => d && arr.findIndex(x => x && x.draft_id === d.draft_id) === i);
+
+    const active = drafts.filter(d => ['drafting','in_progress','paused'].includes(d.status));
+    const upcoming = drafts.filter(d => d.status === 'pre_draft');
+    const completed = drafts.filter(d => d.status === 'complete').slice(0,8);
 
     if (!active.length && !upcoming.length && !completed.length) {
       msg.textContent = 'No drafts detected across your leagues. You can still enter a league ID manually below.';
@@ -11302,7 +11375,7 @@ async function ldRescan() {
 
     msg.textContent = active.length
       ? `🟢 ${active.length} active draft${active.length>1?'s':''} found across your leagues.`
-      : (upcoming.length ? `${upcoming.length} upcoming draft${upcoming.length>1?'s':''} found.` : 'No active drafts — finished drafts below.');
+      : (upcoming.length ? `${upcoming.length} upcoming draft${upcoming.length>1?'s':''} found — open any board to prep.` : 'No active drafts — finished drafts below.');
 
     const renderItem = (d) => {
       const isLive = ['drafting','in_progress'].includes(d.status);
