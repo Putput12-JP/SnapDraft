@@ -12610,7 +12610,7 @@ function setTeamsTab(tab) {
   // Hide sub-panels used only by Rankings tab
   ['team-detail','csec'].forEach(id => { const el=document.getElementById(id); if(el)el.style.display='none'; });
 
-  if (tab === 'ov')       renderOverview();
+  if (tab === 'ov')       lhRenderOverview();
   else if (tab === 'pr')  renderTeams();
   else if (tab === 'mv')  renderMovers();
   else if (tab === 'tx')  renderTransactions();
@@ -23328,7 +23328,7 @@ body .page,body .page.on{background:transparent!important}
   }
 
   /* ════════════════ OVERVIEW entry (handles data load) ════════════════ */
-  function renderOverview(){
+  function lhRenderOverview(){
     const E = el(); if (!E) return;
     const teams = (typeof _lastTeamData!=='undefined' && _lastTeamData) ? _lastTeamData : [];
     if (!teams.length){
@@ -23351,9 +23351,11 @@ body .page,body .page.on{background:transparent!important}
     if (tab === 'gr'){ renderGradesView(); return; }
     if (tab === 'ov'){ renderOverviewView(teamData); return; }
     if (tab === 'mv'){ renderMoversView(); return; }
+    if (tab === 'st'){ renderStandingsView(); return; }   // refresh standings with new values; never clobber with power
+    if (tab === 'tx'){ renderTransactionsView(); return; }
     renderPower(teamData);
   };
-  window.renderOverview        = renderOverview;
+  window.lhRenderOverview      = lhRenderOverview;
   window.renderStandings       = renderStandingsView;
   window.renderMovers          = renderMoversView;
   window.renderDraftGrades     = renderGradesView;
