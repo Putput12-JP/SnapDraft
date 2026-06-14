@@ -9532,20 +9532,20 @@ function setSortMode(mode){
   if (mode === 'ra') {
     // RosterAudit: set value source AND sort by RA *value* desc (matches DYNASTY column)
     setValueSource('ra');
-    _draftSrcPref = 'ra';
+    setSrcPref('ra');
     sortKey = 'ra-value';
     try{ _adpSyncToValueMode('dynasty'); }catch(e){}
     renderList();
   } else if (mode === 'fc') {
     setValueSource('fc');
-    _draftSrcPref = 'fc';
+    setSrcPref('fc');
     sortKey = 'fc-value';
     try{ _adpSyncToValueMode('dynasty'); }catch(e){}
     renderList();
   } else if (mode === 'my') {
     // Mine: DYNASTY column shows YOUR slot values, sorted by your board order
     setValueSource('my');
-    _draftSrcPref = 'my';
+    setSrcPref('my');
     sortKey = 'my-value';
     try{ _adpSyncToValueMode('dynasty'); }catch(e){}
     renderList();
@@ -9728,9 +9728,9 @@ function showPage(p){
     pageDiv.classList.add('on');
     pageDiv.scrollTop = 0; // Reset scroll — prevents "stuck" appearance
   }
-  // Assert the per-tab value source: League tab → RA (default), everywhere else → FC.
-  // Done before the page's own render below so it reads the correct source.
-  try { _applySrc((p === 'teams' || p === 'overview') ? _leagueSrcPref : (p === 'trade' ? 'fc' : _draftSrcPref)); } catch(e){}
+  // Apply the GLOBAL Market/Mine value source on every navigation so the choice
+  // carries across the entire site (Draft Vault, League, My Team, Trade, etc.).
+  try { _applySrc(valueSrcPref); } catch(e){}
   // Refresh Sleeper Sync page when navigated to
   if (p === 'myteams' && myTeamsData.length > 0) renderSyncLeagues();
   // Sync sidebar active state
@@ -9779,8 +9779,8 @@ function showPage(p){
   if(p==='myrankings'){ try{ window.MyRankings && MyRankings.render(); }catch(e){} }
   if(p==='teams'){
     populateAnalyzerDropdown();
-    // League tab defaults to RosterAudit rankings (user preference).
-    _applySrc(_leagueSrcPref);  // _leagueSrcPref defaults to 'ra'
+    // Respect the global Market/Mine preference on the League tab.
+    _applySrc(valueSrcPref);
     const src = valueSource;
     const loaded = src==='fc' ? fcLoaded : raLoaded;
     if(!loaded){
@@ -12122,34 +12122,50 @@ let fcLoading = false;
 let raValues = {};    
 let raLoaded = false;
 let raLoading = false;
-let valueSource = 'fc'; 
+let valueSource = (function(){ try{ return localStorage.getItem('vault_src_pref') || 'fc'; }catch(e){ return 'fc'; } })();
 let teamsTab = 'pr';    
-// Per-tab value-source preferences so the League tab can default to RosterAudit
-// while the Draft Vault / other pages stay on FantasyCalc (no global bleed).
-let _draftSrcPref = 'fc';
-let _leagueSrcPref = 'fc';   // League tab uses FantasyCalc (matches My Team calculations)
+// Global value-source preference. The Market/Mine choice is ONE setting that
+// applies across the ENTIRE site (Draft Vault, League, My Team, Trade, etc.) and
+// persists between sessions — flipping it anywhere flips it everywhere.
+let valueSrcPref = (function(){ try{ return localStorage.getItem('vault_src_pref') || 'fc'; }catch(e){ return 'fc'; } })();
+function setSrcPref(s){ valueSrcPref = s; try{ localStorage.setItem('vault_src_pref', s); }catch(e){} }
+// Back-compat aliases (kept so any stray reference still resolves to the global pref).
+let _draftSrcPref = valueSrcPref;
+let _leagueSrcPref = valueSrcPref;
+
+// Reflect the active source in EVERY toggle cluster on the page, so navigating to
+// any tab shows the correct Market/Mine state regardless of where it was set.
+function _syncSrcUI(src){
+  const isMine = src==='my';
+  // Market / Mine toggles (League + My Team overview). 'ra' counts as Market here.
+  document.querySelectorAll('#lr-srctoggle button, #ov-srctoggle button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.src === (isMine ? 'my' : 'fc'));
+  });
+  document.querySelectorAll('#lr-srctoggle .lr-srcdot, #ov-srctoggle .lr-srcdot').forEach(dot=>{ dot.style.background = isMine ? 'var(--sky,#7bd0ff)' : 'var(--rb)'; });
+  // Draft Vault sort-mode buttons + value pills
+  ['ra','fc','my'].forEach(m=>{ document.getElementById('sm-'+m)?.classList.toggle('on', m===src); });
+  document.getElementById('val-fc')?.classList.toggle('on', src==='fc');
+  document.getElementById('val-ra')?.classList.toggle('on', src==='ra');
+}
 // Lightweight source apply — sets the source + button state without forcing a double re-render
 // (the page's own render runs right after in showPage and will read the new valueSource).
 function _applySrc(src){
-  if (valueSource === src) { 
-    document.getElementById('val-fc')?.classList.toggle('on', src==='fc');
-    document.getElementById('val-ra')?.classList.toggle('on', src==='ra');
+  try{ _syncSrcUI(src); }catch(e){}
+  if (valueSource === src) {
     if (src==='ra' && !raLoaded) fetchRosterAudit();
     return;
   }
   valueSource = src;
-  document.getElementById('val-fc')?.classList.toggle('on', src==='fc');
-  document.getElementById('val-ra')?.classList.toggle('on', src==='ra');
   if (src==='ra' && !raLoaded) fetchRosterAudit();
 }
 // League-tab source buttons call this so their choice sticks for the session
-function setLeagueSource(src){ _leagueSrcPref = src; setValueSource(src); }
+function setLeagueSource(src){ setSrcPref(src); setValueSource(src); }
 
-// League + My Team page Market/Mine toggle — powers power rankings, team values & the hub
+// League + My Team page Market/Mine toggle — powers power rankings, team values & the hub.
+// Writes the GLOBAL pref so the choice follows you to every other page.
 function setLeagueSrc(src){
-  _leagueSrcPref = src;
-  document.querySelectorAll('#lr-srctoggle button, #ov-srctoggle button').forEach(b=>b.classList.toggle('on', b.dataset.src===src));
-  document.querySelectorAll('#lr-srctoggle .lr-srcdot, #ov-srctoggle .lr-srcdot').forEach(dot=>{ dot.style.background = src==='my' ? 'var(--sky,#7bd0ff)' : 'var(--rb)'; });
+  setSrcPref(src);
+  _syncSrcUI(src);
   setValueSource(src);                 // sets valueSource + re-renders teams/list
   try{ renderTeams(); }catch(e){}
   try{ if(document.getElementById('page-overview')?.classList.contains('on')) renderOverview(); }catch(e){}
@@ -12191,6 +12207,7 @@ setTimeout(() => {
   const raBtn = document.getElementById('val-src-ra');
   if (fcBtn) fcBtn.classList.toggle('pill-on', valueSource === 'fc');
   if (raBtn) raBtn.classList.toggle('pill-on', valueSource === 'ra');
+  try{ _syncSrcUI(valueSource); }catch(e){}
 }, 0);
 
 // ════════════════════════════════════
