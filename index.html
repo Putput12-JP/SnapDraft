@@ -23686,6 +23686,214 @@ body .page,body .page.on{background:transparent!important}
 })();
 
 </script>
-<script src="weekly-matchups-live.js"></script>
+<script>
+/* weekly-matchups-live.js — inlined so standalone index.html is self-contained */
+/* ════════════════════════════════════════════════════════════════
+   VAULT · ALL-MY-MATCHUPS DROPDOWN (weekly, cross-league)
+   Lives at the top of the League tab (#page-teams). Lazily pulls every
+   active Sleeper league's current-week matchup and renders the
+   win-probability rows (mockup "C"), responsive mobile/desktop.
+   Reuses app globals: myTeamsData, myTeamsUserId, _rdvFetchProjections,
+   _rdvProjPts, _rdvWinProb, _isDynastyLeague, switchGlobalLeague.
+   ════════════════════════════════════════════════════════════════ */
+(function(){
+  var _wmdLoaded=false, _wmdLoading=false, _wmdData=null;
+  var _wmdBp = window.matchMedia('(min-width:760px)').matches;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function initials(s){ var p=String(s||'?').replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/); return ((p[0]||'?')[0]+((p[1]||'')[0]||'')).toUpperCase(); }
+  function cleanName(lg){ return (String(lg.name||'League').replace(/\s*[\[\(].*$/,'').trim()) || String(lg.name||'League'); }
+  function isDyn(lg){ try{ return (typeof _isDynastyLeague==='function') ? !!_isDynastyLeague(lg) : (lg.settings&&(lg.settings.type===1||lg.settings.type===2)); }catch(e){ return false; } }
+  function isEspnLg(lg){ try{ return (typeof vpPlat==='function') ? vpPlat(lg)==='espn' : (lg.platform==='espn'||!!lg._espnId); }catch(e){ return !!(lg&&lg._espnId); } }
+  function fmtFull(lg){
+    var sf=(lg.roster_positions||[]).indexOf('SUPER_FLEX')>=0;
+    var teams=lg.total_rosters||(lg.settings&&lg.settings.num_teams)||'?';
+    if(isEspnLg(lg)) return teams+'-Team '+(sf?'SF ':'')+'ESPN';
+    var rec=lg.scoring_settings&&lg.scoring_settings.rec; var sc=rec===1?'PPR':rec===0.5?'Half':'Std';
+    var tep=(lg.scoring_settings&&lg.scoring_settings.bonus_rec_te)?' TEP':'';
+    return teams+'-Team '+(isDyn(lg)?'Dynasty ':'')+(sf?'SF ':'')+sc+tep;
+  }
+  function fmtShort(lg){ return isEspnLg(lg)?'ESPN':(isDyn(lg)?'DYNASTY':'REDRAFT'); }
+  var TONES=['sky','gold','grn','red'];
+
+  /* ── public: toggle / open / close ── */
+  function wmdToggle(){
+    var panel=$('wmd-panel'), trig=$('wmd-trigger');
+    if(!panel) return;
+    if(panel.hasAttribute('hidden')){
+      panel.removeAttribute('hidden'); if(trig){ trig.classList.add('open'); trig.setAttribute('aria-expanded','true'); }
+      if(!_wmdLoaded && !_wmdLoading) wmdLoad();
+    } else { wmdClose(); }
+  }
+  function wmdClose(){ var panel=$('wmd-panel'), trig=$('wmd-trigger'); if(panel) panel.setAttribute('hidden',''); if(trig){ trig.classList.remove('open'); trig.setAttribute('aria-expanded','false'); } }
+  function wmdGo(lid){
+    try{ if(typeof switchGlobalLeague==='function') switchGlobalLeague(lid); }catch(e){}
+    wmdClose();
+    try{ if(typeof showPage==='function') showPage('teams'); }catch(e){}
+    try{ var p=$('page-teams'); if(p) p.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
+  }
+
+  async function getWeek(){
+    try{ var s=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); return Math.max(1, s.week||s.display_week||s.leg||1); }
+    catch(e){ return 1; }
+  }
+
+  /* ── per-league matchup → row data ── */
+  async function leagueRow(lg, week, proj, tone){
+    try{
+      var base='https://api.sleeper.app/v1/league/'+lg.league_id;
+      var jget=function(u){ return fetch(u).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}); };
+      var r=await Promise.all([ jget(base+'/matchups/'+week), jget(base+'/rosters'), jget(base+'/users') ]);
+      var mw=r[0], rosters=r[1], users=r[2];
+      if(!Array.isArray(mw) || !Array.isArray(rosters)) return null;
+      var uid=(typeof myTeamsUserId!=='undefined'&&myTeamsUserId)||null;
+      var myRid=null;
+      rosters.forEach(function(ro){ if(ro.owner_id===uid || (ro.co_owners&&ro.co_owners.indexOf(uid)>=0)) myRid=ro.roster_id; });
+      if(myRid==null) return null;
+      var mine=mw.find(function(x){return x.roster_id===myRid;});
+      if(!mine || mine.matchup_id==null || !(mine.starters&&mine.starters.length)) return null;
+      var opp=mw.find(function(x){return x.roster_id!==myRid && x.matchup_id===mine.matchup_id;});
+      var userById={}; (users||[]).forEach(function(u){ userById[u.user_id]=u; });
+      var rosterById={}; rosters.forEach(function(ro){ rosterById[ro.roster_id]=ro; });
+      function tname(rid){ var ro=rosterById[rid]; if(!ro) return 'TBD'; var u=userById[ro.owner_id]||{}; var md=u.metadata||{}; return md.team_name||u.display_name||u.username||('Team '+rid); }
+      function trec(rid){ var ro=rosterById[rid], s=(ro&&ro.settings)||{}; return (s.wins||0)+'-'+(s.losses||0)+(s.ties?'-'+s.ties:''); }
+      var scoring=(lg.scoring_settings&&typeof lg.scoring_settings.rec==='number')?lg.scoring_settings.rec:1;
+      function liveSum(m){ return ((m&&m.starters_points)||[]).reduce(function(s,v){return s+(+v||0);},0); }
+      function total(m){
+        if(!m) return 0;
+        var ls=liveSum(m); if(ls>0.01) return ls;
+        var t=0; (m.starters||[]).forEach(function(pid){ pid=String(pid||''); if(!pid||pid==='0') return; var pm=proj[pid]; var p=pm?_rdvProjPts(pm.stats,scoring):null; if(p!=null) t+=p; });
+        return t;
+      }
+      var myTot=total(mine), opTot=opp?total(opp):0;
+      var live=(liveSum(mine)+ (opp?liveSum(opp):0))>0.01;
+      var wp=opp?_rdvWinProb(myTot-opTot):100;
+      var nm=cleanName(lg);
+      return { lid:lg.league_id, league:nm, badge:initials(nm), tone:tone, fmt:fmtFull(lg), fmtShort:fmtShort(lg),
+        myName:tname(myRid), myTot:myTot, oppName:opp?tname(opp.roster_id):'Bye / TBD', oppTot:opTot,
+        wp:wp, hasOpp:!!opp, live:live };
+    }catch(e){ return null; }
+  }
+
+  /* ── per-league ESPN matchup → row data (uses ESPN's own projected pts) ── */
+  async function espnRow(lg, tone){
+    try{
+      if(!lg._espnId) return null;
+      var myTid=(typeof espnSelectedTeam==='function') && espnSelectedTeam(lg.league_id);
+      if(!myTid) return null;                 // team not picked yet → skip silently
+      myTid=String(myTid);
+      var base='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+lg.season+'/segments/0/leagues/'+lg._espnId;
+      var data=await fetch(base+'?view=mMatchupScore&view=mScoreboard&view=mRoster&view=mTeam',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
+      if(!data) return null;
+      var week=(data.status&&data.status.currentMatchupPeriod)||data.scoringPeriodId||1;
+      var spid=data.scoringPeriodId||week;
+      var teams={}; (data.teams||[]).forEach(function(t){ var rc=(t.record&&t.record.overall)||{}; teams[t.id]={ name:(typeof espnTeamName==='function'?espnTeamName(t):('Team '+t.id)), rec:(rc.wins||0)+'-'+(rc.losses||0)+(rc.ties?'-'+rc.ties:'') }; });
+      var sched=(data.schedule||[]).filter(function(m){return m.matchupPeriodId===week;});
+      var mine=sched.find(function(m){ return (m.home&&String(m.home.teamId)===myTid)||(m.away&&String(m.away.teamId)===myTid); });
+      if(!mine || !mine.home || !mine.away) return null;
+      var isHome=String(mine.home.teamId)===myTid;
+      var meSide=isHome?mine.home:mine.away, opSide=isHome?mine.away:mine.home;
+      var BENCH=(typeof ESPN_BENCH!=='undefined')?ESPN_BENCH:(function(){var s={};[20,21,24].forEach(function(x){s[x]=1;});return {has:function(k){return !!s[k];}};})();
+      function entries(side){ return (side&&side.rosterForCurrentScoringPeriod&&side.rosterForCurrentScoringPeriod.entries)||[]; }
+      function statOf(e,src){ var pl=(e.playerPoolEntry&&e.playerPoolEntry.player)||{}; var ss=(pl.stats||[]).filter(function(s){return s.statSourceId===src&&s.scoringPeriodId===spid;}); var s=ss.find(function(x){return x.statSplitTypeId===1;})||ss[0]; return s&&s.appliedTotal!=null?s.appliedTotal:null; }
+      var meEs=entries(meSide).filter(function(e){return !BENCH.has(e.lineupSlotId);});
+      var opEs=entries(opSide).filter(function(e){return !BENCH.has(e.lineupSlotId);});
+      var isLive=meEs.concat(opEs).some(function(e){ var a=statOf(e,0); return a!=null&&a>0; });
+      function tot(es){ return es.reduce(function(s,e){ var p=isLive?(statOf(e,0)!=null?statOf(e,0):0):(statOf(e,1)||0); return s+p; },0); }
+      var myTot=tot(meEs), opTot=tot(opEs);
+      var wp=_rdvWinProb(myTot-opTot);
+      var meInfo=teams[isHome?mine.home.teamId:mine.away.teamId]||{name:'My Team',rec:''};
+      var opInfo=teams[isHome?mine.away.teamId:mine.home.teamId]||{name:'Opponent',rec:''};
+      var nm=cleanName(lg);
+      return { lid:lg.league_id, league:nm, badge:initials(nm), tone:tone, fmt:fmtFull(lg), fmtShort:'ESPN',
+        myName:meInfo.name, myTot:myTot, oppName:opInfo.name, oppTot:opTot, wp:wp, hasOpp:true, live:isLive };
+    }catch(e){ return null; }
+  }
+  function ropeHtml(d){
+    var edge=d.myTot-d.oppTot, signed=(edge>=0?'+':'')+edge.toFixed(2);
+    var favLbl=Math.abs(edge)<8?'TOSS-UP':(edge>=0?'FAVORED':'UNDERDOG');
+    var marg=signed+(d.live?' margin':' proj. margin');
+    return '<div class="wmd-rope-l"><span class="l">'+(d.live?'Live · Win Prob':'Win Probability')+'</span><span class="pm">'+marg+'</span></div>'
+      +'<div class="wmd-rope"><span class="me" style="width:'+d.wp+'%"></span><span class="opp" style="width:'+(100-d.wp)+'%"></span><span class="knot" style="left:'+d.wp+'%"></span></div>'
+      +'<div class="wmd-rope-p"><span class="a">'+d.wp+'% '+signed+' '+favLbl+'</span><span class="b">'+(100-d.wp)+'%</span></div>';
+  }
+  function rowMobile(d){
+    return '<div class="wmd-mu" onclick="wmdGo(\''+d.lid+'\')">'
+      +'<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">'
+        +'<span class="wmd-badge '+d.tone+'">'+esc(d.badge)+'</span>'
+        +'<span style="font-size:13px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.league)+'</span>'
+        +'<span style="font-family:var(--font-mono);font-size:8px;letter-spacing:.08em;color:var(--muted);flex-shrink:0">'+esc(d.fmtShort)+'</span></div>'
+      +'<div style="display:flex;gap:10px;font-size:11.5px;font-weight:700;margin-bottom:9px">'
+        +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.myName)+' <span style="font-family:var(--font-mono);color:var(--accent2);margin-left:4px">'+d.myTot.toFixed(1)+'</span></span>'
+        +'<span style="flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)"><span style="font-family:var(--font-mono);color:#f0728a;margin-right:4px">'+(d.hasOpp?d.oppTot.toFixed(1):'—')+'</span>'+esc(d.oppName)+'</span></div>'
+      + (d.hasOpp?ropeHtml(d):'<div class="wmd-rope-p"><span class="a">BYE WEEK</span></div>')
+      +'</div>';
+  }
+  function rowDesktop(d){
+    return '<div class="wmd-mu wmd-mu-d" onclick="wmdGo(\''+d.lid+'\')">'
+      +'<div style="display:flex;align-items:center;gap:11px;min-width:0">'
+        +'<span class="wmd-badge '+d.tone+'" style="width:30px;height:30px;border-radius:9px;font-size:11px">'+esc(d.badge)+'</span>'
+        +'<div style="min-width:0"><div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.league)+'</div>'
+        +'<div style="font-family:var(--font-mono);font-size:8.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.fmt)+'</div></div></div>'
+      +'<div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="wmd-av">'+esc(initials(d.myName))+'</span><div style="min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.myName)+'</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--accent2);margin-top:1px">'+d.myTot.toFixed(1)+'</div></div></div>'
+      +'<div style="min-width:0">'+(d.hasOpp?ropeHtml(d):'<div class="wmd-rope-p"><span class="a">BYE WEEK</span></div>')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;min-width:0;flex-direction:row-reverse;text-align:right"><span class="wmd-av opp">'+esc(initials(d.oppName))+'</span><div style="min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.oppName)+'</div><div style="font-family:var(--font-mono);font-size:9px;color:#f0728a;margin-top:1px">'+(d.hasOpp?d.oppTot.toFixed(1):'—')+'</div></div></div>'
+      +'</div>';
+  }
+  function renderRows(){
+    var el=$('wmd-rows'); if(!el||!_wmdData) return;
+    el.innerHTML=_wmdData.map(_wmdBp?rowDesktop:rowMobile).join('');
+  }
+
+  async function wmdLoad(){
+    var rowsEl=$('wmd-rows'), subEl=$('wmd-sub'), aggEl=$('wmd-agg'), wkEl=$('wmd-wk-n');
+    if(!rowsEl) return;
+    _wmdLoading=true;
+    rowsEl.innerHTML='<div class="wmd-loading">Loading your matchups…</div>';
+    var md=(typeof myTeamsData!=='undefined')?myTeamsData:null;
+    var uid=(typeof myTeamsUserId!=='undefined')?myTeamsUserId:null;
+    if(!md || !md.length || !uid){
+      rowsEl.innerHTML='<div class="wmd-empty">Connect your Sleeper or ESPN account to see your weekly matchups across every league.</div>';
+      _wmdLoading=false; return;
+    }
+    var leagues=md.filter(function(l){ return (l.season==='2026'||l.season==='2025'); });
+    if(!leagues.length){ rowsEl.innerHTML='<div class="wmd-empty">No active leagues found.</div>'; _wmdLoading=false; return; }
+    var week=await getWeek(); if(wkEl) wkEl.textContent=week;
+    // projections per distinct season — Sleeper leagues only (ESPN uses its own feed)
+    var projBy={};
+    var sleeperLeagues=leagues.filter(function(l){ return !isEspnLg(l); });
+    if(sleeperLeagues.length){
+      var seasons=[]; sleeperLeagues.forEach(function(l){ if(seasons.indexOf(l.season)<0) seasons.push(l.season); });
+      await Promise.all(seasons.map(async function(s){ try{ projBy[s]=await _rdvFetchProjections(s, week); }catch(e){ projBy[s]={}; } }));
+    }
+    var results=await Promise.all(leagues.map(function(lg,i){
+      var tone=TONES[i%TONES.length];
+      return isEspnLg(lg) ? espnRow(lg, tone) : leagueRow(lg, week, projBy[lg.season]||{}, tone);
+    }));
+    var data=results.filter(Boolean);
+    // favored teams float to the top, then by margin
+    data.sort(function(a,b){ var fa=(a.hasOpp&&a.wp>=50)?1:0, fb=(b.hasOpp&&b.wp>=50)?1:0; if(fa!==fb) return fb-fa; return (b.myTot-b.oppTot)-(a.myTot-a.oppTot); });
+    _wmdData=data; _wmdLoaded=true; _wmdLoading=false;
+    if(!data.length){ rowsEl.innerHTML='<div class="wmd-empty">No matchups are posted yet — check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
+    var fav=data.filter(function(d){return d.hasOpp&&d.wp>=50;}).length;
+    var dog=data.filter(function(d){return d.hasOpp&&d.wp<50;}).length;
+    if(subEl) subEl.textContent=data.length+' leagues · '+fav+' favored'+(dog?' · '+dog+' underdog':'');
+    if(aggEl) aggEl.innerHTML='<span>FAVORED <b class="wmd-win">'+fav+'</b></span>';
+    renderRows();
+  }
+
+  // re-render when crossing the mobile/desktop breakpoint
+  window.addEventListener('resize', function(){
+    var bp=window.matchMedia('(min-width:760px)').matches;
+    if(bp!==_wmdBp){ _wmdBp=bp; if(_wmdLoaded) renderRows(); }
+  });
+
+  // expose
+  window.wmdToggle=wmdToggle; window.wmdGo=wmdGo; window.wmdClose=wmdClose;
+  window.wmdReset=function(){ _wmdLoaded=false; _wmdData=null; var r=$('wmd-rows'); if(r) r.innerHTML=''; var s=$('wmd-sub'); if(s) s.textContent='Tap to load your week across every league'; };
+})();
+
+</script>
 </body>
 </html>
