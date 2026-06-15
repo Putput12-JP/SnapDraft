@@ -4755,6 +4755,75 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
       </div>
     </div>
 
+    <!-- ════ ALL-MY-MATCHUPS DROPDOWN (weekly · cross-league) ════ -->
+    <style id="wmd-styles">
+    .wmd{margin:2px 0 20px;font-family:var(--font-sans)}
+    .wmd-trigger{display:flex;align-items:center;gap:13px;width:100%;text-align:left;cursor:pointer;font-family:inherit;
+      padding:13px 16px;border-radius:16px;color:var(--text);
+      background:rgba(18,28,46,.55);border:1px solid rgba(255,255,255,.10);
+      backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+      box-shadow:0 18px 44px -28px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .15s}
+    .wmd-trigger:hover{border-color:rgba(123,208,255,.4)}
+    .wmd-wk{flex-shrink:0;width:44px;height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,rgba(123,208,255,.22),rgba(77,134,240,.14));border:1px solid rgba(123,208,255,.3)}
+    .wmd-wk b{font-family:var(--font-mono);font-size:16px;font-weight:700;line-height:1;color:#bfe6ff}
+    .wmd-wk i{font-family:var(--font-mono);font-style:normal;font-size:7px;letter-spacing:.14em;color:var(--accent2);margin-top:2px}
+    .wmd-tt{font-size:16px;font-weight:700;display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+    .wmd-ts{font-family:var(--font-mono);font-size:9.5px;font-weight:400;letter-spacing:.05em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .wmd-cv{flex-shrink:0;width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--text2);
+      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);transition:transform .2s}
+    .wmd-cv svg{width:14px;height:14px}
+    .wmd-trigger.open .wmd-cv{transform:rotate(180deg)}
+    .wmd-panel{margin-top:10px;border-radius:18px;padding:2px 16px;
+      background:rgba(18,28,46,.5);border:1px solid rgba(255,255,255,.09);
+      backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+      box-shadow:0 18px 44px -28px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.07);animation:wmdIn .18s ease-out}
+    @keyframes wmdIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+    .wmd-phd{display:flex;align-items:center;justify-content:space-between;padding:14px 6px 10px}
+    .wmd-kick{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+    .wmd-agg{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+    .wmd-agg b{font-size:13px;margin-left:5px}.wmd-win{color:#3ecf86}
+    .wmd-empty,.wmd-loading{padding:28px 8px;text-align:center;color:var(--muted);font-size:13px}
+    .wmd-mu{padding:15px 4px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+    .wmd-mu:last-child{border-bottom:none}
+    .wmd-mu:hover{background:rgba(255,255,255,.025)}
+    .wmd-badge{flex-shrink:0;width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+      font-family:var(--font-mono);font-weight:700;font-size:9px;color:#0a1424;background:linear-gradient(150deg,#dfe7f5,#aebfdc)}
+    .wmd-badge.sky{background:linear-gradient(150deg,#bfe0ff,#6fb0f0);color:#0a2038}
+    .wmd-badge.red{background:linear-gradient(150deg,#ffc2cc,#f0728a);color:#3a0c14}
+    .wmd-badge.gold{background:linear-gradient(150deg,#ffe9a8,#f5c842);color:#3a2c00}
+    .wmd-badge.grn{background:linear-gradient(150deg,#b6f0d2,#3ecf86);color:#06301d}
+    .wmd-av{flex-shrink:0;width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+      font-family:var(--font-mono);font-size:11px;font-weight:700;color:#fff;border:1.5px solid rgba(255,255,255,.22);background:linear-gradient(135deg,#2f63c4,#7bd0ff)}
+    .wmd-av.opp{background:linear-gradient(135deg,#b23146,#f0728a)}
+    /* win-probability rope (matches app gamecast bar) */
+    .wmd-rope-l{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .wmd-rope-l .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+    .wmd-rope-l .pm{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent2);white-space:nowrap}
+    .wmd-rope{position:relative;height:16px;border-radius:99px;overflow:hidden;display:flex;background:#1b2740;border:1px solid var(--border2);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
+    .wmd-rope .me{height:100%;background:linear-gradient(90deg,#2f63c4 0%,#4a8be6 58%,#7bd0ff 100%)}
+    .wmd-rope .opp{height:100%;background:linear-gradient(90deg,#e8657e,#b6405a)}
+    .wmd-rope::after{content:"";position:absolute;inset:0;border-radius:99px;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 48%)}
+    .wmd-rope .knot{position:absolute;top:50%;width:4px;height:26px;border-radius:3px;background:#eaf2fc;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(7,13,24,.7);z-index:3}
+    .wmd-rope-p{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--font-mono);font-size:11px;font-weight:700}
+    .wmd-rope-p .a{color:var(--accent2)}.wmd-rope-p .b{color:#f0728a}
+    @media(min-width:760px){
+      .wmd-trigger{padding:15px 18px}
+      .wmd-mu-d{display:grid;grid-template-columns:230px 150px minmax(0,1fr) 150px;align-items:center;gap:18px;padding:16px 8px}
+    }
+    </style>
+    <div class="wmd" id="wmd">
+      <button type="button" class="wmd-trigger" id="wmd-trigger" onclick="wmdToggle()" aria-expanded="false" aria-controls="wmd-panel">
+        <span class="wmd-wk"><b id="wmd-wk-n">—</b><i>WEEK</i></span>
+        <span class="wmd-tt">All My Matchups<span class="wmd-ts" id="wmd-sub">Tap to load your week across every league</span></span>
+        <span class="wmd-cv" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+      </button>
+      <div class="wmd-panel" id="wmd-panel" hidden>
+        <div class="wmd-phd"><span class="wmd-kick">Projected · This Week</span><span class="wmd-agg" id="wmd-agg"></span></div>
+        <div class="wmd-rows" id="wmd-rows"></div>
+      </div>
+    </div>
+
     <!-- SUB-TABS -->
     <div class="lr-tabs" id="lr-tabs-row">
       <button class="lr-tab on" id="teams-tab-ov" onclick="setTeamsTab('ov')">Overview</button>
@@ -23617,5 +23686,6 @@ body .page,body .page.on{background:transparent!important}
 })();
 
 </script>
+<script src="weekly-matchups-live.js"></script>
 </body>
 </html>
