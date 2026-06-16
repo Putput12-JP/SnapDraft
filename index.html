@@ -4396,74 +4396,6 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
       </div>
     </div>
 
-    <!-- ════ MATCHUP OVERVIEW DROPDOWN (weekly · cross-league) ════ -->
-    <style id="wmd-styles">
-    .wmd{margin:2px 0 20px;font-family:var(--font-sans)}
-    .wmd-trigger{display:flex;align-items:center;gap:13px;width:100%;text-align:left;cursor:pointer;font-family:inherit;
-      padding:13px 16px;border-radius:16px;color:var(--text);
-      background:rgba(18,28,46,.55);border:1px solid rgba(255,255,255,.10);
-      backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
-      box-shadow:0 18px 44px -28px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .15s}
-    .wmd-trigger:hover{border-color:rgba(123,208,255,.4)}
-    .wmd-wk{flex-shrink:0;width:44px;height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-      background:linear-gradient(160deg,rgba(123,208,255,.22),rgba(77,134,240,.14));border:1px solid rgba(123,208,255,.3)}
-    .wmd-wk b{font-family:var(--font-mono);font-size:16px;font-weight:700;line-height:1;color:#bfe6ff}
-    .wmd-wk i{font-family:var(--font-mono);font-style:normal;font-size:7px;letter-spacing:.14em;color:var(--accent2);margin-top:2px}
-    .wmd-tt{font-size:16px;font-weight:700;display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
-    .wmd-ts{font-family:var(--font-mono);font-size:9.5px;font-weight:400;letter-spacing:.05em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .wmd-cv{flex-shrink:0;width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--text2);
-      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);transition:transform .2s}
-    .wmd-cv svg{width:14px;height:14px}
-    .wmd-trigger.open .wmd-cv{transform:rotate(180deg)}
-    .wmd-panel{margin-top:10px;border-radius:18px;padding:2px 16px;
-      background:rgba(18,28,46,.5);border:1px solid rgba(255,255,255,.09);
-      backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
-      box-shadow:0 18px 44px -28px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.07);animation:wmdIn .18s ease-out}
-    @keyframes wmdIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-    .wmd-phd{display:flex;align-items:center;justify-content:space-between;padding:14px 6px 10px}
-    .wmd-kick{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
-    .wmd-agg{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-    .wmd-agg b{font-size:13px;margin-left:5px}.wmd-win{color:#3ecf86}
-    .wmd-empty,.wmd-loading{padding:28px 8px;text-align:center;color:var(--muted);font-size:13px}
-    .wmd-mu{padding:15px 4px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
-    .wmd-mu:last-child{border-bottom:none}
-    .wmd-mu:hover{background:rgba(255,255,255,.025)}
-    .wmd-badge{flex-shrink:0;width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;
-      font-family:var(--font-mono);font-weight:700;font-size:9px;color:#0a1424;background:linear-gradient(150deg,#dfe7f5,#aebfdc)}
-    .wmd-badge.sky{background:linear-gradient(150deg,#bfe0ff,#6fb0f0);color:#0a2038}
-    .wmd-badge.red{background:linear-gradient(150deg,#ffc2cc,#f0728a);color:#3a0c14}
-    .wmd-badge.gold{background:linear-gradient(150deg,#ffe9a8,#f5c842);color:#3a2c00}
-    .wmd-badge.grn{background:linear-gradient(150deg,#b6f0d2,#3ecf86);color:#06301d}
-    .wmd-av{flex-shrink:0;width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;
-      font-family:var(--font-mono);font-size:11px;font-weight:700;color:#fff;border:1.5px solid rgba(255,255,255,.22);background:linear-gradient(135deg,#2f63c4,#7bd0ff)}
-    .wmd-av.opp{background:linear-gradient(135deg,#b23146,#f0728a)}
-    /* win-probability rope (matches app gamecast bar) */
-    .wmd-rope-l{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-    .wmd-rope-l .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
-    .wmd-rope-l .pm{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent2);white-space:nowrap}
-    .wmd-rope{position:relative;height:16px;border-radius:99px;overflow:hidden;display:flex;background:#1b2740;border:1px solid var(--border2);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
-    .wmd-rope .me{height:100%;background:linear-gradient(90deg,#2f63c4 0%,#4a8be6 58%,#7bd0ff 100%)}
-    .wmd-rope .opp{height:100%;background:linear-gradient(90deg,#e8657e,#b6405a)}
-    .wmd-rope::after{content:"";position:absolute;inset:0;border-radius:99px;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 48%)}
-    .wmd-rope .knot{position:absolute;top:50%;width:4px;height:26px;border-radius:3px;background:#eaf2fc;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(7,13,24,.7);z-index:3}
-    .wmd-rope-p{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--font-mono);font-size:11px;font-weight:700}
-    .wmd-rope-p .a{color:var(--accent2)}.wmd-rope-p .b{color:#f0728a}
-    @media(min-width:760px){
-      .wmd-trigger{padding:15px 18px}
-      .wmd-mu-d{display:grid;grid-template-columns:230px 150px minmax(0,1fr) 150px;align-items:center;gap:18px;padding:16px 8px}
-    }
-    </style>
-    <div class="wmd" id="wmd">
-      <button type="button" class="wmd-trigger" id="wmd-trigger" onclick="wmdToggle()" aria-expanded="false" aria-controls="wmd-panel">
-        <span class="wmd-wk"><b id="wmd-wk-n">—</b><i>WEEK</i></span>
-        <span class="wmd-tt">Matchup Overview<span class="wmd-ts" id="wmd-sub">Tap to load this week across every league</span></span>
-        <span class="wmd-cv" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
-      </button>
-      <div class="wmd-panel" id="wmd-panel" hidden>
-        <div class="wmd-phd"><span class="wmd-kick">Projected · This Week</span><span class="wmd-agg" id="wmd-agg"></span></div>
-        <div class="wmd-rows" id="wmd-rows"></div>
-      </div>
-    </div>
     <!-- Classic view (now hidden — kept in DOM only so renderPortfolio() can write to its elements without errors) -->
     <div id="portfolio-classic" style="display:none">
       <!-- Summary KPI strip -->
@@ -23689,16 +23621,19 @@ body .page,body .page.on{background:transparent!important}
 <script>
 /* weekly-matchups-live.js — inlined so standalone index.html is self-contained */
 /* ════════════════════════════════════════════════════════════════
-   VAULT · ALL-MY-MATCHUPS DROPDOWN (weekly, cross-league)
-   Lives at the top of the League tab (#page-teams). Lazily pulls every
-   active Sleeper league's current-week matchup and renders the
-   win-probability rows (mockup "C"), responsive mobile/desktop.
-   Reuses app globals: myTeamsData, myTeamsUserId, _rdvFetchProjections,
-   _rdvProjPts, _rdvWinProb, _isDynastyLeague, switchGlobalLeague.
+   VAULT · MATCHUP OVERVIEW — its own page under a "Portfolio ▾" menu.
+   Mirrors the app's My Team ▾ dropdown (reuses .lc-mt-wrap/.lc-mt-menu/
+   .lc-mt-item) and injects a real page (#page-matchup-overview) reached
+   via showPage('matchup-overview'). Pulls the current-week matchup for
+   every league IN THE PORTFOLIO (same saved selection the Portfolio page
+   uses), skipping undrafted leagues, and renders win-probability rows.
+   Reuses app globals: myTeamsData, myTeamsUserId, SK, _rdvFetchProjections,
+   _rdvProjPts, _rdvWinProb, _isDynastyLeague, vpPlat, espnSelectedTeam,
+   espnTeamName, switchGlobalLeague, showPage.
    ════════════════════════════════════════════════════════════════ */
 (function(){
-  var _wmdLoaded=false, _wmdLoading=false, _wmdData=null;
-  var _wmdBp = window.matchMedia('(min-width:760px)').matches;
+  var _moLoaded=false, _moLoading=false, _moData=null, _moInjected=false, _moHooked=false;
+  var _moBp = window.matchMedia('(min-width:760px)').matches;
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -23706,32 +23641,22 @@ body .page,body .page.on{background:transparent!important}
   function cleanName(lg){ return (String(lg.name||'League').replace(/\s*[\[\(].*$/,'').trim()) || String(lg.name||'League'); }
   function isDyn(lg){ try{ return (typeof _isDynastyLeague==='function') ? !!_isDynastyLeague(lg) : (lg.settings&&(lg.settings.type===1||lg.settings.type===2)); }catch(e){ return false; } }
   function isEspnLg(lg){ try{ return (typeof vpPlat==='function') ? vpPlat(lg)==='espn' : (lg.platform==='espn'||!!lg._espnId); }catch(e){ return !!(lg&&lg._espnId); } }
-  function fmtFull(lg){
-    var sf=(lg.roster_positions||[]).indexOf('SUPER_FLEX')>=0;
-    var teams=lg.total_rosters||(lg.settings&&lg.settings.num_teams)||'?';
-    if(isEspnLg(lg)) return teams+'-Team '+(sf?'SF ':'')+'ESPN';
-    var rec=lg.scoring_settings&&lg.scoring_settings.rec; var sc=rec===1?'PPR':rec===0.5?'Half':'Std';
-    var tep=(lg.scoring_settings&&lg.scoring_settings.bonus_rec_te)?' TEP':'';
-    return teams+'-Team '+(isDyn(lg)?'Dynasty ':'')+(sf?'SF ':'')+sc+tep;
-  }
   function fmtShort(lg){ return isEspnLg(lg)?'ESPN':(isDyn(lg)?'DYNASTY':'REDRAFT'); }
+  function skKey(){ return (typeof SK!=='undefined'?SK:'dcmd-v5')+'-selected-leagues'; }
   var TONES=['sky','gold','grn','red'];
 
-  /* ── public: toggle / open / close ── */
-  function wmdToggle(){
-    var panel=$('wmd-panel'), trig=$('wmd-trigger');
-    if(!panel) return;
-    if(panel.hasAttribute('hidden')){
-      panel.removeAttribute('hidden'); if(trig){ trig.classList.add('open'); trig.setAttribute('aria-expanded','true'); }
-      if(!_wmdLoaded && !_wmdLoading) wmdLoad();
-    } else { wmdClose(); }
-  }
-  function wmdClose(){ var panel=$('wmd-panel'), trig=$('wmd-trigger'); if(panel) panel.setAttribute('hidden',''); if(trig){ trig.classList.remove('open'); trig.setAttribute('aria-expanded','false'); } }
-  function wmdGo(lid){
-    try{ if(typeof switchGlobalLeague==='function') switchGlobalLeague(lid); }catch(e){}
-    wmdClose();
-    try{ if(typeof showPage==='function') showPage('teams'); }catch(e){}
-    try{ var p=$('page-teams'); if(p) p.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
+  /* ── which leagues count as "in the portfolio" ── */
+  function portfolioLeagues(){
+    var md=(typeof myTeamsData!=='undefined')?myTeamsData:null; if(!md||!md.length) return [];
+    var ids=null; try{ var raw=localStorage.getItem(skKey()); if(raw){ var a=JSON.parse(raw); if(a&&a.length) ids=new Set(a); } }catch(e){}
+    return md.filter(function(l){
+      var active=(l.season==='2026'||l.season==='2025');
+      if(ids){ if(!ids.has(l.league_id)) return false; }
+      else if(!active) return false;
+      var st=String(l.status||'').toLowerCase();
+      if(st==='pre_draft'||st==='drafting') return false;   // not drafted → no lineups to score
+      return true;
+    });
   }
 
   async function getWeek(){
@@ -23739,7 +23664,7 @@ body .page,body .page.on{background:transparent!important}
     catch(e){ return 1; }
   }
 
-  /* ── per-league matchup → row data ── */
+  /* ── per-league Sleeper matchup → row data ── */
   async function leagueRow(lg, week, proj, tone){
     try{
       var base='https://api.sleeper.app/v1/league/'+lg.league_id;
@@ -23753,6 +23678,8 @@ body .page,body .page.on{background:transparent!important}
       if(myRid==null) return null;
       var mine=mw.find(function(x){return x.roster_id===myRid;});
       if(!mine || mine.matchup_id==null || !(mine.starters&&mine.starters.length)) return null;
+      var realStarters=(mine.starters||[]).filter(function(p){ return p && String(p)!=='0'; });
+      if(!realStarters.length) return null;
       var opp=mw.find(function(x){return x.roster_id!==myRid && x.matchup_id===mine.matchup_id;});
       var userById={}; (users||[]).forEach(function(u){ userById[u.user_id]=u; });
       var rosterById={}; rosters.forEach(function(ro){ rosterById[ro.roster_id]=ro; });
@@ -23760,28 +23687,33 @@ body .page,body .page.on{background:transparent!important}
       function trec(rid){ var ro=rosterById[rid], s=(ro&&ro.settings)||{}; return (s.wins||0)+'-'+(s.losses||0)+(s.ties?'-'+s.ties:''); }
       var scoring=(lg.scoring_settings&&typeof lg.scoring_settings.rec==='number')?lg.scoring_settings.rec:1;
       function liveSum(m){ return ((m&&m.starters_points)||[]).reduce(function(s,v){return s+(+v||0);},0); }
-      function total(m){
-        if(!m) return 0;
-        var ls=liveSum(m); if(ls>0.01) return ls;
-        var t=0; (m.starters||[]).forEach(function(pid){ pid=String(pid||''); if(!pid||pid==='0') return; var pm=proj[pid]; var p=pm?_rdvProjPts(pm.stats,scoring):null; if(p!=null) t+=p; });
-        return t;
-      }
-      var myTot=total(mine), opTot=opp?total(opp):0;
+      function projSum(m){ var t=0; (m.starters||[]).forEach(function(pid){ pid=String(pid||''); if(!pid||pid==='0') return; var pm=proj[pid]; var p=pm?_rdvProjPts(pm.stats,scoring):null; if(p!=null) t+=p; }); return t; }
       var live=(liveSum(mine)+ (opp?liveSum(opp):0))>0.01;
+      function total(m){ if(!m) return 0; return live ? liveSum(m) : projSum(m); }
+      var myTot=total(mine), opTot=opp?total(opp):0;
       var wp=opp?_rdvWinProb(myTot-opTot):100;
       var nm=cleanName(lg);
       return { lid:lg.league_id, league:nm, badge:initials(nm), tone:tone, fmt:fmtFull(lg), fmtShort:fmtShort(lg),
-        myName:tname(myRid), myTot:myTot, oppName:opp?tname(opp.roster_id):'Bye / TBD', oppTot:opTot,
+        myName:tname(myRid), myRec:trec(myRid), myTot:myTot,
+        oppName:opp?tname(opp.roster_id):'Bye / TBD', oppRec:opp?trec(opp.roster_id):'', oppTot:opTot,
         wp:wp, hasOpp:!!opp, live:live };
     }catch(e){ return null; }
   }
+  function fmtFull(lg){
+    var sf=(lg.roster_positions||[]).indexOf('SUPER_FLEX')>=0;
+    var teams=lg.total_rosters||(lg.settings&&lg.settings.num_teams)||'?';
+    if(isEspnLg(lg)) return teams+'-Team '+(sf?'SF ':'')+'ESPN';
+    var rec=lg.scoring_settings&&lg.scoring_settings.rec; var sc=rec===1?'PPR':rec===0.5?'Half':'Std';
+    var tep=(lg.scoring_settings&&lg.scoring_settings.bonus_rec_te)?' TEP':'';
+    return teams+'-Team '+(isDyn(lg)?'Dynasty ':'')+(sf?'SF ':'')+sc+tep;
+  }
 
-  /* ── per-league ESPN matchup → row data (uses ESPN's own projected pts) ── */
+  /* ── per-league ESPN matchup → row data ── */
   async function espnRow(lg, tone){
     try{
       if(!lg._espnId) return null;
       var myTid=(typeof espnSelectedTeam==='function') && espnSelectedTeam(lg.league_id);
-      if(!myTid) return null;                 // team not picked yet → skip silently
+      if(!myTid) return null;
       myTid=String(myTid);
       var base='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+lg.season+'/segments/0/leagues/'+lg._espnId;
       var data=await fetch(base+'?view=mMatchupScore&view=mScoreboard&view=mRoster&view=mTeam',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
@@ -23799,6 +23731,7 @@ body .page,body .page.on{background:transparent!important}
       function statOf(e,src){ var pl=(e.playerPoolEntry&&e.playerPoolEntry.player)||{}; var ss=(pl.stats||[]).filter(function(s){return s.statSourceId===src&&s.scoringPeriodId===spid;}); var s=ss.find(function(x){return x.statSplitTypeId===1;})||ss[0]; return s&&s.appliedTotal!=null?s.appliedTotal:null; }
       var meEs=entries(meSide).filter(function(e){return !BENCH.has(e.lineupSlotId);});
       var opEs=entries(opSide).filter(function(e){return !BENCH.has(e.lineupSlotId);});
+      if(!meEs.length) return null;
       var isLive=meEs.concat(opEs).some(function(e){ var a=statOf(e,0); return a!=null&&a>0; });
       function tot(es){ return es.reduce(function(s,e){ var p=isLive?(statOf(e,0)!=null?statOf(e,0):0):(statOf(e,1)||0); return s+p; },0); }
       var myTot=tot(meEs), opTot=tot(opEs);
@@ -23807,60 +23740,59 @@ body .page,body .page.on{background:transparent!important}
       var opInfo=teams[isHome?mine.away.teamId:mine.home.teamId]||{name:'Opponent',rec:''};
       var nm=cleanName(lg);
       return { lid:lg.league_id, league:nm, badge:initials(nm), tone:tone, fmt:fmtFull(lg), fmtShort:'ESPN',
-        myName:meInfo.name, myTot:myTot, oppName:opInfo.name, oppTot:opTot, wp:wp, hasOpp:true, live:isLive };
+        myName:meInfo.name, myRec:meInfo.rec, myTot:myTot, oppName:opInfo.name, oppRec:opInfo.rec, oppTot:opTot,
+        wp:wp, hasOpp:true, live:isLive };
     }catch(e){ return null; }
   }
+
+  /* ── render ── */
   function ropeHtml(d){
     var edge=d.myTot-d.oppTot, signed=(edge>=0?'+':'')+edge.toFixed(2);
     var favLbl=Math.abs(edge)<8?'TOSS-UP':(edge>=0?'FAVORED':'UNDERDOG');
     var marg=signed+(d.live?' margin':' proj. margin');
-    return '<div class="wmd-rope-l"><span class="l">'+(d.live?'Live · Win Prob':'Win Probability')+'</span><span class="pm">'+marg+'</span></div>'
-      +'<div class="wmd-rope"><span class="me" style="width:'+d.wp+'%"></span><span class="opp" style="width:'+(100-d.wp)+'%"></span><span class="knot" style="left:'+d.wp+'%"></span></div>'
-      +'<div class="wmd-rope-p"><span class="a">'+d.wp+'% '+signed+' '+favLbl+'</span><span class="b">'+(100-d.wp)+'%</span></div>';
+    return '<div class="mo-rope-l"><span class="l">'+(d.live?'Live · Win Prob':'Win Probability')+'</span><span class="pm">'+marg+'</span></div>'
+      +'<div class="mo-rope"><span class="me" style="width:'+d.wp+'%"></span><span class="opp" style="width:'+(100-d.wp)+'%"></span><span class="knot" style="left:'+d.wp+'%"></span></div>'
+      +'<div class="mo-rope-p"><span class="a">'+d.wp+'% '+signed+' '+favLbl+'</span><span class="b">'+(100-d.wp)+'%</span></div>';
   }
   function rowMobile(d){
-    return '<div class="wmd-mu" onclick="wmdGo(\''+d.lid+'\')">'
-      +'<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">'
-        +'<span class="wmd-badge '+d.tone+'">'+esc(d.badge)+'</span>'
-        +'<span style="font-size:13px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.league)+'</span>'
-        +'<span style="font-family:var(--font-mono);font-size:8px;letter-spacing:.08em;color:var(--muted);flex-shrink:0">'+esc(d.fmtShort)+'</span></div>'
-      +'<div style="display:flex;gap:10px;font-size:11.5px;font-weight:700;margin-bottom:9px">'
-        +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.myName)+' <span style="font-family:var(--font-mono);color:var(--accent2);margin-left:4px">'+d.myTot.toFixed(1)+'</span></span>'
-        +'<span style="flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)"><span style="font-family:var(--font-mono);color:#f0728a;margin-right:4px">'+(d.hasOpp?d.oppTot.toFixed(1):'—')+'</span>'+esc(d.oppName)+'</span></div>'
-      + (d.hasOpp?ropeHtml(d):'<div class="wmd-rope-p"><span class="a">BYE WEEK</span></div>')
+    return '<div class="mo-card" onclick="moGo(\''+d.lid+'\')">'
+      +'<div class="mo-card-h"><span class="mo-badge '+d.tone+'">'+esc(d.badge)+'</span>'
+        +'<span class="mo-lname">'+esc(d.league)+'</span>'
+        +'<span class="mo-tag">'+esc(d.fmtShort)+'</span></div>'
+      +'<div class="mo-vs">'
+        +'<span class="mo-side"><span class="mo-tn">'+esc(d.myName)+'</span><span class="mo-pts a">'+d.myTot.toFixed(1)+'</span></span>'
+        +'<span class="mo-x">vs</span>'
+        +'<span class="mo-side r"><span class="mo-tn">'+esc(d.oppName)+'</span><span class="mo-pts b">'+(d.hasOpp?d.oppTot.toFixed(1):'—')+'</span></span>'
+      +'</div>'
+      + (d.hasOpp?ropeHtml(d):'<div class="mo-rope-p"><span class="a">BYE WEEK</span></div>')
       +'</div>';
   }
   function rowDesktop(d){
-    return '<div class="wmd-mu wmd-mu-d" onclick="wmdGo(\''+d.lid+'\')">'
-      +'<div style="display:flex;align-items:center;gap:11px;min-width:0">'
-        +'<span class="wmd-badge '+d.tone+'" style="width:30px;height:30px;border-radius:9px;font-size:11px">'+esc(d.badge)+'</span>'
-        +'<div style="min-width:0"><div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.league)+'</div>'
-        +'<div style="font-family:var(--font-mono);font-size:8.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.fmt)+'</div></div></div>'
-      +'<div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="wmd-av">'+esc(initials(d.myName))+'</span><div style="min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.myName)+'</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--accent2);margin-top:1px">'+d.myTot.toFixed(1)+'</div></div></div>'
-      +'<div style="min-width:0">'+(d.hasOpp?ropeHtml(d):'<div class="wmd-rope-p"><span class="a">BYE WEEK</span></div>')+'</div>'
-      +'<div style="display:flex;align-items:center;gap:10px;min-width:0;flex-direction:row-reverse;text-align:right"><span class="wmd-av opp">'+esc(initials(d.oppName))+'</span><div style="min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.oppName)+'</div><div style="font-family:var(--font-mono);font-size:9px;color:#f0728a;margin-top:1px">'+(d.hasOpp?d.oppTot.toFixed(1):'—')+'</div></div></div>'
+    return '<div class="mo-card mo-card-d" onclick="moGo(\''+d.lid+'\')">'
+      +'<div class="mo-d-league"><span class="mo-badge '+d.tone+'">'+esc(d.badge)+'</span>'
+        +'<div style="min-width:0"><div class="mo-lname">'+esc(d.league)+'</div><div class="mo-fmt">'+esc(d.fmt)+'</div></div></div>'
+      +'<div class="mo-d-team"><span class="mo-av">'+esc(initials(d.myName))+'</span><div style="min-width:0"><div class="mo-tn">'+esc(d.myName)+'</div><div class="mo-rec">'+esc(d.myRec)+' · <span class="a">'+d.myTot.toFixed(1)+'</span></div></div></div>'
+      +'<div class="mo-d-rope">'+(d.hasOpp?ropeHtml(d):'<div class="mo-rope-p"><span class="a">BYE WEEK</span></div>')+'</div>'
+      +'<div class="mo-d-team r"><span class="mo-av opp">'+esc(initials(d.oppName))+'</span><div style="min-width:0"><div class="mo-tn">'+esc(d.oppName)+'</div><div class="mo-rec">'+(d.hasOpp?esc(d.oppRec)+' · <span class="b">'+d.oppTot.toFixed(1)+'</span>':'bye')+'</div></div></div>'
       +'</div>';
   }
-  function renderRows(){
-    var el=$('wmd-rows'); if(!el||!_wmdData) return;
-    el.innerHTML=_wmdData.map(_wmdBp?rowDesktop:rowMobile).join('');
-  }
+  function renderRows(){ var el=$('mo-rows'); if(el&&_moData) el.innerHTML=_moData.map(_moBp?rowDesktop:rowMobile).join(''); }
 
-  async function wmdLoad(){
-    var rowsEl=$('wmd-rows'), subEl=$('wmd-sub'), aggEl=$('wmd-agg'), wkEl=$('wmd-wk-n');
+  async function moLoad(force){
+    var rowsEl=$('mo-rows'), subEl=$('mo-sub'), aggEl=$('mo-agg'), wkEl=$('mo-wk-n');
     if(!rowsEl) return;
-    _wmdLoading=true;
-    rowsEl.innerHTML='<div class="wmd-loading">Loading your matchups…</div>';
+    if(_moLoaded && !force){ renderRows(); return; }
+    _moLoading=true;
+    rowsEl.innerHTML='<div class="mo-state">Loading your matchups…</div>';
     var md=(typeof myTeamsData!=='undefined')?myTeamsData:null;
     var uid=(typeof myTeamsUserId!=='undefined')?myTeamsUserId:null;
     if(!md || !md.length || !uid){
-      rowsEl.innerHTML='<div class="wmd-empty">Connect your Sleeper or ESPN account to see your weekly matchups across every league.</div>';
-      _wmdLoading=false; return;
+      rowsEl.innerHTML='<div class="mo-state">Connect your Sleeper or ESPN account to see your weekly matchups across every league.</div>';
+      if(subEl) subEl.textContent='Not connected'; _moLoading=false; return;
     }
-    var leagues=md.filter(function(l){ return (l.season==='2026'||l.season==='2025'); });
-    if(!leagues.length){ rowsEl.innerHTML='<div class="wmd-empty">No active leagues found.</div>'; _wmdLoading=false; return; }
+    var leagues=portfolioLeagues();
+    if(!leagues.length){ rowsEl.innerHTML='<div class="mo-state">No drafted leagues in your portfolio yet. Add leagues from the Portfolio page.</div>'; if(subEl) subEl.textContent='0 leagues'; _moLoading=false; return; }
     var week=await getWeek(); if(wkEl) wkEl.textContent=week;
-    // projections per distinct season — Sleeper leagues only (ESPN uses its own feed)
     var projBy={};
     var sleeperLeagues=leagues.filter(function(l){ return !isEspnLg(l); });
     if(sleeperLeagues.length){
@@ -23872,26 +23804,168 @@ body .page,body .page.on{background:transparent!important}
       return isEspnLg(lg) ? espnRow(lg, tone) : leagueRow(lg, week, projBy[lg.season]||{}, tone);
     }));
     var data=results.filter(Boolean);
-    // favored teams float to the top, then by margin
     data.sort(function(a,b){ var fa=(a.hasOpp&&a.wp>=50)?1:0, fb=(b.hasOpp&&b.wp>=50)?1:0; if(fa!==fb) return fb-fa; return (b.myTot-b.oppTot)-(a.myTot-a.oppTot); });
-    _wmdData=data; _wmdLoaded=true; _wmdLoading=false;
-    if(!data.length){ rowsEl.innerHTML='<div class="wmd-empty">No matchups are posted yet — check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
-    var fav=data.filter(function(d){return d.hasOpp&&d.wp>=50;}).length;
-    var dog=data.filter(function(d){return d.hasOpp&&d.wp<50;}).length;
-    if(subEl) subEl.textContent=data.length+' leagues · '+fav+' favored'+(dog?' · '+dog+' underdog':'');
-    if(aggEl) aggEl.innerHTML='<span>FAVORED <b class="wmd-win">'+fav+'</b></span>';
+    _moData=data; _moLoaded=true; _moLoading=false;
+    if(!data.length){ rowsEl.innerHTML='<div class="mo-state">No matchups are posted yet — check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
+    var favN=data.filter(function(d){return d.hasOpp&&d.wp>=50;}).length;
+    var dogN=data.filter(function(d){return d.hasOpp&&d.wp<50;}).length;
+    if(subEl) subEl.textContent=data.length+' leagues · '+favN+' favored'+(dogN?' · '+dogN+' underdog':'');
+    if(aggEl) aggEl.innerHTML='<span class="mo-chip"><b class="mo-win">'+favN+'</b> favored</span>'+(dogN?'<span class="mo-chip"><b class="mo-lose">'+dogN+'</b> underdog</span>':'');
     renderRows();
   }
 
-  // re-render when crossing the mobile/desktop breakpoint
-  window.addEventListener('resize', function(){
-    var bp=window.matchMedia('(min-width:760px)').matches;
-    if(bp!==_wmdBp){ _wmdBp=bp; if(_wmdLoaded) renderRows(); }
-  });
+  function moGo(lid){ try{ if(typeof switchGlobalLeague==='function') switchGlobalLeague(lid); }catch(e){} try{ if(typeof showPage==='function') showPage('teams'); }catch(e){} }
+
+  /* ════════════ INJECTION ════════════ */
+  function injectStyles(){
+    if($('mo-styles')) return;
+    var css=''
+    +'#page-matchup-overview .mo-page{max-width:1120px;margin:0 auto;padding:26px 22px 60px}'
+    +'.mo-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:6px}'
+    +'.mo-wk{flex-shrink:0;width:52px;height:52px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,rgba(123,208,255,.22),rgba(77,134,240,.14));border:1px solid rgba(123,208,255,.3)}'
+    +'.mo-wk b{font-family:var(--font-mono);font-size:19px;font-weight:700;line-height:1;color:#bfe6ff}'
+    +'.mo-wk i{font-family:var(--font-mono);font-style:normal;font-size:8px;letter-spacing:.16em;color:var(--accent2);margin-top:3px}'
+    +'.mo-title{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text)}'
+    +'.mo-sub{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted);margin-top:7px}'
+    +'.mo-agg{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}'
+    +'.mo-chip{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--border)}'
+    +'.mo-chip b{font-size:13px;margin-right:3px}.mo-win{color:#3ecf86}.mo-lose{color:#f0728a}'
+    +'.mo-rule{height:1px;background:linear-gradient(90deg,var(--border),transparent);margin:18px 0 16px}'
+    +'.mo-rows{display:flex;flex-direction:column;gap:12px}'
+    +'.mo-state{padding:46px 8px;text-align:center;color:var(--muted);font-size:14px}'
+    +'.mo-card{padding:16px 18px;border-radius:16px;background:rgba(18,28,46,0.5);border:1px solid rgba(255,255,255,.09);'
+      +'backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);'
+      +'box-shadow:0 16px 40px -28px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.07);cursor:pointer;transition:border-color .15s,transform .15s}'
+    +'[data-theme="light"] .mo-card{background:rgba(255,255,255,0.7);border-color:rgba(20,30,45,0.08)}'
+    +'.mo-card:hover{border-color:rgba(123,208,255,.4);transform:translateY(-1px)}'
+    +'.mo-card-h{display:flex;align-items:center;gap:10px;margin-bottom:13px}'
+    +'.mo-badge{flex-shrink:0;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:10px;color:#0a1424;background:linear-gradient(150deg,#dfe7f5,#aebfdc)}'
+    +'.mo-badge.sky{background:linear-gradient(150deg,#bfe0ff,#6fb0f0);color:#0a2038}'
+    +'.mo-badge.red{background:linear-gradient(150deg,#ffc2cc,#f0728a);color:#3a0c14}'
+    +'.mo-badge.gold{background:linear-gradient(150deg,#ffe9a8,#f5c842);color:#3a2c00}'
+    +'.mo-badge.grn{background:linear-gradient(150deg,#b6f0d2,#3ecf86);color:#06301d}'
+    +'.mo-lname{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}'
+    +'.mo-fmt{font-family:var(--font-mono);font-size:8.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    +'.mo-tag{font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;color:var(--muted);flex-shrink:0}'
+    +'.mo-vs{display:flex;align-items:center;gap:10px;margin-bottom:12px}'
+    +'.mo-side{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}'
+    +'.mo-side.r{align-items:flex-end;text-align:right}'
+    +'.mo-tn{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
+    +'.mo-pts{font-family:var(--font-mono);font-size:18px;font-weight:700}'
+    +'.mo-pts.a{color:var(--accent2)}.mo-pts.b{color:#f0728a}'
+    +'.mo-x{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.1em;flex-shrink:0}'
+    +'.mo-av{flex-shrink:0;width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#fff;border:1.5px solid rgba(255,255,255,.22);background:linear-gradient(135deg,#2f63c4,#7bd0ff)}'
+    +'.mo-av.opp{background:linear-gradient(135deg,#b23146,#f0728a)}'
+    +'.mo-rec{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px}'
+    +'.mo-rec .a{color:var(--accent2);font-weight:700}.mo-rec .b{color:#f0728a;font-weight:700}'
+    /* rope */
+    +'.mo-rope-l{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}'
+    +'.mo-rope-l .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;white-space:nowrap}'
+    +'.mo-rope-l .pm{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent2);white-space:nowrap}'
+    +'.mo-rope{position:relative;height:16px;border-radius:99px;overflow:hidden;display:flex;background:#1b2740;border:1px solid rgba(123,170,240,.17);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}'
+    +'.mo-rope .me{height:100%;background:linear-gradient(90deg,#2f63c4 0%,#4a8be6 58%,#7bd0ff 100%)}'
+    +'.mo-rope .opp{height:100%;background:linear-gradient(90deg,#e8657e,#b6405a)}'
+    +'.mo-rope::after{content:"";position:absolute;inset:0;border-radius:99px;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 48%)}'
+    +'.mo-rope .knot{position:absolute;top:50%;width:4px;height:26px;border-radius:3px;background:#eaf2fc;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(7,13,24,.7);z-index:3}'
+    +'.mo-rope-p{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--font-mono);font-size:11px;font-weight:700}'
+    +'.mo-rope-p .a{color:var(--accent2)}.mo-rope-p .b{color:#f0728a}'
+    /* desktop row grid */
+    +'@media(min-width:760px){'
+      +'.mo-card-d{display:grid;grid-template-columns:226px 168px minmax(0,1fr) 168px;align-items:center;gap:20px;padding:18px 20px}'
+      +'.mo-d-league{display:flex;align-items:center;gap:11px;min-width:0}'
+      +'.mo-d-team{display:flex;align-items:center;gap:10px;min-width:0}'
+      +'.mo-d-team.r{flex-direction:row-reverse;text-align:right}'
+    +'}';
+    var st=document.createElement('style'); st.id='mo-styles'; st.textContent=css; document.head.appendChild(st);
+  }
+
+  function injectPage(){
+    if($('page-matchup-overview')) return;
+    var anchor=$('page-portfolio')||document.querySelector('.page'); if(!anchor) return;
+    var page=document.createElement('div');
+    page.className='page'; page.id='page-matchup-overview'; page.style.overflowY='auto';
+    page.innerHTML=''
+      +'<div class="mo-page">'
+        +'<div class="mo-head">'
+          +'<span class="mo-wk"><b id="mo-wk-n">—</b><i>WEEK</i></span>'
+          +'<div><div class="mo-title">Matchup Overview</div><div class="mo-sub" id="mo-sub">Loading your week…</div></div>'
+          +'<div class="mo-agg" id="mo-agg"></div>'
+        +'</div>'
+        +'<div class="mo-rule"></div>'
+        +'<div class="mo-rows" id="mo-rows"></div>'
+      +'</div>';
+    anchor.parentNode.appendChild(page);
+  }
+
+  function injectNavDropdown(){
+    var navBtn=$('nb-portfolio');
+    if(navBtn && !navBtn.closest('.lc-mt-wrap') && !navBtn.closest('.mo-pf-wrap')){
+      var wrap=document.createElement('div'); wrap.className='lc-mt-wrap mo-pf-wrap';
+      navBtn.parentNode.insertBefore(wrap, navBtn); wrap.appendChild(navBtn);
+      navBtn.insertAdjacentHTML('beforeend','<span class="lc-caret">▼</span>');
+      var menu=document.createElement('div'); menu.className='lc-mt-menu'; menu.id='mo-pf-menu';
+      menu.innerHTML=''
+        +'<button class="lc-mt-item" data-go="portfolio"><span class="ic">📁</span><span><b>Portfolio</b><small>All leagues · standings</small></span></button>'
+        +'<button class="lc-mt-item" data-go="matchup-overview"><span class="ic">🏟️</span><span><b>Matchup Overview</b><small>This week · all leagues</small></span><span class="lc-newtag">NEW</span></button>';
+      document.body.appendChild(menu);
+      var hideT;
+      var place=function(){ var r=wrap.getBoundingClientRect(); menu.style.top=(r.bottom+4)+'px'; menu.style.left=r.left+'px'; };
+      var show=function(){ clearTimeout(hideT); place(); menu.classList.add('show'); };
+      var hide=function(){ hideT=setTimeout(function(){ menu.classList.remove('show'); },120); };
+      wrap.addEventListener('mouseenter', show); wrap.addEventListener('mouseleave', hide);
+      menu.addEventListener('mouseenter', function(){ clearTimeout(hideT); }); menu.addEventListener('mouseleave', hide);
+      window.addEventListener('resize', function(){ menu.classList.remove('show'); });
+      // click items → navigate (works on touch too)
+      menu.addEventListener('click', function(e){ var it=e.target.closest('.lc-mt-item'); if(!it) return; menu.classList.remove('show'); window.showPage(it.dataset.go); });
+    }
+    // sidebar entry under Portfolio
+    var sl=$('sl-portfolio');
+    if(sl && !$('sl-matchup-overview')){
+      var b=document.createElement('button');
+      b.id='sl-matchup-overview'; b.className='sidebar-link'; b.setAttribute('onclick',"showPage('matchup-overview')");
+      b.innerHTML='<span style="font-size:17px">🏟️</span><span>Matchup Overview</span>';
+      sl.parentNode.insertBefore(b, sl.nextSibling);
+    }
+    // mobile more-sheet entry
+    if(!document.querySelector('#more-sheet .mo-injected')){
+      var firstBtn=document.querySelector('#more-sheet button');
+      if(firstBtn){
+        var mb=document.createElement('button');
+        mb.className='mo-injected';
+        mb.setAttribute('onclick',"closeMoreSheet&&closeMoreSheet();showPage('matchup-overview')");
+        mb.setAttribute('style','display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px');
+        mb.innerHTML='<span style="font-size:20px">🏟️</span><span style="font-weight:600">Matchup Overview</span>';
+        firstBtn.parentNode.insertBefore(mb, firstBtn);
+      }
+    }
+  }
+
+  function hookShowPage(){
+    var orig=window.showPage;
+    if(typeof orig!=='function') return false;
+    if(_moHooked) return true; _moHooked=true;
+    window.showPage=function(p){
+      orig.apply(this, arguments);
+      var onPf=(p==='portfolio'||p==='matchup-overview');
+      $('nb-portfolio') && $('nb-portfolio').classList.toggle('on', onPf);
+      $('sl-portfolio') && $('sl-portfolio').classList.toggle('active', p==='portfolio');
+      $('sl-matchup-overview') && $('sl-matchup-overview').classList.toggle('active', p==='matchup-overview');
+      if(p==='matchup-overview'){ injectPage(); moLoad(false); }
+    };
+    return true;
+  }
 
   // expose
-  window.wmdToggle=wmdToggle; window.wmdGo=wmdGo; window.wmdClose=wmdClose;
-  window.wmdReset=function(){ _wmdLoaded=false; _wmdData=null; var r=$('wmd-rows'); if(r) r.innerHTML=''; var s=$('wmd-sub'); if(s) s.textContent='Tap to load your week across every league'; };
+  window.moGo=moGo;
+  window.moRefreshMatchups=function(){ moLoad(true); };
+
+  function boot(){
+    injectStyles(); injectPage(); injectNavDropdown();
+    var tries=0; var t=setInterval(function(){ if(hookShowPage()||++tries>40) clearInterval(t); }, 100);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  setTimeout(injectNavDropdown, 1500); setTimeout(injectNavDropdown, 4000);
+  window.addEventListener('resize', function(){ var bp=window.matchMedia('(min-width:760px)').matches; if(bp!==_moBp){ _moBp=bp; if(_moLoaded) renderRows(); } });
 })();
 
 </script>
