@@ -4113,15 +4113,15 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button class="theme-toggle gn-ic" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
 
     <!-- settings (the app injects its gear icon into #settings-btn) -->
-    <button class="gn-ic" id="settings-btn" onclick="document.getElementById('setup').classList.remove('gone')" title="Settings">⚙</button>
+    <button class="gn-ic" id="settings-btn" onclick="openConnect()" title="Settings">⚙</button>
 
     <!-- glass Connect CTA — Variant 2 (opens the Sleeper connect / setup overlay) -->
-    <button class="gn-cta" id="gn-connect-cta" onclick="document.getElementById('setup').classList.remove('gone')" title="Connect a league">
+    <button class="gn-cta" id="gn-connect-cta" onclick="openConnect()" title="Connect a league">
       <span class="gsheen"></span><span class="gn-cta-txt">＋ Connect</span>
     </button>
 
     <!-- avatar -->
-    <div id="user-profile-chip" class="user-chip gn-avatarwrap" style="display:none" onclick="document.getElementById('setup').classList.remove('gone')">
+    <div id="user-profile-chip" class="user-chip gn-avatarwrap" style="display:none" onclick="openConnect()">
       <img id="user-avatar" class="user-avatar" alt="" onerror="this.style.display='none';document.getElementById('user-initials').style.display='flex'">
       <div id="user-initials" class="user-initials" style="display:none"></div>
       <span id="user-display-name" class="user-dname" style="display:none"></span>
@@ -4131,6 +4131,22 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
  </div>
 </header>
 <script>
+/* Open the setup/connection overlay and ALWAYS reset it to the connect screen.
+   Prevents a stale inner state (e.g. step 2 left showing, or both views hidden)
+   from rendering as a black screen when a connected user reopens it. */
+function openConnect(){
+  var s=document.getElementById('setup'); if(!s) return;
+  s.classList.remove('gone');
+  try{
+    var s1=document.getElementById('setup-step1'), s2=document.getElementById('setup-step2');
+    if(s1) s1.style.display='flex';
+    if(s2) s2.style.display='none';
+    var vc=document.getElementById('vp-view-connect'), vl=document.getElementById('vp-view-leagues');
+    if(vc) vc.style.display='block';
+    if(vl) vl.style.display='none';
+    s.scrollTop=0;
+  }catch(e){}
+}
 /* Hide the ＋ Connect CTA once an account is connected — the avatar takes over as the entry to setup */
 (function(){
   function gnSync(){
@@ -19790,8 +19806,11 @@ function pickYear(year) {
 
   /* ── page render ── */
   function lcRender() {
-    const mount = document.getElementById('lc-mount'); if (!mount) return;
-    mount.innerHTML = mlSection() + cardsView();
+    const mount = document.getElementById('lc-mount');
+    const cmount = document.getElementById('lc-compare-mount');
+    if (!mount && !cmount) return;
+    if (mount) mount.innerHTML = mlSection();
+    if (cmount) cmount.innerHTML = cardsView();
     renderChips();
     updateBadge();
     save();
@@ -19922,6 +19941,10 @@ function pickYear(year) {
     }
     `;
     const el = document.createElement('style'); el.id = 'lc-vault-styles'; el.textContent = css; document.head.appendChild(el);
+    // Re-scope the same styling for the standalone Player Comparison Tool page.
+    const elC = document.createElement('style'); elC.id = 'lc-vault-styles-compare';
+    elC.textContent = css.replace(/#page-lineup\b/g, '#page-compare');
+    document.head.appendChild(elC);
   }
 
   function injectPage() {
@@ -19936,6 +19959,7 @@ function pickYear(year) {
         <div class="lc-subnav" role="tablist" aria-label="My Team sections">
           <button data-go="overview"><span aria-hidden="true">▦</span> Team Review</button>
           <button class="on" data-go="lineup" aria-current="page"><span aria-hidden="true">⚡</span> Lineup Command</button>
+          <button data-go="compare"><span aria-hidden="true">⚖</span> Compare</button>
         </div>
         <div class="lc-head">
           <div>
@@ -19950,6 +19974,30 @@ function pickYear(year) {
         <div id="lc-mount"></div>
       </div>`;
     anchor.parentNode.appendChild(page);
+
+    // ── Standalone Player Comparison Tool page ──
+    if (!document.getElementById('page-compare')) {
+      const cpage = document.createElement('div');
+      cpage.className = 'page'; cpage.id = 'page-compare';
+      cpage.style.overflowY = 'auto';
+      cpage.innerHTML = `
+      <div class="lc-page">
+        <div class="lc-subnav" role="tablist" aria-label="My Team sections">
+          <button data-go="overview"><span aria-hidden="true">▦</span> Team Review</button>
+          <button data-go="lineup"><span aria-hidden="true">⚡</span> Lineup Command</button>
+          <button class="on" data-go="compare" aria-current="page"><span aria-hidden="true">⚖</span> Compare</button>
+        </div>
+        <div class="lc-head">
+          <div>
+            <h1 class="lc-title">Player Comparison Tool</h1>
+            <div class="lc-rule"></div>
+            <div class="lc-sub" style="margin-top:9px">Search any player — your roster, an opponent's bench, or the wire — and weigh up to four side by side for the week.</div>
+          </div>
+        </div>
+        <div id="lc-compare-mount"></div>
+      </div>`;
+      anchor.parentNode.appendChild(cpage);
+    }
   }
 
   function injectNavDropdown() {
@@ -19963,7 +20011,8 @@ function pickYear(year) {
       menu.innerHTML = `
         <button class="lc-mt-item" id="lc-mt-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span class="ic">🏟️</span><span><b>Matchup</b><small>This week · head-to-head</small></span></button>
         <button class="lc-mt-item" data-go="overview" data-dynview="dynasty"><span class="ic">▦</span><span><b>Team Review</b><small>Roster · grade · outlook</small></span></button>
-        <button class="lc-mt-item" data-go="lineup"><span class="ic">⚡</span><span><b>Lineup Command</b><small>Start/sit · projections</small></span><span class="lc-newtag">NEW</span></button>`;
+        <button class="lc-mt-item" data-go="lineup"><span class="ic">⚡</span><span><b>Lineup Command</b><small>Start/sit · projections</small></span><span class="lc-newtag">NEW</span></button>
+        <button class="lc-mt-item" data-go="compare"><span class="ic">⚖️</span><span><b>Player Comparison Tool</b><small>Side-by-side · up to 4</small></span></button>`;
       document.body.appendChild(menu);
       let hideT;
       const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
@@ -19981,6 +20030,13 @@ function pickYear(year) {
       b.innerHTML = `<span style="font-size:17px">⚡</span><span>Lineup Command</span>`;
       sl.parentNode.insertBefore(b, sl.nextSibling);
     }
+    if (sl && !document.getElementById('sl-compare')) {
+      const bc = document.createElement('button');
+      bc.id = 'sl-compare'; bc.className = 'sidebar-link'; bc.setAttribute('onclick', "showPage('compare')");
+      bc.innerHTML = `<span style="font-size:17px">⚖️</span><span>Player Comparison</span>`;
+      const after = document.getElementById('sl-lineup') || sl;
+      after.parentNode.insertBefore(bc, after.nextSibling);
+    }
     // mobile more-sheet
     const sheet = document.querySelector('#more-sheet .lc-injected');
     if (!sheet) {
@@ -19992,6 +20048,12 @@ function pickYear(year) {
         b.setAttribute('style', 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px');
         b.innerHTML = `<span style="font-size:20px">⚡</span><span style="font-weight:600">Lineup Command</span>`;
         firstBtn.parentNode.insertBefore(b, firstBtn);
+        const bc = document.createElement('button');
+        bc.className = 'lc-injected';
+        bc.setAttribute('onclick', "closeMoreSheet();showPage('compare')");
+        bc.setAttribute('style', 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px');
+        bc.innerHTML = `<span style="font-size:20px">⚖️</span><span style="font-weight:600">Player Comparison Tool</span>`;
+        b.parentNode.insertBefore(bc, b.nextSibling);
       }
     }
   }
@@ -20002,12 +20064,13 @@ function pickYear(year) {
     window.showPage = function (p) {
       orig.apply(this, arguments);
       // keep My Team lit + menu state correct for both sub-pages
-      const onMT = (p === 'overview' || p === 'lineup');
+      const onMT = (p === 'overview' || p === 'lineup' || p === 'compare');
       document.getElementById('nb-overview')?.classList.toggle('on', onMT);
       document.getElementById('sl-overview')?.classList.toggle('active', p === 'overview');
       document.getElementById('sl-lineup')?.classList.toggle('active', p === 'lineup');
+      document.getElementById('sl-compare')?.classList.toggle('active', p === 'compare');
       { const snm = document.getElementById('lc-sn-matchup'); if (snm) snm.style.display = (window._ovCurDyn && window._ovCurDyn()) ? '' : 'none'; }
-      document.querySelectorAll('#lc-mt-menu .lc-mt-item').forEach(it => { let on = it.dataset.go === p; if (on && it.dataset.dynview) on = (it.dataset.dynview === (window._ovGetDynView ? window._ovGetDynView() : 'dynasty')); it.classList.toggle('active', on); });      if (p === 'lineup') { try { lcRender(); initLive(); } catch (e) { console.error(e); } }
+      document.querySelectorAll('#lc-mt-menu .lc-mt-item').forEach(it => { let on = it.dataset.go === p; if (on && it.dataset.dynview) on = (it.dataset.dynview === (window._ovGetDynView ? window._ovGetDynView() : 'dynasty')); it.classList.toggle('active', on); });      if (p === 'lineup' || p === 'compare') { try { lcRender(); initLive(); } catch (e) { console.error(e); } }
     };
     // menu item clicks + mobile sub-nav clicks
     document.addEventListener('click', e => {
@@ -20031,7 +20094,7 @@ function pickYear(year) {
 
   /* ── page-scoped interactions ── */
   document.addEventListener('click', e => {
-    if (!e.target.closest('#page-lineup')) { document.getElementById('lcAc')?.classList.remove('show'); return; }
+    if (!e.target.closest('#page-lineup, #page-compare')) { document.getElementById('lcAc')?.classList.remove('show'); return; }
     const t = e.target;
     const rm = t.closest('[data-rm]'); if (rm) { state.sel = state.sel.filter(id => id !== rm.dataset.rm); lcRender(); return; }
     const mlc = t.closest('[data-mlcmp]'); if (mlc) { mlc.dataset.mlcmp.split(',').forEach(id => { if (state.sel.length < 4 && !state.sel.includes(id)) state.sel.push(id); }); lcRender(); return; }
@@ -20054,7 +20117,8 @@ function pickYear(year) {
     nav.setAttribute('role', 'tablist');
     nav.innerHTML = '<button id="lc-sn-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span aria-hidden="true">🏟️</span> Matchup</button>' +
       '<button class="on" data-go="overview" data-dynview="dynasty" aria-current="page"><span aria-hidden="true">▦</span> Team Review</button>' +
-      '<button data-go="lineup"><span aria-hidden="true">⚡</span> Lineup Command</button>';
+      '<button data-go="lineup"><span aria-hidden="true">⚡</span> Lineup Command</button>' +
+      '<button data-go="compare"><span aria-hidden="true">⚖</span> Compare</button>';
     host.insertBefore(nav, host.firstChild);
   }
 
@@ -21622,7 +21686,7 @@ function pickYear(year) {
 .vagc-rope-l .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
 .vagc-rope-l .pm{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--you2);white-space:nowrap}
 .vagc-rope{position:relative;height:16px;border-radius:99px;overflow:hidden;display:flex;background:var(--s3);border:1px solid var(--border2);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
-.vagc-rope .me{background:linear-gradient(90deg,var(--you) 0%,#4a8be6 58%,var(--you2) 100%)}
+.vagc-rope .me{background:var(--you)}
 .vagc-rope .opp{background:linear-gradient(90deg,#e8657e,#b6405a)}
 .vagc-rope::after{content:"";position:absolute;inset:0;border-radius:99px;pointer-events:none;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 48%)}
 .vagc-rope .knot{position:absolute;top:50%;width:4px;height:26px;border-radius:3px;background:#eaf2fc;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(7,13,24,.7);z-index:3}
@@ -21689,7 +21753,18 @@ var _RDV_POSC={QB:'#ff6680',RB:'#3DCC7A',WR:'#56b6f5',TE:'#f5c842',K:'#b07bff',D
 function _rdvSlotLabel(s){ return s==='SUPER_FLEX'?'SF':s==='WRRB_FLEX'?'FLX':s==='FLEX'?'FLX':s==='REC_FLEX'?'FLX':s==='IDP_FLEX'?'IDP':s; }
 function _rdvSlotBase(s){ if(s==='SUPER_FLEX'||s==='QB')return 'QB'; if(s==='WRRB_FLEX'||s==='FLEX'||s==='REC_FLEX')return 'FLEX'; return s; }
 function _rdvWinProb(diff){ var p=1/(1+Math.exp(-diff/9)); return Math.max(2,Math.min(98,Math.round(p*100))); }
-function _rdvProjPts(stats, scoring){ if(!stats) return null; var v = scoring===1?stats.pts_ppr : scoring===0.5?stats.pts_half_ppr : stats.pts_std; return (v==null?stats.pts_ppr:v); }
+/* Score a Sleeper projected stat line the way Sleeper's app does: raw projected
+   stats × the league's FULL per-stat scoring_settings (pass-TD value, bonuses,
+   TE premium, etc.) — not just a PPR/Half/Std aggregate picked off the rec value.
+   Falls back to the precomputed pts_ppr/half/std only when full settings aren't
+   available. `scoring` may be the league scoring_settings OBJECT (preferred) or
+   a legacy reception-value number. */
+function _rdvScoreLine(stats, ss){ var pts=0, hit=0; for(var k in ss){ var w=ss[k]; if(typeof w!=='number'||!w) continue; var v=stats[k]; if(typeof v==='number'){ pts+=v*w; hit++; } } return hit?pts:null; }
+function _rdvProjPts(stats, scoring){
+  if(!stats) return null;
+  if(scoring && typeof scoring==='object'){ var s=_rdvScoreLine(stats, scoring); if(s!=null) return s; scoring=(typeof scoring.rec==='number')?scoring.rec:1; }
+  var v = scoring===1?stats.pts_ppr : scoring===0.5?stats.pts_half_ppr : stats.pts_std; return (v==null?stats.pts_ppr:v);
+}
 
 /* Switch My Team between the matchup view and the dynasty view (dynasty leagues only). */
 function _rdvSetView(v){ window._rdvForceMatchup = (v==='matchup'); if(typeof renderOverview==='function') renderOverview(); }
@@ -21799,7 +21874,7 @@ window._buildRedraftView=_buildRedraftView;
 /* ── Shared: Sleeper weekly projections feed → pid→{name,pos,team,stats} ── */
 async function _rdvFetchProjections(season, week){
   var key='rdv-proj-'+season+'-'+week, rows=null;
-  try{ var c=localStorage.getItem(key); if(c){ var o=JSON.parse(c); if(Date.now()-o.t<6*3600*1000) rows=o.d; } }catch(e){}
+  try{ var c=localStorage.getItem(key); if(c){ var o=JSON.parse(c); if(Date.now()-o.t<15*60*1000) rows=o.d; } }catch(e){}
   if(!rows){
     try{ rows=await fetch('https://api.sleeper.com/projections/nfl/'+season+'/'+week+'?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&order_by=pts_ppr',{mode:'cors',credentials:'omit'}).then(function(r){return r.ok?r.json():[];}); }catch(e){ rows=[]; }
     try{ localStorage.setItem(key, JSON.stringify({t:Date.now(),d:rows})); }catch(e){}
@@ -21820,6 +21895,8 @@ async function _ovRenderRedraftMatchup(){
   if(!mEl) return;
   var lid=ctx.leagueId, scoring=ctx.scoring, season=ctx.season||(new Date().getFullYear()+'');
   var _lg=myTeamsData.find(function(l){return l.league_id===lid;});
+  // Score projections with the league's full scoring_settings (matches Sleeper exactly).
+  if(_lg && _lg.scoring_settings) scoring=_lg.scoring_settings;
   // ESPN leagues: use ESPN's own projected points (statSourceId 1).
   if(_lg && typeof vpPlat==='function' && vpPlat(_lg)==='espn'){
     try { await _rdvEspnMatchup(ctx, _lg); }
@@ -22118,6 +22195,7 @@ async function _ovRenderRedraftWaiver(){
     var week=ctx.week; if(!week){ try{ var stt=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); week=stt.week||1; }catch(e){ week=1; } }
     var proj=await _rdvFetchProjections(season, Math.max(1,week));
     var _wlg=myTeamsData.find(function(l){return l.league_id===lid;});
+    if(_wlg && _wlg.scoring_settings) scoring=_wlg.scoring_settings;
     var rosters;
     if(_wlg && typeof vpPlat==='function' && vpPlat(_wlg)==='espn'){ var c=await buildEspnContext(lid); rosters=c?c.rosters:[]; }
     else rosters=await fetch('https://api.sleeper.app/v1/league/'+lid+'/rosters').then(function(r){return r.json();}).catch(function(){return [];});
@@ -22615,7 +22693,7 @@ html{transition:background-color .5s ease}
 /* ---- smooth theme cross-fade (cards only — NOT pages/body: a bg transition
         on .page fades the backdrop in/out and causes a dark flash) ---- */
 .ov-card,.ov-panel,.ov-kpi-card,.ov-arch-card,.res-panel,
-.res-kpi,.mth-pg-card,.pr-team-card,.modal,#app-sidebar,#sidebar-team-card{
+.res-kpi,.mth-pg-card,.mth-picks-card,.pr-team-card,.modal,#app-sidebar,#sidebar-team-card{
   transition:background-color .45s ease,border-color .45s ease,color .3s ease,
              box-shadow .45s ease,transform .12s ease;
 }
@@ -22651,7 +22729,7 @@ body::after{
 }
 [data-theme="onyx"] body::after{opacity:.05}
 /* unified black liquid glass — deeper specular + bright rim on every card family */
-[data-theme="onyx"] .mth-profile,[data-theme="onyx"] .mth-strip-card,
+[data-theme="onyx"] .mth-profile,[data-theme="onyx"] .mth-strip-card,[data-theme="onyx"] .mth-picks-card,
 [data-theme="onyx"] .mth-pg-card,[data-theme="onyx"] .cc-card,[data-theme="onyx"] .rdv-card,
 [data-theme="onyx"] .ov-card,[data-theme="onyx"] .ov-panel,[data-theme="onyx"] .ov-kpi-card,
 [data-theme="onyx"] .ov-arch-card,[data-theme="onyx"] .res-panel,[data-theme="onyx"] .res-kpi,
@@ -22750,7 +22828,7 @@ body::after{
 [data-theme="onyx"] .vagc-board{ background:radial-gradient(62% 120% at 10% 26%,rgba(200,160,67,.14),transparent 58%),radial-gradient(62% 120% at 90% 26%,rgba(240,114,138,.11),transparent 58%)!important; }
 [data-theme="onyx"] .vagc-duel.win-me .vagc-cell.me{ background:linear-gradient(90deg,rgba(200,160,67,.17),transparent 82%)!important; }
 /* trade calculator glass + send rows */
-[data-theme="onyx"] .tc-card{ background:linear-gradient(177deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02) 24%,transparent 52%),rgba(22,23,28,0.6)!important; border-color:rgba(255,255,255,0.10)!important; }
+[data-theme="onyx"] .tc-card,[data-theme="onyx"] .tc-strip{ background:linear-gradient(177deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02) 24%,transparent 52%),rgba(22,23,28,0.6)!important; border-color:rgba(255,255,255,0.10)!important; }
 [data-theme="onyx"] .tc-send-row{ background:rgba(255,255,255,0.04)!important; }
 /* ── ONYX: lineup command + matchup overview (runtime-injected navy) ── */
 [data-theme="onyx"] #page-lineup{ --lc-card:rgba(22,23,28,0.62)!important; }
@@ -22783,7 +22861,7 @@ body .page,body .page.on{background:transparent!important}
 
 /* ════ UNIFIED LIQUID GLASS — every card family, cool & translucent so the
         vapor field bleeds through (dense data TABLES stay solid below) ════ */
-.mth-profile,.mth-strip-card,.mth-pg-card,.cc-card,.rdv-card,
+.mth-profile,.mth-strip-card,.mth-picks-card,.mth-pg-card,.cc-card,.rdv-card,.tc-strip,
 .ov-card,.ov-panel,.ov-kpi-card,.ov-arch-card,.res-panel,.res-kpi,.pr-team-card{
   background:
     linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0) 46%),
@@ -22831,11 +22909,11 @@ body .page,body .page.on{background:transparent!important}
 @media(max-width:700px){.glassnav #theme-toggle{display:none!important}}
 
 /* ---- LIGHT THEME: repaint the same cards as bright frosted paper-glass ---- */
-[data-theme="light"] .mth-profile,[data-theme="light"] .mth-strip-card,
+[data-theme="light"] .mth-profile,[data-theme="light"] .mth-strip-card,[data-theme="light"] .mth-picks-card,
 [data-theme="light"] .mth-pg-card,[data-theme="light"] .cc-card,[data-theme="light"] .rdv-card,
 [data-theme="light"] .ov-card,[data-theme="light"] .ov-panel,[data-theme="light"] .ov-kpi-card,
 [data-theme="light"] .ov-arch-card,[data-theme="light"] .res-panel,[data-theme="light"] .res-kpi,
-[data-theme="light"] .pr-team-card{
+[data-theme="light"] .pr-team-card,[data-theme="light"] .tc-strip{
   background:
     linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.15) 46%),
     rgba(255,255,255,0.42) !important;
@@ -23835,7 +23913,7 @@ body .page,body .page.on{background:transparent!important}
       var rosterById={}; rosters.forEach(function(ro){ rosterById[ro.roster_id]=ro; });
       function tname(rid){ var ro=rosterById[rid]; if(!ro) return 'TBD'; var u=userById[ro.owner_id]||{}; var md=u.metadata||{}; return md.team_name||u.display_name||u.username||('Team '+rid); }
       function trec(rid){ var ro=rosterById[rid], s=(ro&&ro.settings)||{}; return (s.wins||0)+'-'+(s.losses||0)+(s.ties?'-'+s.ties:''); }
-      var scoring=(lg.scoring_settings&&typeof lg.scoring_settings.rec==='number')?lg.scoring_settings.rec:1;
+      var scoring=(lg&&lg.scoring_settings)?lg.scoring_settings:1;
       function liveSum(m){ return ((m&&m.starters_points)||[]).reduce(function(s,v){return s+(+v||0);},0); }
       function projSum(m){ var t=0; (m.starters||[]).forEach(function(pid){ pid=String(pid||''); if(!pid||pid==='0') return; var pm=proj[pid]; var p=pm?_rdvProjPts(pm.stats,scoring):null; if(p!=null) t+=p; }); return t; }
       var live=(liveSum(mine)+ (opp?liveSum(opp):0))>0.01;
