@@ -2217,6 +2217,8 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   transition:background 150ms ease;
 }
 .proto-btn-ghost:hover { background:rgba(28,43,60,0.9); }
+[data-theme="light"] .proto-btn-ghost{background:rgba(20,30,45,0.045);border-color:rgba(20,30,45,0.16);color:var(--text)}
+[data-theme="light"] .proto-btn-ghost:hover{background:rgba(20,30,45,0.10)}
 /* ── Pages inside app-main scroll correctly ── */
 #app-main { overflow-y:auto; height:calc(100vh - 52px); }
 #app-main .page { position:relative!important; inset:unset!important; overflow-y:visible!important; min-height:auto!important; }
@@ -2909,6 +2911,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-link{ color:var(--accent2)!important; cursor:pointer; }
 .lh-link:hover{ text-decoration:underline; }
 .lh-you{ font-family:var(--font-mono); font-size:8.5px; font-weight:700; letter-spacing:.07em; color:#06101f; background:var(--accent2); padding:2px 6px; border-radius:4px; margin-left:8px; vertical-align:middle; }
+[data-theme="light"] .lh-you{ color:var(--on-primary); }
 .lh-av{ border-radius:9px; display:flex; align-items:center; justify-content:center; font-family:var(--font-sans); font-weight:800; flex-shrink:0; color:#06101f; letter-spacing:-0.02em; overflow:hidden; }
 .lh-av img{ width:100%; height:100%; object-fit:cover; }
 .lh-pos{ font-family:var(--font-mono); font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px; letter-spacing:.03em; white-space:nowrap; }
@@ -2961,6 +2964,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-ovh-wins{ display:flex; align-items:center; gap:4px; margin-top:11px; }
 .lh-ovh-l5{ font-family:var(--font-mono); font-size:9px; color:var(--faint); margin-left:5px; letter-spacing:.04em; white-space:nowrap; }
 .lh-ovh-stats{ display:flex; align-items:stretch; background:rgba(8,14,26,0.4); border-left:1px solid var(--border); }
+[data-theme="light"] .lh-ovh-stats{ background:rgba(20,30,45,0.04); }
 .lh-ovh-stat{ padding:20px 22px; min-width:150px; display:flex; flex-direction:column; }
 .lh-ovh-div{ width:1px; background:var(--border); }
 .lh-ovh-sl{ font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:.13em; color:var(--muted); }
@@ -4888,6 +4892,10 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
 
 /* send row */
 .tc-send-row{display:flex;align-items:center;gap:11px;padding:9px 12px;background:rgba(12,17,25,0.5);border-radius:12px}
+[data-theme="light"] .tc-send-row{background:rgba(20,30,45,0.045)}
+[data-theme="light"] .tc-wn-ideas{background:rgba(20,30,45,0.03)}
+[data-theme="light"] .tc-rcell:hover{background:rgba(20,30,45,0.05)}
+[data-theme="light"] .tc-wn-idea:hover,[data-theme="light"] .tc-wn-row:hover{background:rgba(20,30,45,0.04)}
 .tc-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-sans);font-weight:800;overflow:hidden}
 .tc-send-name{font-family:var(--font-sans);font-weight:700;font-size:13.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tc-send-meta{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);margin-top:1px}
@@ -17746,7 +17754,7 @@ function pickYear(year) {
       const srcTxt = mine
         ? `Values from <b style="color:var(--text)">your My&nbsp;Rankings board</b> · ${fmtName}`
         : `Values powered by <b style="color:var(--text)">FantasyCalc</b> · ${fmtName} · updated daily`;
-      return `<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 13px;background:rgba(12,17,25,0.5);border:1px solid var(--border);border-radius:11px;margin-bottom:14px">
+      return `<div class="tc-srcbar" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 13px;background:var(--s2);border:1px solid var(--border);border-radius:11px;margin-bottom:14px">
         <span style="width:7px;height:7px;border-radius:50%;background:${dot};box-shadow:0 0 0 3px ${dotGlow};flex-shrink:0"></span>
         <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text2);letter-spacing:.02em">${srcTxt}</span>
         ${this.mode==='quick'?`<div class="tc-seg sm" style="margin-left:auto"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>`:''}
@@ -18709,6 +18717,7 @@ function pickYear(year) {
 #P .mr-bhead{display:grid;grid-template-columns:var(--mr-cols);align-items:center;gap:14px;padding:9px 18px;background:rgba(12,17,25,0.5);border-bottom:1px solid var(--border2);font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-mono)}
 #P .mr-bhead .r{text-align:right}
 #P .mr-bhead .c{text-align:center}
+[data-theme="light"] #P .mr-bhead{background:var(--s2)}
 #P .mr-axis{display:flex;justify-content:space-between;gap:6px}
 #P .mr-tier{display:flex;align-items:center;gap:11px;padding:10px 18px;background:linear-gradient(90deg,rgba(255,90,110,0.05),transparent 70%);border-bottom:1px solid var(--border);cursor:grab}
 #P .mr-tier-lbl{font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--accent3);text-transform:uppercase}
@@ -21708,6 +21717,8 @@ function pickYear(year) {
 .rdv-secnote{font-family:var(--font-mono);font-size:10px;color:var(--rfaint);letter-spacing:.06em;white-space:nowrap;text-align:right}
 /* matchup */
 .rdv-mu{background:linear-gradient(180deg,#141d2b,#0f1622);border:1px solid var(--border2);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px -34px rgba(0,0,0,.9)}
+[data-theme="light"] .rdv-mu{background:linear-gradient(180deg,#ffffff,#f7f1e6);box-shadow:0 18px 46px -32px rgba(20,30,45,.3)}
+[data-theme="light"] .rdv-team.opp .rdv-tav{background:radial-gradient(120% 120% at 30% 20%,#f4dbe1,#ecc6ce);color:#b23a4e}
 .rdv-mu-top{display:grid;grid-template-columns:1fr 64px 1fr;align-items:center;padding:22px 26px 18px}
 .rdv-team{display:flex;align-items:center;gap:14px;min-width:0}
 .rdv-team.opp{flex-direction:row-reverse;text-align:right}
@@ -21922,6 +21933,17 @@ function pickYear(year) {
 .vagc-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-left:1px solid var(--border);border-right:1px solid var(--border);background:rgba(7,13,24,.4)}
 .vagc-badge .b{width:30px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:9px;font-weight:800;color:#06101e}
 .vagc-badge .g{font-family:var(--font-mono);font-size:9px;font-weight:700}
+/* ── light-mode: lift the gamecast matchup card off navy ── */
+[data-theme="light"] .vagc-card{background:linear-gradient(180deg,#ffffff,#f7f1e6);box-shadow:0 20px 50px -34px rgba(20,30,45,.3),inset 0 1px 0 rgba(255,255,255,.6)}
+[data-theme="light"] .vagc-strip{background:linear-gradient(90deg,rgba(47,99,196,.08),transparent 45%,transparent 55%,rgba(123,208,255,.06))}
+[data-theme="light"] .vagc-team.me .vagc-score{color:var(--accent)}
+[data-theme="light"] .vagc-team.opp .vagc-score{color:#b23a4e}
+[data-theme="light"] .vagc-crest{background:radial-gradient(120% 120% at 30% 22%,#e9eef6,#d9e2ee);color:#3a4a66}
+[data-theme="light"] .vagc-pav{background:radial-gradient(120% 120% at 32% 24%,#eef2f8,#dce4ee);box-shadow:0 2px 6px -2px rgba(20,30,45,.18),inset 0 1px 0 rgba(255,255,255,.6)}
+[data-theme="light"] .vagc-pav::after{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 55%)}
+[data-theme="light"] .vagc-badge{background:rgba(20,30,45,.035)}
+[data-theme="light"] .vagc-rope .knot{background:#1c2940;box-shadow:0 0 0 3px rgba(255,255,255,.85)}
+[data-theme="light"] .vagc-rope .mid{background:rgba(20,30,45,.18)}
 @media(max-width:760px){
   .vagc-board{padding:18px 13px 16px}
   .vagc-crest{width:42px;height:42px;border-radius:11px}
@@ -23118,7 +23140,7 @@ body .page,body .page.on{background:transparent!important}
 [data-theme="light"] .mth-pg-card,[data-theme="light"] .cc-card,[data-theme="light"] .rdv-card,
 [data-theme="light"] .ov-card,[data-theme="light"] .ov-panel,[data-theme="light"] .ov-kpi-card,
 [data-theme="light"] .ov-arch-card,[data-theme="light"] .res-panel,[data-theme="light"] .res-kpi,
-[data-theme="light"] .pr-team-card,[data-theme="light"] .tc-strip{
+[data-theme="light"] .pr-team-card,[data-theme="light"] .tc-strip,[data-theme="light"] .tc-card{
   background:
     linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.15) 46%),
     rgba(255,255,255,0.42) !important;
