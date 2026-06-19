@@ -4914,6 +4914,46 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
 
 /* roster columns */
 .tc-rosters{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* ── Win-Now Trade Ideas ── */
+.tc-wn-card{margin-top:16px;padding:24px 26px}
+.tc-wn-header{border-left:3px solid var(--accent2);padding-left:13px;margin-bottom:18px}
+.tc-wn-h1{font-family:var(--font-sans);font-weight:900;font-size:19px;letter-spacing:-.02em;color:var(--text)}
+.tc-wn-total{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 7px;border-radius:7px;background:var(--s2);border:1px solid var(--border2);font-family:var(--font-mono);font-weight:700;font-size:12px;color:var(--text2)}
+.tc-wn-sub{margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.01em}
+.tc-wn-valbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.tc-wn-valnote{font-family:var(--font-sans);font-size:12px;color:var(--muted);flex:1;min-width:200px}
+.tc-wn-list{display:flex;flex-direction:column;gap:10px}
+.tc-wn-group{background:var(--s2);border:1px solid var(--border);border-radius:13px;overflow:hidden;transition:border-color .15s}
+.tc-wn-group.open{border-color:var(--border2)}
+.tc-wn-row{display:flex;align-items:center;gap:13px;width:100%;background:none;border:none;padding:15px 18px;cursor:pointer;text-align:left}
+.tc-wn-row:hover{background:rgba(255,255,255,0.025)}
+.tc-wn-badge{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;font-family:var(--font-mono);font-weight:800;font-size:12px;flex-shrink:0}
+.tc-wn-title{font-family:var(--font-sans);font-weight:800;font-size:16px;color:var(--text)}
+.tc-wn-need{font-family:var(--font-sans);font-weight:600;font-size:12.5px;margin-left:9px}
+.tc-wn-Primary,.tc-wn-primary{color:#ff7a8a}
+.tc-wn-Secondary,.tc-wn-secondary{color:#f5c842}
+.tc-wn-Tertiary,.tc-wn-tertiary{color:var(--muted)}
+.tc-wn-count{display:flex;align-items:center;justify-content:center;padding:5px 11px;border-radius:8px;background:var(--bg);border:1px solid var(--border);font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text2);flex-shrink:0}
+.tc-wn-caret{color:var(--muted);font-size:18px;font-weight:700;transition:transform .18s;flex-shrink:0;width:14px;text-align:center}
+.tc-wn-ideas{display:flex;flex-direction:column;gap:1px;padding:4px 10px 12px;background:rgba(0,0,0,0.12)}
+.tc-wn-idea{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 14px;border-radius:10px;cursor:pointer;transition:background .12s}
+.tc-wn-idea:hover{background:rgba(255,255,255,0.04)}
+.tc-wn-idea-main{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.tc-wn-get,.tc-wn-give{display:flex;align-items:baseline;gap:8px;min-width:0}
+.tc-wn-getlbl,.tc-wn-givelbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;width:38px;flex-shrink:0}
+.tc-wn-getlbl{color:#7bd0ff}.tc-wn-givelbl{color:var(--muted)}
+.tc-wn-pname{font-family:var(--font-sans);font-weight:800;font-size:14.5px;color:var(--text)}
+.tc-wn-from{font-family:var(--font-sans);font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-wn-sname{font-family:var(--font-sans);font-weight:600;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-wn-idea-stats{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.tc-wn-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.tc-wn-statn{font-family:var(--font-mono);font-weight:700;font-size:14px;line-height:1}
+.tc-wn-statl{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.07em;color:var(--muted);text-transform:uppercase}
+.tc-wn-load{font-family:var(--font-sans);font-weight:700;font-size:12px;color:var(--accent2);padding:6px 12px;border-radius:8px;background:var(--accent2-tint,rgba(77,134,240,.14));white-space:nowrap}
+@media(max-width:700px){
+  .tc-wn-idea{flex-direction:column;align-items:stretch;gap:10px}
+  .tc-wn-idea-stats{justify-content:space-between}
+}
 .tc-roster-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .tc-rcol-head{border-radius:6px 6px 0 0;padding:5px 8px;text-align:center;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em}
 .tc-rcell{display:flex;justify-content:space-between;align-items:center;gap:4px;padding:5px 7px;border-radius:6px;cursor:pointer;transition:background .12s}
@@ -17769,7 +17809,7 @@ function pickYear(year) {
       return `<div class="tc-tpick"><button class="tc-tpick-btn" onclick="TC._toggleMenu('${slot}',event)"><div class="tc-logo" style="background:${t.color}22;border:1px solid ${t.color}66;color:${t.color}">${t.logo}</div><div style="text-align:left;min-width:0"><div class="tc-tpick-name">${t.name}</div><div class="tc-tpick-owner">${t.owner}</div></div><span class="tc-tpick-caret">▾</span></button>
         <div class="tc-tpick-menu" id="tc-menu-${slot}">${teams.map(o=>`<div class="tc-tpick-item ${String(o.id)===String(this[slot])?'sel':''}" onclick="TC.setTeam('${slot}','${esc(o.id)}')"><div class="tc-logo" style="background:${o.color}22;border:1px solid ${o.color}66;color:${o.color}">${o.logo}</div><div style="min-width:0"><div class="tc-tpick-name">${o.name}</div><div class="tc-tpick-owner">${o.owner}</div></div></div>`).join('')}</div></div>`;
     },
-    renderStrip(){ return `<div class="tc-strip" style="justify-content:center"><div class="tc-pickers">${this.teamPicker('teamA')}<div class="tc-swap">⇄</div>${this.teamPicker('teamB')}</div></div>`; },
+    renderStrip(){ return `${this.sourceBar()}<div class="tc-strip" style="justify-content:center"><div class="tc-pickers">${this.teamPicker('teamA')}<div class="tc-swap">⇄</div>${this.teamPicker('teamB')}</div></div>`; },
 
     rosterCols(side,teamId){
       const roster=this.roster(teamId), byPos={QB:[],RB:[],WR:[],TE:[],PICK:[]};
@@ -17788,15 +17828,165 @@ function pickYear(year) {
       if(this.isMobile()) return this.renderLeagueMobile();
       const tA=this.team(this.teamA), tB=this.team(this.teamB);
       const recvA=this.sideTotal('b'), recvB=this.sideTotal('a');
-      return `${this.sourceBar()}<div class="tc-card tc-trade-main" style="padding:38px;margin-bottom:16px"><div class="tc-league-grid" style="display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:36px;align-items:start">
+      return `<div class="tc-card tc-trade-main" style="padding:38px;margin-bottom:16px"><div class="tc-league-grid" style="display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:36px;align-items:start">
         <div><div class="tc-eyebrow" style="color:${tA.color};margin-bottom:9px">${tA.name} sends</div><div style="display:flex;flex-direction:column;gap:7px">${(tradeAssets.a||[]).length?(tradeAssets.a||[]).map(a=>this.sendRow('a',a,tA.color)).join(''):this.emptySlot(tA.color)}</div></div>
         <div><div class="tc-eyebrow" style="margin-bottom:12px">⇄&nbsp;&nbsp;Trade Verdict · ${this.vmode==='re'?'Redraft':'Dynasty'}</div>${this.balanceBar(recvA,recvB,tA.name,tB.name,tA.color,tB.color)}</div>
         <div><div class="tc-eyebrow" style="color:${tB.color};margin-bottom:9px">${tB.name} sends</div><div style="display:flex;flex-direction:column;gap:7px">${(tradeAssets.b||[]).length?(tradeAssets.b||[]).map(a=>this.sendRow('b',a,tB.color)).join(''):this.emptySlot(tB.color)}</div></div>
-      </div><div class="tc-send-foot" style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">${this.sendButtonHTML()}</div></div>
-      <div class="tc-rosters">${this.rosterCard(tA,'a')}${this.rosterCard(tB,'b')}</div>`;
+      </div></div>
+      <div class="tc-rosters">${this.rosterCard(tA,'a')}${this.rosterCard(tB,'b')}</div>
+      ${this.renderWinNow()}`;
     },
     rosterCard(t,side){ return `<div class="tc-card" style="padding:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="tc-logo" style="width:30px;height:30px;border-radius:8px;background:${t.color}22;border:1px solid ${t.color}66;color:${t.color};font-size:11px">${t.logo}</div><div style="flex:1;min-width:0"><div style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${t.name}</div><div class="tc-eyebrow" style="margin-top:1px">${t.owner==='You'?'Your roster':t.owner+"'s roster"} · tap to add</div></div></div>${this.rosterCols(side,t.id)}</div>`; },
     emptySlot(color){ return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:18px;border:1.5px dashed ${color}44;border-radius:12px;color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-align:center">+ ADD FROM ROSTER BELOW</div>`; },
+
+    // ════════════════ WIN-NOW TRADE IDEAS ════════════════
+    _wnState:{ val:'adj', open:null },
+    _wnDyn(name){ return (typeof getTradePlayerValue==='function' ? getTradePlayerValue(name) : 0) || 0; },
+    _wnRe(name){ const fc=(typeof getFCValue==='function')&&getFCValue(name); return (fc&&fc.redraftValue) || Math.round(this._wnDyn(name)*0.85); },
+    _wnStarters(){ return { QB:(this.leagueType&&this.leagueType()==='sf')?2:1, RB:2, WR:3, TE:1 }; },
+    _myTeam(){ const ts=this.teams(); return ts.find(t=>t.owner==='You'||/\(You\)/.test(t.name)) || this.team(this.teamA); },
+    // package value: 'raw' = plain dynasty sum; 'adj' = best-asset premium + depth discount
+    _pkgVal(names, mode){ const vals=names.map(n=>this._wnDyn(n)).sort((a,b)=>b-a); if(mode==='raw') return vals.reduce((s,v)=>s+v,0); return vals.reduce((s,v,i)=>s + (i===0? v*1.05 : v*0.9), 0); },
+
+    winNowIdeas(){
+      const sig = `${this._myTeam()?.id}|${this._wnState.val}|${this.vmode}|${this.isLive()?this._live.lid:'demo'}`;
+      if(this._wnCache && this._wnCache.sig===sig) return this._wnCache.data;
+      const mode=this._wnState.val, STN=this._wnStarters(), POS=['QB','RB','WR','TE'];
+      const me=this._myTeam(); if(!me){ return {needs:[],total:0}; }
+      const others=this.teams().filter(t=>String(t.id)!==String(me.id));
+      const myRoster=this.roster(me.id).filter(p=>p.type!=='pick'&&p.pos&&POS.includes(p.pos));
+      const byPos=p=>myRoster.filter(x=>x.pos===p).sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name));
+
+      // ── positional need = my starter strength vs league average ──
+      const teamStrength=(roster,pos)=>{ const r=roster.filter(x=>x.pos===pos).sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name)); return r.slice(0,STN[pos]).reduce((s,x)=>s+this._wnRe(x.name),0); };
+      const allRosters=this.teams().map(t=>({id:t.id,roster:this.roster(t.id).filter(p=>p.type!=='pick'&&p.pos)}));
+      const need=POS.map(pos=>{
+        const mine=teamStrength(myRoster,pos);
+        const avg=allRosters.reduce((s,t)=>s+teamStrength(t.roster,pos),0)/Math.max(allRosters.length,1);
+        const myBest=byPos(pos)[0]; 
+        return { pos, deficit:avg-mine, myBestRe:myBest?this._wnRe(myBest.name):0, myBestName:myBest?myBest.name:null };
+      }).sort((a,b)=>b.deficit-a.deficit);
+      const ranked=need.slice(0,3).filter(n=>n.deficit>0);
+      if(!ranked.length) ranked.push(need[0]); // always show at least the weakest
+      const URG=['Primary Need','Secondary Need','Tertiary Need'];
+      const URGW=[3,2,1];
+
+      // ── my send pool: depth beyond starters + picks, protect my best starters everywhere ──
+      const protectedSet=new Set();
+      POS.forEach(pos=>byPos(pos).slice(0,STN[pos]).forEach(p=>protectedSet.add(p.name)));
+      const sendPool=myRoster.filter(p=>!protectedSet.has(p.name)).map(p=>({name:p.name,pos:p.pos,dyn:this._wnDyn(p.name)})).filter(p=>p.dyn>0).sort((a,b)=>b.dyn-a.dyn);
+      const myPicks=this.roster(me.id).filter(p=>p.type==='pick').map(p=>({name:p.name,pos:'PICK',dyn:this._wnDyn(p.name)}));
+      const pool=sendPool.concat(myPicks);
+
+      const buildPackage=(targetDyn)=>{
+        const lo=targetDyn*0.82, hi=targetDyn*1.18;
+        // single asset
+        let best=null;
+        pool.forEach(a=>{ if(a.dyn>=lo&&a.dyn<=hi){ const d=Math.abs(a.dyn-targetDyn); if(!best||d<best.d) best={pick:[a],d}; } });
+        if(best) return best.pick;
+        // two assets
+        for(let i=0;i<pool.length;i++){ for(let j=i+1;j<pool.length;j++){ const sum=this._pkgVal([pool[i].name,pool[j].name],mode); if(sum>=lo&&sum<=hi){ if(!best||Math.abs(sum-targetDyn)<best.d) best={pick:[pool[i],pool[j]],d:Math.abs(sum-targetDyn)}; } } }
+        if(best) return best.pick;
+        // closest single under hi (best effort, may exceed 18% — flagged later)
+        const under=pool.filter(a=>a.dyn<=hi).sort((a,b)=>b.dyn-a.dyn)[0];
+        return under?[under]:null;
+      };
+
+      let total=0;
+      const groups=ranked.map((nd,ni)=>{
+        const ideas=[];
+        const targets=[];
+        others.forEach(t=>{
+          const tr=this.roster(t.id).filter(p=>p.type!=='pick'&&p.pos===nd.pos).sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name));
+          // they part with depth beyond their own starters at this pos
+          tr.slice(STN[nd.pos]).forEach(p=>{ if(this._wnRe(p.name)>nd.myBestRe) targets.push({t,p}); });
+          // also their top starter if it's a big upgrade and they have a replacement behind
+          if(tr[0] && tr.length>STN[nd.pos] && this._wnRe(tr[0].name)>nd.myBestRe*1.15) targets.push({t,p:tr[0]});
+        });
+        // dedupe
+        const seen=new Set();
+        targets.filter(x=>{ const k=x.t.id+'|'+x.p.name; if(seen.has(k))return false; seen.add(k); return true; })
+          .sort((a,b)=>this._wnRe(b.p.name)-this._wnRe(a.p.name))
+          .forEach(({t,p})=>{
+            if(ideas.length>=7) return;
+            const tDyn=this._wnDyn(p.name); if(!tDyn) return;
+            const pkg=buildPackage(tDyn); if(!pkg||!pkg.length) return;
+            const sendDyn=this._pkgVal(pkg.map(a=>a.name),mode);
+            const deltaPct=((sendDyn-tDyn)/tDyn)*100;
+            if(Math.abs(deltaPct)>18) return; // enforce the 18% rule
+            const gain=this._wnRe(p.name)-nd.myBestRe;
+            const gainPct=nd.myBestRe>0? Math.round((gain/nd.myBestRe)*100) : 100;
+            const score=Math.round(gain*URGW[ni] - Math.max(0,sendDyn-tDyn)*0.15);
+            ideas.push({ teamId:t.id, teamName:t.name, teamColor:t.color, target:p.name, targetPos:p.pos, targetDyn:tDyn, targetRe:this._wnRe(p.name), upgradeFrom:nd.myBestName, send:pkg.map(a=>({name:a.name,pos:a.pos})), sendDyn:Math.round(sendDyn), deltaPct:Math.round(deltaPct), gain:Math.round(gain), gainPct, score });
+          });
+        ideas.sort((a,b)=>b.score-a.score);
+        total+=ideas.length;
+        return { pos:nd.pos, label:URG[ni], ideas };
+      }).filter(g=>g.ideas.length);
+
+      const data={ needs:groups, total };
+      this._wnCache={ sig, data };
+      return data;
+    },
+
+    setWnVal(v){ this._wnState.val=v; this._wnCache=null; this.render(); },
+    toggleWnGroup(pos){ this._wnState.open = (this._wnState.open===pos? null : pos); this.render(); },
+    applyWinNow(pos,idx){
+      const g=this.winNowIdeas().needs.find(n=>n.pos===pos); if(!g) return;
+      const idea=g.ideas[idx]; if(!idea) return;
+      this.teamB=idea.teamId;
+      tradeAssets.a=idea.send.map(s=> this._resolve(s.name, s.pos==='PICK'?'pick':'player'));
+      tradeAssets.b=[ this._resolve(idea.target,'player') ];
+      this._wnState.open=null; this.render();
+      try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
+    },
+
+    renderWinNow(){
+      if(!this.isLive() && !this.leagueSelected() && this.teams().length<3) return '';
+      const data=this.winNowIdeas();
+      if(!data || !data.needs.length) return '';
+      const mode=this._wnState.val;
+      const groups=data.needs.map(g=>{
+        const c=POS_HEX[g.pos]||'#8794a6';
+        const need=g.label.split(' ')[0].toLowerCase();
+        const open=this._wnState.open===g.pos;
+        const head=`<button class="tc-wn-row" onclick="TC.toggleWnGroup('${g.pos}')">
+          <div class="tc-wn-badge" style="background:${c}1f;border:1px solid ${c}66;color:${c}">${g.pos}</div>
+          <div style="flex:1;min-width:0;text-align:left"><span class="tc-wn-title">${g.pos} Upgrades</span><span class="tc-wn-need tc-wn-${need}">· ${g.label}</span></div>
+          <div class="tc-wn-count">${g.ideas.length} idea${g.ideas.length>1?'s':''}</div>
+          <div class="tc-wn-caret" style="transform:rotate(${open?90:0}deg)">›</div></button>`;
+        const body = open ? `<div class="tc-wn-ideas">${g.ideas.map((idea,i)=>this._wnIdeaRow(g.pos,i,idea)).join('')}</div>` : '';
+        return `<div class="tc-wn-group ${open?'open':''}">${head}${body}</div>`;
+      }).join('');
+      return `<div class="tc-card tc-wn-card">
+        <div class="tc-wn-header">
+          <div style="display:flex;align-items:center;gap:11px"><span class="tc-wn-h1">Win-Now Trade Ideas</span><span class="tc-wn-total">${data.total}</span></div>
+          <div class="tc-wn-sub">Ranked by Win-Now Score = (starter gain × urgency) + dynasty cost. Max 18% dynasty delta.</div>
+        </div>
+        <div class="tc-wn-valbar">
+          <span class="tc-eyebrow">${this.vmode==='re'?'Redraft':'Dynasty'} Values</span>
+          <div class="tc-seg sm"><button class="${mode==='adj'?'on':''}" onclick="TC.setWnVal('adj')">Adjusted</button><button class="${mode==='raw'?'on':''}" onclick="TC.setWnVal('raw')">Raw</button></div>
+          <span class="tc-wn-valnote">${mode==='adj'?'Packages valued like the Trade Calculator. Adjustments made for trading up/down and best asset in the deal':'Plain sum of asset values — no trade-up/down or best-asset adjustment'}</span>
+        </div>
+        <div class="tc-wn-list">${groups}</div>
+      </div>`;
+    },
+    _wnIdeaRow(pos,i,idea){
+      const c=idea.teamColor||'#8794a6';
+      const net=Math.round((idea.targetDyn||0)-(idea.sendDyn||0));
+      const nc=net>=0?'#3DCC7A':'#ff7a8a';
+      const sendTxt=idea.send.map(s=>s.name).join(' + ');
+      return `<div class="tc-wn-idea" onclick="TC.applyWinNow('${pos}',${i})">
+        <div class="tc-wn-idea-main">
+          <div class="tc-wn-get"><span class="tc-wn-getlbl">GET</span><span class="tc-wn-pname">${idea.target}</span><span class="tc-wn-from" style="color:${c}">from ${idea.teamName.replace(/ \(You\)$/,'')}</span></div>
+          <div class="tc-wn-give"><span class="tc-wn-givelbl">SEND</span><span class="tc-wn-sname">${sendTxt}</span></div>
+        </div>
+        <div class="tc-wn-idea-stats">
+          <div class="tc-wn-stat"><span class="tc-wn-statn" style="color:${nc}">${net>=0?'+':'−'}${fmt(Math.abs(net))}</span><span class="tc-wn-statl">net value</span></div>
+          <div class="tc-wn-load">Load ›</div>
+        </div>
+      </div>`;
+    },
 
     // ════ MY LEAGUE — MOBILE (filter-tab roster, mockup D) ════
     renderLeagueMobile(){
@@ -17827,7 +18017,8 @@ function pickYear(year) {
           ${sideToggle}${posTabs}
           <div style="display:flex;flex-direction:column;gap:5px">${list}</div>
         </div>
-        ${this.sendButtonHTML(true)}`;
+        ${this.sendButtonHTML(true)}
+        ${this.renderWinNow()}`;
     },
 
     // ── Send via Sleeper ──
