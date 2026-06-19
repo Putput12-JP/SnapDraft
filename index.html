@@ -17154,7 +17154,7 @@ function pickYear(year) {
   #page-draft .suggest-bar{ display:flex!important; align-items:center; gap:14px; background:transparent!important; border-bottom:none!important; padding:10px 0 2px!important; margin-top:2px; }
   #page-draft .suggest-title{ flex-shrink:0; }
   #page-draft .suggest-chips{ display:grid!important; grid-template-columns:repeat(4,1fr)!important; gap:8px!important; flex:1; }
-  @media(max-width:860px){ #page-draft .suggest-chips{ grid-template-columns:repeat(2,1fr)!important; } }
+  @media(max-width:860px){ #page-draft .suggest-chips{ grid-template-columns:repeat(2,minmax(0,1fr))!important; } #page-draft .schip{ min-width:0; } #page-draft .schip .schip-main{ min-width:0; } #page-draft .schip .sname{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
   @media(max-width:560px){ #page-draft .suggest-bar{ flex-direction:column; align-items:stretch; gap:8px; } }
 
   /* Option A: Dynasty/Redraft mode toggle — collapses the two value columns to ONE.
@@ -17219,7 +17219,7 @@ function pickYear(year) {
   .dconn-sub{ font-family:var(--font-mono); font-size:11px; color:var(--muted); margin-top:2px; }
   .dconn-btn{ flex-shrink:0; font-family:var(--font-sans); font-size:12.5px; font-weight:700; color:#fff; background:var(--accent); border:0; border-radius:8px; padding:9px 15px; cursor:pointer; transition:filter .15s; }
   .dconn-btn:hover{ filter:brightness(1.08); }
-  @media(max-width:700px){ .dconn-bar{ flex-direction:column; align-items:stretch; gap:12px; } .dconn-btn{ width:100%; } }
+  @media(max-width:700px){ .dconn-bar{ flex-direction:row; align-items:center; gap:10px; padding:10px 12px; } .dconn-bar-main{ gap:9px; } .dconn-sub{ display:none; } .dconn-title{ font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .dconn-btn{ width:auto; flex-shrink:0; padding:9px 13px; font-size:12px; } }
 
   /* ───── Draft Vault: board section header ───── */
   .ld-board-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }
@@ -22616,14 +22616,36 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
 
 /* ── mobile ── */
 @media(max-width:700px){
-  #page-draft .dvh{ padding:16px 12px 0; gap:12px; }
-  .dvh-title{ font-size:25px; }
-  .dvh-meta{ gap:6px; }
-  .dv-abtn{ padding:8px 11px; font-size:11.5px; }
+  /* Condensed mobile header — collapse the wasted top zone (was ~206px tall).
+     Title block + icon actions share ONE flex row (no absolute positioning, nothing overlaps). */
+  #page-draft .dvh{ padding:10px 12px 0; display:flex!important; flex-wrap:nowrap!important; align-items:center; gap:10px; }
+  .dvh-l{ flex:1 1 auto; min-width:0; }
+  .dvh-title{ font-size:19px; white-space:nowrap; }
+  .dvh-titlerow{ gap:7px; flex-wrap:nowrap; align-items:baseline; }
+  .dvh-fmtbadge{ display:none; }
+  .dvh-meta{ display:none; }
+  /* actions: compact icon-only buttons, inline at top beside the title */
+  .dvh-actions{ flex:0 0 auto; gap:6px; flex-wrap:nowrap; margin-top:1px; }
+  .dvh-actions .dv-abtn{ position:relative; padding:9px; }
+  .dvh-actions .dv-abtn > span:not(.hg-count){ display:none; }
+  .dvh-actions .dv-abtn svg{ width:17px; height:17px; }
+  .dv-abtn .hg-count{ position:absolute; top:-5px; right:-5px; }
   .dv-ctl-label, .dv-sync-ind{ display:none; }
-  #page-draft .controls.dvc{ gap:8px!important; padding:10px 12px!important; }
-  #page-draft .controls.dvc .dvc-search{ flex:1 1 100%; }
-  #page-draft .ds-card.dsc{ grid-template-columns:1fr 1fr; }
+  /* Format toggle + Pos filters share ONE row; search drops to its own row below */
+  #page-draft .controls.dvc{ gap:8px!important; padding:10px 12px!important; flex-wrap:wrap; align-items:center; }
+  #page-draft .controls.dvc > .dv-grp{ flex:0 0 auto; }
+  #page-draft .controls.dvc .dvc-seg.mode-seg .sbtn{ padding:6px 10px!important; font-size:11px!important; }
+  #page-draft .controls.dvc .dvc-seg.pos-seg .fbtn{ padding:6px 0!important; min-width:30px!important; font-size:11px!important; }
+  #page-draft .controls.dvc .dvc-search{ flex:1 1 100%; order:10; }
+  /* hide the Suggested-players strip on mobile */
+  #page-draft #sbar, #page-draft .suggest-bar{ display:none!important; }
+  /* draft summary KPI cards: single horizontal row (scrollable), never stacked */
+  #page-draft .ds-card.dsc{ display:flex!important; flex-direction:row!important; flex-wrap:nowrap!important; align-items:stretch!important; grid-template-columns:none!important; overflow-x:auto; gap:8px!important; padding-bottom:2px!important; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  #page-draft .ds-card.dsc::-webkit-scrollbar{ display:none; }
+  #page-draft .ds-card.dsc > *{ flex:0 0 auto; scroll-snap-align:start; }
+  #page-draft .dsc-pickblock{ min-width:188px; }
+  #page-draft .dsc-clockwrap,#page-draft .dsc-progwrap{ min-width:168px; }
+  #page-draft .dsc-stat{ min-width:84px; }
 }
 </style>
 <style id="vault-mobile-dock">
