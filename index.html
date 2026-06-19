@@ -22099,18 +22099,22 @@ function _buildRedraftView(d){
 window._buildRedraftView=_buildRedraftView;
 
 /* ── Shared: Sleeper weekly projections feed → pid→{name,pos,team,stats} ── */
+var _RDV_DST={ARI:'Cardinals',ATL:'Falcons',BAL:'Ravens',BUF:'Bills',CAR:'Panthers',CHI:'Bears',CIN:'Bengals',CLE:'Browns',DAL:'Cowboys',DEN:'Broncos',DET:'Lions',GB:'Packers',HOU:'Texans',IND:'Colts',JAX:'Jaguars',KC:'Chiefs',LV:'Raiders',LAC:'Chargers',LAR:'Rams',MIA:'Dolphins',MIN:'Vikings',NE:'Patriots',NO:'Saints',NYG:'Giants',NYJ:'Jets',PHI:'Eagles',PIT:'Steelers',SF:'49ers',SEA:'Seahawks',TB:'Buccaneers',TEN:'Titans',WAS:'Commanders'};
 async function _rdvFetchProjections(season, week){
-  var key='rdv-proj-'+season+'-'+week, rows=null;
+  var key='rdv-proj-v2-'+season+'-'+week, rows=null;
   try{ var c=localStorage.getItem(key); if(c){ var o=JSON.parse(c); if(Date.now()-o.t<15*60*1000) rows=o.d; } }catch(e){}
   if(!rows){
-    try{ rows=await fetch('https://api.sleeper.com/projections/nfl/'+season+'/'+week+'?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&order_by=pts_ppr',{mode:'cors',credentials:'omit'}).then(function(r){return r.ok?r.json():[];}); }catch(e){ rows=[]; }
+    try{ rows=await fetch('https://api.sleeper.com/projections/nfl/'+season+'/'+week+'?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF&order_by=pts_ppr',{mode:'cors',credentials:'omit'}).then(function(r){return r.ok?r.json():[];}); }catch(e){ rows=[]; }
     try{ localStorage.setItem(key, JSON.stringify({t:Date.now(),d:rows})); }catch(e){}
   }
   var map={};
   (Array.isArray(rows)?rows:[]).forEach(function(row){
     var pid=String(row.player_id||(row.player&&row.player.player_id)||''); if(!pid) return;
     var pl=row.player||{};
-    map[pid]={ name: pl.full_name || ((pl.first_name||'')+' '+(pl.last_name||'')).trim() || (window.globalPidToName&&globalPidToName[pid])||'', pos:(pl.position||'')+'', team:(pl.team||'')+'', stats: row.stats||{} };
+    var _pos=(pl.position||'')+'', _team=(pl.team||'')+'';
+    var _nm=pl.full_name || ((pl.first_name||'')+' '+(pl.last_name||'')).trim() || (window.globalPidToName&&globalPidToName[pid])||'';
+    if(!_nm && _pos==='DEF') _nm=(_RDV_DST[pid]||_RDV_DST[_team]||pid);
+    map[pid]={ name:_nm, pos:_pos, team:_team||(_pos==='DEF'?pid:''), stats: row.stats||{} };
   });
   return map;
 }
