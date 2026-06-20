@@ -3240,18 +3240,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 </style>
 </head>
 <body>
-<!-- ONYX ethereal shadow background — animated gold/charcoal smoke, only visible in onyx theme -->
+<!-- ONYX ethereal shadow background — soft gold/charcoal smoke drifting at the bottom, only visible in onyx theme -->
 <div class="onyx-eth" aria-hidden="true">
-  <svg width="0" height="0" style="position:absolute"><defs>
-    <filter id="onyxEthFilter">
-      <feTurbulence result="undulation" type="turbulence" numOctaves="2" baseFrequency="0.0009,0.003" seed="3"></feTurbulence>
-      <feColorMatrix id="onyxEthHue" in="undulation" type="hueRotate" values="180"></feColorMatrix>
-      <feColorMatrix in="dist" result="circulation" type="matrix" values="4 0 0 0 1  4 0 0 0 1  4 0 0 0 1  1 0 0 0 0"></feColorMatrix>
-      <feDisplacementMap in="SourceGraphic" in2="circulation" scale="90" result="dist"></feDisplacementMap>
-      <feDisplacementMap in="dist" in2="undulation" scale="90" result="output"></feDisplacementMap>
-    </filter>
-  </defs></svg>
-  <div class="onyx-eth-shadow"><div class="onyx-eth-fill"></div></div>
+  <div class="onyx-eth-fill"></div>
+  <div class="onyx-eth-fill2"></div>
 </div>
 <!-- NOTE MODAL — bottom sheet, tap backdrop to close, keyboard-safe -->
 <div id="note-modal" onclick="if(event.target===this)closeNote()"
@@ -3597,10 +3589,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     .vp-esplit{position:fixed;inset:0;width:100%;height:100%;display:grid;grid-template-columns:1.02fr 0.98fr;z-index:6;overflow:hidden;background:#070a10}
     .vp-eleft{position:relative;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px 72px;background:transparent;overflow-y:auto}
     .vp-eleft-inner{width:100%;max-width:460px;display:flex;flex-direction:column;align-items:stretch;text-align:left}
-    .vp-e-eyebrow{display:inline-flex;align-self:flex-start;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#ffb3bd;margin-bottom:16px}
+    .vp-e-eyebrow{display:inline-flex;align-self:center;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#ffb3bd;margin-bottom:16px}
     .vp-e-eyebrow .d{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(226,58,78,0.18)}
-    .vp-e-head{font-size:46px;font-weight:900;letter-spacing:-0.04em;line-height:1;color:#fff;margin:0 0 13px}
-    .vp-e-sub{font-size:15.5px;color:#aeb9c8;line-height:1.5;margin:0 0 22px;text-wrap:pretty}
+    .vp-e-head{font-size:46px;font-weight:900;letter-spacing:-0.04em;line-height:1;color:#fff;margin:0 0 13px;text-align:center}
+    .vp-e-sub{font-size:15.5px;color:#aeb9c8;line-height:1.5;margin:0 0 22px;text-wrap:pretty;text-align:center}
     /* dark platform rows — override the light-card globals */
     #vp-eleft #vp-platforms{margin-top:8px!important}
     #vp-eleft .vp-plat{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.12)!important;box-shadow:none!important;color:#eef1f6!important;border-radius:14px!important;padding:14px 16px!important}
@@ -3622,10 +3614,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     .vp-eright .d-logo-wrap{position:relative;display:flex;justify-content:center;width:100%;margin-bottom:8px}
     .vp-eright .d-logo-wrap::before{content:"";position:absolute;width:84%;height:138%;left:8%;top:-19%;background:radial-gradient(ellipse at center,rgba(233,239,249,0.18),rgba(233,239,249,0.06) 45%,transparent 64%);filter:blur(18px);pointer-events:none}
     .vp-eright .d-biglogo{position:relative;width:100%;max-width:480px;height:auto;object-fit:contain;filter:drop-shadow(0 0 32px rgba(236,242,251,0.28)) drop-shadow(0 16px 46px rgba(0,0,0,0.55))}
-    .vp-eright .d-fc{width:100%;max-width:520px}
+    .vp-eright .d-fc{width:100%;max-width:600px}
     .vp-eright .d-fc-view{position:relative;overflow:hidden;border-radius:16px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 44px 100px -38px rgba(0,0,0,0.85)}
     .vp-eright .d-fc-track{display:flex;transition:transform .6s cubic-bezier(.22,.61,.36,1)}
-    .vp-eright .d-fc-slide{flex:0 0 100%;height:240px;background:#0a0d13}
+    .vp-eright .d-fc-slide{flex:0 0 100%;height:320px;background:#0a0d13}
     .vp-eright .d-fc-slide img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block;-webkit-user-drag:none}
     .vp-eright .d-fc-btn{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:#16233a;box-shadow:0 8px 20px rgba(0,0,0,0.4);opacity:.72;transition:transform .15s,opacity .15s;z-index:5}
     .vp-eright .d-fc-btn:hover:not(:disabled){opacity:1;transform:translateY(-50%) scale(1.1)}
@@ -15242,20 +15234,7 @@ function toggleTheme() {
   const ci = THEME_CYCLE.indexOf(currentTheme);
   applyTheme(THEME_CYCLE[(ci+1) % THEME_CYCLE.length] || 'dark');
 }
-// Drift the onyx ethereal-shadow smoke (vanilla port of the framer-motion hue loop) — only in onyx, off for reduced motion
-(function(){
-  var hue = document.getElementById('onyxEthHue');
-  if (!hue || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var v = 0;
-  function tick(){
-    if (document.documentElement.getAttribute('data-theme') === 'onyx'){
-      v = (v + 0.3) % 360;
-      hue.setAttribute('values', String(v));
-    }
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-})();
+// Drift handled in CSS now (GPU-composited transforms) — no per-frame JS for the onyx ethereal background
 
 // ════════════════════════════════════
 
@@ -23315,20 +23294,28 @@ body::after{
   background-size:auto,auto,auto;
 }
 [data-theme="onyx"] body::after{opacity:.05}
-/* ethereal shadow — animated gold/charcoal smoke anchored to the bottom of the viewport */
+/* ethereal shadow — soft gold/charcoal smoke drifting along the bottom (GPU-composited transforms = smooth) */
 .onyx-eth{display:none}
 [data-theme="onyx"] .onyx-eth{display:block;position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.onyx-eth-shadow{position:absolute;inset:-90px;filter:url(#onyxEthFilter) blur(7px)}
-.onyx-eth-fill{
-  position:absolute;inset:0;
-  background:
-    radial-gradient(38% 40% at 30% 90%, rgba(200,160,67,0.50), transparent 70%),
-    radial-gradient(46% 44% at 72% 98%, rgba(150,140,120,0.34), transparent 72%),
-    radial-gradient(40% 38% at 52% 84%, rgba(231,207,140,0.26), transparent 70%);
-  -webkit-mask-image:radial-gradient(72% 56% at 50% 102%, #000 20%, transparent 80%);
-  mask-image:radial-gradient(72% 56% at 50% 102%, #000 20%, transparent 80%);
+.onyx-eth-fill,.onyx-eth-fill2{
+  position:absolute;left:-10%;right:-10%;bottom:-14%;height:72%;
+  filter:blur(64px);will-change:transform;transform:translateZ(0)
 }
-@media (prefers-reduced-motion: reduce){ .onyx-eth-shadow{filter:url(#onyxEthFilter) blur(9px)} }
+.onyx-eth-fill{
+  background:
+    radial-gradient(44% 62% at 32% 100%, rgba(200,160,67,0.42), transparent 72%),
+    radial-gradient(40% 56% at 60% 100%, rgba(231,207,140,0.26), transparent 73%);
+  animation:onyxDrift1 26s ease-in-out infinite alternate
+}
+.onyx-eth-fill2{
+  background:
+    radial-gradient(42% 56% at 76% 100%, rgba(184,152,92,0.32), transparent 72%),
+    radial-gradient(38% 52% at 16% 100%, rgba(150,142,124,0.22), transparent 73%);
+  animation:onyxDrift2 34s ease-in-out infinite alternate
+}
+@keyframes onyxDrift1{from{transform:translate3d(-4%,2%,0) scale(1)}to{transform:translate3d(6%,-3%,0) scale(1.12)}}
+@keyframes onyxDrift2{from{transform:translate3d(5%,1%,0) scale(1.08)}to{transform:translate3d(-6%,-2%,0) scale(1)}}
+@media (prefers-reduced-motion: reduce){ .onyx-eth-fill,.onyx-eth-fill2{animation:none} }
 /* unified black liquid glass — deeper specular + bright rim on every card family */
 [data-theme="onyx"] .mth-profile,[data-theme="onyx"] .mth-strip-card,[data-theme="onyx"] .mth-picks-card,
 [data-theme="onyx"] .mth-pg-card,[data-theme="onyx"] .cc-card,[data-theme="onyx"] .rdv-card,
