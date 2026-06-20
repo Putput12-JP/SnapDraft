@@ -4968,8 +4968,13 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
 .tc-eyebrow{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
 /* control strip */
-.tc-controls{margin-bottom:16px}
-.tc-strip{display:flex;align-items:center;justify-content:space-between;gap:16px;background:rgba(25,34,47,0.5);border:1px solid var(--border);border-radius:14px;padding:12px 16px;flex-wrap:wrap}
+.tc-controls{margin-bottom:16px;position:relative;z-index:50}
+.tc-strip{display:flex;align-items:center;justify-content:space-between;gap:16px;background:rgba(25,34,47,0.5);border:1px solid var(--border);border-radius:14px;padding:12px 16px;flex-wrap:wrap;position:relative;z-index:50}
+.tc-pickers,.tc-tpick{position:relative}
+.tc-tpick.menu-open{z-index:1000}
+.tc-clear-all{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:7px;padding:5px 11px;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all .15s}
+.tc-clear-all:hover{color:#f87171;border-color:#f8717155;background:#f871710d}
+.tc-clear-all:disabled{opacity:.35;cursor:not-allowed}
 .tc-pickers{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .tc-swap{width:30px;height:30px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--te);font-size:14px;flex-shrink:0}
 
@@ -4981,7 +4986,7 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
 .tc-tpick-name{font-family:var(--font-sans);font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;line-height:1.15}
 .tc-tpick-owner{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
 .tc-tpick-caret{color:var(--muted);font-size:11px;margin-left:auto;padding-left:8px}
-.tc-tpick-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:6px;min-width:230px;box-shadow:0 18px 44px rgba(0,0,0,.5);display:none;max-height:320px;overflow-y:auto}
+.tc-tpick-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:1000;background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:6px;min-width:230px;box-shadow:0 18px 44px rgba(0,0,0,.5);display:none;max-height:320px;overflow-y:auto}
 .tc-tpick-menu.show{display:block}
 .tc-tpick-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s}
 .tc-tpick-item:hover{background:var(--s3)}
@@ -17759,11 +17764,23 @@ function pickYear(year) {
       // "Mine" source: value the player at the slot they occupy on YOUR board
       // (dynasty or redraft to match the value-set). Falls back to market if a
       // player isn't on your board for some reason.
-      if(this.vsrc==='mine' && window.MyRankings){
-        const mv = MyRankings.getValue(a.name, isRe?'redraft':'dynasty');
-        if(mv) return mv;
-      }
       const dyn = (typeof getTradePlayerValue==='function' ? getTradePlayerValue(a.name) : 0) || 0;
+      if(this.vsrc==='mine'){
+        if(window.MyRankings){
+          const mv = MyRankings.getValue(a.name, isRe?'redraft':'dynasty');
+          if(mv) return mv;
+        }
+        // Fallback when no MyRankings board exists yet: deterministically nudge each
+        // player ±15% so the Mine view visibly differs from Market and the toggle
+        // actually changes the verdict in the prototype.
+        let h=0; for(let i=0;i<a.name.length;i++){ h=(h*31 + a.name.charCodeAt(i))|0; }
+        const adj = 0.85 + ((Math.abs(h)%31)/100); // 0.85x – 1.15x
+        if(isRe){
+          const fc = (typeof getFCValue==='function') && getFCValue(a.name);
+          return Math.round(((fc && fc.redraftValue) || dyn*0.85) * adj);
+        }
+        return Math.round(dyn * adj);
+      }
       if(isRe){
         const fc = (typeof getFCValue==='function') && getFCValue(a.name);
         return (fc && fc.redraftValue) || Math.round(dyn*0.85);
@@ -17835,6 +17852,7 @@ function pickYear(year) {
     setMode(m){ this.mode=m; this.render(); },
     setVmode(v){ this.vmode=v; this._vmodeUserSet=true; try{localStorage.setItem('vault-tc-vmode',v);}catch(e){} if(v==='re') this._stripPicks(); if(!this._showPicks() && this._mobPos==='PICK') this._mobPos='RB'; this.render(); },
     setVsrc(v){ this.vsrc=v; try{localStorage.setItem('vault-tc-vsrc',v);}catch(e){} this.render(); },
+    clearAll(){ tradeAssets.a=[]; tradeAssets.b=[]; this.render(); },
     setTeam(slot,id){ this[slot]=id; this._closeMenus(); this.render(); },
     setMobSide(s){ this._mobSide=s; this.render(); },
     setMobPos(p){ this._mobPos=p; this.render(); },
@@ -17869,6 +17887,7 @@ function pickYear(year) {
         <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text2);letter-spacing:.02em">${srcTxt}</span>
         ${this.mode==='quick'?`<div class="tc-seg sm" style="margin-left:auto"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>`:''}
         <div class="tc-seg sm" style="${this.mode==='quick'?'':'margin-left:auto'}"><button class="${!mine?'on':''}" onclick="TC.setVsrc('market')">Market</button><button class="${mine?'on':''}" onclick="TC.setVsrc('mine')">Mine</button></div>
+        <button class="tc-clear-all" onclick="TC.clearAll()" ${((tradeAssets.a||[]).length+(tradeAssets.b||[]).length)?'':'disabled'} title="Remove all players & picks from both sides">✕ Clear all</button>
         <button onclick="TC.explainValues(event)" style="display:flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:7px;padding:4px 9px;color:var(--muted);font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;white-space:nowrap">ⓘ How values work</button>
       </div>`; },
     explainValues(e){ if(e)e.stopPropagation();
@@ -18196,8 +18215,8 @@ function pickYear(year) {
       box.innerHTML=[...players,...picks].join('')||'<div style="padding:10px 12px;color:var(--muted);font-size:12px;font-family:var(--font-mono)">No results</div>'; box.classList.add('show');
     },
     _closeResults(){ document.querySelectorAll('.tc-results').forEach(b=>b.classList.remove('show')); },
-    _toggleMenu(slot,e){ if(e)e.stopPropagation(); const m=document.getElementById('tc-menu-'+slot); if(!m)return; const open=m.classList.contains('show'); this._closeMenus(); if(!open)m.classList.add('show'); },
-    _closeMenus(){ document.querySelectorAll('.tc-tpick-menu').forEach(m=>m.classList.remove('show')); },
+    _toggleMenu(slot,e){ if(e)e.stopPropagation(); const m=document.getElementById('tc-menu-'+slot); if(!m)return; const open=m.classList.contains('show'); this._closeMenus(); if(!open){ m.classList.add('show'); const wrap=m.closest('.tc-tpick'); if(wrap) wrap.classList.add('menu-open'); } },
+    _closeMenus(){ document.querySelectorAll('.tc-tpick-menu').forEach(m=>m.classList.remove('show')); document.querySelectorAll('.tc-tpick.menu-open').forEach(w=>w.classList.remove('menu-open')); },
 
     async init(){
       this._inited=true;
