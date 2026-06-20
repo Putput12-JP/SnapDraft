@@ -3603,6 +3603,16 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     #vp-eleft .vp-plat .vg-ds{color:#9aa6b6!important}
     #vp-eleft .vp-plat .vg-arr{color:#8a96a6!important}
     #vp-eleft .vp-plat .vg-ic{width:44px;height:44px}
+    /* Welcome-back resume card — match the platform rows below it */
+    #vp-eleft .vp-resume{max-width:none!important;margin:0 0 12px!important;background:rgba(255,255,255,0.05)!important;backdrop-filter:none!important;border:1px solid rgba(255,255,255,0.12)!important;border-left:1px solid rgba(255,255,255,0.12)!important;border-radius:14px!important;padding:16px 18px!important;display:flex;align-items:center;gap:15px;box-shadow:none!important;transition:transform .16s cubic-bezier(.2,.7,.2,1), background .16s, border-color .16s!important}
+    #vp-eleft .vp-resume:hover{transform:translateY(-1px);background:rgba(255,255,255,0.09)!important;border-color:rgba(255,255,255,0.26)!important}
+    #vp-eleft .vp-resume .av{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#37e2c4,#1fa68a)!important;border:none!important;color:#06201d!important;font-size:18px;font-weight:900;box-shadow:0 8px 20px rgba(20,40,80,.22)}
+    #vp-eleft .vp-resume .lbl{display:none}
+    #vp-eleft .vp-resume .nm{font-size:16px!important;font-weight:700!important;letter-spacing:-.01em;color:#eef1f6!important;line-height:1.1;margin-top:0!important}
+    #vp-eleft .vp-resume .dg{font-size:12.5px!important;color:#9aa6b6!important;font-weight:500;margin-top:3px!important}
+    #vp-eleft .vp-resume .dg b{color:#eef1f6!important;font-weight:600}
+    #vp-eleft .vp-resume .go{margin-left:auto;font-size:18px;color:#8a96a6!important;transition:transform .16s, color .16s}
+    #vp-eleft .vp-resume:hover .go{transform:translateX(3px);color:#eef1f6!important}
     /* right column — Spline + big logo + carousel */
     .vp-eright{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:44px 48px 44px 24px;overflow:hidden;background:transparent}
     /* full-bleed animation spanning BOTH columns (matches login.html) */
@@ -3656,7 +3666,6 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
           <div class="vp-resume" id="vp-resume" style="display:none;margin-top:22px" onclick="resumeSession()">
             <div class="av" id="vp-resume-av">P</div>
             <div style="flex:1;min-width:0">
-              <div class="lbl">● Welcome back</div>
               <div class="nm" id="vp-resume-name">Your account</div>
               <div class="dg">Resume your last session · <b>tap to jump back in</b></div>
             </div>
@@ -3758,15 +3767,6 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
             </div>
           </div><!-- /vp-panel-espn -->
 
-          <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:18px">
-            <p style="font-family:var(--font-mono);font-size:10px;color:rgba(144,144,151,0.6);letter-spacing:0.05em;margin:0">
-              Read-only · No password stored
-            </p>
-            <span style="color:rgba(144,144,151,0.3)">·</span>
-            <button onclick="enterWithoutDraft()" style="background:none;border:none;font-family:var(--font-mono);font-size:10px;color:rgba(144,144,151,0.5);cursor:pointer;letter-spacing:0.05em;padding:0">
-              Skip →
-            </button>
-          </div>
         </div><!-- /vp-eleft-inner -->
       </div><!-- /vp-eleft -->
       <div class="vp-eright">
@@ -23933,6 +23933,7 @@ body .page,body .page.on{background:transparent!important}
     const standSeed = teams.slice().sort((a,b)=>{
       const ra=a._rec||{w:0,pf:0}, rb=b._rec||{w:0,pf:0};
       if ((rb.w||0)!==(ra.w||0)) return (rb.w||0)-(ra.w||0);
+      if ((b._odds||0)!==(a._odds||0)) return (b._odds||0)-(a._odds||0);
       return (rb.pf||0)-(ra.pf||0);
     });
     const hasRec = teams.some(t=>t._rec && t._rec.g);
@@ -24111,6 +24112,9 @@ body .page,body .page.on{background:transparent!important}
       const fakeTeams = list.map(x=>({ ownerId:x.ownerId, fcTotal:x.rv }));
       const model = playoffModel(fakeTeams, list.reduce((m,x)=>{ m[x.ownerId]={w:x.w,l:x.l,t:x.t,g:x.g}; return m; },{}));
       list.forEach(x=> x.odds = model[x.ownerId] ? model[x.ownerId].odds : 0);
+
+      // Re-sort: wins → playoff odds → PF. Odds are tiebreaker when records match.
+      list.sort((a,b)=> (b.w-a.w) || (b.odds-a.odds) || (b.pf-a.pf));
 
       const maxPF = Math.max.apply(null, list.map(s=>s.pf).concat([1]));
       const clinch = list.filter(s=>s.odds>=85).length;
