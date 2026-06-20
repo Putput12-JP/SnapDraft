@@ -12074,6 +12074,9 @@ function closeDraftConnect(){
 function skipDraftConnect(){
   window._draftPromptDismissed = true;
   closeDraftConnect();
+  // Browse rankings = clean slate. Drop any lingering draft state so the
+  // board doesn't show drafted-out picks from a previous connection.
+  try { disconnectDraft(); } catch(e){}
   try { renderAll(); renderDraftSummary(); } catch(e){}
 }
 
@@ -12109,6 +12112,9 @@ function chooseBrowseRankings(){
   window._completedDraftChoice = 'browse';
   window._draftPromptDismissed = true;
   document.getElementById('draft-complete-modal')?.classList.add('gone');
+  // Browse rankings = clean slate. Drop the finished draft so rankings
+  // aren't filtered by its picks.
+  try { disconnectDraft(); } catch(e){}
   try { renderDraftSummary(); renderAll(); } catch(e){}
 }
 
