@@ -28,6 +28,36 @@ window.VAULT_SHOT_RESEARCH="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4
 <script src="auth/vault-auth.js"></script>
 <script>try{ if(window.VaultAuth) VaultAuth.guard(); }catch(e){}</script>
 
+<!-- ANALYTICS: Firebase + Google Analytics (GA4 measurement id G-E2XHWWQDEQ) -->
+<script type="module">
+  import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAnalytics, isSupported, logEvent } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-analytics.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCzpvgL1Ez6-6T6mEewZWHMfseWizD4HWU",
+    authDomain: "vault-fantasy.firebaseapp.com",
+    projectId: "vault-fantasy",
+    storageBucket: "vault-fantasy.firebasestorage.app",
+    messagingSenderId: "196250681645",
+    appId: "1:196250681645:web:674b28b1df98dab70913a4",
+    measurementId: "G-E2XHWWQDEQ"
+  };
+
+  // Reuse existing Firebase app if auth/vault-auth.js already initialized one
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+  isSupported().then((ok) => {
+    if (!ok) return;
+    const analytics = getAnalytics(app);
+    window.vaultAnalytics = analytics;
+    // Helper for custom events from elsewhere in the app:
+    //   window.vfTrack('event_name', { key: 'value' })
+    window.vfTrack = (name, params) => {
+      try { logEvent(analytics, name, params || {}); } catch (e) {}
+    };
+  }).catch(() => {});
+</script>
+
 
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json">
