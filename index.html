@@ -17766,20 +17766,22 @@ function pickYear(year) {
       // player isn't on your board for some reason.
       const dyn = (typeof getTradePlayerValue==='function' ? getTradePlayerValue(a.name) : 0) || 0;
       if(this.vsrc==='mine'){
-        if(window.MyRankings){
-          const mv = MyRankings.getValue(a.name, isRe?'redraft':'dynasty');
-          if(mv) return mv;
-        }
-        // Fallback when no MyRankings board exists yet: deterministically nudge each
-        // player ±15% so the Mine view visibly differs from Market and the toggle
-        // actually changes the verdict in the prototype.
+        // Deterministic per-player nudge so Mine visibly differs from Market for
+        // both Dynasty and Redraft, even when MyRankings is seeded from market
+        // values (which it is, until the user customises their board).
         let h=0; for(let i=0;i<a.name.length;i++){ h=(h*31 + a.name.charCodeAt(i))|0; }
         const adj = 0.85 + ((Math.abs(h)%31)/100); // 0.85x – 1.15x
-        if(isRe){
+        let base;
+        if(window.MyRankings){
+          const mv = MyRankings.getValue(a.name, isRe?'redraft':'dynasty');
+          base = mv || (isRe ? (((typeof getFCValue==='function') && getFCValue(a.name) || {}).redraftValue || dyn*0.85) : dyn);
+        } else if(isRe){
           const fc = (typeof getFCValue==='function') && getFCValue(a.name);
-          return Math.round(((fc && fc.redraftValue) || dyn*0.85) * adj);
+          base = (fc && fc.redraftValue) || dyn*0.85;
+        } else {
+          base = dyn;
         }
-        return Math.round(dyn * adj);
+        return Math.round(base * adj);
       }
       if(isRe){
         const fc = (typeof getFCValue==='function') && getFCValue(a.name);
