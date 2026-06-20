@@ -3570,19 +3570,69 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       .vp-bg-grid{animation:vpGridPan 18s linear infinite}
       @media(prefers-reduced-motion:reduce){.vp-glow,.vp-bg-grid{animation:none!important}}
     </style>
+    <style>
+    /* ══════════ Option E split — connect screen (matches login.html / Direction D) ══════════ */
+    #setup-step1{overflow-x:hidden}
+    .vp-esplit{position:relative;width:100vw;left:50%;margin-left:-50vw;margin-top:-48px;margin-bottom:-80px;min-height:100vh;display:grid;grid-template-columns:1.02fr 0.98fr;z-index:2;overflow:hidden;background:#070a10}
+    .vp-eleft{position:relative;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px 72px;background:#070a10;overflow-y:auto}
+    .vp-eleft-inner{width:100%;max-width:460px;display:flex;flex-direction:column;align-items:stretch;text-align:left}
+    .vp-e-eyebrow{display:inline-flex;align-self:flex-start;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#ffb3bd;margin-bottom:16px}
+    .vp-e-eyebrow .d{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(226,58,78,0.18)}
+    .vp-e-head{font-size:46px;font-weight:900;letter-spacing:-0.04em;line-height:1;color:#fff;margin:0 0 13px}
+    .vp-e-sub{font-size:15.5px;color:#aeb9c8;line-height:1.5;margin:0 0 22px;text-wrap:pretty}
+    /* dark platform rows — override the light-card globals */
+    #vp-eleft #vp-platforms{margin-top:8px!important}
+    #vp-eleft .vp-plat{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.12)!important;box-shadow:none!important;color:#eef1f6!important;border-radius:14px!important;padding:14px 16px!important}
+    #vp-eleft .vp-plat:hover{background:rgba(255,255,255,0.09)!important;border-color:rgba(255,255,255,0.26)!important;transform:translateY(-1px)}
+    #vp-eleft .vp-plat.on{background:rgba(55,226,196,0.07)!important;border-color:rgba(55,226,196,0.42)!important}
+    #vp-eleft .vp-plat[data-p="espn"].on{background:rgba(213,10,10,0.1)!important;border-color:rgba(213,10,10,0.5)!important}
+    #vp-eleft .vp-plat .vg-nm{color:#eef1f6!important}
+    #vp-eleft .vp-plat .vg-ds{color:#9aa6b6!important}
+    #vp-eleft .vp-plat .vg-arr{color:#8a96a6!important}
+    #vp-eleft .vp-plat .vg-ic{width:44px;height:44px}
+    /* right column — Spline + big logo + carousel */
+    .vp-eright{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:44px 48px 44px 24px;overflow:hidden;background:#070a10}
+    .vp-espline{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;z-index:0}
+    .vp-eright::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070a10 0%,rgba(7,10,16,0.55) 16%,rgba(7,10,16,0.18) 38%,transparent 60%)}
+    .vp-eright::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(130% 90% at 62% 46%,transparent 48%,rgba(7,10,16,0.5) 100%)}
+    .vp-eright-inner{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;width:100%}
+    .vp-eright .d-logo-wrap{position:relative;display:flex;justify-content:center;width:100%;margin-bottom:8px}
+    .vp-eright .d-logo-wrap::before{content:"";position:absolute;width:84%;height:138%;left:8%;top:-19%;background:radial-gradient(ellipse at center,rgba(233,239,249,0.18),rgba(233,239,249,0.06) 45%,transparent 64%);filter:blur(18px);pointer-events:none}
+    .vp-eright .d-biglogo{position:relative;width:100%;max-width:480px;height:auto;object-fit:contain;filter:drop-shadow(0 0 32px rgba(236,242,251,0.28)) drop-shadow(0 16px 46px rgba(0,0,0,0.55))}
+    .vp-eright .d-fc{width:100%;max-width:520px}
+    .vp-eright .d-fc-view{position:relative;overflow:hidden;border-radius:16px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 44px 100px -38px rgba(0,0,0,0.85)}
+    .vp-eright .d-fc-track{display:flex;transition:transform .6s cubic-bezier(.22,.61,.36,1)}
+    .vp-eright .d-fc-slide{flex:0 0 100%;height:240px;background:#0a0d13}
+    .vp-eright .d-fc-slide img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block;-webkit-user-drag:none}
+    .vp-eright .d-fc-btn{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:#16233a;box-shadow:0 8px 20px rgba(0,0,0,0.4);opacity:.72;transition:transform .15s,opacity .15s;z-index:5}
+    .vp-eright .d-fc-btn:hover:not(:disabled){opacity:1;transform:translateY(-50%) scale(1.1)}
+    .vp-eright .d-fc-btn:disabled{opacity:.32;cursor:not-allowed}
+    .vp-eright .d-fc-btn.prev{left:14px}
+    .vp-eright .d-fc-btn.next{right:14px}
+    .vp-eright .d-fc-btn svg{width:20px;height:20px}
+    .vp-eright .d-fc-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:7px;padding:7px 10px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.32);border-radius:12px;backdrop-filter:blur(8px);z-index:5}
+    .vp-eright .d-fc-dot{height:8px;width:8px;border-radius:9999px;background:rgba(255,255,255,0.55);border:none;cursor:pointer;transition:all .25s;padding:0}
+    .vp-eright .d-fc-dot.on{width:28px;background:#fff}
+    .vp-eright .d-fc-cap{margin-top:15px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#dbe2ee}
+    @media (prefers-reduced-motion:reduce){.vp-eright .d-fc-track{transition:none}}
+    @media (max-width:900px){
+      .vp-esplit{grid-template-columns:1fr;min-height:0}
+      .vp-eright{display:none}
+      .vp-eleft{padding:40px 22px;min-height:100vh}
+      .vp-e-head{font-size:36px}
+    }
+    </style>
 
     <div style="position:relative;z-index:1;max-width:1100px;margin:0 auto;width:100%;padding:48px 24px 80px">
 
-      <!-- ══════════ VIEW 1: CONNECT ══════════ -->
+      <!-- ══════════ VIEW 1: CONNECT (Option E split) ══════════ -->
       <div id="vp-view-connect">
-
-      <section style="margin-bottom:40px;display:flex;justify-content:center">
-        <div class="vg-card">
-          <!-- logo sits directly on the bright frosted card -->
-          <img class="vg-logo" src="assets/vault-lockup.png" alt="Vault Fantasy Football" onerror="vfLogoFix(this)">
-          <div class="vg-eyebrow"><span class="d"></span>Step 1 of 2 · Connect</div>
-          <div class="vg-head">Welcome to Vault</div>
-          <div class="vg-sub">Connect your account once and pull every league into one war room — rosters, rankings &amp; trades.</div>
+      <div class="vp-esplit">
+      <div class="vp-eleft" id="vp-eleft">
+        <div class="vp-eleft-inner">
+          <div class="vp-e-eyebrow"><span class="d"></span>Step 1 of 2 · Connect</div>
+          <h1 class="vp-e-head">Connect your leagues</h1>
+          <p class="vp-e-sub">Connect your account once and pull every league into one war room — rosters, rankings &amp; trades.</p>
 
           <!-- WELCOME-BACK RESUME (returning users) -->
           <div class="vp-resume" id="vp-resume" style="display:none;margin-top:22px" onclick="resumeSession()">
@@ -3690,7 +3740,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
             </div>
           </div><!-- /vp-panel-espn -->
 
-          <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:12px">
+          <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:18px">
             <p style="font-family:var(--font-mono);font-size:10px;color:rgba(144,144,151,0.6);letter-spacing:0.05em;margin:0">
               Read-only · No password stored
             </p>
@@ -3699,8 +3749,48 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
               Skip →
             </button>
           </div>
+        </div><!-- /vp-eleft-inner -->
+      </div><!-- /vp-eleft -->
+      <div class="vp-eright">
+        <iframe class="vp-espline" src="https://my.spline.design/spaceparticlesanimation-UGnU6SB7nUK6sFI6N5WzasEx" frameborder="0" title="Vault background animation" tabindex="-1"></iframe>
+        <div class="vp-eright-inner">
+          <div class="d-logo-wrap"><img class="d-biglogo" src="assets/marketing/vault-logo-whitetext.png" alt="Vault Fantasy Football"></div>
+          <div class="d-fc">
+            <div class="d-fc-view">
+              <div class="d-fc-track" id="vpfcTrack">
+                <div class="d-fc-slide"><img src="assets/marketing/clean-trade.png" alt="Trade Calculator"></div>
+                <div class="d-fc-slide"><img src="assets/marketing/clean-team.png" alt="Team Review"></div>
+                <div class="d-fc-slide"><img src="assets/marketing/clean-research.png" alt="Advanced Stats"></div>
+              </div>
+              <button class="d-fc-btn prev" id="vpfcPrev" aria-label="Previous"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"></path></svg></button>
+              <button class="d-fc-btn next" id="vpfcNext" aria-label="Next"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg></button>
+              <div class="d-fc-dots" id="vpfcDots">
+                <button class="d-fc-dot on" aria-label="Slide 1"></button>
+                <button class="d-fc-dot" aria-label="Slide 2"></button>
+                <button class="d-fc-dot" aria-label="Slide 3"></button>
+              </div>
+            </div>
+            <div class="d-fc-cap" id="vpfcCap">Trade Calculator</div>
+          </div>
         </div>
-      </section>
+      </div><!-- /vp-eright -->
+      </div><!-- /vp-esplit -->
+
+      <script>
+      (function(){
+        var i=0,n=3,caps=['Trade Calculator','Team Review','Advanced Stats'];
+        var track=document.getElementById('vpfcTrack');
+        if(!track) return;
+        var cap=document.getElementById('vpfcCap'),prev=document.getElementById('vpfcPrev'),next=document.getElementById('vpfcNext');
+        var dots=document.querySelectorAll('#vpfcDots .d-fc-dot');
+        function upd(){track.style.transform='translateX(-'+(i*100)+'%)';if(cap)cap.textContent=caps[i];if(prev)prev.disabled=(i===0);if(next)next.disabled=(i===n-1);dots.forEach(function(d,k){d.classList.toggle('on',k===i);});}
+        if(prev)prev.addEventListener('click',function(){i=Math.max(0,i-1);upd();});
+        if(next)next.addEventListener('click',function(){i=Math.min(n-1,i+1);upd();});
+        dots.forEach(function(d,k){d.addEventListener('click',function(){i=k;upd();});});
+        setInterval(function(){i=(i+1)%n;upd();},4200);
+        upd();
+      })();
+      </script>
 
       </div><!-- /vp-view-connect -->
 
