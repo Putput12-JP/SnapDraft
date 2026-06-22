@@ -16,26 +16,43 @@
    {
      "season": "2026", "week": 1, "generated": "2026-09-03T09:00:00Z",
      "players": { "<sleeperId>": { "sources": { "sleeper": 18.4, "espn": 17.9,
-                  "cbs": 18.1, "nfl": 17.6, "draftkings": 19.0 } } },
-     "dvp": { "BUF": { "QB": {"fpa":16.8,"rank":9}, "RB": {...}, ... }, ... }
+                  "cbs": 18.1, "nfl": 17.6, "draftkings": 19.0 },
+                  "stats": { "pass_yd": 262, "pass_td": 1.9, ... } } },
+     "dvp": { "BUF": { "QB": {"fpa":16.8,"rank":9}, "RB": {...}, ... }, ... },
+     "vegas_teams": { "BUF": { "total": 25.6, "preseason": 26.46, "live": 25.1,
+                  "source": "blend", "env": 0.12 }, ... },
+     "vegas_players": { "<sleeperId>": { "pos": "WR", "rank": 1,
+                  "season": { "rec_yd": 1350, "rec_td": 8.5 } }, ... },
+     "vegas_meta": { "live_source": "the-odds-api", "blend_weight": 0.33, ... }
    }
+
+   VEGAS (src-vegas.mjs): preseason workbook (vegas-preseason.json) blended with
+   live game lines. `vegas_teams[code].env` is the high/low-total environment
+   modifier the client applies to weekly projections; `vegas_players[id].season`
+   is the market's season-long stat line (anchor for rest-of-season).
+
+   "stats" is the raw projected stat line from Sleeper — the client multiplies
+   it by a league's scoring_settings to reproduce the league-exact projection
+   Sleeper shows in-app (e.g. 6-pt pass TD → Allen 25.2, not pts_ppr 23.8).
 
    SOURCE STATUS (be honest about this — see README):
      • sleeper     ✅ turnkey   — free read API, no key
      • espn        ✅ turnkey   — public read endpoint (no auth for projections)
      • dvp         ✅ turnkey   — COMPUTED from Sleeper stats + schedule (real)
-     • cbs         ⚠️  adapter   — needs a maintained scrape selector
-     • nfl         ⚠️  adapter   — needs a maintained scrape selector
-     • draftkings  ⚠️  salary-implied — DFS salaries, not a true projection
-   Adapters that return {} are simply skipped; the UI shows the sources we
-   actually have and models the rest. Wire a licensed feed (FantasyPros /
-   Sportradar) into one adapter to make all five authoritative.
+     • cbs         ✅ scrape    — CBS weekly projections pages (PPR), markup-dependent
+     • nfl         ✅ scrape    — fantasy.nfl.com projections (std → PPR via Sleeper rec)
+     • draftkings  ✅ dfs       — salary-implied via per-position fit to the slate
+   Scrape adapters are best-effort: if CBS/NFL change their markup the adapter
+   returns {} and that column simply drops out until the selector is updated —
+   nothing else breaks. Wire a licensed feed (FantasyPros / Sportradar) into
+   any adapter to make it contractual instead of markup-dependent.
 
    Requires Node 18+ (global fetch). No npm install needed for the turnkey set.
    ════════════════════════════════════════════════════════════════════════ */
 
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { buildVegas } from './src-vegas.mjs';
 
 const SLEEPER = 'https://api.sleeper.com';
 // Written to <repo>/data/lineup-feed.json (run from repo root, matching the ADP job).
@@ -44,10 +61,18 @@ const SKILL = new Set(['QB', 'RB', 'WR', 'TE']);
 const POS_IDX = { QB: 0, RB: 1, WR: 2, TE: 3 };
 
 const jget = async (url, opts = {}) => {
-  const r = await fetch(url, { headers: { 'user-agent': 'vault-lineup-cron/1.0' }, ...opts });
+  const r = await fetch(url, { headers: { 'user-agent': 'vault-lineup-cron/1.0', ...(opts.headers || {}) }, ...opts });
   if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
   return r.json();
 };
+const tget = async (url) => {
+  const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; vault-lineup-cron/1.0)', 'accept': 'text/html' } });
+  if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
+  return r.text();
+};
+/* team-abbr aliases → Sleeper convention */
+const TEAM_ALIAS = { JAC: 'JAX', WSH: 'WAS', LVR: 'LV', ARZ: 'ARI', HST: 'HOU', BLT: 'BAL', CLV: 'CLE', SL: 'LAR', LA: 'LAR' };
+const fixTeam = t => TEAM_ALIAS[t] || t;
 const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
 
 /* ── 0. current season / week ─────────────────────────────────────────── */
@@ -56,33 +81,51 @@ async function getState() {
   return { season: s.season, week: s.display_week || s.week || s.leg || 1 };
 }
 
-/* ── player id resolver (name+team → sleeperId), built from Sleeper ─────── */
+/* ── player id resolver (name+team → sleeperId), built from Sleeper ───────
+   Two layers: exact "name|team", then unique name-only fallback — team-abbr
+   drift (JAC/JAX, WSH/WAS, traded players) is the #1 scrape matcher killer. */
 async function buildResolver(rows) {
-  // Sleeper projection rows already embed player meta — no 5MB players file needed.
   const map = {}; // "name|team" -> sleeperId
+  const byName = {}; // name -> sleeperId, or false when ambiguous
   for (const row of rows) {
     const pl = row.player || {};
     const id = String(row.player_id);
     const name = norm(`${pl.first_name || ''}${pl.last_name || ''}`);
     const team = (pl.team || row.team || '').toUpperCase();
-    if (name && team) map[`${name}|${team}`] = id;
+    if (!name) continue;
+    if (team) map[`${name}|${team}`] = id;
+    byName[name] = (name in byName && byName[name] !== id) ? false : id;
   }
+  map._byName = byName;
   return map;
 }
+/* resolve with fallback: exact name|team, else unique name-only */
+const rid = (resolver, name, team) => {
+  const n = norm(name);
+  return resolver[`${n}|${fixTeam((team || '').toUpperCase())}`] || resolver._byName[n] || null;
+};
 
 /* ── 1. SLEEPER (consensus) ✅ ────────────────────────────────────────── */
 async function srcSleeper(season, week) {
   const url = `${SLEEPER}/projections/nfl/${season}/${week}?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&order_by=pts_ppr`;
   const rows = await jget(url);
-  const out = {};
+  const out = {}, statlines = {};
   for (const row of rows) {
     const pl = row.player || {};
     if (!SKILL.has(pl.position)) continue;
     const ppr = row.stats?.pts_ppr;
     if (ppr == null) continue;
-    out[String(row.player_id)] = round(ppr);
+    const id = String(row.player_id);
+    out[id] = round(ppr);
+    // raw projected stat line — lets any client re-score with a league's
+    // scoring_settings (projection stat keys match scoring keys by design)
+    const keep = {};
+    for (const k of Object.keys(row.stats || {})) {
+      if (/^(pass_|rush_|rec|fum|bonus_|pts_|st_|kr_|pr_)/.test(k)) keep[k] = round(row.stats[k] * 100) / 100;
+    }
+    statlines[id] = keep;
   }
-  return { values: out, rows };
+  return { values: out, rows, statlines };
 }
 
 /* ── 2. ESPN (free read endpoint) ✅ ──────────────────────────────────────
@@ -106,7 +149,7 @@ async function srcESPN(season, week, resolver) {
       const info = p.player || {};
       const name = norm(info.fullName || '');
       const team = ESPN_TEAM[info.proTeamId] || '';
-      const id = resolver[`${name}|${team}`];
+      const id = rid(resolver, name, team);
       if (!id) continue;
       // find the weekly projection stat entry (statSourceId 1 = projections)
       const wk = (info.stats || []).find(s => s.statSourceId === 1 && s.scoringPeriodId === week);
@@ -177,23 +220,103 @@ async function getSchedule(season) {
   return out;
 }
 
-/* ── 4. CBS / NFL.com adapters ⚠️ (stubs with the real entry points) ──────
-   These have no free JSON API; they need an HTML scrape with a selector that
-   ESPN/CBS change a few times a year, or a licensed feed. Returning {} means
-   the UI simply models that column until you wire it. Replace the body with
-   your scrape (cheerio) or a licensed call and map onto sleeperIds.         */
+/* ── 4a. CBS ✅ scrape — server-rendered weekly projection tables (PPR) ────
+   One page per position. FPTS is the last numeric column of each row.
+   Markup-dependent: if CBS redesigns, this returns {} and the column drops. */
 async function srcCBS(season, week, resolver) {
-  // e.g. fetch a CBS weekly projections page and parse the table, then:
-  //   out[ resolver[`${norm(name)}|${team}`] ] = points;
-  return {}; // TODO: scrape https://www.cbssports.com/fantasy/football/stats/.../projections
+  try {
+    const out = {};
+    for (const pos of ['QB', 'RB', 'WR', 'TE']) {
+      let html;
+      try { html = await tget(`https://www.cbssports.com/fantasy/football/stats/${pos}/${season}/${week}/projections/ppr/`); }
+      catch (e) { warn('cbs:' + pos, e); continue; }
+      const rows = html.split(/<tr[\s>]/).slice(1);
+      for (const row of rows) {
+        const nameM = row.match(/players\/\d+\/[^"']*["'][^>]*>([^<]+)<\/a>/);
+        if (!nameM) continue;
+        const teamM = row.match(/teamAbbr[^>]*>\s*([A-Z]{2,3})/) || row.match(/>\s*([A-Z]{2,3})\s+(?:QB|RB|WR|TE)\s*</);
+        if (!teamM) continue;
+        const nums = [...row.matchAll(/<td[^>]*>\s*(-?\d+(?:\.\d+)?)\s*<\/td>/g)].map(m => parseFloat(m[1]));
+        if (!nums.length) continue;
+        const fpts = nums[nums.length - 1]; // FPTS = last numeric column
+        if (!(fpts > 0) || fpts > 60) continue;
+        const id = rid(resolver, nameM[1], teamM[1]);
+        if (id) out[id] = round(fpts);
+      }
+    }
+    return out;
+  } catch (e) { warn('cbs', e); return {}; }
 }
-async function srcNFL(season, week, resolver) {
-  return {}; // TODO: scrape https://fantasy.nfl.com/research/projections
+
+/* ── 4b. NFL.com ✅ scrape — server-rendered projection tables, paginated ───
+   NFL.com points are standard scoring (0 PPR); we convert to PPR-equivalent
+   by adding Sleeper's projected receptions for the same player, so the
+   column is comparable with the others. */
+async function srcNFL(season, week, resolver, statlines) {
+  try {
+    const out = {};
+    for (let offset = 1; offset <= 201; offset += 25) {
+      let html;
+      try { html = await tget(`https://fantasy.nfl.com/research/projections?offset=${offset}&position=O&sort=projectedPts&statCategory=projectedStats&statSeason=${season}&statType=weekProjectedStats&statWeek=${week}`); }
+      catch (e) { warn('nfl:offset' + offset, e); break; }
+      const rows = html.split(/<tr[\s>]/).slice(1);
+      let hits = 0;
+      for (const row of rows) {
+        const nameM = row.match(/playerName[^"']*["'][^>]*>([^<]+)<\/a>/);
+        const posM = row.match(/<em>\s*(QB|RB|WR|TE)\s*[-–]\s*([A-Z]{2,3})/);
+        let pts = null;
+        const ptsM = row.match(/projected[^>]*>\s*(-?\d+(?:\.\d+)?)\s*</);
+        if (ptsM) pts = parseFloat(ptsM[1]);
+        if (pts == null) { // NFL.com FPTS is reliably the LAST numeric cell of the row
+          const cells = [...row.matchAll(/<td[^>]*>\s*(-?\d+(?:\.\d+)?)\s*<\/td>/g)];
+          if (cells.length) pts = parseFloat(cells[cells.length - 1][1]);
+        }
+        if (!nameM || !posM || pts == null || !(pts > 0) || pts > 60) continue;
+        const id = rid(resolver, nameM[1], posM[2]);
+        if (!id) continue;
+        const rec = (statlines[id] && statlines[id].rec) || 0; // std → PPR
+        out[id] = round(pts + rec);
+        hits++;
+      }
+      if (!hits) break; // past the end of the table
+    }
+    return out;
+  } catch (e) { warn('nfl', e); return {}; }
 }
-/* ── 5. DraftKings ⚠️ (DFS salaries → directional, not a true projection) ─ */
-async function srcDraftKings(season, week, resolver) {
-  // DK publishes salaries via draftgroups; convert salary→implied points if desired.
-  return {}; // TODO: optional — salary-implied estimate only
+
+/* ── 4c. DraftKings ✅ salary-implied — labeled DFS in the UI ─────────────
+   Public lobby + draftables JSON. Salaries aren't projections, so we fit
+   salary → Sleeper points per position (least squares over matched players)
+   and emit the fitted value: "what this salary implies". Honest directional
+   signal — the UI already tags this source DFS. */
+async function srcDraftKings(season, week, resolver, sleeperPts) {
+  try {
+    const lobby = await jget('https://www.draftkings.com/lobby/getcontests?sport=NFL');
+    const groups = lobby.DraftGroups || [];
+    const grp = groups.find(g => g.ContestTypeId === 21 && /featured/i.test(g.DraftGroupTag || '')) || groups.find(g => g.ContestTypeId === 21);
+    if (!grp) return {};
+    const dg = await jget(`https://api.draftkings.com/draftgroups/v1/draftgroups/${grp.DraftGroupId}/draftables?format=json`);
+    const seen = new Set(), byPos = { QB: [], RB: [], WR: [], TE: [] };
+    for (const d of dg.draftables || []) {
+      if (seen.has(d.playerId) || !SKILL.has(d.position)) continue;
+      seen.add(d.playerId);
+      const id = rid(resolver, d.displayName, d.teamAbbreviation || '');
+      if (!id || !d.salary) continue;
+      byPos[d.position].push({ id, salary: d.salary, pts: sleeperPts[id] });
+    }
+    const out = {};
+    for (const pos of Object.keys(byPos)) {
+      const matched = byPos[pos].filter(p => p.pts != null);
+      if (matched.length < 8) continue; // not enough signal to fit
+      const n = matched.length;
+      let sx = 0, sy = 0, sxx = 0, sxy = 0;
+      for (const p of matched) { sx += p.salary; sy += p.pts; sxx += p.salary * p.salary; sxy += p.salary * p.pts; }
+      const den = n * sxx - sx * sx; if (!den) continue;
+      const b = (n * sxy - sx * sy) / den, a = (sy - b * sx) / n;
+      for (const p of byPos[pos]) { const v = a + b * p.salary; if (v > 0.5) out[p.id] = round(v); }
+    }
+    return out;
+  } catch (e) { warn('draftkings', e); return {}; }
 }
 
 /* ── orchestrate ──────────────────────────────────────────────────────── */
@@ -201,25 +324,43 @@ async function main() {
   const { season, week } = await getState();
   log(`Building feed for ${season} week ${week}…`);
 
-  const { values: sleeper, rows } = await srcSleeper(season, week);
+  const { values: sleeper, rows, statlines } = await srcSleeper(season, week);
   const resolver = await buildResolver(rows);
   log(`  sleeper: ${Object.keys(sleeper).length} players`);
 
-  const [espn, cbs, nfl, dk, dvp] = await Promise.all([
+  const [espn, cbs, nfl, dk, dvp, vegas] = await Promise.all([
     srcESPN(season, week, resolver),
     srcCBS(season, week, resolver),
-    srcNFL(season, week, resolver),
-    srcDraftKings(season, week, resolver),
+    srcNFL(season, week, resolver, statlines),
+    srcDraftKings(season, week, resolver, sleeper),
     buildDvP(season, week),
+    buildVegas(season, week, rid, resolver),
   ]);
   log(`  espn: ${Object.keys(espn).length} · cbs: ${Object.keys(cbs).length} · nfl: ${Object.keys(nfl).length} · dk: ${Object.keys(dk).length} · dvp teams: ${dvp ? Object.keys(dvp).length : 0}`);
+  log(`  vegas: ${Object.keys(vegas.vegas_teams).length} teams (${vegas.meta.live_source}, blend ${vegas.meta.blend_weight}) · ${vegas.meta.players_matched}/${vegas.meta.players_total} players`);
+
+  /* sanity gate: a scrape that matched a trickle of players is a broken
+     selector producing garbage — drop the column rather than publish it */
+  const gate = (map, name, min = 25) => {
+    const n = Object.keys(map).length;
+    if (n > 0 && n < min) { log(`  [drop ${name}] only ${n} players matched — selector likely broken`); return {}; }
+    return map;
+  };
+  const espnOk = gate(espn, 'espn'), cbsOk = gate(cbs, 'cbs'), nflOk = gate(nfl, 'nfl'), dkOk = gate(dk, 'draftkings');
 
   // merge per player
   const players = {};
   const put = (map, key) => { for (const id of Object.keys(map)) { (players[id] = players[id] || { sources: {} }).sources[key] = map[id]; } };
-  put(sleeper, 'sleeper'); put(espn, 'espn'); put(cbs, 'cbs'); put(nfl, 'nfl'); put(dk, 'draftkings');
+  put(sleeper, 'sleeper'); put(espnOk, 'espn'); put(cbsOk, 'cbs'); put(nflOk, 'nfl'); put(dkOk, 'draftkings');
+  for (const id of Object.keys(statlines)) if (players[id]) players[id].stats = statlines[id];
 
-  const feed = { season, week, generated: new Date().toISOString(), players, ...(dvp ? { dvp } : {}) };
+  const feed = {
+    season, week, generated: new Date().toISOString(), players,
+    ...(dvp ? { dvp } : {}),
+    vegas_teams: vegas.vegas_teams,
+    vegas_players: vegas.vegas_players,
+    vegas_meta: vegas.meta,
+  };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(feed));
   log(`Wrote ${OUT} — ${Object.keys(players).length} players, ${Math.round(JSON.stringify(feed).length / 1024)}KB`);
