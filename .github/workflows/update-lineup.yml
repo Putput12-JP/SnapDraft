@@ -1,12 +1,15 @@
-# Refresh the Lineup Command projection feed daily.
-# Matches the repo's existing scripts/ + data/ + workflows pattern (like update-adp).
+# Refresh the Lineup Command projection feed.
+# Every 6h as a baseline, plus hourly through the game windows
+# (Thu/Sun/Mon, 13:00–23:00 UTC ≈ 9am–7pm ET) so projections track
+# late-breaking news. Matches the repo's scripts/ + data/ + workflows pattern.
 # Place at: .github/workflows/update-lineup.yml
 
 name: Update Lineup projections
 
 on:
   schedule:
-    - cron: '0 9 * * *'      # 09:00 UTC daily (~5am ET). Edit to retime.
+    - cron: '0 */6 * * *'        # baseline: every 6 hours
+    - cron: '0 13-23 * * 0,1,4'  # hourly during Sun/Mon/Thu game windows
   workflow_dispatch: {}        # manual "Run workflow" button
 
 permissions:
@@ -22,6 +25,11 @@ jobs:
           node-version: '20'
       - name: Build projection feed
         run: node scripts/build-lineup-feed.mjs
+        env:
+          # Optional: live Vegas team totals via The Odds API (markets=spreads,totals).
+          # Add repo secret ODDS_API_KEY to enable. Without it, Vegas falls back to
+          # ESPN's free scoreboard, then to the preseason workbook baseline.
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
       - name: Commit refreshed feed
         run: |
           git config user.name  "github-actions[bot]"
