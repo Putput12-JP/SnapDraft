@@ -4221,6 +4221,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button id="nb-draft" onclick="showPage('draft')">Draft Vault</button>
     <button id="nb-teams" onclick="showPage('teams')">League</button>
     <button id="nb-trade" onclick="showPage('trade')">Calc</button>
+    <button id="nb-betting" onclick="showPage('betting')">Betting</button>
   </div>
 
   <!-- RIGHT cluster -->
@@ -4609,6 +4610,8 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
     </div>
   </div>
 </div>
+
+<div class="page z1" id="page-betting" style="overflow-y:auto" data-screen-label="Betting"></div>
 
 <div class="page z1" id="page-draft" style="overflow-y:auto" data-screen-label="Draft Vault">
   <!-- PAGE HEADER — My Rankings look -->
@@ -10039,6 +10042,7 @@ function showPage(p){
   if(p==='visual'){ renderBoard(); ldInitPage(); }
   if(p==='trade'){ initTrade(); }
   if(p==='myteams'){ initMyTeams(); }
+  if(p==='betting'){ try{ window.initBetting && window.initBetting(); }catch(e){} }
   if(p!=='teams'){ viewTeamIdx=null; }
   // Refresh persistent roster bar (only visible on Draft Vault)
   try { renderRoster(); } catch(e) {}
@@ -24855,5 +24859,8 @@ body .page,body .page.on{background:transparent!important}
 })();
 
 </script>
+<!-- BETTING tab — Game Markets + Player Props comparison grids (reads data/lineup-feed.json) -->
+<script src="betting/betting-data.js"></script>
+<script src="betting/betting-app.js"></script>
 </body>
 </html>
