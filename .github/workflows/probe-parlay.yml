@@ -1,0 +1,24 @@
+# Manually-triggered probe: dumps exactly what your ParlayAPI key can access.
+# Run it from the Actions tab → "Probe ParlayAPI access" → Run workflow,
+# then read the log and paste it back. Reads nothing, writes nothing.
+name: Probe ParlayAPI access
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Probe ParlayAPI
+        run: node scripts/probe-parlay.mjs
+        env:
+          # add repo secret PARLAY_API_KEY (or reuse PROPS_API_KEY)
+          PARLAY_API_KEY: ${{ secrets.PARLAY_API_KEY }}
+          PROPS_API_KEY: ${{ secrets.PROPS_API_KEY }}
+          # optional override if the base URL differs on your plan
+          PARLAY_BASE: ${{ vars.PARLAY_BASE }}
