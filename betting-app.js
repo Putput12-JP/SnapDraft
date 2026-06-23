@@ -9,7 +9,7 @@
   'use strict';
   const F = () => window.VaultBetting;
   let MODEL = null, BOOTED = false, LOADING = false;
-  let view = 'games', tf = 'season', curPos = 'QB', curMarket = 'pass_yd', curGM = 'spread';
+  let view = 'games', tf = 'weekly', curPos = 'QB', curMarket = 'pass_yd', curGM = 'spread';
   let teamFilter = '', searchQ = '';
   let gSort = { key: 'total', dir: -1 }, pSort = { key: 'value', dir: -1 };
 
@@ -134,8 +134,8 @@
         <button data-v="props">Player Props</button>
       </div>
       <div class="bt-seg" id="bt-tfseg" style="display:none">
-        <button class="on" data-tf="season">Season-Long</button>
-        <button data-tf="weekly">Weekly</button>
+        <button class="on" data-tf="weekly">Weekly</button>
+        <button data-tf="season">Season-Long</button>
       </div>
       <span class="bt-tag" id="bt-tftag">GAME MARKETS</span>
       <span class="bt-spacer"></span>
