@@ -30,6 +30,14 @@ jobs:
           # Add repo secret ODDS_API_KEY to enable. Without it, Vegas falls back to
           # ESPN's free scoreboard, then to the preseason workbook baseline.
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          # Optional: weekly PLAYER PROPS + game lines via ParlayAPI (or The Odds API).
+          # ParlayAPI provides BOTH game odds and props from one key — when set, the
+          # feed routes everything through it (10+ books incl. DFS). Dormant if unset.
+          #   ParlayAPI (recommended): set PROPS_API_KEY only — host defaults to
+          #     parlay-api.com (v1 base, X-API-Key header, flat /props endpoint).
+          #   The Odds API instead:    set PROPS_API_HOST=api.the-odds-api.com
+          PROPS_API_KEY: ${{ secrets.PROPS_API_KEY }}
+          PROPS_API_HOST: ${{ vars.PROPS_API_HOST }}
       - name: Commit refreshed feed
         run: |
           git config user.name  "github-actions[bot]"
@@ -39,5 +47,10 @@ jobs:
             echo "No change in feed."
           else
             git commit -m "data: refresh Lineup projections feed"
-            git push
+            # Rebase on the latest main before pushing so overlapping/re-run jobs
+            # never fail with "fetch first" (remote moved ahead). Retry once.
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && break
+              echo "push race, retrying ($i)…"; sleep 3
+            done
           fi
