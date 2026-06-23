@@ -328,16 +328,26 @@ async function main() {
   const resolver = await buildResolver(rows);
   log(`  sleeper: ${Object.keys(sleeper).length} players`);
 
+  // identity map: sleeperId → { name, team, pos } — lets the feed describe its
+  // own Vegas players/props (no 5MB client-side Sleeper fetch needed).
+  const identity = {};
+  for (const row of rows) {
+    const pl = row.player || {};
+    const id = String(row.player_id);
+    const name = `${pl.first_name || ''} ${pl.last_name || ''}`.trim();
+    if (name) identity[id] = { name, team: (pl.team || '').toUpperCase() || null, pos: pl.position || null };
+  }
+
   const [espn, cbs, nfl, dk, dvp, vegas] = await Promise.all([
     srcESPN(season, week, resolver),
     srcCBS(season, week, resolver),
     srcNFL(season, week, resolver, statlines),
     srcDraftKings(season, week, resolver, sleeper),
     buildDvP(season, week),
-    buildVegas(season, week, rid, resolver),
+    buildVegas(season, week, rid, resolver, identity),
   ]);
   log(`  espn: ${Object.keys(espn).length} · cbs: ${Object.keys(cbs).length} · nfl: ${Object.keys(nfl).length} · dk: ${Object.keys(dk).length} · dvp teams: ${dvp ? Object.keys(dvp).length : 0}`);
-  log(`  vegas: ${Object.keys(vegas.vegas_teams).length} teams (${vegas.meta.live_source}, blend ${vegas.meta.blend_weight}) · ${vegas.meta.players_matched}/${vegas.meta.players_total} players`);
+  log(`  vegas: ${Object.keys(vegas.vegas_teams).length} teams (${vegas.meta.live_source}, blend ${vegas.meta.blend_weight}) · ${vegas.meta.players_matched}/${vegas.meta.players_total} players · props: ${vegas.meta.props_players} (${vegas.meta.props_source})`);
 
   /* sanity gate: a scrape that matched a trickle of players is a broken
      selector producing garbage — drop the column rather than publish it */
@@ -358,7 +368,9 @@ async function main() {
     season, week, generated: new Date().toISOString(), players,
     ...(dvp ? { dvp } : {}),
     vegas_teams: vegas.vegas_teams,
+    vegas_games: vegas.vegas_games,
     vegas_players: vegas.vegas_players,
+    vegas_player_props: vegas.vegas_player_props,
     vegas_meta: vegas.meta,
   };
   await mkdir(dirname(OUT), { recursive: true });
