@@ -25380,15 +25380,6 @@ body .page,body .page.on{background:transparent!important}
   /* ── shell ────────────────────────────────────────────────────────────── */
   function shell() {
     return `
-    <div class="bt-head">
-      <div>
-        <div class="bt-eyebrow">Vault · Betting</div>
-        <h1 class="bt-title">Betting</h1>
-        <div class="bt-rule"></div>
-        <div class="bt-sub">Compare every sportsbook on one screen — game spreads &amp; totals, and player props with best-price highlighting across the market.</div>
-      </div>
-      <div><span class="bt-live"><span class="bt-dot"></span> <span id="bt-src">VEGAS · loading…</span></span></div>
-    </div>
     <div class="bt-bar">
       <div class="bt-seg" id="bt-viewseg">
         <button class="on" data-v="games">Game Markets</button>
@@ -25494,7 +25485,7 @@ body .page,body .page.on{background:transparent!important}
     const seg = document.getElementById('bt-posseg');
     seg.style.display = view === 'props' ? 'inline-flex' : 'none';
     seg.innerHTML = ['QB', 'RB', 'WR', 'TE'].map(p => { const on = p === curPos, c = POS_COLOR[p]; return '<button data-p="' + p + '" style="' + (on ? 'color:#06101f;background:' + c + ';border-color:transparent' : 'color:' + c) + '">' + p + '</button>'; }).join('');
-    seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; const mks = F().marketsFor(curPos); curMarket = mks[0].key; renderMkts(); renderProps(); });
+    seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; const mks = F().marketsFor(curPos); curMarket = mks[0].key; renderPosSeg(); renderMkts(); renderProps(); });
   }
   function renderMkts() {
     const el = document.getElementById('bt-mkts');
@@ -25545,7 +25536,7 @@ body .page,body .page.on{background:transparent!important}
       BOOTED = true;
       const m = MODEL.meta || {};
       const src = MODEL.hasLiveProps ? ('props · ' + (m.props_source || 'live')) : (m.live_source && m.live_source !== 'none' ? ('games · ' + m.live_source) : 'preseason workbook');
-      document.getElementById('bt-src').textContent = 'VEGAS · ' + src + ' · ' + MODEL.games.length + ' games · ' + MODEL.players.length + ' players';
+      const srcEl = document.getElementById('bt-src'); if (srcEl) srcEl.textContent = 'VEGAS · ' + src + ' · ' + MODEL.games.length + ' games · ' + MODEL.players.length + ' players';
       render();
     } catch (e) {
       host.querySelector('#bt-v-games').innerHTML = '<div class="bt-empty">Couldn\'t load the betting feed.<br>' + (e && e.message ? e.message : '') + '</div>';
