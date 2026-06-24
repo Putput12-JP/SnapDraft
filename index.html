@@ -25272,6 +25272,7 @@ body .page,body .page.on{background:transparent!important}
   let MODEL = null, BOOTED = false, LOADING = false;
   let view = 'games', tf = 'weekly', curPos = 'QB', curMarket = 'pass_yd', curGM = 'spread';
   let teamFilter = '', searchQ = '';
+  let mineOnly = false;
   let gSort = { key: 'total', dir: -1 }, pSort = { key: 'value', dir: -1 };
 
   const POS_COLOR = { QB: 'var(--bt-qb)', RB: 'var(--bt-rb)', WR: 'var(--bt-wr)', TE: 'var(--bt-te)' };
@@ -25397,6 +25398,7 @@ body .page,body .page.on{background:transparent!important}
     <div class="bt-filters" id="bt-filters" style="display:none">
       <input id="bt-search" class="bt-in" type="text" placeholder="Search player…" autocomplete="off">
       <select id="bt-team" class="bt-in"></select>
+      <button id="bt-mine" class="bt-in" style="cursor:pointer">My Players</button>
       <span class="bt-count" id="bt-count"></span>
     </div>
     <div class="bt-view on" id="bt-v-games"></div>
@@ -25449,6 +25451,7 @@ body .page,body .page.on{background:transparent!important}
   function renderProps() {
     const fb = F(), m = fb.MARKET_BY_KEY[curMarket];
     let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
+    if (mineOnly) { try { const mine = new Set((typeof getMyRoster==='function'?getMyRoster():[]).map(String)); rows = rows.filter(r => r.id && mine.has(String(r.id))); } catch(e){} }
     const k = pSort.key;
     rows.sort((a, b) => k === 'name' ? pSort.dir * a.name.localeCompare(b.name)
       : k === 'bestover' ? pSort.dir * (((a.best.over && a.best.over.price) ?? -Infinity) - ((b.best.over && b.best.over.price) ?? -Infinity))
@@ -25462,10 +25465,13 @@ body .page,body .page.on{background:transparent!important}
       const qBy = {}; (r.quotes || []).forEach(q => qBy[q.book] = q);
       const cells = books.map(b => {
         const q = qBy[b]; if (!q) return '<td class="bt-bc"><span class="bt-bcell na">–</span></td>';
+        if (q.over == null && q.under == null && q.line != null) return '<td class="bt-bc bt-pickem' + (b === bo ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o">' + q.line + '</span></div></td>';
         if (isProb) return '<td class="bt-bc' + (b === bo ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === bo ? ' best' : '') + '">' + fb.fmtOdds(q.over) + '</span></div></td>';
         return '<td class="bt-bc' + ((b === bo || b === bu) ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === bo ? ' best' : '') + '">o ' + fb.fmtOdds(q.over) + '</span><span class="u' + (b === bu ? ' best' : '') + '">u ' + fb.fmtOdds(q.under) + '</span></div></td>';
       }).join('');
-      const bestBlock = '<div class="bt-best"><div class="row"><span class="sd">O</span><span class="pr over">' + (r.best.over ? fb.fmtOdds(r.best.over.price) : '—') + '</span><span class="bk">' + (bo || '') + '</span></div>' +
+      const bestBlock = (r.over == null && r.under == null && r.line != null)
+        ? '<div class="bt-best bt-pickem"><div class="row"><span class="pr over">' + r.line + '</span><span class="bk">' + (r.book || 'PrizePicks') + '</span></div></div>'
+        : '<div class="bt-best"><div class="row"><span class="sd">O</span><span class="pr over">' + (r.best.over ? fb.fmtOdds(r.best.over.price) : '—') + '</span><span class="bk">' + (bo || '') + '</span></div>' +
         (isProb ? '' : '<div class="row"><span class="sd">U</span><span class="pr">' + (r.best.under ? fb.fmtOdds(r.best.under.price) : '—') + '</span><span class="bk">' + (bu || '') + '</span></div>') + '</div>';
       return '<tr><td class="c0"><span class="bt-rank">' + (i + 1) + '</span></td>' +
         '<td class="c1 lft"><div class="bt-pl"><span class="bt-av" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span><div><div class="bt-name">' + r.name + '</div><div class="bt-pl-line"><span class="bt-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span>' + (r.team ? '<span>' + r.team + '</span>' : '') + (showOpp && r.opp ? '<span>vs ' + r.opp + '</span>' : '') + (r.modeled ? ' <span class="bt-proj">PROJ</span>' : '') + '</div></div></div></td>' +
@@ -25504,6 +25510,8 @@ body .page,body .page.on{background:transparent!important}
       sel.dataset.built = '1';
       sel.onchange = () => { teamFilter = sel.value; renderProps(); };
       document.getElementById('bt-search').oninput = e => { searchQ = e.target.value; renderProps(); };
+      const mineBtn = document.getElementById('bt-mine');
+      if (mineBtn) mineBtn.onclick = () => { mineOnly = !mineOnly; mineBtn.style.color = mineOnly ? '#06101f' : ''; mineBtn.style.background = mineOnly ? 'var(--bt-accent2)' : ''; mineBtn.style.borderColor = mineOnly ? 'transparent' : ''; mineBtn.style.fontWeight = mineOnly ? '700' : ''; renderProps(); };
     }
   }
   function renderNote() {
