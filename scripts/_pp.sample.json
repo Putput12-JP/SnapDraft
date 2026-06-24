@@ -1,0 +1,19 @@
+{
+  "data": [
+    {"type":"projection","id":"p1","attributes":{"stat_type":"Pass Yards","line_score":284.5,"odds_type":"standard","start_time":"2026-09-13T17:00:00Z","description":"BAL"},"relationships":{"new_player":{"data":{"id":"pp_mahomes"}}}},
+    {"type":"projection","id":"p2","attributes":{"stat_type":"Pass TDs","line_score":1.5,"odds_type":"standard","start_time":"2026-09-13T17:00:00Z","description":"BAL"},"relationships":{"new_player":{"data":{"id":"pp_mahomes"}}}},
+    {"type":"projection","id":"p2b","attributes":{"stat_type":"Pass Yards","line_score":259.5,"odds_type":"demon","start_time":"2026-09-13T17:00:00Z"},"relationships":{"new_player":{"data":{"id":"pp_mahomes"}}}},
+    {"type":"projection","id":"p3","attributes":{"stat_type":"Receiving Yards","line_score":92.5,"odds_type":"standard","start_time":"2026-09-13T20:25:00Z","description":"vs DET"},"relationships":{"new_player":{"data":{"id":"pp_jjettas"}}}},
+    {"type":"projection","id":"p4","attributes":{"stat_type":"Receptions","line_score":6.5,"odds_type":"standard"},"relationships":{"new_player":{"data":{"id":"pp_jjettas"}}}},
+    {"type":"projection","id":"p5","attributes":{"stat_type":"Rush+Rec Yards","line_score":108.5,"odds_type":"standard"},"relationships":{"new_player":{"data":{"id":"pp_bijan"}}}},
+    {"type":"projection","id":"p6","attributes":{"stat_type":"Fantasy Score","line_score":18.5,"odds_type":"standard"},"relationships":{"new_player":{"data":{"id":"pp_bijan"}}}},
+    {"type":"projection","id":"p7","attributes":{"stat_type":"Pass Completions","line_score":21.5,"odds_type":"standard"},"relationships":{"new_player":{"data":{"id":"pp_ghost"}}}}
+  ],
+  "included": [
+    {"type":"new_player","id":"pp_mahomes","attributes":{"display_name":"Patrick Mahomes","team":"KC","position":"QB"}},
+    {"type":"new_player","id":"pp_jjettas","attributes":{"display_name":"Justin Jefferson","team":"MIN","position":"WR"}},
+    {"type":"new_player","id":"pp_bijan","attributes":{"display_name":"Bijan Robinson","team":"ATL","position":"RB"}},
+    {"type":"new_player","id":"pp_ghost","attributes":{"display_name":"Nobody Unmatched","team":"FA","position":"QB"}}
+  ],
+  "meta": {"total_pages": 1}
+}
