@@ -25287,12 +25287,12 @@ body .page,body .page.on{background:transparent!important}
   function injectStyles() {
     if (document.getElementById('bt-styles')) return;
     const css = `
-#page-betting{--bt-s1:#0e1626;--bt-s2:#131d30;--bt-s3:#1b2740;--bt-s4:#243352;
-  --bt-border:rgba(123,170,240,0.10);--bt-border2:rgba(123,170,240,0.17);--bt-border3:rgba(123,170,240,0.30);
-  --bt-text:#eaf2fc;--bt-text2:#bdcce2;--bt-muted:#7d8ca3;--bt-faint:#5a6b85;
-  --bt-accent:#2f63c4;--bt-accent2:#7bd0ff;--bt-qb:#ff6680;--bt-rb:#3DCC7A;--bt-wr:#7bd0ff;--bt-te:#f5c842;--bt-gold:#f5c842;--bt-green:#34d17e;
-  --bt-mono:'JetBrains Mono','Space Mono',ui-monospace,monospace;
-  padding:22px 28px 90px;color:var(--bt-text)}
+#page-betting{--bt-s1:var(--s1);--bt-s2:var(--s2);--bt-s3:var(--s3);--bt-s4:var(--s4);
+  --bt-border:var(--border);--bt-border2:var(--border2);--bt-border3:var(--border3);
+  --bt-text:var(--text);--bt-text2:var(--text2);--bt-muted:var(--muted);--bt-faint:var(--muted);
+  --bt-accent:var(--accent);--bt-accent2:var(--accent2);--bt-qb:var(--qb);--bt-rb:var(--rb);--bt-wr:var(--wr);--bt-te:var(--te);--bt-gold:var(--gold);--bt-green:var(--value);
+  --bt-mono:var(--font-mono);
+  padding:22px 28px 90px;color:var(--bt-text);max-width:1320px;margin:0 auto}
 #page-betting .bt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
 #page-betting .bt-eyebrow{font-family:var(--bt-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--bt-accent2);margin-bottom:9px}
 #page-betting .bt-title{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1;margin:0}
@@ -25303,7 +25303,7 @@ body .page,body .page.on{background:transparent!important}
 #page-betting .bt-seg{display:inline-flex;gap:3px;background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:11px;padding:4px}
 #page-betting .bt-seg button{border:none;background:transparent;color:var(--bt-muted);font-size:12.5px;font-weight:600;font-family:inherit;padding:8px 15px;border-radius:8px;cursor:pointer}
 #page-betting .bt-seg button:hover{color:var(--bt-text)}
-#page-betting .bt-seg button.on{background:rgba(77,134,240,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(77,134,240,.45)}
+#page-betting .bt-seg button.on{background:color-mix(in srgb,var(--bt-accent2) 18%,transparent);color:var(--bt-text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bt-accent2) 45%,transparent)}
 #page-betting .bt-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
 #page-betting .bt-tag{font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--bt-gold);border:1px solid rgba(245,200,66,.3);background:rgba(245,200,66,.08);padding:5px 10px;border-radius:7px}
 #page-betting .bt-spacer{flex:1}
@@ -25312,10 +25312,15 @@ body .page,body .page.on{background:transparent!important}
 #page-betting .bt-mkts{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
 #page-betting .bt-mkts button{font-size:12.5px;font-weight:600;color:var(--bt-muted);background:var(--bt-s1);border:1px solid var(--bt-border);padding:8px 16px;border-radius:9px;cursor:pointer}
 #page-betting .bt-mkts button:hover{color:var(--bt-text);border-color:var(--bt-border3)}
-#page-betting .bt-mkts button.on{color:#06101f;background:var(--bt-accent2);border-color:transparent;font-weight:700}
+#page-betting .bt-mkts button.on{color:var(--on-primary);background:var(--bt-accent2);border-color:transparent;font-weight:700}
 #page-betting .bt-filters{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
 #page-betting .bt-in{font-family:var(--bt-mono);font-size:12px;color:var(--bt-text);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:9px;padding:9px 13px;outline:none}
 #page-betting .bt-in:focus{border-color:var(--bt-border3)}
+#page-betting .bt-grow{flex:1 1 auto;min-width:150px}
+#page-betting select.bt-mkt{-webkit-appearance:none;-moz-appearance:none;appearance:none;font-family:var(--font-sans);font-size:12.5px;font-weight:600;color:var(--bt-text);background-color:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:9px;padding:9px 32px 9px 14px;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5l3.5 3.5 3.5-3.5' fill='none' stroke='%238a93a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:11px}
+#page-betting select.bt-mkt:hover{border-color:var(--bt-border3)}
+#page-betting select.bt-mkt option{font-family:var(--font-sans);color:var(--bt-text);background:var(--bt-s1)}
+#page-betting #bt-mktwrap{display:inline-flex}
 #page-betting select.bt-in{cursor:pointer}
 #page-betting .bt-count{font-family:var(--bt-mono);font-size:10.5px;color:var(--bt-muted)}
 #page-betting .bt-view{display:none}#page-betting .bt-view.on{display:block}
@@ -25373,7 +25378,66 @@ body .page,body .page.on{background:transparent!important}
 #page-betting .bt-bcell .o,#page-betting .bt-bcell .u{font-size:11px;color:var(--bt-text2)}
 #page-betting .bt-bcell .o.best,#page-betting .bt-bcell .u.best{color:var(--bt-green);font-weight:700}
 #page-betting .bt-bcell.na{color:var(--bt-faint);font-size:14px}
-#page-betting .bt-empty{padding:50px;text-align:center;color:var(--bt-muted);font-family:var(--bt-mono);font-size:13px}`;
+#page-betting .bt-empty{padding:50px;text-align:center;color:var(--bt-muted);font-family:var(--bt-mono);font-size:13px}
+/* ── Vault Pro: game cards ── */
+#page-betting .bt-game{background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:18px;margin-bottom:14px;overflow:hidden}
+#page-betting .bt-gh{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 24px 16px;border-bottom:1px solid var(--bt-border)}
+#page-betting .bt-team{display:flex;align-items:center;gap:13px;width:250px}
+#page-betting .bt-team.r{flex-direction:row-reverse;text-align:right}
+#page-betting .bt-logo{width:46px;height:46px;border-radius:13px;background:var(--bt-s3);border:1px solid var(--bt-border2);display:flex;align-items:center;justify-content:center;font:800 14px var(--font-sans);flex:none;position:relative;overflow:hidden}
+#page-betting .bt-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:6px}
+#page-betting .bt-tn{font-size:17px;font-weight:700;letter-spacing:-.01em}
+#page-betting .bt-trow{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted);margin-top:3px}
+#page-betting .bt-trow .imp{color:var(--bt-accent2);font-weight:700}
+#page-betting .bt-center{text-align:center;flex:1;min-width:150px}
+#page-betting .bt-when{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);letter-spacing:.1em;text-transform:uppercase}
+#page-betting .bt-wp{max-width:260px;margin:9px auto 0}
+#page-betting .bt-wpl{display:flex;justify-content:space-between;font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);margin-bottom:6px;white-space:nowrap}
+#page-betting .bt-wpl b{color:var(--bt-text);font-size:11px}
+#page-betting .bt-wbar{height:6px;border-radius:5px;background:var(--bt-s4);position:relative;overflow:hidden}
+#page-betting .bt-wbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--bt-accent),var(--bt-accent2));border-radius:5px}
+#page-betting .bt-cmpwrap{overflow-x:auto}
+#page-betting table.bt-cmp{width:100%;border-collapse:collapse;min-width:560px}
+#page-betting .bt-cmp th{font-family:var(--bt-mono);font-size:9px;letter-spacing:.1em;color:var(--bt-muted);text-transform:uppercase;font-weight:600;padding:11px 6px;text-align:center;border-bottom:1px solid var(--bt-border)}
+#page-betting .bt-cmp th.lft{text-align:left;padding-left:24px;min-width:160px}
+#page-betting .bt-cmp th.bst{color:var(--bt-gold)}
+#page-betting .bt-cmp td{padding:8px 5px;text-align:center;border-bottom:1px solid var(--bt-border)}
+#page-betting .bt-cmp tr:last-child td{border-bottom:none}
+#page-betting .bt-cmp td.side{text-align:left;padding-left:24px}
+#page-betting .bt-sl{display:flex;align-items:center;gap:11px}
+#page-betting .bt-sll{width:30px;height:30px;border-radius:9px;background:var(--bt-s3);border:1px solid var(--bt-border2);display:flex;align-items:center;justify-content:center;font:800 11px var(--font-sans);flex:none;position:relative;overflow:hidden}
+#page-betting .bt-sll img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:4px}
+#page-betting .bt-sn{font-weight:700;font-size:13px}
+#page-betting .bt-smeta{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);margin-top:1px}
+#page-betting .bt-cell{display:inline-flex;flex-direction:column;gap:2px;min-width:48px;padding:6px 8px;border-radius:9px}
+#page-betting .bt-cell .ln{font-family:var(--bt-mono);font-size:13px;font-weight:700;color:var(--bt-text)}
+#page-betting .bt-cell .pr{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted)}
+#page-betting .bt-cell.na{color:var(--bt-muted);font-family:var(--bt-mono);font-size:13px}
+#page-betting .bt-bestcell{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bt-gold) 32%,transparent)}
+#page-betting .bt-bestcell .pr{color:var(--bt-gold)}
+/* ── Vault Pro: prop rows ── */
+#page-betting .bt-prop{display:grid;grid-template-columns:26px 232px 88px 1fr;align-items:center;background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:15px;padding:13px 18px;margin-bottom:9px}
+#page-betting .bt-rk{font-family:var(--bt-mono);font-size:13px;font-weight:700;color:var(--bt-muted)}
+#page-betting .bt-pl2{display:flex;align-items:center;gap:13px;min-width:0}
+#page-betting .bt-hs{width:40px;height:40px;border-radius:11px;background:var(--bt-s3);border:1px solid var(--bt-border2);display:flex;align-items:center;justify-content:center;font:800 12px var(--font-sans);flex:none;position:relative;overflow:hidden}
+#page-betting .bt-hs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
+#page-betting .bt-pn{font-weight:700;font-size:14px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .bt-pm{display:flex;align-items:center;gap:7px;margin-top:3px}
+#page-betting .bt-pm .pb{font-family:var(--bt-mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;border:1px solid}
+#page-betting .bt-pm .tm{font-family:var(--bt-mono);font-size:10.5px;color:var(--bt-muted)}
+#page-betting .bt-pj{font-family:var(--bt-mono);font-size:8px;letter-spacing:.06em;color:var(--bt-gold);border:1px solid color-mix(in srgb,var(--bt-gold) 30%,transparent);background:color-mix(in srgb,var(--bt-gold) 8%,transparent);padding:2px 5px;border-radius:4px}
+#page-betting .bt-pv{text-align:center}
+#page-betting .bt-pv .v{font-family:var(--bt-mono);font-size:21px;font-weight:700;line-height:1;color:var(--bt-text)}
+#page-betting .bt-pv .l{font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted);letter-spacing:.08em;text-transform:uppercase;margin-top:5px}
+#page-betting .bt-obs{display:flex;gap:7px;justify-content:flex-end;overflow-x:auto}
+#page-betting .bt-ob{background:var(--bt-s2);border:1px solid var(--bt-border);border-radius:10px;padding:7px 11px;text-align:center;min-width:56px;flex:none}
+#page-betting .bt-ob.best{border-color:color-mix(in srgb,var(--bt-gold) 36%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
+#page-betting .bt-ob .bk{font-family:var(--bt-mono);font-size:8.5px;letter-spacing:.04em;color:var(--bt-muted);text-transform:uppercase;white-space:nowrap}
+#page-betting .bt-ob .od{font-family:var(--bt-mono);font-size:13px;font-weight:700;margin-top:3px;color:var(--bt-text)}
+#page-betting .bt-ob.best .od{color:var(--bt-gold)}
+#page-betting .bt-ob .sd{font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted);margin-top:1px}
+#page-betting .bt-ob.pk .od{color:var(--bt-accent2)}
+@media(max-width:760px){#page-betting .bt-team{width:auto}#page-betting .bt-prop{grid-template-columns:22px 1fr;row-gap:12px}#page-betting .bt-pv,#page-betting .bt-obs{grid-column:1/-1;justify-content:flex-start}}`;
     const s = document.createElement('style'); s.id = 'bt-styles'; s.textContent = css;
     document.head.appendChild(s);
   }
@@ -25390,16 +25454,16 @@ body .page,body .page.on{background:transparent!important}
         <button class="on" data-tf="weekly">Weekly</button>
         <button data-tf="season">Season-Long</button>
       </div>
-      <div class="bt-pos" id="bt-posseg" style="display:none"></div>
       <span class="bt-tag" id="bt-tftag">GAME MARKETS</span>
       <span class="bt-spacer"></span>
-    </div>
-    <div class="bt-mkts" id="bt-mkts" style="display:none"></div>
-    <div class="bt-filters" id="bt-filters" style="display:none">
-      <input id="bt-search" class="bt-in" type="text" placeholder="Search player…" autocomplete="off">
-      <select id="bt-team" class="bt-in"></select>
-      <button id="bt-mine" class="bt-in" style="cursor:pointer">My Players</button>
       <span class="bt-count" id="bt-count"></span>
+    </div>
+    <div class="bt-bar" id="bt-controls">
+      <span id="bt-mktwrap"></span>
+      <input id="bt-search" class="bt-in bt-grow" type="text" placeholder="Search…" autocomplete="off">
+      <div class="bt-pos" id="bt-posseg" style="display:none"></div>
+      <select id="bt-team" class="bt-in" style="display:none"></select>
+      <button id="bt-mine" class="bt-in" style="cursor:pointer;display:none">My Players</button>
     </div>
     <div class="bt-view on" id="bt-v-games"></div>
     <div class="bt-view" id="bt-v-props"></div>
@@ -25415,35 +25479,51 @@ body .page,body .page.on{background:transparent!important}
     rows.sort((a, b) => gm === 'total' ? gSort.dir * ((a.total.cons ?? -999) - (b.total.cons ?? -999))
       : gm === 'spread' ? gSort.dir * (Math.abs(a.spread.cons?.away ?? 0) - Math.abs(b.spread.cons?.away ?? 0))
       : gSort.dir * (((a.implied.away ?? 0) + (a.implied.home ?? 0)) - ((b.implied.away ?? 0) + (b.implied.home ?? 0))));
-    const thead = '<tr><th class="c0">#</th><th class="c1 lft">Matchup</th><th class="c2 ctr">Line</th><th class="c3 lft">Best Odds</th>' + books.map(b => '<th class="bt-bh">' + b + '</th>').join('') + '</tr>';
-    const body = rows.map((g, i) => {
+    const TN = fb.TEAMNAME || {}, fullName = c => TN[c] || c;
+    if (searchQ) { const q = searchQ.toLowerCase(); rows = rows.filter(g => (g.away + ' ' + g.home + ' ' + fullName(g.away) + ' ' + fullName(g.home)).toLowerCase().includes(q)); }
+    const gmLabel = (GM_TABS.find(t => t[0] === gm) || ['', ''])[1];
+    const card = g => {
       const qBy = {}; (g[gm].quotes || []).forEach(q => qBy[q.book] = q);
-      const best = g[gm].best || {}; let bestBlock = '', cells = '', lineCell = '';
+      const best = g[gm].best || {};
+      const ia = g.implied && g.implied.away, ih = g.implied && g.implied.home;
+      const wpA = (ia != null && ih != null && (ia + ih) > 0) ? Math.round(ia / (ia + ih) * 100) : null;
+      const row = (code, name, meta, priceOf, bestBook) => {
+        const bestPrice = (bestBook != null && qBy[bestBook]) ? priceOf(qBy[bestBook]) : null;
+        const cells = books.map(b => {
+          const q = qBy[b]; const p = q ? priceOf(q) : null;
+          if (p == null) return '<td><span class="bt-cell na">–</span></td>';
+          return '<td><span class="bt-cell' + (b === bestBook ? ' bt-bestcell' : '') + '"><span class="ln">' + fb.fmtOdds(p) + '</span></span></td>';
+        }).join('');
+        const badge = code ? '<span class="bt-sll" data-logo="' + code + '"></span>' : '<span class="bt-sll">' + name.charAt(0) + '</span>';
+        const bestCell = '<td><span class="bt-cell bt-bestcell"><span class="ln">' + (bestPrice != null ? fb.fmtOdds(bestPrice) : '—') + '</span><span class="pr">' + (bestBook || '—') + '</span></span></td>';
+        return '<tr><td class="side"><div class="bt-sl">' + badge + '<div><div class="bt-sn">' + name + '</div><div class="bt-smeta">' + meta + '</div></div></div></td>' + bestCell + cells + '</tr>';
+      };
+      let body;
       if (gm === 'total') {
-        const bo = best.over && best.over.book, bu = best.under && best.under.book;
-        lineCell = '<span class="bt-line-v">' + (g.total.cons != null ? g.total.cons : '—') + '</span><div class="bt-line-sub">O / U</div>';
-        bestBlock = '<div class="bt-best"><div class="row"><span class="sd">O</span><span class="pr over">' + (best.over ? fb.fmtOdds(best.over.price) : '—') + '</span><span class="bk">' + (bo || '') + '</span></div><div class="row"><span class="sd">U</span><span class="pr">' + (best.under ? fb.fmtOdds(best.under.price) : '—') + '</span><span class="bk">' + (bu || '') + '</span></div></div>';
-        cells = books.map(b => { const q = qBy[b]; if (!q) return '<td class="bt-bc"><span class="bt-bcell na">–</span></td>'; return '<td class="bt-bc' + ((b === bo || b === bu) ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === bo ? ' best' : '') + '">o ' + fb.fmtOdds(q.over) + '</span><span class="u' + (b === bu ? ' best' : '') + '">u ' + fb.fmtOdds(q.under) + '</span></div></td>'; }).join('');
+        const ln = g.total.cons != null ? g.total.cons : '';
+        body = row(null, 'Over', 'Total ' + ln, q => q.over, best.over && best.over.book)
+             + row(null, 'Under', 'Total ' + ln, q => q.under, best.under && best.under.book);
       } else if (gm === 'spread') {
-        const ba = best.away && best.away.book, bh = best.home && best.home.book;
-        const favLine = g.spread.fav === g.away ? g.spread.cons?.away : g.spread.cons?.home;
-        lineCell = '<span class="bt-line-v">' + (g.spread.fav || '') + ' ' + sline(favLine != null ? round05(favLine) : null) + '</span><div class="bt-line-sub">SPREAD</div>';
-        bestBlock = '<div class="bt-best"><div class="row"><span class="sd">' + g.away + '</span><span class="pr over">' + (best.away ? fb.fmtOdds(best.away.price) : '—') + '</span><span class="bk">' + (ba || '') + '</span></div><div class="row"><span class="sd">' + g.home + '</span><span class="pr">' + (best.home ? fb.fmtOdds(best.home.price) : '—') + '</span><span class="bk">' + (bh || '') + '</span></div></div>';
-        cells = books.map(b => { const q = qBy[b]; if (!q || !q.away) return '<td class="bt-bc"><span class="bt-bcell na">–</span></td>'; return '<td class="bt-bc' + ((b === ba || b === bh) ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === ba ? ' best' : '') + '">' + fb.fmtOdds(q.away.price) + '</span><span class="u' + (b === bh ? ' best' : '') + '">' + fb.fmtOdds(q.home.price) + '</span></div></td>'; }).join('');
+        const sa = g.spread.cons ? round05(g.spread.cons.away) : null, sh = g.spread.cons ? round05(g.spread.cons.home) : null;
+        body = row(g.away, fullName(g.away), 'Spread ' + sline(sa), q => q.away && q.away.price, best.away && best.away.book)
+             + row(g.home, fullName(g.home), 'Spread ' + sline(sh), q => q.home && q.home.price, best.home && best.home.book);
       } else {
-        const ba = best.away && best.away.book, bh = best.home && best.home.book;
-        lineCell = '<span class="bt-line-v" style="color:var(--bt-muted)">—</span><div class="bt-line-sub">ML</div>';
-        bestBlock = '<div class="bt-best"><div class="row"><span class="sd">' + g.away + '</span><span class="pr over">' + (best.away ? fb.fmtOdds(best.away.price) : '—') + '</span><span class="bk">' + (ba || '') + '</span></div><div class="row"><span class="sd">' + g.home + '</span><span class="pr">' + (best.home ? fb.fmtOdds(best.home.price) : '—') + '</span><span class="bk">' + (bh || '') + '</span></div></div>';
-        cells = books.map(b => { const q = qBy[b]; if (!q) return '<td class="bt-bc"><span class="bt-bcell na">–</span></td>'; return '<td class="bt-bc' + ((b === ba || b === bh) ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === ba ? ' best' : '') + '">' + fb.fmtOdds(q.away) + '</span><span class="u' + (b === bh ? ' best' : '') + '">' + fb.fmtOdds(q.home) + '</span></div></td>'; }).join('');
+        body = row(g.away, fullName(g.away), 'Moneyline', q => q.away, best.away && best.away.book)
+             + row(g.home, fullName(g.home), 'Moneyline', q => q.home, best.home && best.home.book);
       }
-      return '<tr><td class="c0"><span class="bt-rank">' + (i + 1) + '</span></td>' +
-        '<td class="c1 lft"><div class="bt-pl"><span class="bt-av team sm" data-logo="' + g.away + '"></span><span class="bt-av team sm" data-logo="' + g.home + '"></span><div style="margin-left:2px"><div class="bt-name">' + g.away + ' <span class="bt-vs">@</span> ' + g.home + '</div><div class="bt-pl-line"><b>' + (g.implied.away != null ? g.implied.away : '—') + '</b> / <b>' + (g.implied.home != null ? g.implied.home : '—') + '</b> implied' + (g.sample ? ' <span class="bt-proj">SAMPLE</span>' : '') + '</div></div></div></td>' +
-        '<td class="c2 ctr">' + lineCell + '</td><td class="c3 lft">' + bestBlock + '</td>' + cells + '</tr>';
-    }).join('');
+      const head = '<thead><tr><th class="lft">' + gmLabel + ' · ' + books.length + ' books</th><th class="bst">Best</th>' + books.map(b => '<th>' + b + '</th>').join('') + '</tr></thead>';
+      const wp = wpA != null ? '<div class="bt-wp"><div class="bt-wpl"><span>' + g.away + ' <b>' + wpA + '%</b></span><span>WIN PROB</span><span><b>' + (100 - wpA) + '%</b> ' + g.home + '</span></div><div class="bt-wbar"><i style="width:' + wpA + '%"></i></div></div>' : '';
+      const teamSide = (code, right) => '<div class="bt-team' + (right ? ' r' : '') + '"><span class="bt-logo" data-logo="' + code + '"></span><div><div class="bt-tn">' + fullName(code) + '</div><div class="bt-trow">' + ((code === g.away ? ia : ih) != null ? '<span class="imp">' + (code === g.away ? ia : ih) + '</span> imp' : code) + (g.sample ? ' · <span class="bt-pj">SAMPLE</span>' : '') + '</div></div></div>';
+      const when = g.slot || (g.sample ? 'Sample line' : 'Matchup');
+      return '<div class="bt-game"><div class="bt-gh">' + teamSide(g.away, false) +
+        '<div class="bt-center"><div class="bt-when">' + when + '</div>' + wp + '</div>' +
+        teamSide(g.home, true) + '</div>' +
+        '<div class="bt-cmpwrap"><table class="bt-cmp">' + head + '<tbody>' + body + '</tbody></table></div></div>';
+    };
     document.getElementById('bt-v-games').innerHTML =
       (MODEL.gamesSample ? '<div class="bt-banner"><b class="lab">Sample slate</b><span>Off-season — no live game lines yet. Spreads &amp; totals are math-consistent with the real implied team totals; matchups, prices &amp; books are illustrative. Live book lines replace this each week.</span></div>' : '') +
-      '<div class="bt-wrap bt-grid"><table class="bt-t"><thead>' + thead + '</thead><tbody>' + body + '</tbody></table></div>';
-    document.querySelectorAll('#bt-v-games th[data-k]').forEach(th => th.onclick = () => { const k = th.dataset.k; if (gSort.key === k) gSort.dir *= -1; else gSort = { key: k, dir: -1 }; renderGames(); });
+      rows.map(card).join('');
+    const _cnt = document.getElementById('bt-count'); if (_cnt) _cnt.textContent = rows.length + ' games · ' + books.length + ' books';
     paintLogos('#bt-v-games');
   }
 
@@ -25457,67 +25537,73 @@ body .page,body .page.on{background:transparent!important}
       : k === 'bestover' ? pSort.dir * (((a.best.over && a.best.over.price) ?? -Infinity) - ((b.best.over && b.best.over.price) ?? -Infinity))
       : pSort.dir * ((a[k] ?? -Infinity) - (b[k] ?? -Infinity)));
     const books = fb.bookColumns(MODEL), col = POS_COLOR[curPos], isProb = m.kind === 'prob', showOpp = tf === 'weekly';
-    const thead = '<tr><th class="c0">#</th><th class="c1 lft">Player</th><th class="c2 ctr">Line</th><th class="c3 lft">Best Odds</th>' + books.map(b => '<th class="bt-bh">' + b + '</th>').join('') + '</tr>';
     const body = rows.length ? rows.map((r, i) => {
       const init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const lineTxt = isProb ? (r.prob != null ? Math.round(r.prob * 100) + '%' : '—') : (r.line != null ? r.line : '—');
-      const bo = r.best.over && r.best.over.book, bu = r.best.under && r.best.under.book;
+      const pickem = r.over == null && r.under == null && r.line != null;
+      const bo = r.best.over && r.best.over.book;
       const qBy = {}; (r.quotes || []).forEach(q => qBy[q.book] = q);
-      const cells = books.map(b => {
-        const q = qBy[b]; if (!q) return '<td class="bt-bc"><span class="bt-bcell na">–</span></td>';
-        if (q.over == null && q.under == null && q.line != null) return '<td class="bt-bc bt-pickem' + (b === bo ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o">' + q.line + '</span></div></td>';
-        if (isProb) return '<td class="bt-bc' + (b === bo ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === bo ? ' best' : '') + '">' + fb.fmtOdds(q.over) + '</span></div></td>';
-        return '<td class="bt-bc' + ((b === bo || b === bu) ? ' hasbest' : '') + '"><div class="bt-bcell"><span class="o' + (b === bo ? ' best' : '') + '">o ' + fb.fmtOdds(q.over) + '</span><span class="u' + (b === bu ? ' best' : '') + '">u ' + fb.fmtOdds(q.under) + '</span></div></td>';
-      }).join('');
-      const bestBlock = (r.over == null && r.under == null && r.line != null)
-        ? '<div class="bt-best bt-pickem"><div class="row"><span class="pr over">' + r.line + '</span><span class="bk">' + (r.book || 'PrizePicks') + '</span></div></div>'
-        : '<div class="bt-best"><div class="row"><span class="sd">O</span><span class="pr over">' + (r.best.over ? fb.fmtOdds(r.best.over.price) : '—') + '</span><span class="bk">' + (bo || '') + '</span></div>' +
-        (isProb ? '' : '<div class="row"><span class="sd">U</span><span class="pr">' + (r.best.under ? fb.fmtOdds(r.best.under.price) : '—') + '</span><span class="bk">' + (bu || '') + '</span></div>') + '</div>';
-      return '<tr><td class="c0"><span class="bt-rank">' + (i + 1) + '</span></td>' +
-        '<td class="c1 lft"><div class="bt-pl"><span class="bt-av" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span><div><div class="bt-name">' + r.name + '</div><div class="bt-pl-line"><span class="bt-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span>' + (r.team ? '<span>' + r.team + '</span>' : '') + (showOpp && r.opp ? '<span>vs ' + r.opp + '</span>' : '') + (r.modeled ? ' <span class="bt-proj">PROJ</span>' : '') + '</div></div></div></td>' +
-        '<td class="c2 ctr"><span class="bt-line-v">' + lineTxt + '</span></td><td class="c3 lft">' + bestBlock + '</td>' + cells + '</tr>';
-    }).join('') : '<tr><td class="c0">–</td><td class="c1 lft" colspan="' + (books.length + 3) + '"><div class="bt-empty">No players match these filters.</div></td></tr>';
+      let boxes;
+      if (pickem) {
+        boxes = '<div class="bt-ob best pk"><div class="bk">' + (r.book || 'PP') + '</div><div class="od">' + r.line + '</div><div class="sd">PICK</div></div>';
+      } else {
+        boxes = books.map(b => { const q = qBy[b]; if (!q || q.over == null) return ''; return '<div class="bt-ob' + (b === bo ? ' best' : '') + '"><div class="bk">' + b + '</div><div class="od">' + fb.fmtOdds(q.over) + '</div><div class="sd">OVER</div></div>'; }).join('');
+        if (!isProb && r.best.under) boxes += '<div class="bt-ob"><div class="bk">Best U</div><div class="od">' + fb.fmtOdds(r.best.under.price) + '</div><div class="sd">UNDER</div></div>';
+      }
+      const hs = '<span class="bt-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>';
+      const meta = '<span class="pb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span>' + (r.team ? '<span class="tm">' + r.team + (showOpp && r.opp ? ' · vs ' + r.opp : '') + '</span>' : '') + (r.modeled ? '<span class="bt-pj">PROJ</span>' : '');
+      return '<div class="bt-prop"><div class="bt-rk">' + (i + 1) + '</div>' +
+        '<div class="bt-pl2">' + hs + '<div style="min-width:0"><div class="bt-pn">' + r.name + '</div><div class="bt-pm">' + meta + '</div></div></div>' +
+        '<div class="bt-pv"><div class="v">' + lineTxt + '</div><div class="l">' + (r.marketShort || r.marketLabel || '') + '</div></div>' +
+        '<div class="bt-obs">' + boxes + '</div></div>';
+    }).join('') : '<div class="bt-empty">No players match these filters.</div>';
     document.getElementById('bt-v-props').innerHTML =
       (!MODEL.hasLiveProps ? '<div class="bt-banner"><b class="lab">Projected book lines</b><span>No live props feed yet — book prices shown are modeled around each player\'s projected line so you can see the comparison grid. Once props post (ParlayAPI), real book odds replace these automatically.</span></div>' : '') +
-      '<div class="bt-wrap bt-grid"><table class="bt-t"><thead>' + thead + '</thead><tbody>' + body + '</tbody></table></div>';
+      body;
     paintHeadshots('#bt-v-props');
     document.getElementById('bt-count').textContent = rows.length + ' players · ' + books.length + ' books';
   }
 
-  function paintHeadshots(scope) { document.querySelectorAll(scope + ' .bt-av[data-hs]').forEach(av => { if (av.querySelector('img')) return; const u = av.dataset.hs; if (!u) return; const img = document.createElement('img'); img.src = u; img.loading = 'lazy'; img.onerror = () => img.remove(); img.onload = () => { [...av.childNodes].forEach(n => { if (n.nodeType === 3) n.remove(); }); }; av.appendChild(img); }); }
-  function paintLogos(scope) { document.querySelectorAll(scope + ' .bt-av.team').forEach(av => { if (av.querySelector('img')) return; const img = document.createElement('img'); img.src = teamLogo(av.dataset.logo); img.loading = 'lazy'; img.onerror = () => img.remove(); av.appendChild(img); }); }
+  function paintHeadshots(scope) { document.querySelectorAll(scope + ' .bt-hs[data-hs]').forEach(av => { if (av.querySelector('img')) return; const u = av.dataset.hs; if (!u) return; const img = document.createElement('img'); img.src = u; img.loading = 'lazy'; img.onerror = () => img.remove(); img.onload = () => { [...av.childNodes].forEach(n => { if (n.nodeType === 3) n.remove(); }); }; av.appendChild(img); }); }
+  function paintLogos(scope) { document.querySelectorAll(scope + ' [data-logo]').forEach(av => { if (av.querySelector('img')) return; const c = av.dataset.logo; if (!c) return; const img = document.createElement('img'); img.src = teamLogo(c); img.loading = 'lazy'; img.onerror = () => img.remove(); av.appendChild(img); }); }
 
   function renderPosSeg() {
     const seg = document.getElementById('bt-posseg');
     seg.style.display = view === 'props' ? 'inline-flex' : 'none';
-    seg.innerHTML = ['QB', 'RB', 'WR', 'TE'].map(p => { const on = p === curPos, c = POS_COLOR[p]; return '<button data-p="' + p + '" style="' + (on ? 'color:#06101f;background:' + c + ';border-color:transparent' : 'color:' + c) + '">' + p + '</button>'; }).join('');
+    seg.innerHTML = ['QB', 'RB', 'WR', 'TE'].map(p => { const on = p === curPos, c = POS_COLOR[p]; return '<button data-p="' + p + '" style="' + (on ? 'color:var(--on-primary);background:' + c + ';border-color:transparent' : 'color:' + c) + '">' + p + '</button>'; }).join('');
     seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; const mks = F().marketsFor(curPos); curMarket = mks[0].key; renderPosSeg(); renderMkts(); renderProps(); });
   }
   function renderMkts() {
-    const el = document.getElementById('bt-mkts');
-    el.style.display = (view === 'props' || view === 'games') ? 'flex' : 'none';
-    if (view === 'games') { el.innerHTML = GM_TABS.map(([k, l]) => '<button data-gm="' + k + '" class="' + (k === curGM ? 'on' : '') + '">' + l + '</button>').join(''); el.querySelectorAll('button').forEach(b => b.onclick = () => { curGM = b.dataset.gm; renderMkts(); renderGames(); }); return; }
+    const el = document.getElementById('bt-mktwrap');
+    if (view === 'games') {
+      el.innerHTML = '<span class="bt-seg">' + GM_TABS.map(([k, l]) => '<button data-gm="' + k + '" class="' + (k === curGM ? 'on' : '') + '">' + l + '</button>').join('') + '</span>';
+      el.querySelectorAll('button').forEach(b => b.onclick = () => { curGM = b.dataset.gm; renderMkts(); renderGames(); });
+      return;
+    }
     const mks = F().marketsFor(curPos); if (!mks.find(m => m.key === curMarket)) curMarket = mks[0].key;
-    el.innerHTML = mks.map(m => '<button data-mk="' + m.key + '" class="' + (m.key === curMarket ? 'on' : '') + '">' + m.label + '</button>').join('');
-    el.querySelectorAll('button').forEach(b => b.onclick = () => { curMarket = b.dataset.mk; renderMkts(); renderProps(); });
+    el.innerHTML = '<select class="bt-in bt-mkt">' + mks.map(m => '<option value="' + m.key + '"' + (m.key === curMarket ? ' selected' : '') + '>' + m.label + '</option>').join('') + '</select>';
+    el.querySelector('select').onchange = e => { curMarket = e.target.value; renderProps(); };
   }
   function renderFilters() {
-    document.getElementById('bt-filters').style.display = view === 'props' ? 'flex' : 'none';
+    document.getElementById('bt-controls').style.display = 'flex';
     document.getElementById('bt-tfseg').style.display = view === 'props' ? 'inline-flex' : 'none';
-    const sel = document.getElementById('bt-team');
+    const isP = view === 'props';
+    const sel = document.getElementById('bt-team'), mine = document.getElementById('bt-mine');
+    sel.style.display = isP ? '' : 'none';
+    if (mine) mine.style.display = isP ? '' : 'none';
+    document.getElementById('bt-search').placeholder = isP ? 'Search player…' : 'Search team…';
     if (!sel.dataset.built) {
       sel.innerHTML = '<option value="">All teams</option>' + F().teams(MODEL).map(c => '<option value="' + c + '">' + c + '</option>').join('');
       sel.dataset.built = '1';
       sel.onchange = () => { teamFilter = sel.value; renderProps(); };
-      document.getElementById('bt-search').oninput = e => { searchQ = e.target.value; renderProps(); };
-      const mineBtn = document.getElementById('bt-mine');
-      if (mineBtn) mineBtn.onclick = () => { mineOnly = !mineOnly; mineBtn.style.color = mineOnly ? '#06101f' : ''; mineBtn.style.background = mineOnly ? 'var(--bt-accent2)' : ''; mineBtn.style.borderColor = mineOnly ? 'transparent' : ''; mineBtn.style.fontWeight = mineOnly ? '700' : ''; renderProps(); };
+      document.getElementById('bt-search').oninput = e => { searchQ = e.target.value; if (view === 'games') renderGames(); else renderProps(); };
+      if (mine) mine.onclick = () => { mineOnly = !mineOnly; mine.style.color = mineOnly ? 'var(--on-primary)' : ''; mine.style.background = mineOnly ? 'var(--bt-accent2)' : ''; mine.style.borderColor = mineOnly ? 'transparent' : ''; mine.style.fontWeight = mineOnly ? '700' : ''; renderProps(); };
     }
   }
   function renderNote() {
     document.getElementById('bt-note').innerHTML = view === 'games'
       ? '◆ GAME MARKETS — spread, total &amp; implied team scores with the price and book each line is from. Live via ParlayAPI during the season.'
-      : '◆ PLAYER PROPS — every sportsbook side-by-side; best price each side is highlighted green. Real book lines show when props post; until then modeled around the projected line (PROJ).';
+      : '◆ PLAYER PROPS — every sportsbook side-by-side; best price each side is highlighted gold. Real book lines show when props post; until then modeled around the projected line (PROJ).';
   }
   function render() {
     document.getElementById('bt-tftag').textContent = view === 'games' ? 'GAME MARKETS · ' + GM_TABS.find(t => t[0] === curGM)[1].toUpperCase() : (tf === 'season' ? 'SEASON-LONG · ' + (MODEL.season || '') : 'WEEKLY · ' + (MODEL.hasLiveProps ? 'LIVE LINES' : 'PROJECTED'));
