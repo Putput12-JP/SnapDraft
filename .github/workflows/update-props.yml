@@ -1,0 +1,44 @@
+# Pulls free PrizePicks pick'em lines into data/lineup-feed.json (vegas_player_props).
+# Keyless — no secrets needed. Commits the updated feed so GitHub Pages serves it.
+name: Update player props (PrizePicks)
+
+on:
+  workflow_dispatch: {}          # run manually any time from the Actions tab
+  schedule:
+    # Hourly, every day, year-round — the practical max for a free cron that
+    # also rebuilds Pages on each change. Runs at :17 (top-of-hour is GitHub's
+    # most congested/most-skipped slot, so off-the-hour is more reliable).
+    # It only commits when the feed actually changed, so quiet hours are free.
+    - cron: '17 * * * *'
+
+# Let a run cancel an older queued one; allow it to push to the repo.
+concurrency:
+  group: props-feed
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  props:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch PrizePicks props → merge feed
+        run: node scripts/fetch-pickem-props.mjs --feed=data/lineup-feed.json
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/lineup-feed.json; then
+            echo "No prop changes."
+          else
+            git config user.name  "vault-bot"
+            git config user.email "vault-bot@users.noreply.github.com"
+            git add data/lineup-feed.json
+            git commit -m "props: refresh PrizePicks lines [skip ci]"
+            git push
+          fi
