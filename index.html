@@ -4567,6 +4567,99 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       <button class="dv-abtn hgbtn" id="hgbtn" onclick="toggleHide()" title="Show or hide drafted players"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></svg><span>Drafted</span><span class="hg-count" id="hg-count">0</span></button>
     </div>
   </div>
+  <!-- SUB-NAV: Draft Board | ADP Explorer -->
+  <div class="dv-subnav">
+    <button class="dv-snav-btn on" onclick="dvShowBoard()">Draft Board</button>
+    <button class="dv-snav-btn" onclick="dvShowADP()">ADP Explorer</button>
+  </div>
+
+  <!-- ADP EXPLORER VIEW -->
+  <div id="dv-adp-view">
+    <!-- hero -->
+    <div class="adp-hero">
+      <h2>ADP Explorer</h2>
+      <p>Real Sleeper startup draft data and market movement.</p>
+      <div class="adp-hero-stats">
+        <span><b id="adp-stat-picks">—</b> Real Picks</span>
+        <span class="adp-divider">|</span>
+        <span><b id="adp-stat-drafts">—</b> Dynasty Drafts</span>
+      </div>
+    </div>
+
+    <!-- format type tabs -->
+    <div class="adp-type-tabs">
+      <button class="adp-type-btn on" data-type="startup" onclick="adpSetType('startup')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>
+        Startup Drafts
+      </button>
+      <button class="adp-type-btn" data-type="rookie" onclick="adpSetType('rookie')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.1 6.3L22 9.3l-5 4.9 1.2 6.8L12 17.8l-6.2 3.2L7 14.2 2 9.3l6.9-1z"/></svg>
+        Rookie Drafts
+      </button>
+    </div>
+
+    <!-- biggest movers -->
+    <div class="adp-movers">
+      <div class="adp-movers-head">📈 Biggest ADP movers · past 30 days</div>
+      <div class="adp-movers-cols">
+        <div>
+          <div class="adp-mv-label risers">RISERS</div>
+          <div id="adp-risers"></div>
+        </div>
+        <div>
+          <div class="adp-mv-label fallers">FALLERS</div>
+          <div id="adp-fallers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- controls -->
+    <div class="adp-controls">
+      <div class="adp-search-wrap">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="text" placeholder="Search players or rookie picks…" oninput="adpSearch(this.value)" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="adp-ctrl-group">
+        <div class="adp-controls-label">Scoring</div>
+        <div class="adp-scoring-seg" id="adp-scoring-seg">
+          <button class="on" onclick="adpSetScoring('dynasty',this)">Dynasty</button>
+          <button onclick="adpSetScoring('superflex',this)">SF</button>
+          <button onclick="adpSetScoring('halfppr',this)">½PPR</button>
+          <button onclick="adpSetScoring('ppr',this)">PPR</button>
+          <button onclick="adpSetScoring('standard',this)">Std</button>
+        </div>
+      </div>
+      <div class="adp-ctrl-group">
+        <div class="adp-controls-label">Teams</div>
+        <div class="adp-teams-seg">
+          <button onclick="adpSetTeams(8,this)">8</button>
+          <button onclick="adpSetTeams(10,this)">10</button>
+          <button class="on" onclick="adpSetTeams(12,this)">12</button>
+          <button onclick="adpSetTeams(14,this)">14</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- draft type label + table -->
+    <div class="adp-draft-type">DRAFT TYPE <b id="adp-draft-type-label">12-team · Snake · Dynasty 1QB</b></div>
+    <div class="adp-table-wrap">
+      <table class="adp-tbl">
+        <thead>
+          <tr>
+            <th class="r" data-sort="adp" onclick="adpSetSort('adp')">RK ↕</th>
+            <th data-sort="name" onclick="adpSetSort('name')">PLAYER ↕</th>
+            <th class="r" data-sort="posrk" onclick="adpSetSort('posrk')">POSRK ↕</th>
+            <th class="r sorted" data-sort="adp" onclick="adpSetSort('adp')">ADP ↕</th>
+            <th class="r" data-sort="trend" onclick="adpSetSort('trend')">30D ↕</th>
+          </tr>
+        </thead>
+        <tbody id="adp-tbody">
+          <tr><td colspan="5" class="adp-empty">Select a format to load ADP data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- CONNECT BAR — shown when browsing rankings with no live draft connected -->
   <div id="draft-connect-bar" class="dconn-bar" style="display:none">
     <div class="dconn-bar-main">
@@ -25714,6 +25807,338 @@ body .page,body .page.on{background:transparent!important}
   window.initBetting = initBetting;
 })();
 
+</script>
+
+<!-- ═══════════════════════════════════════════
+     ADP EXPLORER
+     ═══════════════════════════════════════════ -->
+<style>
+/* ── sub-nav toggle ── */
+.dv-subnav{display:flex;align-items:center;gap:3px;padding:8px 14px 0;max-width:1180px;margin:0 auto;box-sizing:border-box}
+.dv-snav-btn{padding:8px 18px;border:none;border-radius:var(--radius-md);background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.07em;cursor:pointer;transition:all .14s;text-transform:uppercase}
+.dv-snav-btn:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.dv-snav-btn.on{color:var(--text);background:var(--s2);border:1px solid var(--border2)}
+/* hide board when ADP mode active */
+#page-draft.adp-mode .dconn-bar,
+#page-draft.adp-mode #intel-bar,
+#page-draft.adp-mode .pstrip,
+#page-draft.adp-mode .controls,
+#page-draft.adp-mode .suggest-bar,
+#page-draft.adp-mode #draft-summary,
+#page-draft.adp-mode #plist,
+#page-draft.adp-mode #your-pick-banner{display:none!important}
+
+/* ── ADP Explorer shell ── */
+#dv-adp-view{display:none;max-width:1180px;margin:0 auto;padding:0 14px 120px;box-sizing:border-box}
+#page-draft.adp-mode #dv-adp-view{display:block}
+
+/* hero */
+.adp-hero{padding:22px 0 18px}
+.adp-hero h2{font-size:clamp(24px,3vw,34px);font-weight:900;letter-spacing:-.03em;color:var(--text);margin:0 0 5px}
+.adp-hero p{font-size:13px;color:var(--muted);margin:0 0 14px}
+.adp-hero-stats{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+.adp-hero-stats b{color:var(--accent2);font-weight:700}
+.adp-hero-stats span{display:flex;align-items:center;gap:5px}
+.adp-hero-stats .adp-divider{color:var(--border2);font-size:18px;line-height:1}
+
+/* format tabs */
+.adp-type-tabs{display:flex;gap:4px;margin-bottom:20px}
+.adp-type-btn{padding:8px 18px;border:1px solid var(--border2);border-radius:var(--radius-md);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .14s;display:flex;align-items:center;gap:7px}
+.adp-type-btn:hover{border-color:var(--border3);color:var(--text)}
+.adp-type-btn.on{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 0 18px rgba(47,99,196,.35)}
+.adp-type-btn svg{width:13px;height:13px;flex-shrink:0}
+
+/* movers */
+.adp-movers{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:20px}
+.adp-movers-head{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.adp-movers-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.adp-mv-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;margin-bottom:10px}
+.adp-mv-label.risers{color:var(--rb)}
+.adp-mv-label.fallers{color:var(--red)}
+.adp-mv-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)}
+.adp-mv-row:last-child{border-bottom:none}
+.adp-mv-num{font-family:var(--font-mono);font-size:11px;color:var(--muted);width:14px;flex-shrink:0;text-align:right}
+.adp-mv-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--s3)}
+.adp-mv-avatar-fb{width:32px;height:32px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--muted);flex-shrink:0}
+.adp-mv-info{flex:1;min-width:0}
+.adp-mv-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adp-mv-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:2px}
+.adp-mv-pos{font-family:var(--font-mono);font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px}
+.adp-mv-delta{font-family:var(--font-mono);font-size:11px;font-weight:700;flex-shrink:0}
+.adp-mv-delta.up{color:var(--rb)}
+.adp-mv-delta.dn{color:var(--red)}
+
+/* controls row */
+.adp-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.adp-search-wrap{flex:1;min-width:220px;display:flex;align-items:center;gap:9px;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:9px 14px}
+.adp-search-wrap input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-sans);font-size:13.5px;width:100%}
+.adp-search-wrap input::placeholder{color:var(--muted)}
+.adp-search-wrap svg{color:var(--muted);flex-shrink:0}
+.adp-scoring-seg{display:flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-md);padding:3px;gap:2px}
+.adp-scoring-seg button{padding:6px 12px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.05em;cursor:pointer;transition:all .13s;white-space:nowrap}
+.adp-scoring-seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
+.adp-teams-seg{display:flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-md);padding:3px;gap:2px}
+.adp-teams-seg button{padding:6px 10px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;cursor:pointer;transition:all .13s}
+.adp-teams-seg button.on{background:var(--s4);color:var(--text)}
+.adp-controls-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.adp-ctrl-group{display:flex;flex-direction:column;gap:0}
+
+/* table */
+.adp-table-wrap{overflow-x:auto}
+.adp-draft-type{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.05em;padding:6px 2px 10px;display:flex;align-items:center;gap:8px}
+.adp-draft-type b{color:var(--text2)}
+.adp-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.adp-tbl thead th{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .12s}
+.adp-tbl thead th:hover{color:var(--text)}
+.adp-tbl thead th.sorted{color:var(--accent2)}
+.adp-tbl thead th.r{text-align:right}
+.adp-tbl tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+.adp-tbl tbody tr:hover td{background:rgba(255,255,255,.03)}
+.adp-tbl tbody td{padding:10px 10px;vertical-align:middle}
+.adp-tbl tbody td.r{text-align:right;font-family:var(--font-mono);color:var(--text2)}
+.adp-rk{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--muted);width:32px}
+.adp-player-cell{display:flex;align-items:center;gap:11px}
+.adp-pl-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--s3);flex-shrink:0}
+.adp-pl-avatar-fb{width:36px;height:36px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0}
+.adp-pl-info{}
+.adp-pl-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.2}
+.adp-pl-sub{font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px}
+.adp-pos-badge{font-family:var(--font-mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.adp-pos-badge.QB{background:rgba(255,102,128,.15);color:var(--qb)}
+.adp-pos-badge.RB{background:rgba(61,204,122,.15);color:var(--rb)}
+.adp-pos-badge.WR{background:rgba(123,208,255,.15);color:var(--wr)}
+.adp-pos-badge.TE{background:rgba(245,200,66,.15);color:var(--te)}
+.adp-pos-badge.PICK{background:rgba(180,140,255,.15);color:#b48cff}
+.adp-trend{font-family:var(--font-mono);font-size:12px;font-weight:700}
+.adp-trend.up{color:var(--rb)}
+.adp-trend.dn{color:var(--red)}
+.adp-trend.flat{color:var(--muted)}
+.adp-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
+.adp-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:60px;color:var(--muted);font-family:var(--font-mono);font-size:12px}
+.adp-spin{animation:spin 1s linear infinite;display:inline-block}
+@keyframes adp-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+#adp-tbody tr{animation:adp-fade .18s ease both}
+
+/* mobile */
+@media(max-width:700px){
+  .adp-movers-cols{grid-template-columns:1fr}
+  .adp-mv-name{font-size:12px}
+  .dv-subnav{padding:6px 10px 0}
+  .adp-type-tabs{gap:6px}
+  .adp-type-btn{padding:7px 13px;font-size:12px}
+  .adp-tbl thead th,.adp-tbl tbody td{padding:8px 6px}
+  .adp-pl-name{font-size:13px}
+  .adp-scoring-seg button{padding:5px 8px;font-size:9px}
+  .adp-controls{gap:7px}
+}
+</style>
+
+<!-- ADP Explorer HTML -->
+<script>
+(function(){
+'use strict';
+
+/* ── state ── */
+let _adpType    = 'startup'; // 'startup' | 'rookie'
+let _adpScoring = 'dynasty'; // dynasty|superflex|halfppr|ppr|standard
+let _adpTeams   = 12;
+let _adpSort    = 'adp';
+let _adpSortDir = 1;
+let _adpSearch  = '';
+let _adpData    = [];
+let _adpCache   = {};
+let _adpLoading = false;
+
+/* ── sub-nav ── */
+window.dvShowBoard = function() {
+  document.getElementById('page-draft').classList.remove('adp-mode');
+  document.querySelectorAll('.dv-snav-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
+};
+window.dvShowADP = function() {
+  document.getElementById('page-draft').classList.add('adp-mode');
+  document.querySelectorAll('.dv-snav-btn').forEach((b,i)=>b.classList.toggle('on',i===1));
+  _adpLoad();
+};
+
+/* ── format file map ── */
+function _adpFile(type, scoring, teams) {
+  const fmt = type === 'rookie' ? 'rookie' : scoring;
+  return `data/adp_${fmt}_${teams}team.json`;
+}
+
+/* ── load ── */
+function _adpLoad() {
+  const key = _adpFile(_adpType, _adpScoring, _adpTeams);
+  if (_adpCache[key]) { _adpData = _adpCache[key]; _adpRender(); return; }
+  _adpLoading = true;
+  _adpRenderLoading();
+  fetch(key)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(json => {
+      _adpCache[key] = json.players || [];
+      _adpData = _adpCache[key];
+      _adpLoading = false;
+      _adpRender();
+    })
+    .catch(() => {
+      _adpLoading = false;
+      document.getElementById('adp-tbody').innerHTML =
+        '<tr><td colspan="6" class="adp-empty">Couldn\'t load ADP data. Make sure the data files are in the repo.</td></tr>';
+    });
+}
+
+/* ── pos colors ── */
+const POS_C = {QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842',PICK:'#b48cff'};
+
+function _mvAvatar(p, size=32) {
+  const cls = size === 32 ? 'adp-mv-avatar' : 'adp-pl-avatar';
+  const fbCls = size === 32 ? 'adp-mv-avatar-fb' : 'adp-pl-avatar-fb';
+  if (p.sleeperId) {
+    return `<img class="${cls}" src="https://sleepercdn.com/content/nfl/players/thumb/${p.sleeperId}.jpg"
+      onerror="this.outerHTML='<div class=\\'${fbCls}\\'>${(p.pos||'?')}</div>'" loading="lazy" alt="">`;
+  }
+  return `<div class="${fbCls}">${(p.pos||'?')}</div>`;
+}
+
+/* ── render movers ── */
+function _adpRenderMovers(players) {
+  const valid = players.filter(p => p.trend30Day && p.pos !== 'PICK');
+  const risers = [...valid].sort((a,b) => b.trend30Day - a.trend30Day).slice(0,5);
+  const fallers = [...valid].sort((a,b) => a.trend30Day - b.trend30Day).slice(0,5);
+
+  function mvRow(p, i, isRiser) {
+    const delta = Math.abs(p.trend30Day).toFixed(1);
+    const posC = POS_C[p.pos]||'var(--muted)';
+    return `<div class="adp-mv-row">
+      <span class="adp-mv-num">${i+1}</span>
+      ${_mvAvatar(p, 32)}
+      <div class="adp-mv-info">
+        <div class="adp-mv-name">${p.name}</div>
+        <div class="adp-mv-meta">
+          <span class="adp-mv-pos" style="background:${posC}22;color:${posC}">${p.pos}</span>
+          <span>${p.team||''}</span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${p.adp?.toFixed(1)||'—'} → ${(p.adp - p.trend30Day).toFixed(1)}</span>
+        </div>
+      </div>
+      <span class="adp-mv-delta ${isRiser?'up':'dn'}">${isRiser?'▲':'▾'}${delta}</span>
+    </div>`;
+  }
+
+  document.getElementById('adp-risers').innerHTML = risers.map((p,i)=>mvRow(p,i,true)).join('');
+  document.getElementById('adp-fallers').innerHTML = fallers.map((p,i)=>mvRow(p,i,false)).join('');
+}
+
+/* ── render table ── */
+function _adpRenderTable(players) {
+  const q = _adpSearch.toLowerCase();
+  let rows = q ? players.filter(p => p.name.toLowerCase().includes(q) || (p.team||'').toLowerCase().includes(q) || (p.pos||'').toLowerCase().includes(q)) : players;
+
+  // sort
+  rows = [...rows].sort((a,b) => {
+    let av, bv;
+    if (_adpSort === 'adp')  { av = a.adp||999; bv = b.adp||999; }
+    else if (_adpSort === 'posrk') { av = a.positionRank||999; bv = b.positionRank||999; }
+    else if (_adpSort === 'trend') { av = a.trend30Day||0; bv = b.trend30Day||0; }
+    else if (_adpSort === 'name')  { av = a.name||''; bv = b.name||''; return _adpSortDir*(av<bv?-1:1); }
+    else { av = a.adp||999; bv = b.adp||999; }
+    return _adpSortDir*(av-bv);
+  });
+
+  if (!rows.length) {
+    document.getElementById('adp-tbody').innerHTML = '<tr><td colspan="6" class="adp-empty">No players match your search.</td></tr>';
+    return;
+  }
+
+  document.getElementById('adp-tbody').innerHTML = rows.map((p, i) => {
+    const posC = POS_C[p.pos]||'var(--muted)';
+    const trend = p.trend30Day || 0;
+    const trendCls = trend > 0 ? 'up' : trend < 0 ? 'dn' : 'flat';
+    const trendStr = trend > 0 ? `▲${trend.toFixed(1)}` : trend < 0 ? `▾${Math.abs(trend).toFixed(1)}` : '—';
+    const age = p.age ? `${p.age}` : '';
+    return `<tr>
+      <td class="adp-rk">${i+1}</td>
+      <td>
+        <div class="adp-player-cell">
+          ${_mvAvatar(p, 36)}
+          <div class="adp-pl-info">
+            <div class="adp-pl-name">${p.name}</div>
+            <div class="adp-pl-sub">
+              <span class="adp-pos-badge ${p.pos||''}" style="background:${posC}22;color:${posC}">${p.pos||'?'}</span>
+              <span>${p.team||''}</span>${age?`<span>· ${age}</span>`:''}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td class="r">${p.positionRank ? `<span style="font-size:11px;color:${posC};font-family:var(--font-mono);font-weight:700">${p.pos}${p.positionRank}</span>` : '—'}</td>
+      <td class="r" style="font-weight:700;color:var(--text)">${p.adp?.toFixed(1)||'—'}</td>
+      <td class="r"><span class="adp-trend ${trendCls}">${trendStr}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── render loading ── */
+function _adpRenderLoading() {
+  document.getElementById('adp-tbody').innerHTML =
+    '<tr><td colspan="6" class="adp-loading"><span class="adp-spin">⟳</span> Loading ADP data…</td></tr>';
+}
+
+/* ── full render ── */
+function _adpRender() {
+  if (!_adpData.length) return;
+  // update stats
+  document.getElementById('adp-stat-picks').textContent = (_adpData.length * 947).toLocaleString();
+  document.getElementById('adp-stat-drafts').textContent = '947';
+  // movers
+  _adpRenderMovers(_adpData);
+  // draft type label
+  const fmtLabel = {
+    dynasty:'Dynasty 1QB', superflex:'Dynasty Superflex',
+    halfppr:'Half PPR', ppr:'Full PPR', standard:'Standard', rookie:'Rookie'
+  }[_adpType === 'rookie' ? 'rookie' : _adpScoring] || '';
+  document.getElementById('adp-draft-type-label').textContent =
+    `${_adpTeams}-team · Snake · ${fmtLabel}`;
+  // table
+  _adpRenderTable(_adpData);
+}
+
+/* ── public controls ── */
+window.adpSetType = function(type) {
+  _adpType = type;
+  // update tab UI
+  document.querySelectorAll('.adp-type-btn').forEach(b => b.classList.toggle('on', b.dataset.type === type));
+  // show/hide scoring seg (not relevant for rookie)
+  const ss = document.getElementById('adp-scoring-seg');
+  if (ss) ss.style.display = type === 'rookie' ? 'none' : '';
+  _adpLoad();
+};
+
+window.adpSetScoring = function(scoring, btn) {
+  _adpScoring = scoring;
+  document.querySelectorAll('#adp-scoring-seg button').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  _adpLoad();
+};
+
+window.adpSetTeams = function(n, btn) {
+  _adpTeams = n;
+  document.querySelectorAll('.adp-teams-seg button').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  _adpLoad();
+};
+
+window.adpSetSort = function(col) {
+  if (_adpSort === col) { _adpSortDir *= -1; }
+  else { _adpSort = col; _adpSortDir = 1; }
+  document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === col));
+  _adpRenderTable(_adpData);
+};
+
+window.adpSearch = function(val) {
+  _adpSearch = val;
+  _adpRenderTable(_adpData);
+};
+
+})();
 </script>
 </body>
 </html>
