@@ -4862,7 +4862,7 @@ setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(f
           <th style="text-align:left">Player</th>
           <th class="num-hdr col-hdr-sortable" id="hdr-dynasty" onclick="setSort('dynasty-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Click to sort by Dynasty value (uses current mode: RA / FC / My)">Dynasty <span class="hdr-source-label" id="hdr-dynasty-src">FC</span> <span class="sort-ind" id="ind-dynasty">↓</span></th>
           <th class="num-hdr col-hdr-sortable" id="hdr-redraft" onclick="setSort('redraft-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="FantasyCalc redraft value (1QB)">Redraft <span class="sort-ind" id="ind-redraft">↕</span></th>
-          <th class="num-hdr col-hdr-sortable" id="hdr-adp" onclick="setSort('adp-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="ADP follows your Dynasty/Redraft mode (FantasyFootballCalculator). DYN = 1QB dynasty · SF = Superflex (used when your league starts 2 QBs, so QBs rank early to match your values) · RDR = redraft.">ADP <span class="hdr-source-label" id="hdr-adp-src" style="color:#facc15">DYN</span> <span class="sort-ind" id="ind-adp">↕</span></th>
+          <th class="num-hdr col-hdr-sortable" id="hdr-adp" onclick="setSort('adp-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="ADP follows your Dynasty/Redraft mode (FantasyCalc). DYN = 1QB dynasty · SF = Superflex (used when your league starts 2 QBs, so QBs rank early to match your values) · RDR = redraft.">ADP <span class="hdr-source-label" id="hdr-adp-src" style="color:#facc15">DYN</span> <span class="sort-ind" id="ind-adp">↕</span></th>
           <th class="num-hdr col-hdr-sortable" id="hdr-my" onclick="setSort('my-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Your custom rank from My Rankings (▲/▼ = vs market)">Mine <span class="hdr-source-label src-my" id="hdr-my-src">YOU</span> <span class="sort-ind" id="ind-my">↕</span></th>
           <th id="hdr-status" style="text-align:center">Status</th>
         </tr>
@@ -11524,6 +11524,7 @@ function renderList(){
   const _posRankMap = {}; const _posCtr = {};
   PLAYERS.filter(p => p.pos !== 'PICK').slice().sort((a,b)=>_valForPos(b)-_valForPos(a))
     .forEach(p => { _posCtr[p.pos] = (_posCtr[p.pos]||0)+1; _posRankMap[normName(p.name)] = _posCtr[p.pos]; });
+  let _rowRk = 0; // sequential RK for the leftmost column — always 1,2,3… in current display order
   const rows = _sortedList.map(p => {
     const nn=normName(p.name);
     // Browse-rankings mode (completed draft → "Browse rankings"): show a clean
@@ -11541,6 +11542,9 @@ function renderList(){
     const inWatchlist = watchlist.has(p.name);
     if(watchFilter && !inWatchlist) return {desktop:'',mobile:''};
     if(!posMatch||!sm||(hideGone&&isDrafted)) return {desktop:'',mobile:''};
+
+    // This row is visible → assign the next sequential RK number for the display order.
+    const _displayRk = ++_rowRk;
 
     // ===== Status (REACH / NEED / VALUE / TAKE NOW) =====
     // Compare the player's rank in the CURRENT sort/value mode against their ADP
@@ -11610,7 +11614,10 @@ function renderList(){
 
     const adpVal = getADP(p.name);
     const isAdpSort = sortKey==='adp-dynasty'||sortKey==='adp-redraft'||sortKey==='adp-col';
-    const rank = isAdpSort?(adpVal!=null?adpVal.toFixed(1):'—'):sortKey===1?(p.r1!=null?p.r1.toFixed(1):'—'):sortKey===2?(p.r2??'—'):(p.r0||'—');
+    // Leftmost RK column is purely positional: it always counts 1,2,3… down the list
+    // in the CURRENT sort/filter. ADP, Dynasty, Redraft and Mine each have their own
+    // columns, so the RK number should never borrow a value from another mode.
+    const rank = _displayRk;
 
     
     let ownerDot = '';
@@ -11636,7 +11643,7 @@ function renderList(){
         const color = isValue ? '#3DCC7A' : '#ff6680';
         deltaSpan = `<span style="color:${color};font-family:'Space Mono',monospace;font-size:9px;margin-left:3px">${arrow}${Math.abs(delta)}</span>`;
       }
-      adpInfoHtml = `<span class="adp-indicator" title="ADP from FantasyFootballCalculator" style="font-size:9px;color:#7bd0ff;font-family:'Space Mono',monospace;font-weight:600">ADP ${adpRank.toFixed(1)}${deltaSpan}</span>`;
+      adpInfoHtml = `<span class="adp-indicator" title="ADP from FantasyCalc" style="font-size:9px;color:#7bd0ff;font-family:'Space Mono',monospace;font-weight:600">ADP ${adpRank.toFixed(1)}${deltaSpan}</span>`;
     }
 
     const metaLine = [
@@ -16762,7 +16769,7 @@ async function prescanYearAvailability() {
 }
 
 // ════════════════════════════════════════════════════════════
-// ADP system — loads FantasyFootballCalculator data per format + team size
+// ADP system — loads FantasyCalc data per format + team size
 // 24 combos available: 6 formats (standard/ppr/halfppr/superflex/dynasty/rookie) × 4 sizes (8/10/12/14)
 // ════════════════════════════════════════════════════════════
 window._adpCache = window._adpCache || {};  // key: "ppr_12" → {meta, players, by_name}
@@ -16942,7 +16949,7 @@ function openAdpPicker(bucket) {
   const current = window._adpSelection[bucket];
   const isDynasty = bucket === 'dynasty';
   titleEl.textContent = isDynasty ? 'Pick Dynasty ADP' : 'Pick Redraft ADP';
-  subEl.textContent = `Choose format + team size · sourced from FantasyFootballCalculator`;
+  subEl.textContent = `Choose format + team size · sourced from FantasyCalc`;
 
   // Format options for this bucket
   const formatsForBucket = Object.entries(ADP_FORMAT_META)
@@ -17102,7 +17109,7 @@ function pickYear(year) {
     <div style="padding:14px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
       <div>
         <div id="adp-picker-title" style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-sans)">Pick ADP Format</div>
-        <div id="adp-picker-sub" style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--font-mono)">From FantasyFootballCalculator mock drafts</div>
+        <div id="adp-picker-sub" style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--font-mono)">From FantasyCalc</div>
       </div>
       <button onclick="closeAdpPicker()" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:4px 8px;line-height:1;min-width:44px;min-height:44px">×</button>
     </div>
