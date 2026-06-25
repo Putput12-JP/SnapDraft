@@ -26177,6 +26177,404 @@ window.adpSearch = function(val) {
 };
 
 })();
+
 </script>
+
+<!-- ═══════════════════════════════════════════
+     SEASON SIMULATION
+     ═══════════════════════════════════════════ -->
+<style>
+/* ── Season Sim page ── */
+.ss-wrap{max-width:1100px;margin:0 auto;padding:20px 16px 100px;box-sizing:border-box}
+
+/* hero */
+.ss-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+.ss-title{font-size:22px;font-weight:900;letter-spacing:-.03em;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.ss-info-btn{width:18px;height:18px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:9px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.ss-info-btn:hover .ss-tooltip{display:block}
+.ss-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:240px;background:rgba(16,23,34,.97);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text2);font-family:var(--font-sans);font-weight:400;text-align:left;z-index:9999;line-height:1.5;white-space:normal;pointer-events:none}
+.ss-hero-chips{display:flex;gap:8px;flex-wrap:wrap}
+.ss-chip{padding:6px 12px;border-radius:999px;background:var(--s1);border:1px solid var(--border2);font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.ss-chip b{color:var(--text);font-weight:700}
+.ss-run-btn{padding:11px 22px;border-radius:var(--radius-md);background:var(--accent);border:none;color:#fff;font-family:var(--font-sans);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0}
+.ss-run-btn:hover{background:#c52f42;box-shadow:0 0 20px rgba(226,58,78,.4)}
+.ss-run-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* progress */
+.ss-progress{display:none;margin-bottom:24px}
+.ss-progress.show{display:block}
+.ss-progress-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:6px}
+.ss-progress-bar{height:4px;background:var(--s2);border-radius:2px;overflow:hidden}
+.ss-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .05s linear}
+
+/* my-team forecast card */
+.ss-my-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-left:3px solid var(--accent);border-radius:16px;padding:22px;margin-bottom:24px;display:none}
+.ss-my-card.show{display:block}
+.ss-my-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;margin-bottom:16px}
+.ss-my-hero{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:22px;align-items:flex-end}
+.ss-my-stat{display:flex;flex-direction:column;gap:3px}
+.ss-my-stat-val{font-family:var(--font-mono);font-weight:900;line-height:1}
+.ss-my-stat-val.xl{font-size:42px;color:var(--accent)}
+.ss-my-stat-val.lg{font-size:28px;color:var(--text)}
+.ss-my-stat-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+
+/* week timeline */
+.ss-timeline-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.ss-timeline{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:22px}
+.ss-week-col{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:36px}
+.ss-week-opp{font-family:var(--font-mono);font-size:8px;color:var(--muted);text-transform:uppercase;text-align:center}
+.ss-week-pill{width:36px;padding:5px 2px;border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.ss-week-pill.past{opacity:.38}
+.ss-week-pill.current{box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.ss-week-pct{font-family:var(--font-mono);font-size:9px;font-weight:700}
+.ss-week-wn{font-family:var(--font-mono);font-size:7px;color:rgba(255,255,255,.5)}
+
+/* finish distribution */
+.ss-dist-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.ss-dist-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;gap:1px;margin-bottom:6px}
+.ss-dist-seg{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;color:rgba(255,255,255,.7);transition:opacity .2s}
+.ss-dist-seg.highlight{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6);color:#fff}
+.ss-dist-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+
+/* standings table */
+.ss-section-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.ss-table-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.ss-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.ss-tbl thead th{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:11px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.ss-tbl thead th.r,.ss-tbl td.r{text-align:right}
+.ss-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .12s}
+.ss-tbl tbody tr:last-child{border-bottom:none}
+.ss-tbl tbody tr:hover{background:rgba(255,255,255,.03)}
+.ss-tbl tbody tr.ss-my-row{background:rgba(226,58,78,.07);border-left:3px solid var(--accent)}
+.ss-tbl td{padding:11px 14px;vertical-align:middle}
+.ss-rk{font-family:var(--font-mono);font-size:11px;color:var(--muted);width:32px}
+.ss-team-name{font-size:13px;font-weight:600;color:var(--text)}
+.ss-owner-name{font-size:10px;color:var(--muted);margin-top:1px}
+.ss-my-badge{display:inline-flex;font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.07em;padding:1px 5px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);margin-left:6px;vertical-align:middle}
+.ss-rec{font-family:var(--font-mono);font-size:12px;color:var(--text2)}
+.ss-proj{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.ss-proj small{display:block;font-size:9px;color:rgba(255,255,255,.22);margin-top:1px}
+.ss-pct-wrap{min-width:80px}
+.ss-pct-num{font-family:var(--font-mono);font-size:13px;font-weight:700;margin-bottom:3px}
+.ss-pct-bar-bg{height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.ss-pct-bar{height:100%;border-radius:2px;transition:width .6s ease-out}
+@media(max-width:640px){
+  .ss-col-hide{display:none}
+  .ss-my-stat-val.xl{font-size:32px}
+  .ss-week-col{min-width:30px}
+  .ss-week-pill{width:30px}
+}
+</style>
+
+<script>
+(function(){
+'use strict';
+const SLEEPER_API = 'https://api.sleeper.app/v1';
+const SS_N = 1000;
+
+let _ssLeagueInfo=null, _ssRosters=null, _ssUsers=null;
+let _ssSchedule=null, _ssTeams=null, _ssMyRosterId=null;
+let _ssResults=null, _ssLoading=false;
+
+function $ss(id){ return document.getElementById(id); }
+function _mean(a){ return a.length?a.reduce((s,v)=>s+v,0)/a.length:0; }
+function _sigma(a,m){ if(a.length<2) return Math.max(m*0.35,8); const v=a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1); return Math.max(Math.sqrt(v),m*0.15,8); }
+function _sample(m,s){ const u1=Math.random(),u2=Math.random(); const z=Math.sqrt(-2*Math.log(Math.max(u1,1e-9)))*Math.cos(2*Math.PI*u2); return Math.max(0,m+z*s); }
+function _abbrev(n){ return (n||'').split(/\s+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,3)||'OPP'; }
+function _ord(n){ return n===1?'st':n===2?'nd':n===3?'rd':'th'; }
+
+async function _ssLoad(){
+  const lid = window.vpPrimary || window.ovLeagueId;
+  if(!lid) throw new Error('No league connected — use My Team to connect Sleeper first.');
+
+  const [lg, rosters, users] = await Promise.all([
+    fetch(`${SLEEPER_API}/league/${lid}`).then(r=>r.json()),
+    fetch(`${SLEEPER_API}/league/${lid}/rosters`).then(r=>r.json()),
+    fetch(`${SLEEPER_API}/league/${lid}/users`).then(r=>r.json()),
+  ]);
+  _ssLeagueInfo=lg; _ssRosters=rosters; _ssUsers=users;
+
+  const playoffStart = lg.settings?.playoff_week_start || 15;
+  const currentWeek  = lg.settings?.last_scored_leg    || 1;
+  const totalWeeks   = playoffStart - 1;
+  const playoffTeams = lg.settings?.playoff_teams || 4;
+
+  const userMap = {};
+  users.forEach(u=>{ userMap[u.user_id]={ name:u.metadata?.team_name||u.display_name||'Team', avatar:u.avatar }; });
+
+  // fetch all regular-season weeks in parallel
+  const weekNums = Array.from({length:totalWeeks},(_,i)=>i+1);
+  const allWk = await Promise.all(
+    weekNums.map(w=>fetch(`${SLEEPER_API}/league/${lid}/matchups/${w}`).then(r=>r.ok?r.json():[]).catch(()=>[]))
+  );
+
+  // build schedule + collect historical scores
+  const teamScores = {};
+  _ssSchedule = [];
+  weekNums.forEach((w,wi)=>{
+    const wm = allWk[wi]||[];
+    if(!wm.length) return;
+    const byMid = {};
+    wm.forEach(r=>{ if(!r.matchup_id) return; (byMid[r.matchup_id]=byMid[r.matchup_id]||[]).push(r); });
+    const pairs = [];
+    Object.values(byMid).forEach(pair=>{
+      if(pair.length!==2) return;
+      pairs.push([pair[0].roster_id, pair[1].roster_id]);
+      if(w<=currentWeek) pair.forEach(r=>{ (teamScores[r.roster_id]=teamScores[r.roster_id]||[]).push(r.points||0); });
+    });
+    _ssSchedule.push({week:w, pairs, played:w<=currentWeek});
+  });
+
+  const myUserId = window.myTeamsUserId;
+  _ssTeams = rosters.map(r=>{
+    const u = userMap[r.owner_id]||{};
+    const scores = (teamScores[r.roster_id]||[]).filter(s=>s>0);
+    const m = _mean(scores)||95;
+    return {
+      rosterId:r.roster_id, ownerId:r.owner_id,
+      name: u.name||`Team ${r.roster_id}`,
+      wins:r.settings?.wins||0, losses:r.settings?.losses||0, pf:r.settings?.fpts||0,
+      scores, mean:m, sigma:_sigma(scores,m),
+      isMe: r.owner_id===myUserId,
+    };
+  });
+  _ssMyRosterId = _ssTeams.find(t=>t.isMe)?.rosterId || _ssTeams[0]?.rosterId;
+  return {currentWeek, playoffStart, totalWeeks, playoffTeams};
+}
+
+function _ssSim(n, playoffTeams){
+  const totals={};
+  _ssTeams.forEach(t=>{ totals[t.rosterId]={playoff:0,champ:0,finSum:0,winSum:0}; });
+
+  for(let i=0;i<n;i++){
+    const rec={};
+    _ssTeams.forEach(t=>{ rec[t.rosterId]={wins:t.wins,losses:t.losses,pf:t.pf}; });
+
+    _ssSchedule.forEach(wk=>{
+      if(wk.played) return;
+      wk.pairs.forEach(([a,b])=>{
+        const ta=_ssTeams.find(t=>t.rosterId===a), tb=_ssTeams.find(t=>t.rosterId===b);
+        if(!ta||!tb) return;
+        const sa=_sample(ta.mean,ta.sigma), sb=_sample(tb.mean,tb.sigma);
+        if(sa>=sb){ rec[a].wins++;rec[a].pf+=sa;rec[b].losses++;rec[b].pf+=sb; }
+        else { rec[b].wins++;rec[b].pf+=sb;rec[a].losses++;rec[a].pf+=sa; }
+      });
+    });
+
+    const sorted = Object.entries(rec)
+      .map(([rid,r])=>({rid:Number(rid),...r}))
+      .sort((a,b)=>b.wins-a.wins||b.pf-a.pf);
+
+    sorted.forEach((t,idx)=>{ totals[t.rid].finSum+=idx+1; totals[t.rid].winSum+=t.wins; if(idx<playoffTeams) totals[t.rid].playoff++; });
+
+    // single-elim playoff bracket
+    let bracket = sorted.slice(0,playoffTeams).map(t=>t.rid);
+    while(bracket.length>1){
+      const next=[];
+      for(let k=0;k<bracket.length;k+=2){
+        const ta=_ssTeams.find(t=>t.rosterId===bracket[k]);
+        const tb=_ssTeams.find(t=>t.rosterId===bracket[k+1]);
+        if(!tb){next.push(bracket[k]);continue;}
+        next.push(_sample(ta.mean,ta.sigma)>=_sample(tb.mean,tb.sigma)?bracket[k]:bracket[k+1]);
+      }
+      bracket=next;
+    }
+    if(bracket[0]) totals[bracket[0]].champ++;
+  }
+
+  const out={};
+  _ssTeams.forEach(t=>{
+    const r=totals[t.rosterId];
+    out[t.rosterId]={ playoffPct:Math.round(r.playoff/n*100), champPct:Math.round(r.champ/n*100),
+      avgWins:(r.winSum/n).toFixed(1), avgFinish:(r.finSum/n).toFixed(1) };
+  });
+  return out;
+}
+
+function _ssWinProb(me, opp, nSim=400){
+  let w=0; for(let i=0;i<nSim;i++) if(_sample(me.mean,me.sigma)>=_sample(opp.mean,opp.sigma)) w++;
+  return Math.round(w/nSim*100);
+}
+
+function _ssRenderHero(currentWeek, playoffStart){
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const res=_ssResults?.[_ssMyRosterId];
+  if(!me) return;
+  const chip=(lbl,val)=>`<div class="ss-chip"><b>${val}</b>&nbsp;${lbl}</div>`;
+  const el=$ss('ss-chips');
+  if(el) el.innerHTML=[
+    chip('My Team', me.name),
+    chip('Record', `${me.wins}–${me.losses}`),
+    res?chip('Proj Finish',`~${Math.round(parseFloat(res.avgFinish))}${_ord(Math.round(parseFloat(res.avgFinish)))}`)
+       :chip('Week',`${currentWeek}/${playoffStart-1}`),
+  ].join('');
+}
+
+function _ssRenderMyCard(currentWeek){
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const res=_ssResults?.[_ssMyRosterId];
+  if(!me||!res) return;
+  const card=$ss('ss-my-card'); if(!card) return;
+  card.classList.add('show');
+
+  // Zone 1 — hero stats
+  const champCol = res.champPct>=20?'var(--rb)':res.champPct>=5?'var(--text)':'var(--muted)';
+  const z1=`
+    <div class="ss-my-stat"><div class="ss-my-stat-val xl">${res.playoffPct}%</div><div class="ss-my-stat-lbl">Playoff Odds</div></div>
+    <div class="ss-my-stat"><div class="ss-my-stat-val lg" style="color:${champCol}">${res.champPct}%</div><div class="ss-my-stat-lbl">Champ Odds</div></div>
+    <div class="ss-my-stat"><div class="ss-my-stat-val lg">${res.avgWins} wins</div><div class="ss-my-stat-lbl">Proj Record</div></div>
+    <div class="ss-my-stat"><div class="ss-my-stat-val lg">#${Math.round(parseFloat(res.avgFinish))}</div><div class="ss-my-stat-lbl">Avg Finish</div></div>`;
+
+  // Zone 2 — week timeline
+  const mySched = _ssSchedule.map(wk=>{
+    const pair=wk.pairs.find(p=>p.includes(_ssMyRosterId)); if(!pair) return null;
+    const oppId=pair.find(id=>id!==_ssMyRosterId);
+    const opp=_ssTeams.find(t=>t.rosterId===oppId);
+    return {week:wk.week, opp, winPct:wk.played?null:_ssWinProb(me,opp,300), played:wk.played, current:wk.week===currentWeek};
+  }).filter(Boolean);
+
+  const z2=mySched.map(w=>{
+    const p=w.winPct;
+    const col=p==null?'rgba(255,255,255,.3)':p>=65?'#22C55E':p>=45?'#EAB308':'#E23A4E';
+    const lbl=p!=null?`${p}%`:w.played?'✓':'—';
+    return `<div class="ss-week-col">
+      <div class="ss-week-opp">${_abbrev(w.opp?.name||'BYE')}</div>
+      <div class="ss-week-pill${w.played?' past':''}${w.current?' current':''}" style="background:${col}22">
+        <div class="ss-week-pct" style="color:${col}">${lbl}</div>
+        <div class="ss-week-wn">W${w.week}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Zone 3 — finish distribution
+  const nT=_ssTeams.length;
+  const pfTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
+  const avgF=parseFloat(res.avgFinish);
+  const z3=Array.from({length:nT},(_,i)=>{
+    const pos=i+1, isPf=pos<=pfTeams, isHi=Math.abs(pos-avgF)<=1;
+    const bg=isPf?`hsl(${210-i*12},65%,${55-i*2}%)`:(`rgba(255,255,255,${Math.max(0.08,0.18-i*0.015)})`);
+    return `<div class="ss-dist-seg${isHi?' highlight':''}" style="background:${bg}" title="#${pos}">${pos}</div>`;
+  }).join('');
+
+  card.innerHTML=`
+    <div class="ss-my-label">🏆 YOUR SEASON FORECAST — ${me.name}</div>
+    <div class="ss-my-hero">${z1}</div>
+    <div class="ss-timeline-label">Win Probability · Remaining Schedule</div>
+    <div class="ss-timeline">${z2}</div>
+    <div class="ss-dist-label">Projected Finish Distribution · ${SS_N.toLocaleString()} Simulations</div>
+    <div class="ss-dist-bar">${z3}</div>
+    <div class="ss-dist-labels"><span>1st 🏆</span><span style="opacity:.5">▲ playoff cutoff</span><span>${nT}th</span></div>`;
+}
+
+function _ssRenderTable(){
+  const wrap=$ss('ss-table-wrap'); if(!wrap) return;
+  const sorted=[..._ssTeams].sort((a,b)=>{
+    const ra=_ssResults?.[a.rosterId], rb=_ssResults?.[b.rosterId];
+    if(ra&&rb) return rb.playoffPct-ra.playoffPct||b.wins-a.wins||b.pf-a.pf;
+    return b.wins-a.wins||b.pf-a.pf;
+  });
+
+  const pctCell=(val,col)=>{
+    const op=val>=70?1:val>=30?.7:.4;
+    return `<div class="ss-pct-wrap"><div class="ss-pct-num" style="color:${col};opacity:${op}">${val}%</div><div class="ss-pct-bar-bg"><div class="ss-pct-bar" style="width:${val}%;background:${col}"></div></div></div>`;
+  };
+
+  const rows=sorted.map((t,i)=>{
+    const res=_ssResults?.[t.rosterId]||{};
+    const isMy=t.rosterId===_ssMyRosterId;
+    const projW=res.avgWins?`${res.avgWins}–${(14-parseFloat(res.avgWins)).toFixed(1)}`:'—';
+    return `<tr class="${isMy?'ss-my-row':''}">
+      <td class="ss-rk">${i+1}</td>
+      <td><div class="ss-team-name">${t.name}${isMy?'<span class="ss-my-badge">MY TEAM</span>':''}</div></td>
+      <td class="ss-rec r">${t.wins}–${t.losses}</td>
+      <td class="ss-proj r ss-col-hide">${projW}<small>${res.avgFinish?`avg #${res.avgFinish}`:''}</small></td>
+      <td class="r">${res.playoffPct!=null?pctCell(res.playoffPct,'var(--accent)'):'—'}</td>
+      <td class="r ss-col-hide">${res.champPct!=null?pctCell(res.champPct,'#FFD700'):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML=`<div class="ss-section-label">League Standings Forecast</div><div class="ss-table-card"><table class="ss-tbl">
+    <thead><tr>
+      <th>RK</th><th>TEAM</th><th class="r">REC</th>
+      <th class="r ss-col-hide">PROJ W–L</th>
+      <th class="r">PLAYOFF %</th>
+      <th class="r ss-col-hide">CHAMP %</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+
+  // stagger bar animations
+  requestAnimationFrame(()=>{
+    const bars=document.querySelectorAll('.ss-pct-bar');
+    bars.forEach((el,i)=>{ const w=el.style.width; el.style.width='0'; setTimeout(()=>el.style.width=w,40*i); });
+  });
+}
+
+window.ssRun = async function(){
+  const btn=$ss('ss-run-btn'), prog=$ss('ss-progress'), fill=$ss('ss-progress-fill'), lbl=$ss('ss-progress-label');
+  if(_ssLoading) return;
+  _ssLoading=true; btn.disabled=true; btn.textContent='Loading…';
+  prog?.classList.add('show');
+  try {
+    const {currentWeek,playoffStart,playoffTeams} = await _ssLoad();
+    btn.textContent='Simulating…';
+    let count=0;
+    const tick=setInterval(()=>{ count=Math.min(count+25,SS_N); if(lbl)lbl.textContent=`Simulating ${count.toLocaleString()} of ${SS_N.toLocaleString()} seasons…`; if(fill)fill.style.width=(count/SS_N*100)+'%'; if(count>=SS_N)clearInterval(tick); },8);
+    await new Promise(r=>setTimeout(r,0));
+    _ssResults=_ssSim(SS_N, playoffTeams);
+    clearInterval(tick);
+    if(lbl)lbl.textContent=`${SS_N.toLocaleString()} seasons simulated ✓`;
+    if(fill)fill.style.width='100%';
+    _ssRenderHero(currentWeek, playoffStart);
+    _ssRenderMyCard(currentWeek);
+    _ssRenderTable();
+    btn.textContent='↻ Re-run'; btn.disabled=false;
+  } catch(e){
+    if(lbl)lbl.textContent='⚠ '+(e.message||'Error loading data');
+    btn.textContent='Retry'; btn.disabled=false;
+  }
+  _ssLoading=false;
+};
+
+function _ssInjectPage(){
+  if(document.getElementById('page-seasonsim')) return;
+  const page=document.createElement('div');
+  page.className='page'; page.id='page-seasonsim';
+  page.innerHTML=`<div class="ss-wrap">
+    <div class="ss-hero">
+      <div>
+        <h1 class="ss-title">Season Simulation
+          <button class="ss-info-btn" tabindex="-1">ⓘ<div class="ss-tooltip">Monte Carlo simulation — ${SS_N.toLocaleString()} randomized seasons using each team's average score and variance from completed weeks.</div></button>
+        </h1>
+        <div class="ss-hero-chips" id="ss-chips"><div class="ss-chip">Connect a league in My Team to simulate</div></div>
+      </div>
+      <button class="ss-run-btn" id="ss-run-btn" onclick="ssRun()">▶ Run Simulation</button>
+    </div>
+    <div class="ss-progress" id="ss-progress">
+      <div class="ss-progress-label" id="ss-progress-label">Simulating…</div>
+      <div class="ss-progress-bar"><div class="ss-progress-fill" id="ss-progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="ss-my-card" id="ss-my-card"></div>
+    <div id="ss-table-wrap"></div>
+  </div>`;
+  document.querySelector('.page')?.parentNode.appendChild(page);
+}
+
+function _ssInjectNav(){
+  if(document.getElementById('nb-seasonsim')) return;
+  const nav=document.querySelector('.desktop-nav'); if(!nav) return;
+  const btn=document.createElement('button');
+  btn.id='nb-seasonsim'; btn.textContent='Season Sim';
+  btn.onclick=()=>window.showPage('seasonsim');
+  const after=document.getElementById('nb-draft');
+  if(after) after.insertAdjacentElement('afterend',btn); else nav.appendChild(btn);
+}
+
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',()=>{ _ssInjectPage();_ssInjectNav(); }); }
+else { _ssInjectPage();_ssInjectNav(); }
+
+})();
+</script>
+
 </body>
 </html>
