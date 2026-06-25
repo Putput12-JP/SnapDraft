@@ -26218,6 +26218,17 @@ window.adpSearch = function(val) {
 .ss-my-stat-val.lg{font-size:28px;color:var(--text)}
 .ss-my-stat-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
 
+/* archetype banner */
+.ss-arch-banner{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid;margin-bottom:20px}
+.ss-arch-icon{font-size:22px;line-height:1;flex-shrink:0;margin-top:1px}
+.ss-arch-label{font-size:13px;font-weight:800;letter-spacing:-.01em;margin-bottom:3px}
+.ss-arch-desc{font-size:12px;color:var(--text2);line-height:1.5}
+
+/* championship path */
+.ss-champ-path{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18);border-radius:10px;font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:20px}
+.ss-champ-path-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.ss-champ-path b{color:var(--text);font-weight:700}
+
 /* week timeline */
 .ss-timeline-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
 .ss-timeline{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:22px}
@@ -26298,9 +26309,27 @@ function _sample(m,s){ const u1=Math.random(),u2=Math.random(); const z=Math.sqr
 function _abbrev(n){ return (n||'').split(/\s+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,3)||'OPP'; }
 function _ord(n){ return n===1?'st':n===2?'nd':n===3?'rd':'th'; }
 
-async function _ssLoad(){
-  const lid = window.ovLeagueId || window.teamsLeagueId || window.vpPrimary
+function _ssGetLid(){
+  return window.ovLeagueId || window.teamsLeagueId || window.vpPrimary
     || (() => { try { return localStorage.getItem('dcmd-v5-primary-league'); } catch(e){ return null; } })();
+}
+function _ssGetMyRosterId(rosters, users){
+  // 1. Trust overview context if loaded
+  if(window._ovSosCtx?.myRosterId) return window._ovSosCtx.myRosterId;
+  // 2. Match by saved Sleeper username
+  try {
+    const un = localStorage.getItem('dcmd-v5-username');
+    if(un){
+      const u = users.find(x=>(x.display_name||'').toLowerCase()===un.toLowerCase()||(x.username||'').toLowerCase()===un.toLowerCase());
+      if(u){ const r=rosters.find(x=>x.owner_id===u.user_id); if(r) return r.roster_id; }
+    }
+  } catch(e){}
+  // 3. Match by module-scoped myTeamsUserId via ovSosCtx
+  return null;
+}
+
+async function _ssLoad(){
+  const lid = _ssGetLid();
   if(!lid) throw new Error('No league connected — use My Team to connect Sleeper first.');
 
   const [lg, rosters, users] = await Promise.all([
@@ -26318,13 +26347,11 @@ async function _ssLoad(){
   const userMap = {};
   users.forEach(u=>{ userMap[u.user_id]={ name:u.metadata?.team_name||u.display_name||'Team', avatar:u.avatar }; });
 
-  // fetch all regular-season weeks in parallel
   const weekNums = Array.from({length:totalWeeks},(_,i)=>i+1);
   const allWk = await Promise.all(
     weekNums.map(w=>fetch(`${SLEEPER_API}/league/${lid}/matchups/${w}`).then(r=>r.ok?r.json():[]).catch(()=>[]))
   );
 
-  // build schedule + collect historical scores
   const teamScores = {};
   _ssSchedule = [];
   weekNums.forEach((w,wi)=>{
@@ -26341,26 +26368,71 @@ async function _ssLoad(){
     _ssSchedule.push({week:w, pairs, played:w<=currentWeek});
   });
 
-  const myUserId = window.myTeamsUserId;
+  // build teams with historical scores
   _ssTeams = rosters.map(r=>{
     const u = userMap[r.owner_id]||{};
     const scores = (teamScores[r.roster_id]||[]).filter(s=>s>0);
-    const m = _mean(scores)||95;
+    const histMean = _mean(scores)||0;
     return {
       rosterId:r.roster_id, ownerId:r.owner_id,
       name: u.name||`Team ${r.roster_id}`,
-      wins:r.settings?.wins||0, losses:r.settings?.losses||0, pf:r.settings?.fpts||0,
-      scores, mean:m, sigma:_sigma(scores,m),
-      isMe: r.owner_id===myUserId,
+      wins:r.settings?.wins||0, losses:r.settings?.losses||0,
+      pf: parseFloat(r.settings?.fpts||0) + parseFloat(r.settings?.fpts_decimal||0)/100,
+      scores, histMean, mean:histMean||100, sigma:_sigma(scores, histMean||100),
+      rosterVal:0, valRank:0,
     };
   });
-  _ssMyRosterId = _ssTeams.find(t=>t.isMe)?.rosterId || _ssTeams[0]?.rosterId;
+
+  // Compute roster values using FantasyCalc/RA data
+  const hasPidMap = typeof globalPidToName !== 'undefined' && Object.keys(globalPidToName).length > 0;
+  const hasValFn  = typeof getPlayerValue === 'function';
+  if(hasPidMap && hasValFn){
+    rosters.forEach(r=>{
+      const t = _ssTeams.find(x=>x.rosterId===r.roster_id); if(!t) return;
+      const pids = [...(r.players||[])].map(String);
+      t.rosterVal = pids.reduce((s,pid)=>{ const nm=globalPidToName[pid]; return s+(nm?getPlayerValue(nm)||0:0); }, 0);
+    });
+
+    // rank by value → differentiated projections
+    const sorted = [..._ssTeams].sort((a,b)=>b.rosterVal-a.rosterVal);
+    const n = sorted.length;
+    const SCORE_FLOOR=88, SCORE_CEIL=122;
+    sorted.forEach((t,idx)=>{
+      t.valRank = idx+1;
+      const valPct = n>1 ? 1-idx/(n-1) : 0.5;
+      const valMean = SCORE_FLOOR + valPct*(SCORE_CEIL-SCORE_FLOOR);
+      // blend: more history → trust history more; early season → trust value more
+      const hw = t.scores.length>=8?0.65:t.scores.length>=4?0.45:t.scores.length>=1?0.2:0;
+      t.mean = hw*t.histMean + (1-hw)*valMean;
+      t.sigma = Math.max(_sigma(t.scores, t.mean), 14);
+    });
+  } else {
+    // no value data: spread teams based on current record as proxy
+    const sorted = [..._ssTeams].sort((a,b)=>b.wins-a.wins||b.pf-a.pf);
+    const n = sorted.length;
+    sorted.forEach((t,idx)=>{
+      t.valRank = idx+1;
+      const pct = n>1 ? 1-idx/(n-1) : 0.5;
+      if(t.scores.length < 3){
+        t.mean = 88 + pct*34;
+        t.sigma = Math.max(t.sigma, 14);
+      }
+    });
+  }
+
+  // identify my roster
+  _ssMyRosterId = _ssGetMyRosterId(rosters, users);
+  // mark isMe
+  _ssTeams.forEach(t=>{ t.isMe = t.rosterId===_ssMyRosterId; });
+  // fallback: if still null, pick first
+  if(!_ssMyRosterId && _ssTeams.length) _ssMyRosterId = _ssTeams[0].rosterId;
+
   return {currentWeek, playoffStart, totalWeeks, playoffTeams};
 }
 
 function _ssSim(n, playoffTeams){
   const totals={};
-  _ssTeams.forEach(t=>{ totals[t.rosterId]={playoff:0,champ:0,finSum:0,winSum:0}; });
+  _ssTeams.forEach(t=>{ totals[t.rosterId]={playoff:0,champ:0,finSum:0,winSum:0,champSeedSum:0,champBeatenNames:[]}; });
 
   for(let i=0;i<n;i++){
     const rec={};
@@ -26377,32 +26449,52 @@ function _ssSim(n, playoffTeams){
       });
     });
 
-    const sorted = Object.entries(rec)
-      .map(([rid,r])=>({rid:Number(rid),...r}))
-      .sort((a,b)=>b.wins-a.wins||b.pf-a.pf);
-
+    const sorted=Object.entries(rec).map(([rid,r])=>({rid:Number(rid),...r})).sort((a,b)=>b.wins-a.wins||b.pf-a.pf);
     sorted.forEach((t,idx)=>{ totals[t.rid].finSum+=idx+1; totals[t.rid].winSum+=t.wins; if(idx<playoffTeams) totals[t.rid].playoff++; });
 
-    // single-elim playoff bracket
-    let bracket = sorted.slice(0,playoffTeams).map(t=>t.rid);
+    // single-elim bracket — track seed and beaten opponents for my team
+    const pfSeeds = sorted.slice(0,playoffTeams).map((t,i)=>({rid:t.rid,seed:i+1}));
+    let bracket = pfSeeds.map(s=>s.rid);
+    const mySeed = pfSeeds.find(s=>s.rid===_ssMyRosterId)?.seed || null;
+    const beatenThisSim = [];
     while(bracket.length>1){
       const next=[];
       for(let k=0;k<bracket.length;k+=2){
-        const ta=_ssTeams.find(t=>t.rosterId===bracket[k]);
-        const tb=_ssTeams.find(t=>t.rosterId===bracket[k+1]);
-        if(!tb){next.push(bracket[k]);continue;}
-        next.push(_sample(ta.mean,ta.sigma)>=_sample(tb.mean,tb.sigma)?bracket[k]:bracket[k+1]);
+        const aRid=bracket[k], bRid=bracket[k+1];
+        if(bRid==null){next.push(aRid);continue;}
+        const ta=_ssTeams.find(t=>t.rosterId===aRid), tb=_ssTeams.find(t=>t.rosterId===bRid);
+        const winner=_sample(ta?.mean||95,ta?.sigma||18)>=_sample(tb?.mean||95,tb?.sigma||18)?aRid:bRid;
+        const loser=winner===aRid?bRid:aRid;
+        if(winner===_ssMyRosterId){ const lt=_ssTeams.find(t=>t.rosterId===loser); if(lt) beatenThisSim.push(lt.name); }
+        next.push(winner);
       }
       bracket=next;
     }
-    if(bracket[0]) totals[bracket[0]].champ++;
+    const champ=bracket[0];
+    if(champ){
+      totals[champ].champ++;
+      if(champ===_ssMyRosterId && mySeed){
+        totals[champ].champSeedSum+=mySeed;
+        beatenThisSim.forEach(nm=>{ totals[champ].champBeatenNames.push(nm); });
+      }
+    }
   }
 
   const out={};
   _ssTeams.forEach(t=>{
     const r=totals[t.rosterId];
-    out[t.rosterId]={ playoffPct:Math.round(r.playoff/n*100), champPct:Math.round(r.champ/n*100),
-      avgWins:(r.winSum/n).toFixed(1), avgFinish:(r.finSum/n).toFixed(1) };
+    // most common team beaten in championship runs
+    const beatMap={};
+    r.champBeatenNames.forEach(nm=>{ beatMap[nm]=(beatMap[nm]||0)+1; });
+    const topBeaten=Object.entries(beatMap).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+    const avgChampSeed=r.champ>0?(r.champSeedSum/r.champ).toFixed(1):null;
+    out[t.rosterId]={
+      playoffPct:Math.round(r.playoff/n*100),
+      champPct:Math.round(r.champ/n*100),
+      avgWins:(r.winSum/n).toFixed(1),
+      avgFinish:(r.finSum/n).toFixed(1),
+      topBeaten, avgChampSeed,
+    };
   });
   return out;
 }
@@ -26426,6 +26518,17 @@ function _ssRenderHero(currentWeek, playoffStart){
   ].join('');
 }
 
+function _ssArchetype(playoffPct, champPct, valRank, totalTeams){
+  const valPct = 1 - (valRank-1)/(totalTeams-1||1);
+  if(champPct>=20)               return {label:'Championship Contender', icon:'🏆', color:'#FFD700', desc:'Your roster is built to win it all. Every week matters — stay healthy and stay sharp.'};
+  if(playoffPct>=75)             return {label:'Playoff Lock', icon:'🔒', color:'var(--rb)', desc:'Barring a collapse, you\'re in. Focus on seeding — a bye or top seed changes everything in the playoffs.'};
+  if(playoffPct>=50)             return {label:'Playoff Threat', icon:'⚡', color:'var(--sky)', desc:'You\'re in the hunt but can\'t afford to slip. Every win from here is critical.'};
+  if(playoffPct>=30)             return {label:'Bubble Team', icon:'🫧', color:'#EAB308', desc:'You\'re on the edge. A 2-game winning streak could flip your season completely.'};
+  if(valPct>=0.5&&playoffPct<30) return {label:'Underperforming', icon:'⚠️', color:'#f87171', desc:'Your roster is worth more than your record shows. Figure out what\'s leaking points and fix it.'};
+  if(valRank<=totalTeams*0.4)    return {label:'Building', icon:'🏗️', color:'var(--muted)', desc:'The pieces are there but you\'re not quite there yet. Smart moves now set up a deep run next season.'};
+  return                                {label:'Long Shot', icon:'🎲', color:'var(--muted)', desc:'It\'s a steep climb. You need wins AND help, but stranger things have happened.'};
+}
+
 function _ssRenderMyCard(currentWeek){
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
   const res=_ssResults?.[_ssMyRosterId];
@@ -26433,20 +26536,43 @@ function _ssRenderMyCard(currentWeek){
   const card=$ss('ss-my-card'); if(!card) return;
   card.classList.add('show');
 
+  const nT=_ssTeams.length;
+  const arch=_ssArchetype(res.playoffPct, res.champPct, me.valRank||Math.round(nT/2), nT);
+
+  // archetype banner
+  const archetypeBanner=`<div class="ss-arch-banner" style="border-color:${arch.color}22;background:${arch.color}0d">
+    <span class="ss-arch-icon">${arch.icon}</span>
+    <div>
+      <div class="ss-arch-label" style="color:${arch.color}">${arch.label}</div>
+      <div class="ss-arch-desc">${arch.desc}</div>
+    </div>
+  </div>`;
+
   // Zone 1 — hero stats
-  const champCol = res.champPct>=20?'var(--rb)':res.champPct>=5?'var(--text)':'var(--muted)';
+  const champCol=res.champPct>=20?'#FFD700':res.champPct>=8?'var(--rb)':res.champPct>=3?'var(--text)':'var(--muted)';
   const z1=`
     <div class="ss-my-stat"><div class="ss-my-stat-val xl">${res.playoffPct}%</div><div class="ss-my-stat-lbl">Playoff Odds</div></div>
     <div class="ss-my-stat"><div class="ss-my-stat-val lg" style="color:${champCol}">${res.champPct}%</div><div class="ss-my-stat-lbl">Champ Odds</div></div>
     <div class="ss-my-stat"><div class="ss-my-stat-val lg">${res.avgWins} wins</div><div class="ss-my-stat-lbl">Proj Record</div></div>
     <div class="ss-my-stat"><div class="ss-my-stat-val lg">#${Math.round(parseFloat(res.avgFinish))}</div><div class="ss-my-stat-lbl">Avg Finish</div></div>`;
 
+  // championship path narrative
+  let champPath='';
+  if(res.champPct>0){
+    const seedStr=res.avgChampSeed?`entering as the #${Math.round(parseFloat(res.avgChampSeed))} seed`:'';
+    const beatStr=res.topBeaten?`— often going through <b>${res.topBeaten}</b> to get there`:'';
+    champPath=`<div class="ss-champ-path">
+      <span class="ss-champ-path-icon">🏆</span>
+      <span>In simulations where <b>${me.name}</b> wins the championship, you typically win as ${seedStr||'a playoff team'} ${beatStr}. It happens in <b>${res.champPct}%</b> of seasons.</span>
+    </div>`;
+  }
+
   // Zone 2 — week timeline
-  const mySched = _ssSchedule.map(wk=>{
+  const mySched=_ssSchedule.map(wk=>{
     const pair=wk.pairs.find(p=>p.includes(_ssMyRosterId)); if(!pair) return null;
     const oppId=pair.find(id=>id!==_ssMyRosterId);
     const opp=_ssTeams.find(t=>t.rosterId===oppId);
-    return {week:wk.week, opp, winPct:wk.played?null:_ssWinProb(me,opp,300), played:wk.played, current:wk.week===currentWeek};
+    return {week:wk.week,opp,winPct:wk.played?null:_ssWinProb(me,opp,300),played:wk.played,current:wk.week===currentWeek};
   }).filter(Boolean);
 
   const z2=mySched.map(w=>{
@@ -26463,23 +26589,24 @@ function _ssRenderMyCard(currentWeek){
   }).join('');
 
   // Zone 3 — finish distribution
-  const nT=_ssTeams.length;
   const pfTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
   const avgF=parseFloat(res.avgFinish);
   const z3=Array.from({length:nT},(_,i)=>{
     const pos=i+1, isPf=pos<=pfTeams, isHi=Math.abs(pos-avgF)<=1;
-    const bg=isPf?`hsl(${210-i*12},65%,${55-i*2}%)`:(`rgba(255,255,255,${Math.max(0.08,0.18-i*0.015)})`);
+    const bg=isPf?`hsl(${210-i*12},65%,${55-i*2}%)`:(`rgba(255,255,255,${Math.max(0.07,0.17-i*0.013)})`);
     return `<div class="ss-dist-seg${isHi?' highlight':''}" style="background:${bg}" title="#${pos}">${pos}</div>`;
   }).join('');
 
   card.innerHTML=`
-    <div class="ss-my-label">🏆 YOUR SEASON FORECAST — ${me.name}</div>
+    <div class="ss-my-label">📊 ${me.name.toUpperCase()} · SEASON FORECAST</div>
+    ${archetypeBanner}
     <div class="ss-my-hero">${z1}</div>
+    ${champPath}
     <div class="ss-timeline-label">Win Probability · Remaining Schedule</div>
     <div class="ss-timeline">${z2}</div>
-    <div class="ss-dist-label">Projected Finish Distribution · ${SS_N.toLocaleString()} Simulations</div>
+    <div class="ss-dist-label">Projected Finish · ${SS_N.toLocaleString()} Simulations</div>
     <div class="ss-dist-bar">${z3}</div>
-    <div class="ss-dist-labels"><span>1st 🏆</span><span style="opacity:.5">▲ playoff cutoff</span><span>${nT}th</span></div>`;
+    <div class="ss-dist-labels"><span>1st 🏆</span><span style="opacity:.5">▲ playoff line</span><span>${nT}th</span></div>`;
 }
 
 function _ssRenderTable(){
