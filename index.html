@@ -27234,11 +27234,14 @@ window.ssRun = async function(){
   prog?.classList.add('show');
   try {
     const {currentWeek,playoffStart,playoffTeams} = await _ssLoad();
+    // load TC league data in parallel with the sim so trade proposals are ready
+    const _tcReady = (window.TC&&!window.TC.isLive()) ? window.TC.loadLeague().catch(()=>false) : Promise.resolve(true);
     btn.textContent='Simulating…';
     let count=0;
     const tick=setInterval(()=>{ count=Math.min(count+25,SS_N); if(lbl)lbl.textContent=`Simulating ${count.toLocaleString()} of ${SS_N.toLocaleString()} seasons…`; if(fill)fill.style.width=(count/SS_N*100)+'%'; if(count>=SS_N)clearInterval(tick); },8);
     await new Promise(r=>setTimeout(r,0));
     _ssResults=_ssSim(SS_N, playoffTeams);
+    await _tcReady;
     clearInterval(tick);
     if(lbl)lbl.textContent=`${SS_N.toLocaleString()} seasons simulated ✓`;
     if(fill)fill.style.width='100%';
