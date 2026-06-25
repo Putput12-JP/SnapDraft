@@ -4148,7 +4148,19 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button id="nb-visual" onclick="showPage('visual')" style="display:none">Draft Room</button>
     <button id="nb-research" onclick="showPage('research')">Research</button>
     <button id="nb-myrankings" onclick="showPage('myrankings')">My Rankings</button>
-    <button id="nb-draft" onclick="showPage('draft')">Draft Vault</button>
+    <div class="gn-dd-wrap" id="gnd-draft-wrap">
+      <button id="nb-draft" class="gn-dd-trigger" onclick="gnToggleDraftMenu(event)">Draft Vault <span class="gn-dd-chev">▾</span></button>
+      <div class="gn-dd-menu" id="gnd-draft-menu" style="display:none">
+        <button onclick="showPage('draft');dvShowBoard();gnCloseDraftMenu()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M9 3h10a2 2 0 0 1 2 2v4"/><rect x="2" y="9" width="20" height="13" rx="2"/></svg>
+          Draft Board
+        </button>
+        <button onclick="showPage('draft');dvShowADP();gnCloseDraftMenu()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-5"/></svg>
+          ADP Explorer
+        </button>
+      </div>
+    </div>
     <button id="nb-teams" onclick="showPage('teams')">League</button>
     <button id="nb-trade" onclick="showPage('trade')">Calc</button>
     <button id="nb-betting" onclick="showPage('betting')">Betting</button>
@@ -4567,40 +4579,17 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       <button class="dv-abtn hgbtn" id="hgbtn" onclick="toggleHide()" title="Show or hide drafted players"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></svg><span>Drafted</span><span class="hg-count" id="hg-count">0</span></button>
     </div>
   </div>
-  <!-- SUB-NAV: Draft Board | ADP Explorer -->
-  <div class="dv-subnav">
-    <button class="dv-snav-btn on" onclick="dvShowBoard()">Draft Board</button>
-    <button class="dv-snav-btn" onclick="dvShowADP()">ADP Explorer</button>
-  </div>
-
   <!-- ADP EXPLORER VIEW -->
   <div id="dv-adp-view">
     <!-- hero -->
     <div class="adp-hero">
       <h2>ADP Explorer</h2>
-      <p>Real Sleeper startup draft data and market movement.</p>
-      <div class="adp-hero-stats">
-        <span><b id="adp-stat-picks">—</b> Real Picks</span>
-        <span class="adp-divider">|</span>
-        <span><b id="adp-stat-drafts">—</b> Dynasty Drafts</span>
-      </div>
-    </div>
-
-    <!-- format type tabs -->
-    <div class="adp-type-tabs">
-      <button class="adp-type-btn on" data-type="startup" onclick="adpSetType('startup')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>
-        Startup Drafts
-      </button>
-      <button class="adp-type-btn" data-type="rookie" onclick="adpSetType('rookie')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.1 6.3L22 9.3l-5 4.9 1.2 6.8L12 17.8l-6.2 3.2L7 14.2 2 9.3l6.9-1z"/></svg>
-        Rookie Drafts
-      </button>
+      <p>FantasyCalc market data — updated daily.</p>
     </div>
 
     <!-- biggest movers -->
     <div class="adp-movers">
-      <div class="adp-movers-head">📈 Biggest ADP movers · past 30 days</div>
+      <div class="adp-movers-head">📈 Biggest movers · past 30 days</div>
       <div class="adp-movers-cols">
         <div>
           <div class="adp-mv-label risers">RISERS</div>
@@ -4613,35 +4602,66 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       </div>
     </div>
 
-    <!-- controls -->
-    <div class="adp-controls">
+    <!-- filter + search row -->
+    <div class="adp-filter-row">
       <div class="adp-search-wrap">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input type="text" placeholder="Search players or rookie picks…" oninput="adpSearch(this.value)" autocomplete="off" spellcheck="false">
+        <input type="text" id="adp-search-input" placeholder="Search players…" oninput="adpSearch(this.value)" autocomplete="off" spellcheck="false">
       </div>
-      <div class="adp-ctrl-group">
-        <div class="adp-controls-label">Scoring</div>
-        <div class="adp-scoring-seg" id="adp-scoring-seg">
-          <button class="on" onclick="adpSetScoring('dynasty',this)">Dynasty</button>
-          <button onclick="adpSetScoring('superflex',this)">SF</button>
-          <button onclick="adpSetScoring('halfppr',this)">½PPR</button>
-          <button onclick="adpSetScoring('ppr',this)">PPR</button>
-          <button onclick="adpSetScoring('standard',this)">Std</button>
+      <div class="adp-filter-selects">
+        <div class="adp-sel-wrap">
+          <label class="adp-sel-label">Draft Type</label>
+          <select class="adp-sel" id="adp-sel-type" onchange="adpSelChange()">
+            <optgroup label="Dynasty">
+              <option value="dynasty">Dynasty — 1QB</option>
+              <option value="superflex">Dynasty — Superflex</option>
+            </optgroup>
+            <optgroup label="Redraft">
+              <option value="halfppr">Redraft — ½ PPR</option>
+              <option value="ppr">Redraft — Full PPR</option>
+              <option value="standard">Redraft — Standard</option>
+            </optgroup>
+            <optgroup label="Rookie">
+              <option value="rookie">Rookie Draft</option>
+            </optgroup>
+          </select>
         </div>
-      </div>
-      <div class="adp-ctrl-group">
-        <div class="adp-controls-label">Teams</div>
-        <div class="adp-teams-seg">
-          <button onclick="adpSetTeams(8,this)">8</button>
-          <button onclick="adpSetTeams(10,this)">10</button>
-          <button class="on" onclick="adpSetTeams(12,this)">12</button>
-          <button onclick="adpSetTeams(14,this)">14</button>
+        <div class="adp-sel-wrap">
+          <label class="adp-sel-label">Teams</label>
+          <select class="adp-sel" id="adp-sel-teams" onchange="adpSelChange()">
+            <option value="8">8 Teams</option>
+            <option value="10">10 Teams</option>
+            <option value="12" selected>12 Teams</option>
+            <option value="14">14 Teams</option>
+          </select>
+        </div>
+        <div class="adp-sel-wrap">
+          <label class="adp-sel-label">Pass TD</label>
+          <select class="adp-sel adp-sel-dim">
+            <option>4 Point</option>
+            <option>6 Point</option>
+          </select>
+        </div>
+        <div class="adp-sel-wrap">
+          <label class="adp-sel-label">TE Premium</label>
+          <select class="adp-sel adp-sel-dim">
+            <option>No</option>
+            <option>Yes (+0.5)</option>
+            <option>Yes (+1.0)</option>
+          </select>
+        </div>
+        <div class="adp-sel-wrap">
+          <label class="adp-sel-label">Best Ball</label>
+          <select class="adp-sel adp-sel-dim">
+            <option>No</option>
+            <option>Yes</option>
+          </select>
         </div>
       </div>
     </div>
 
     <!-- draft type label + table -->
-    <div class="adp-draft-type">DRAFT TYPE <b id="adp-draft-type-label">12-team · Snake · Dynasty 1QB</b></div>
+    <div class="adp-draft-type">VIEWING <b id="adp-draft-type-label">12-team · Dynasty 1QB</b></div>
     <div class="adp-table-wrap">
       <table class="adp-tbl">
         <thead>
@@ -25813,11 +25833,18 @@ body .page,body .page.on{background:transparent!important}
      ADP EXPLORER
      ═══════════════════════════════════════════ -->
 <style>
-/* ── sub-nav toggle ── */
-.dv-subnav{display:flex;align-items:center;gap:3px;padding:8px 14px 0;max-width:1180px;margin:0 auto;box-sizing:border-box}
-.dv-snav-btn{padding:8px 18px;border:none;border-radius:var(--radius-md);background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.07em;cursor:pointer;transition:all .14s;text-transform:uppercase}
-.dv-snav-btn:hover{color:var(--text);background:rgba(255,255,255,.05)}
-.dv-snav-btn.on{color:var(--text);background:var(--s2);border:1px solid var(--border2)}
+/* ── glassnav dropdown ── */
+.gn-dd-wrap{position:relative}
+.gn-dd-trigger{display:flex!important;align-items:center;gap:5px}
+.gn-dd-chev{font-size:9px;opacity:.7;transition:transform .15s;pointer-events:none}
+.gn-dd-wrap.open .gn-dd-chev{transform:rotate(180deg)}
+.gn-dd-menu{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);min-width:175px;background:rgba(16,23,34,0.96);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:5px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 16px 40px -10px rgba(0,0,0,.7);z-index:9999;animation:gn-dd-in .12s ease}
+[data-theme="light"] .gn-dd-menu{background:rgba(255,255,255,.97);border-color:rgba(20,30,45,.12)}
+@keyframes gn-dd-in{from{opacity:0;transform:translateX(-50%) translateY(-4px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.gn-dd-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:10px 12px;border:none;border-radius:8px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .12s;text-align:left;white-space:nowrap;border-bottom:none!important}
+.gn-dd-menu button:hover{background:rgba(255,255,255,.08);color:var(--text)}
+[data-theme="light"] .gn-dd-menu button:hover{background:rgba(20,30,45,.06)}
+.gn-dd-menu button svg{flex-shrink:0;color:var(--muted)}
 /* hide board when ADP mode active */
 #page-draft.adp-mode .dconn-bar,
 #page-draft.adp-mode #intel-bar,
@@ -25833,20 +25860,9 @@ body .page,body .page.on{background:transparent!important}
 #page-draft.adp-mode #dv-adp-view{display:block}
 
 /* hero */
-.adp-hero{padding:22px 0 18px}
-.adp-hero h2{font-size:clamp(24px,3vw,34px);font-weight:900;letter-spacing:-.03em;color:var(--text);margin:0 0 5px}
-.adp-hero p{font-size:13px;color:var(--muted);margin:0 0 14px}
-.adp-hero-stats{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:13px;color:var(--muted)}
-.adp-hero-stats b{color:var(--accent2);font-weight:700}
-.adp-hero-stats span{display:flex;align-items:center;gap:5px}
-.adp-hero-stats .adp-divider{color:var(--border2);font-size:18px;line-height:1}
-
-/* format tabs */
-.adp-type-tabs{display:flex;gap:4px;margin-bottom:20px}
-.adp-type-btn{padding:8px 18px;border:1px solid var(--border2);border-radius:var(--radius-md);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .14s;display:flex;align-items:center;gap:7px}
-.adp-type-btn:hover{border-color:var(--border3);color:var(--text)}
-.adp-type-btn.on{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 0 18px rgba(47,99,196,.35)}
-.adp-type-btn svg{width:13px;height:13px;flex-shrink:0}
+.adp-hero{padding:22px 0 14px}
+.adp-hero h2{font-size:clamp(22px,3vw,32px);font-weight:900;letter-spacing:-.03em;color:var(--text);margin:0 0 4px}
+.adp-hero p{font-size:13px;color:var(--muted);margin:0}
 
 /* movers */
 .adp-movers{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:20px}
@@ -25868,20 +25884,22 @@ body .page,body .page.on{background:transparent!important}
 .adp-mv-delta.up{color:var(--rb)}
 .adp-mv-delta.dn{color:var(--red)}
 
-/* controls row */
-.adp-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.adp-search-wrap{flex:1;min-width:220px;display:flex;align-items:center;gap:9px;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:9px 14px}
-.adp-search-wrap input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-sans);font-size:13.5px;width:100%}
+/* filter row */
+.adp-filter-row{display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.adp-search-wrap{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:9px 14px}
+.adp-search-wrap input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-sans);font-size:13px;width:100%}
 .adp-search-wrap input::placeholder{color:var(--muted)}
 .adp-search-wrap svg{color:var(--muted);flex-shrink:0}
-.adp-scoring-seg{display:flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-md);padding:3px;gap:2px}
-.adp-scoring-seg button{padding:6px 12px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.05em;cursor:pointer;transition:all .13s;white-space:nowrap}
-.adp-scoring-seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
-.adp-teams-seg{display:flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-md);padding:3px;gap:2px}
-.adp-teams-seg button{padding:6px 10px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;cursor:pointer;transition:all .13s}
-.adp-teams-seg button.on{background:var(--s4);color:var(--text)}
-.adp-controls-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
-.adp-ctrl-group{display:flex;flex-direction:column;gap:0}
+.adp-filter-selects{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.adp-sel-wrap{display:flex;flex-direction:column;gap:4px}
+.adp-sel-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.adp-sel{appearance:none;-webkit-appearance:none;background:var(--s1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23667' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;border:1px solid var(--border2);border-radius:8px;padding:7px 28px 7px 11px;color:var(--text);font-family:var(--font-sans);font-size:12px;font-weight:600;cursor:pointer;transition:border-color .13s;min-width:80px}
+.adp-sel:focus{outline:none;border-color:var(--accent)}
+.adp-sel:hover{border-color:var(--border3)}
+.adp-sel optgroup{font-size:11px;color:var(--muted)}
+.adp-sel option{background:var(--s2);color:var(--text)}
+.adp-sel-dim{opacity:.45}
+.adp-sel-dim:hover{opacity:.7}
 
 /* table */
 .adp-table-wrap{overflow-x:auto}
@@ -25939,51 +25957,68 @@ body .page,body .page.on{background:transparent!important}
 'use strict';
 
 /* ── state ── */
-let _adpType    = 'startup'; // 'startup' | 'rookie'
-let _adpScoring = 'dynasty'; // dynasty|superflex|halfppr|ppr|standard
+let _adpScoring = 'dynasty'; // dynasty|superflex|halfppr|ppr|standard|rookie
 let _adpTeams   = 12;
 let _adpSort    = 'adp';
 let _adpSortDir = 1;
 let _adpSearch  = '';
 let _adpData    = [];
 let _adpCache   = {};
-let _adpLoading = false;
 
-/* ── sub-nav ── */
+/* ── header dropdown ── */
+window.gnToggleDraftMenu = function(e) {
+  e.stopPropagation();
+  const wrap = document.getElementById('gnd-draft-wrap');
+  const menu = document.getElementById('gnd-draft-menu');
+  const open = wrap.classList.toggle('open');
+  menu.style.display = open ? 'block' : 'none';
+  if (open) {
+    const close = function(ev) {
+      if (!wrap.contains(ev.target)) { gnCloseDraftMenu(); document.removeEventListener('click', close); }
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+};
+window.gnCloseDraftMenu = function() {
+  const wrap = document.getElementById('gnd-draft-wrap');
+  const menu = document.getElementById('gnd-draft-menu');
+  if (wrap) wrap.classList.remove('open');
+  if (menu) menu.style.display = 'none';
+};
+
+/* ── board / ADP toggle ── */
 window.dvShowBoard = function() {
   document.getElementById('page-draft').classList.remove('adp-mode');
-  document.querySelectorAll('.dv-snav-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
+  const btn = document.getElementById('nb-draft');
+  if (btn) btn.classList.add('on');
 };
 window.dvShowADP = function() {
   document.getElementById('page-draft').classList.add('adp-mode');
-  document.querySelectorAll('.dv-snav-btn').forEach((b,i)=>b.classList.toggle('on',i===1));
+  const btn = document.getElementById('nb-draft');
+  if (btn) btn.classList.add('on');
   _adpLoad();
 };
 
 /* ── format file map ── */
-function _adpFile(type, scoring, teams) {
-  const fmt = type === 'rookie' ? 'rookie' : scoring;
-  return `data/adp_${fmt}_${teams}team.json`;
+function _adpFile(scoring, teams) {
+  return `data/adp_${scoring}_${teams}team.json`;
 }
 
 /* ── load ── */
 function _adpLoad() {
-  const key = _adpFile(_adpType, _adpScoring, _adpTeams);
+  const key = _adpFile(_adpScoring, _adpTeams);
   if (_adpCache[key]) { _adpData = _adpCache[key]; _adpRender(); return; }
-  _adpLoading = true;
   _adpRenderLoading();
   fetch(key)
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(json => {
       _adpCache[key] = json.players || [];
       _adpData = _adpCache[key];
-      _adpLoading = false;
       _adpRender();
     })
     .catch(() => {
-      _adpLoading = false;
       document.getElementById('adp-tbody').innerHTML =
-        '<tr><td colspan="6" class="adp-empty">Couldn\'t load ADP data. Make sure the data files are in the repo.</td></tr>';
+        '<tr><td colspan="5" class="adp-empty">Couldn\'t load ADP data. Make sure the data files are in the repo.</td></tr>';
     });
 }
 
@@ -26085,44 +26120,23 @@ function _adpRenderLoading() {
 /* ── full render ── */
 function _adpRender() {
   if (!_adpData.length) return;
-  // update stats
-  document.getElementById('adp-stat-picks').textContent = (_adpData.length * 947).toLocaleString();
-  document.getElementById('adp-stat-drafts').textContent = '947';
-  // movers
   _adpRenderMovers(_adpData);
-  // draft type label
   const fmtLabel = {
-    dynasty:'Dynasty 1QB', superflex:'Dynasty Superflex',
-    halfppr:'Half PPR', ppr:'Full PPR', standard:'Standard', rookie:'Rookie'
-  }[_adpType === 'rookie' ? 'rookie' : _adpScoring] || '';
-  document.getElementById('adp-draft-type-label').textContent =
-    `${_adpTeams}-team · Snake · ${fmtLabel}`;
-  // table
+    dynasty:'Dynasty — 1QB', superflex:'Dynasty — Superflex',
+    halfppr:'Redraft — ½ PPR', ppr:'Redraft — Full PPR',
+    standard:'Redraft — Standard', rookie:'Rookie Draft'
+  }[_adpScoring] || _adpScoring;
+  const lbl = document.getElementById('adp-draft-type-label');
+  if (lbl) lbl.textContent = `${_adpTeams}-team · ${fmtLabel}`;
   _adpRenderTable(_adpData);
 }
 
-/* ── public controls ── */
-window.adpSetType = function(type) {
-  _adpType = type;
-  // update tab UI
-  document.querySelectorAll('.adp-type-btn').forEach(b => b.classList.toggle('on', b.dataset.type === type));
-  // show/hide scoring seg (not relevant for rookie)
-  const ss = document.getElementById('adp-scoring-seg');
-  if (ss) ss.style.display = type === 'rookie' ? 'none' : '';
-  _adpLoad();
-};
-
-window.adpSetScoring = function(scoring, btn) {
-  _adpScoring = scoring;
-  document.querySelectorAll('#adp-scoring-seg button').forEach(b => b.classList.remove('on'));
-  if (btn) btn.classList.add('on');
-  _adpLoad();
-};
-
-window.adpSetTeams = function(n, btn) {
-  _adpTeams = n;
-  document.querySelectorAll('.adp-teams-seg button').forEach(b => b.classList.remove('on'));
-  if (btn) btn.classList.add('on');
+/* ── select-based controls ── */
+window.adpSelChange = function() {
+  const typeEl  = document.getElementById('adp-sel-type');
+  const teamsEl = document.getElementById('adp-sel-teams');
+  if (typeEl)  _adpScoring = typeEl.value;
+  if (teamsEl) _adpTeams   = parseInt(teamsEl.value, 10);
   _adpLoad();
 };
 
