@@ -4148,19 +4148,18 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button id="nb-visual" onclick="showPage('visual')" style="display:none">Draft Room</button>
     <button id="nb-research" onclick="showPage('research')">Research</button>
     <button id="nb-myrankings" onclick="showPage('myrankings')">My Rankings</button>
-    <div class="gn-dd-wrap" id="gnd-draft-wrap">
-      <button id="nb-draft" class="gn-dd-trigger" onclick="showPage('draft');dvShowBoard();gnToggleDraftMenu(event)">Draft Vault <span class="gn-dd-chev">▾</span></button>
+    <button id="nb-draft" style="position:relative" onclick="showPage('draft');dvShowBoard();gnToggleDraftMenu(event)">Draft Vault
       <div class="gn-dd-menu" id="gnd-draft-menu" style="display:none">
-        <button onclick="showPage('draft');dvShowBoard();gnCloseDraftMenu()">
+        <button onclick="event.stopPropagation();showPage('draft');dvShowBoard();gnCloseDraftMenu()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M9 3h10a2 2 0 0 1 2 2v4"/><rect x="2" y="9" width="20" height="13" rx="2"/></svg>
           Draft Board
         </button>
-        <button onclick="showPage('draft');dvShowADP();gnCloseDraftMenu()">
+        <button onclick="event.stopPropagation();showPage('draft');dvShowADP();gnCloseDraftMenu()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-5"/></svg>
           ADP Explorer
         </button>
       </div>
-    </div>
+    </button>
     <button id="nb-teams" onclick="showPage('teams')">League</button>
     <button id="nb-trade" onclick="showPage('trade')">Calc</button>
     <button id="nb-betting" onclick="showPage('betting')">Betting</button>
@@ -25968,21 +25967,19 @@ let _adpCache   = {};
 /* ── header dropdown ── */
 window.gnToggleDraftMenu = function(e) {
   e.stopPropagation();
-  const wrap = document.getElementById('gnd-draft-wrap');
+  const btn  = document.getElementById('nb-draft');
   const menu = document.getElementById('gnd-draft-menu');
-  const open = wrap.classList.toggle('open');
+  const open = menu.style.display === 'none' || !menu.style.display;
   menu.style.display = open ? 'block' : 'none';
   if (open) {
     const close = function(ev) {
-      if (!wrap.contains(ev.target)) { gnCloseDraftMenu(); document.removeEventListener('click', close); }
+      if (!btn.contains(ev.target)) { gnCloseDraftMenu(); document.removeEventListener('click', close); }
     };
     setTimeout(() => document.addEventListener('click', close), 0);
   }
 };
 window.gnCloseDraftMenu = function() {
-  const wrap = document.getElementById('gnd-draft-wrap');
   const menu = document.getElementById('gnd-draft-menu');
-  if (wrap) wrap.classList.remove('open');
   if (menu) menu.style.display = 'none';
 };
 
