@@ -4024,7 +4024,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .glassnav .gn-word .t1{font-size:14px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase;color:var(--text)}
 .glassnav .gn-word .t1 span{color:var(--accent)}
 .glassnav .gn-word .t2{font-size:8px;font-weight:600;letter-spacing:0.16em;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;margin-top:1px;text-align:center}
-.glassnav .desktop-nav{display:flex;gap:3px;height:auto;align-items:center;flex:1 1 auto;justify-content:center;min-width:0;overflow:visible;scrollbar-width:none}
+.glassnav .desktop-nav{display:flex;gap:3px;height:auto;align-items:center;flex:1 1 auto;justify-content:center;min-width:0;overflow-x:auto;scrollbar-width:none}
 .glassnav .desktop-nav::-webkit-scrollbar{display:none}
 .glassnav .desktop-nav button{height:auto;padding:8px 12px;border:none;border-radius:9999px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:13px;font-weight:600;letter-spacing:0;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .glassnav .desktop-nav button:hover{color:var(--text);background:rgba(255,255,255,0.06)}
@@ -4148,18 +4148,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button id="nb-visual" onclick="showPage('visual')" style="display:none">Draft Room</button>
     <button id="nb-research" onclick="showPage('research')">Research</button>
     <button id="nb-myrankings" onclick="showPage('myrankings')">My Rankings</button>
-    <button id="nb-draft" style="position:relative" onclick="showPage('draft');dvShowBoard();gnToggleDraftMenu(event)">Draft Vault
-      <div class="gn-dd-menu" id="gnd-draft-menu" style="display:none">
-        <button onclick="event.stopPropagation();showPage('draft');dvShowBoard();gnCloseDraftMenu()">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M9 3h10a2 2 0 0 1 2 2v4"/><rect x="2" y="9" width="20" height="13" rx="2"/></svg>
-          Draft Board
-        </button>
-        <button onclick="event.stopPropagation();showPage('draft');dvShowADP();gnCloseDraftMenu()">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-5"/></svg>
-          ADP Explorer
-        </button>
-      </div>
-    </button>
+    <button id="nb-draft" onclick="showPage('draft')">Draft Vault</button>
     <button id="nb-teams" onclick="showPage('teams')">League</button>
     <button id="nb-trade" onclick="showPage('trade')">Calc</button>
     <button id="nb-betting" onclick="showPage('betting')">Betting</button>
@@ -25832,18 +25821,6 @@ body .page,body .page.on{background:transparent!important}
      ADP EXPLORER
      ═══════════════════════════════════════════ -->
 <style>
-/* ── glassnav dropdown ── */
-.gn-dd-wrap{position:relative}
-.gn-dd-trigger{display:flex!important;align-items:center;gap:5px}
-.gn-dd-chev{font-size:9px;opacity:.7;transition:transform .15s;pointer-events:none}
-.gn-dd-wrap.open .gn-dd-chev{transform:rotate(180deg)}
-.gn-dd-menu{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);min-width:175px;background:rgba(16,23,34,0.96);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:5px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 16px 40px -10px rgba(0,0,0,.7);z-index:9999;animation:gn-dd-in .12s ease}
-[data-theme="light"] .gn-dd-menu{background:rgba(255,255,255,.97);border-color:rgba(20,30,45,.12)}
-@keyframes gn-dd-in{from{opacity:0;transform:translateX(-50%) translateY(-4px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-.gn-dd-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:10px 12px;border:none;border-radius:8px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .12s;text-align:left;white-space:nowrap;border-bottom:none!important}
-.gn-dd-menu button:hover{background:rgba(255,255,255,.08);color:var(--text)}
-[data-theme="light"] .gn-dd-menu button:hover{background:rgba(20,30,45,.06)}
-.gn-dd-menu button svg{flex-shrink:0;color:var(--muted)}
 /* hide board when ADP mode active */
 #page-draft.adp-mode .dconn-bar,
 #page-draft.adp-mode #intel-bar,
@@ -25964,37 +25941,83 @@ let _adpSearch  = '';
 let _adpData    = [];
 let _adpCache   = {};
 
-/* ── header dropdown ── */
-window.gnToggleDraftMenu = function(e) {
-  e.stopPropagation();
-  const btn  = document.getElementById('nb-draft');
-  const menu = document.getElementById('gnd-draft-menu');
-  const open = menu.style.display === 'none' || !menu.style.display;
-  menu.style.display = open ? 'block' : 'none';
-  if (open) {
-    const close = function(ev) {
-      if (!btn.contains(ev.target)) { gnCloseDraftMenu(); document.removeEventListener('click', close); }
-    };
-    setTimeout(() => document.addEventListener('click', close), 0);
-  }
-};
-window.gnCloseDraftMenu = function() {
-  const menu = document.getElementById('gnd-draft-menu');
-  if (menu) menu.style.display = 'none';
-};
-
 /* ── board / ADP toggle ── */
 window.dvShowBoard = function() {
   document.getElementById('page-draft').classList.remove('adp-mode');
-  const btn = document.getElementById('nb-draft');
-  if (btn) btn.classList.add('on');
+  document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'draft'));
 };
 window.dvShowADP = function() {
   document.getElementById('page-draft').classList.add('adp-mode');
-  const btn = document.getElementById('nb-draft');
-  if (btn) btn.classList.add('on');
+  document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'adp-explorer'));
   _adpLoad();
 };
+
+/* ── Draft Vault nav dropdown (same pattern as Portfolio / My Team) ── */
+(function(){
+  function inject() {
+    var navBtn = document.getElementById('nb-draft');
+    if (!navBtn || navBtn.closest('.lc-mt-wrap')) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'lc-mt-wrap dv-dd-wrap';
+    navBtn.parentNode.insertBefore(wrap, navBtn);
+    wrap.appendChild(navBtn);
+    navBtn.insertAdjacentHTML('beforeend', '<span class="lc-caret">▼</span>');
+
+    var menu = document.createElement('div');
+    menu.className = 'lc-mt-menu';
+    menu.id = 'dv-dd-menu';
+    menu.innerHTML =
+      '<button class="lc-mt-item active" data-go="draft"><span class="ic">🏈</span><span><b>Draft Board</b><small>Rankings · live draft sync</small></span></button>' +
+      '<button class="lc-mt-item" data-go="adp-explorer"><span class="ic">📊</span><span><b>ADP Explorer</b><small>Market data · ADP trends</small></span></button>';
+    document.body.appendChild(menu);
+
+    var hideT;
+    var place = function() { var r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
+    var show  = function() { clearTimeout(hideT); place(); menu.classList.add('show'); };
+    var hide  = function() { hideT = setTimeout(function() { menu.classList.remove('show'); }, 120); };
+
+    wrap.addEventListener('mouseenter', show);
+    wrap.addEventListener('mouseleave', hide);
+    menu.addEventListener('mouseenter', function() { clearTimeout(hideT); });
+    menu.addEventListener('mouseleave', hide);
+    window.addEventListener('resize', function() { menu.classList.remove('show'); });
+
+    menu.addEventListener('click', function(e) {
+      var it = e.target.closest('.lc-mt-item');
+      if (!it) return;
+      menu.classList.remove('show');
+      if (it.dataset.go === 'adp-explorer') {
+        window.showPage('draft');
+        window.dvShowADP();
+      } else {
+        window.showPage('draft');
+        window.dvShowBoard();
+      }
+    });
+  }
+
+  /* hook showPage so .on tracks both draft sub-views */
+  function hookShowPage() {
+    var orig = window.showPage;
+    if (typeof orig !== 'function') return false;
+    if (window._dvDdHooked) return true;
+    window._dvDdHooked = true;
+    window.showPage = function(p) {
+      orig.apply(this, arguments);
+      var onDraft = (p === 'draft' || p === 'adp-explorer');
+      var nb = document.getElementById('nb-draft');
+      if (nb) nb.classList.toggle('on', onDraft);
+    };
+    return true;
+  }
+
+  var tries = 0;
+  var t = setInterval(function() {
+    inject();
+    if (hookShowPage() || ++tries > 40) clearInterval(t);
+  }, 100);
+})();
 
 /* ── format file map ── */
 function _adpFile(scoring, teams) {
