@@ -1,0 +1,514 @@
+/* ═══════════════════════════════════════════════════════════════
+   VAULT FANTASY — Design System
+   vault-ds.css · Single source of truth for tokens + components
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. TOKENS ─────────────────────────────────────────────────── */
+
+:root {
+  /* VAPOR SKY — dark (default) */
+  --bg:#070d18;--surface:#0e1626;
+  --s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
+  --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
+  --dim:#1b2740;
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#7d8ca3;
+  --primary:#bec6e0;--on-primary:#0a1424;--primary-c:var(--s1);
+  --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --sky:#4d86f0;--sky-dim:#2f63c4;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --green:var(--rb);
+  --suggest:#7bd0ff;--value:#3DCC7A;--reach:#e23a4e;--gold:#f5c842;--navy:#070d18;
+  --glass-1:rgba(14,22,38,0.55);--glass-2:rgba(20,30,48,0.55);
+  --blur-md:blur(22px);--blur-sm:blur(14px);
+  --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
+  --shadow-card:0 24px 60px -20px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.06) inset;
+}
+
+[data-theme="light"] {
+  /* AMERICANA PAPER */
+  --bg:#f4efe4;--surface:#fffdf8;
+  --s1:#fffdf8;--s2:#f3eede;--s3:#ece5d4;--s4:#e1d8c4;--s-bright:#ffffff;
+  --border:rgba(29,40,66,0.10);--border2:rgba(29,40,66,0.17);--border3:rgba(29,40,66,0.28);
+  --text:#1d2433;--text2:#3a4658;--muted:#6e7582;--dim:#ece5d4;
+  --primary:#16233a;--on-primary:#ffffff;
+  --accent:#16233a;--accent2:#2c4063;--accent3:#4a5d80;
+  --red:#c52d3a;--red2:#d8434f;
+  --sky:#1f4e87;--sky-dim:#16395f;
+  --qb:#c52d3a;--rb:#0a7a4c;--wr:#1f6fb0;--te:#a76a16;
+  --suggest:#1f4e87;--value:#0a7a4c;--reach:#c52d3a;--gold:#a76a16;--navy:#16233a;
+  --glass-1:rgba(255,255,255,0.62);--glass-2:rgba(248,244,235,0.62);
+}
+
+[data-theme="onyx"] {
+  /* ONYX & GOLD */
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --primary:#e7cf8c;--on-primary:#1b1404;--primary-c:var(--s1);
+  --accent:#c8a043;--accent2:#e7cf8c;--accent3:#f0dca8;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --sky:#c8a043;--sky-dim:#a8842f;
+  --suggest:#e7cf8c;--value:#5fe09a;--reach:#e23a4e;--gold:#e7cf8c;--navy:#0e0f13;
+  --glass-1:rgba(24,25,30,0.55);--glass-2:rgba(30,32,38,0.55);
+}
+
+
+/* ── 2. TYPOGRAPHY UTILITIES ────────────────────────────────────── */
+
+.v-h {
+  font-family:var(--font-sans);
+  font-weight:900;
+  letter-spacing:-.04em;
+  line-height:.96;
+  color:var(--text);
+}
+
+.v-kicker {
+  font-family:var(--font-mono);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.v-mono {
+  font-family:var(--font-mono);
+  font-weight:700;
+  color:var(--text);
+}
+
+.v-serif {
+  font-family:'Newsreader','Georgia',serif;
+  font-weight:500;
+  color:var(--text2);
+}
+
+
+/* ── 3. GLASS SURFACES ──────────────────────────────────────────── */
+
+.v-glass {
+  background:var(--glass-1);
+  border:1px solid rgba(255,255,255,0.10);
+  backdrop-filter:var(--blur-md);
+  -webkit-backdrop-filter:var(--blur-md);
+  border-radius:var(--radius-lg);
+}
+
+.v-glass-deep {
+  background:var(--glass-2);
+  border:1px solid rgba(255,255,255,0.13);
+  backdrop-filter:blur(28px) saturate(170%);
+  -webkit-backdrop-filter:blur(28px) saturate(170%);
+  border-radius:var(--radius-lg);
+}
+
+.v-glass-lite {
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.07);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  border-radius:var(--radius-md);
+}
+
+
+/* ── 4. AMBIENT ORBS ────────────────────────────────────────────── */
+
+.v-orb {
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+  filter:blur(60px);
+  opacity:.55;
+}
+
+.v-orb.sky {
+  background:radial-gradient(circle, rgba(77,134,240,0.65), transparent 70%);
+}
+
+.v-orb.red {
+  background:radial-gradient(circle, rgba(226,58,78,0.55), transparent 70%);
+}
+
+
+/* ── 5. BUTTONS ─────────────────────────────────────────────────── */
+
+.v-btn {
+  position:relative;
+  overflow:hidden;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:11px 22px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;
+  border:none;
+  border-radius:var(--radius-md);
+  font-size:14px;
+  font-weight:600;
+  font-family:var(--font-sans);
+  letter-spacing:-0.01em;
+  cursor:pointer;
+  touch-action:manipulation;
+  white-space:nowrap;
+  transition:opacity 150ms ease, transform 80ms ease;
+  box-shadow:0 0 20px rgba(47,99,196,0.30);
+}
+.v-btn:hover { opacity:.88; }
+.v-btn:active { transform:scale(.97); }
+
+.v-btn .sheen {
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,0.35) 50%,transparent 62%);
+  transform:translateX(-130%);
+}
+@media(prefers-reduced-motion:no-preference){
+  .v-btn:hover .sheen { transform:translateX(130%); transition:transform .7s ease; }
+}
+
+.v-btn.red {
+  background:linear-gradient(135deg,var(--red),var(--red2));
+  box-shadow:0 0 20px rgba(226,58,78,0.35);
+}
+
+.v-btn.ghost {
+  background:var(--glass-1);
+  border:1px solid rgba(255,255,255,0.14);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  color:var(--text);
+  box-shadow:none;
+}
+.v-btn.ghost:hover { background:var(--glass-2); opacity:1; }
+
+.v-btn.sm { padding:7px 14px; font-size:12px; }
+
+
+/* ── 6. POSITION BADGES ─────────────────────────────────────────── */
+
+.v-pos {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 10px;
+  border-radius:var(--radius-sm);
+  font-family:var(--font-mono);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.06em;
+}
+.v-pos.QB { background:rgba(255,102,128,0.15); color:var(--qb); }
+.v-pos.RB { background:rgba(61,204,122,0.15);  color:var(--rb); }
+.v-pos.WR { background:rgba(123,208,255,0.15); color:var(--wr); }
+.v-pos.TE { background:rgba(245,200,66,0.15);  color:var(--te); }
+
+
+/* ── 7. PILLS & CHIPS ───────────────────────────────────────────── */
+
+.v-pill {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 11px;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:var(--radius-pill);
+  font-size:11px;
+  font-weight:600;
+  color:var(--text2);
+  white-space:nowrap;
+}
+.v-pill.mono {
+  font-family:var(--font-mono);
+  font-size:9px;
+  letter-spacing:.10em;
+}
+.v-pill.hot {
+  background:rgba(226,58,78,0.18);
+  border-color:rgba(226,58,78,0.35);
+  color:var(--red2);
+  animation:pulse-red 1.8s ease-in-out infinite;
+}
+@keyframes pulse-red {
+  0%,100% { box-shadow:0 0 0 0 rgba(226,58,78,0); }
+  50%      { box-shadow:0 0 0 4px rgba(226,58,78,0.18); }
+}
+
+.dot {
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+
+
+/* ── 8. VERDICT TAGS ────────────────────────────────────────────── */
+
+.v-tag {
+  display:inline-flex;
+  align-items:center;
+  padding:4px 9px;
+  border-radius:var(--radius-sm);
+  font-family:var(--font-mono);
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.10em;
+  white-space:nowrap;
+}
+.v-tag.value { background:rgba(61,204,122,0.14);  color:var(--value); }
+.v-tag.reach { background:rgba(226,58,78,0.14);   color:var(--reach); }
+.v-tag.sugg  { background:rgba(123,208,255,0.14); color:var(--suggest); }
+.v-tag.gold  { background:rgba(245,200,66,0.14);  color:var(--gold); }
+
+
+/* ── 9. SEGMENTED CONTROL ───────────────────────────────────────── */
+
+.v-seg {
+  display:inline-flex;
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-md);
+  padding:3px;
+  gap:2px;
+}
+.v-seg button {
+  padding:6px 14px;
+  border:none;
+  border-radius:7px;
+  background:transparent;
+  color:var(--muted);
+  font-family:var(--font-mono);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+  cursor:pointer;
+  transition:all .14s;
+}
+.v-seg button.on {
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 2px 8px -2px rgba(47,99,196,0.5);
+}
+
+
+/* ── 10. TOGGLE ─────────────────────────────────────────────────── */
+
+.v-tog {
+  width:40px;
+  height:22px;
+  border-radius:var(--radius-pill);
+  background:rgba(255,255,255,0.10);
+  border:1px solid var(--border2);
+  position:relative;
+  cursor:pointer;
+  transition:background .2s, border-color .2s;
+  flex-shrink:0;
+}
+.v-tog.on {
+  background:var(--red);
+  border-color:var(--red);
+}
+.v-tog .knob {
+  position:absolute;
+  top:2px;
+  left:2px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+  transition:transform .2s cubic-bezier(.4,0,.2,1);
+}
+.v-tog.on .knob {
+  transform:translateX(18px);
+}
+
+
+/* ── 11. INPUT FIELD ────────────────────────────────────────────── */
+
+.v-field {
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 16px;
+  background:var(--glass-1);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-pill);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  color:var(--muted);
+  font-family:var(--font-sans);
+  font-size:14px;
+  cursor:text;
+  transition:border-color .15s;
+}
+.v-field:focus-within {
+  border-color:var(--accent2);
+  color:var(--text);
+}
+.v-field input {
+  background:transparent;
+  border:none;
+  outline:none;
+  color:var(--text);
+  font-family:var(--font-sans);
+  font-size:14px;
+  width:100%;
+}
+.v-field input::placeholder { color:var(--muted); }
+
+
+/* ── 12. NAV TABS ───────────────────────────────────────────────── */
+
+.v-ntab {
+  padding:8px 16px;
+  border:none;
+  border-radius:var(--radius-pill);
+  background:transparent;
+  color:var(--muted);
+  font-family:var(--font-sans);
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all .14s;
+  white-space:nowrap;
+}
+.v-ntab:hover { color:var(--text); background:rgba(255,255,255,0.06); }
+.v-ntab.on {
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 2px 10px -3px rgba(47,99,196,0.55);
+}
+
+
+/* ── 13. CATEGORY TILES ─────────────────────────────────────────── */
+
+.v-cat {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+  opacity:.6;
+  transition:opacity .14s;
+}
+.v-cat:hover { opacity:.85; }
+.v-cat.on { opacity:1; }
+
+.v-cat .tile {
+  width:52px;
+  height:52px;
+  border-radius:var(--radius-lg);
+  background:var(--glass-1);
+  border:1px solid var(--border2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:var(--font-mono);
+  font-size:11px;
+  font-weight:700;
+  color:var(--text2);
+  letter-spacing:.06em;
+  transition:all .14s;
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+}
+.v-cat.on .tile {
+  background:var(--accent);
+  border-color:transparent;
+  color:#fff;
+  box-shadow:0 6px 18px -6px rgba(47,99,196,0.55);
+}
+
+.v-cat .lbl {
+  font-family:var(--font-mono);
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.v-cat.on .lbl { color:var(--accent2); }
+
+
+/* ── 14. PROGRESS BAR ───────────────────────────────────────────── */
+
+.v-bar {
+  width:100%;
+  height:5px;
+  border-radius:var(--radius-pill);
+  background:rgba(255,255,255,0.08);
+  overflow:hidden;
+  position:relative;
+}
+.v-bar i {
+  display:block;
+  height:100%;
+  border-radius:var(--radius-pill);
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+}
+
+
+/* ── 15. AVATAR ─────────────────────────────────────────────────── */
+
+.v-avatar {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;
+  font-family:var(--font-mono);
+  font-size:11px;
+  font-weight:700;
+  flex-shrink:0;
+}
+
+
+/* ── 16. ICON CHIP ──────────────────────────────────────────────── */
+
+.v-ichip {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:32px;
+  height:32px;
+  border-radius:var(--radius-md);
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12);
+  color:var(--text2);
+  flex-shrink:0;
+}
+.v-ichip.lg {
+  width:40px;
+  height:40px;
+  border-radius:var(--radius-lg);
+}
+.v-ichip svg { pointer-events:none; }
+
+
+/* ── 17. PLACEHOLDER ────────────────────────────────────────────── */
+
+.v-ph {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--s2);
+  border:1px dashed var(--border2);
+  border-radius:var(--radius-lg);
+  color:var(--muted);
+  font-family:var(--font-mono);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
