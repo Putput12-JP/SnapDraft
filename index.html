@@ -26258,11 +26258,26 @@ window.adpSearch = function(val) {
 .ss-pct-num{font-family:var(--font-mono);font-size:13px;font-weight:700;margin-bottom:3px}
 .ss-pct-bar-bg{height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
 .ss-pct-bar{height:100%;border-radius:2px;transition:width .6s ease-out}
+/* suggestion cards */
+.ss-sug-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:28px}
+.ss-sug-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+.ss-sug-card:hover{border-color:var(--border2)}
+.ss-sug-card.urgent{border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.05)}
+.ss-sug-card.positive{border-color:rgba(61,204,122,.25);background:rgba(61,204,122,.04)}
+.ss-sug-top{display:flex;align-items:center;gap:8px}
+.ss-sug-icon{font-size:18px;line-height:1;flex-shrink:0}
+.ss-sug-tag{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.ss-sug-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.35}
+.ss-sug-body{font-size:12px;color:var(--text2);line-height:1.5;flex:1}
+.ss-sug-action{font-size:11px;font-weight:600;color:var(--accent);padding-top:6px;border-top:1px solid var(--border);line-height:1.4}
+.ss-sug-card.positive .ss-sug-action{color:var(--rb)}
+
 @media(max-width:640px){
   .ss-col-hide{display:none}
   .ss-my-stat-val.xl{font-size:32px}
   .ss-week-col{min-width:30px}
   .ss-week-pill{width:30px}
+  .ss-sug-grid{grid-template-columns:1fr}
 }
 </style>
 
@@ -26510,6 +26525,136 @@ function _ssRenderTable(){
   });
 }
 
+async function _ssRenderSuggestions(currentWeek, playoffTeams){
+  const el=document.getElementById('ss-suggestions'); if(!el) return;
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const myRes=_ssResults[_ssMyRosterId];
+  if(!me||!myRes){el.innerHTML='';return;}
+
+  const cards=[];
+
+  // 1 — Score gap sensitivity: how many pts/game needed to meaningfully move playoff odds
+  {
+    const base=myRes.playoffPct;
+    const origMean=me.mean;
+    let targetBump=null;
+    for(const b of [3,5,8,12,15]){
+      me.mean=origMean+b;
+      const q=_ssSim(200,playoffTeams);
+      const newPct=q[_ssMyRosterId].playoffPct;
+      me.mean=origMean;
+      if(newPct>=base+10&&!targetBump) targetBump={bump:b,newPct};
+    }
+    me.mean=origMean;
+    if(base>=80){
+      cards.push({icon:'🏆',tag:'POSITION',positive:true,
+        title:'You\'re in strong playoff position',
+        body:`Your playoff odds are ${base}% — top-tier. Focus on staying healthy and locking up a top seed.`,
+        action:'Avoid risky trades. Protect your position, chase the bye if your league has one.'});
+    } else if(targetBump){
+      cards.push({icon:'📈',tag:'SCORING GAP',
+        title:`+${targetBump.bump} pts/game would push you to ${targetBump.newPct}% playoff odds`,
+        body:`Your lineup averages ${origMean.toFixed(1)} pts/game. A ${targetBump.bump}-point-per-game upgrade moves your playoff probability from ${base}% → ${targetBump.newPct}%.`,
+        action:'Target waiver wire adds or trades that bring consistent weekly scoring — prioritize floor over boom/bust.'});
+    }
+  }
+
+  // 2 — Schedule intel: identify favorable or tough upcoming stretch
+  {
+    const upcoming=_ssSchedule.filter(wk=>!wk.played).map(wk=>{
+      const pair=wk.pairs.find(p=>p.includes(_ssMyRosterId)); if(!pair) return null;
+      const oppId=pair.find(id=>id!==_ssMyRosterId);
+      const opp=_ssTeams.find(t=>t.rosterId===oppId);
+      return {week:wk.week,opp,winPct:_ssWinProb(me,opp,250)};
+    }).filter(Boolean).slice(0,6);
+
+    if(upcoming.length){
+      const next3=upcoming.slice(0,3);
+      const avgWP=Math.round(next3.reduce((s,w)=>s+w.winPct,0)/next3.length);
+      const easy=upcoming.filter(w=>w.winPct>=65).sort((a,b)=>b.winPct-a.winPct);
+      const hard=upcoming.filter(w=>w.winPct<=38).sort((a,b)=>a.winPct-b.winPct);
+      const nextWk=upcoming[0];
+
+      if(easy.length>=2){
+        const wks=easy.slice(0,2).map(w=>`Wk ${w.week} vs ${w.opp?.name||'—'} (${w.winPct}%)`).join(', ');
+        cards.push({icon:'📅',tag:'SCHEDULE',positive:true,
+          title:`Favorable stretch ahead — ${easy.length} winnable games`,
+          body:`Your best opportunities: ${wks}. Average win probability over next 3 weeks: ${avgWP}%.`,
+          action:'Must-win weeks. Set your strongest lineup and don\'t leave points on the bench.'});
+      } else if(hard.length>=2){
+        const wks=hard.slice(0,2).map(w=>`Wk ${w.week} vs ${w.opp?.name||'—'} (${w.winPct}%)`).join(', ');
+        cards.push({icon:'⚔️',tag:'TOUGH STRETCH',
+          title:`Difficult gauntlet — ${hard.length} tough matchups coming`,
+          body:`Hardest weeks: ${wks}. Average win probability over next 3 weeks: ${avgWP}%.`,
+          action:'Consider trading players on a hot streak before this stretch — sell high while value is elevated.'});
+      } else {
+        cards.push({icon:'📅',tag:'SCHEDULE',
+          title:`Next game: vs ${nextWk.opp?.name||'—'} — ${nextWk.winPct}% win probability`,
+          body:`Balanced schedule ahead. Your average win probability over the next 3 weeks is ${avgWP}%.`,
+          action:'Consistent lineup decisions matter more than schedule variance right now.'});
+      }
+    }
+  }
+
+  // 3 — Injury check on user's roster
+  if(typeof globalPidToName!=='undefined'&&Object.keys(globalPidToName).length>0){
+    const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId);
+    const pids=[...(myRosterObj?.players||[])].map(String);
+    const injured=[];
+    pids.forEach(pid=>{
+      const name=globalPidToName[pid]; if(!name) return;
+      const inj=window.getNflverseInjury?.(name);
+      if(inj?.status&&!['Active',''].includes(inj.status)) injured.push({name,status:inj.status});
+    });
+    if(injured.length>0){
+      const list=injured.slice(0,3).map(p=>`${p.name} (${p.status})`).join(', ');
+      const more=injured.length>3?` +${injured.length-3} more`:'';
+      cards.push({icon:'🏥',tag:'INJURY WATCH',urgent:true,
+        title:`${injured.length} player${injured.length>1?'s':''} with injury concern on your roster`,
+        body:`${list}${more} may miss or be limited in upcoming weeks.`,
+        action:'Check beat reporters Thursday–Friday before lock. Have handcuffs or replacements ready on your bench.'});
+    } else if(pids.length>0){
+      cards.push({icon:'✅',tag:'HEALTH',positive:true,
+        title:'Roster is healthy — no injury concerns',
+        body:'All tracked players on your roster appear active heading into upcoming weeks.',
+        action:'Check Thursday injury reports each week — status can change quickly.'});
+    }
+  }
+
+  // 4 — Sell-high: starter with significant L4W drop vs season average
+  if(typeof globalPidToName!=='undefined'&&window.getNflversePlayer){
+    const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId);
+    const starters=(myRosterObj?.starters||[]).map(String).filter(s=>s!=='0'&&s.length>1);
+    const candidates=[];
+    starters.forEach(pid=>{
+      const name=globalPidToName[pid]; if(!name) return;
+      const p=window.getNflversePlayer(name); if(!p?.season?.avg_pts||!p?.l4w_avg) return;
+      const drop=p.season.avg_pts-p.l4w_avg;
+      if(drop>=3.5) candidates.push({name,l4w:p.l4w_avg,avg:p.season.avg_pts,drop,pos:p.pos||'?'});
+    });
+    if(candidates.length){
+      candidates.sort((a,b)=>b.drop-a.drop);
+      const c=candidates[0];
+      cards.push({icon:'📉',tag:'SELL HIGH',
+        title:`${c.name} is trending down — consider trading now`,
+        body:`${c.name} (${c.pos}) averages ${c.avg.toFixed(1)} pts/game on the season but only ${c.l4w.toFixed(1)} over the last 4 weeks — a ${c.drop.toFixed(1)} pt/game drop.`,
+        action:'Their trade value may still reflect early-season numbers. Sell before the market adjusts to their recent form.'});
+    }
+  }
+
+  if(!cards.length){el.innerHTML='';return;}
+
+  el.innerHTML=`<div class="ss-section-label">💡 RECOMMENDATIONS</div>
+    <div class="ss-sug-grid">${cards.map(c=>`
+      <div class="ss-sug-card${c.urgent?' urgent':c.positive?' positive':''}">
+        <div class="ss-sug-top"><span class="ss-sug-icon">${c.icon}</span><span class="ss-sug-tag">${c.tag}</span></div>
+        <div class="ss-sug-title">${c.title}</div>
+        <div class="ss-sug-body">${c.body}</div>
+        <div class="ss-sug-action">${c.action}</div>
+      </div>`).join('')}
+    </div>`;
+}
+
 window.ssRun = async function(){
   const btn=$ss('ss-run-btn'), prog=$ss('ss-progress'), fill=$ss('ss-progress-fill'), lbl=$ss('ss-progress-label');
   if(_ssLoading) return;
@@ -26527,6 +26672,7 @@ window.ssRun = async function(){
     if(fill)fill.style.width='100%';
     _ssRenderHero(currentWeek, playoffStart);
     _ssRenderMyCard(currentWeek);
+    await _ssRenderSuggestions(currentWeek, playoffTeams);
     _ssRenderTable();
     btn.textContent='↻ Re-run'; btn.disabled=false;
   } catch(e){
@@ -26555,6 +26701,7 @@ function _ssInjectPage(){
       <div class="ss-progress-bar"><div class="ss-progress-fill" id="ss-progress-fill" style="width:0%"></div></div>
     </div>
     <div class="ss-my-card" id="ss-my-card"></div>
+    <div id="ss-suggestions"></div>
     <div id="ss-table-wrap"></div>
   </div>`;
   document.querySelector('.page')?.parentNode.appendChild(page);
