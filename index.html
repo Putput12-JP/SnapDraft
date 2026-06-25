@@ -26387,6 +26387,9 @@ const SS_N = 1000;
 let _ssLeagueInfo=null, _ssRosters=null, _ssUsers=null;
 let _ssSchedule=null, _ssTeams=null, _ssMyRosterId=null;
 let _ssResults=null, _ssLoading=false;
+let _ssTnCache=null, _ssTnOpen=null;
+const _SS_POS_HEX={QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'};
+window.ssTnToggle=function(pos){ _ssTnOpen=_ssTnOpen===pos?null:pos; _ssRenderTradeRoom(true); };
 
 function $ss(id){ return document.getElementById(id); }
 function _mean(a){ return a.length?a.reduce((s,v)=>s+v,0)/a.length:0; }
@@ -26938,24 +26941,18 @@ function _ssRenderShareCard(){
     </div>`;
 }
 
-function _ssRenderTradeRoom(){
-  const el=document.getElementById('ss-trade-room'); if(!el) return;
-  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
-  const myRes=_ssResults?.[_ssMyRosterId];
+function _ssBuildTradeGroups(me, myRes, playoffTeams){
   const hasPid=typeof globalPidToName!=='undefined'&&Object.keys(globalPidToName).length>0;
-  const hasVal=typeof getPlayerValue==='function';
   const hasStats=typeof window.getNflversePlayer==='function';
-  if(!me||!myRes||!_ssRosters||!hasPid||!hasStats){el.innerHTML='';return;}
-  const playoffTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
+  const hasVal=typeof getPlayerValue==='function';
+  if(!hasPid||!hasStats) return null;
 
-  const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId); if(!myRosterObj){el.innerHTML='';return;}
+  const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId); if(!myRosterObj) return null;
   const POSITIONS=['RB','WR','TE','QB'];
-  const myPosPts={};
-  POSITIONS.forEach(p=>myPosPts[p]=[]);
+  const myPosPts={};POSITIONS.forEach(p=>myPosPts[p]=[]);
   const myPlayerData={};
 
-  const myStarters=[...(myRosterObj.starters||[])].filter(s=>s&&s!=='0');
-  myStarters.forEach(pid=>{
+  [...(myRosterObj.starters||[])].filter(s=>s&&s!=='0').forEach(pid=>{
     const name=globalPidToName[pid]; if(!name) return;
     const p=window.getNflversePlayer(name); if(!p||!myPosPts[p.pos]) return;
     const pts=p.l4w_avg||p.season?.avg_pts||0;
@@ -26964,8 +26961,7 @@ function _ssRenderTradeRoom(){
     myPlayerData[pid]={name,pts,pos:p.pos,val};
   });
 
-  const lgPosPts={};
-  POSITIONS.forEach(p=>lgPosPts[p]=[]);
+  const lgPosPts={};POSITIONS.forEach(p=>lgPosPts[p]=[]);
   _ssRosters.forEach(r=>{
     if(r.roster_id===_ssMyRosterId) return;
     [...(r.starters||[])].filter(s=>s&&s!=='0').forEach(pid=>{
@@ -26976,69 +26972,130 @@ function _ssRenderTradeRoom(){
   });
 
   const med=arr=>{ if(!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/2)]; };
-  let weakPos=null,weakGap=-Infinity;
-  POSITIONS.forEach(pos=>{
+  const posGaps=POSITIONS.map(pos=>{
     const myAvg=myPosPts[pos].length?myPosPts[pos].reduce((s,p)=>s+p.pts,0)/myPosPts[pos].length:0;
-    const gap=med(lgPosPts[pos])-myAvg;
-    if(gap>weakGap){weakGap=gap;weakPos=pos;}
-  });
+    return {pos,gap:med(lgPosPts[pos])-myAvg,myAvg};
+  }).sort((a,b)=>b.gap-a.gap);
 
-  if(!weakPos||weakGap<1){el.innerHTML='';return;}
+  const needPositions=posGaps.filter(p=>p.gap>0.5).slice(0,2);
+  if(!needPositions.length) return null;
 
-  const proposals=[];
-  _ssRosters.forEach(r=>{
-    if(r.roster_id===_ssMyRosterId||proposals.length>=3) return;
-    const oppTeam=_ssTeams.find(t=>t.rosterId===r.roster_id); if(!oppTeam) return;
-    const oppStarters=[...(r.starters||[])].filter(s=>s&&s!=='0');
-    const theirAtWeak=oppStarters.map(pid=>{
-      const name=globalPidToName[pid]; if(!name) return null;
-      const p=window.getNflversePlayer(name); if(!p||p.pos!==weakPos) return null;
-      return {pid,name,pts:p.l4w_avg||0,val:hasVal?getPlayerValue(name)||0:0};
-    }).filter(Boolean).sort((a,b)=>b.val-a.val);
-    if(!theirAtWeak.length) return;
-    const target=theirAtWeak[0];
-    const myStrong=Object.values(myPlayerData).filter(p=>p.pos!==weakPos).sort((a,b)=>b.val-a.val);
-    if(!myStrong.length) return;
-    const offer=myStrong[0];
-    const maxV=Math.max(offer.val,target.val)||1;
-    const delta=Math.abs(offer.val-target.val)/maxV;
-    if(delta>0.28) return;
-    const fairLabel=delta<0.08?'Even Trade':offer.val>target.val?'Slight Win for You':'Slight Loss for You';
-    const fairColor=delta<0.08?'var(--text)':offer.val>target.val?'#22C55E':'#EAB308';
-    const ptsDelta=(target.pts||0)-(offer.pts||0);
-    const origMean=me.mean;
-    me.mean=Math.max(80,origMean+ptsDelta*0.65);
-    const altRes=_ssSim(120,playoffTeams);
-    me.mean=origMean;
-    const oddsDelta=altRes[_ssMyRosterId].playoffPct-myRes.playoffPct;
-    const champDelta=altRes[_ssMyRosterId].champPct-myRes.champPct;
-    proposals.push({offer,target,oppTeam,fairLabel,fairColor,ptsDelta,oddsDelta,champDelta,weakPos});
-  });
+  const groups=needPositions.map(({pos,myAvg},gi)=>{
+    const label=gi===0?'Primary Need':'Secondary Need';
+    const ideas=[];
+    _ssRosters.forEach(r=>{
+      if(r.roster_id===_ssMyRosterId||ideas.length>=3) return;
+      const oppTeam=_ssTeams.find(t=>t.rosterId===r.roster_id); if(!oppTeam) return;
+      const oppStarters=[...(r.starters||[])].filter(s=>s&&s!=='0');
+      const theirAtPos=oppStarters.map(pid=>{
+        const name=globalPidToName[pid]; if(!name) return null;
+        const p=window.getNflversePlayer(name); if(!p||p.pos!==pos) return null;
+        return {pid,name,pts:p.l4w_avg||0,val:hasVal?getPlayerValue(name)||0:0};
+      }).filter(Boolean).sort((a,b)=>b.val-a.val||b.pts-a.pts);
+      if(!theirAtPos.length) return;
+      const target=theirAtPos[0];
+      const myStrong=Object.values(myPlayerData).filter(p=>p.pos!==pos).sort((a,b)=>b.val-a.val||b.pts-a.pts);
+      if(!myStrong.length) return;
+      const maxTV=target.val||1;
+      const offer=myStrong.find(p=>Math.abs(p.val-target.val)/maxTV<=0.30)||myStrong[0];
+      if(!offer) return;
+      const maxV=Math.max(offer.val,target.val)||1;
+      if(Math.abs(offer.val-target.val)/maxV>0.35) return;
+      // pre-run simulation with this trade applied
+      const ptsDelta=(target.pts||0)-(offer.pts||0);
+      const origMean=me.mean;
+      me.mean=Math.max(80,origMean+ptsDelta*0.65);
+      const altRes=_ssSim(200,playoffTeams);
+      me.mean=origMean;
+      const playoffDelta=altRes[_ssMyRosterId].playoffPct-myRes.playoffPct;
+      const champDelta=altRes[_ssMyRosterId].champPct-myRes.champPct;
+      const valDelta=Math.round((target.val||0)-(offer.val||0));
+      ideas.push({pos,target,offer,oppTeam,ptsDelta,playoffDelta,champDelta,valDelta});
+    });
+    return {pos,label,myAvg:myAvg.toFixed(1),ideas};
+  }).filter(g=>g.ideas.length>0);
 
-  if(!proposals.length){el.innerHTML='';return;}
-  const myWeakAvg=myPosPts[weakPos].length?(myPosPts[weakPos].reduce((s,p)=>s+p.pts,0)/myPosPts[weakPos].length).toFixed(1):'—';
+  return groups.length?groups:null;
+}
 
-  el.innerHTML=`<div class="ss-section-label">⚖️ TRADE WAR ROOM · Your ${weakPos} corps averages ${myWeakAvg} pts/game — below league median</div>
-    <div class="ss-trade-grid">${proposals.map(p=>{
-      const oddCls=p.oddsDelta>=3?'pos':p.oddsDelta<=-3?'neg':'neu';
-      const oddStr=(p.oddsDelta>=0?'+':'')+p.oddsDelta+'%';
-      const champStr=(p.champDelta>=0?'+':'')+p.champDelta+'%';
-      const ptsStr=(p.ptsDelta*0.65>=0?'+':'')+(p.ptsDelta*0.65).toFixed(1);
-      const fairCls=p.fairLabel.includes('Win')?'win':p.fairLabel.includes('Loss')?'loss':'even';
-      return `<div class="ss-trade-card">
-        <div class="ss-trade-header"><span class="ss-trade-opp">vs ${p.oppTeam.name}</span><span class="ss-trade-fair ${fairCls}">${p.fairLabel}</span></div>
-        <div class="ss-trade-players">
-          <div class="ss-trade-side give"><div class="ss-trade-dir">You Give</div><div class="ss-trade-name">${p.offer.name}</div><div class="ss-trade-meta">${p.offer.pos} · ${p.offer.pts.toFixed(1)} L4W</div></div>
-          <div class="ss-trade-arrow">⇄</div>
-          <div class="ss-trade-side get"><div class="ss-trade-dir">You Get</div><div class="ss-trade-name">${p.target.name}</div><div class="ss-trade-meta">${p.target.pos} · ${p.target.pts.toFixed(1)} L4W</div></div>
+function _ssRenderTradeRoom(skipCalc){
+  const el=document.getElementById('ss-trade-room'); if(!el) return;
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const myRes=_ssResults?.[_ssMyRosterId];
+  if(!me||!myRes||!_ssRosters){el.innerHTML='';return;}
+  const playoffTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
+
+  if(!skipCalc||!_ssTnCache){
+    _ssTnCache=_ssBuildTradeGroups(me,myRes,playoffTeams);
+    if(_ssTnCache&&!_ssTnOpen) _ssTnOpen=_ssTnCache[0].pos;
+  }
+  if(!_ssTnCache){el.innerHTML='';return;}
+
+  const total=_ssTnCache.reduce((s,g)=>s+g.ideas.length,0);
+
+  const groups=_ssTnCache.map(g=>{
+    const col=_SS_POS_HEX[g.pos]||'var(--muted)';
+    const isOpen=_ssTnOpen===g.pos;
+    const needCls=g.label==='Primary Need'?'tc-wn-primary':'tc-wn-secondary';
+    const ideas=isOpen?`<div class="tc-wn-ideas">${g.ideas.map(idea=>{
+      const pdCls=idea.playoffDelta>=3?'c-rb':idea.playoffDelta<=-3?'c-red':'c-muted';
+      const cdCls=idea.champDelta>=2?'c-gold':idea.champDelta<=-2?'c-red':'c-muted';
+      const pdStr=(idea.playoffDelta>=0?'+':'')+idea.playoffDelta+'%';
+      const cdStr=(idea.champDelta>=0?'+':'')+idea.champDelta+'%';
+      const ptsStr=(idea.ptsDelta*0.65>=0?'+':'')+(idea.ptsDelta*0.65).toFixed(1);
+      return `<div class="tc-wn-idea">
+        <div class="tc-wn-idea-main">
+          <div class="tc-wn-get">
+            <span class="tc-wn-getlbl">GET</span>
+            <span class="tc-wn-pname">${idea.target.name}</span>
+            <span class="tc-wn-from" style="color:${col}">from ${idea.oppTeam.name}</span>
+          </div>
+          <div class="tc-wn-give">
+            <span class="tc-wn-givelbl">SEND</span>
+            <span class="tc-wn-sname">${idea.offer.name} <span style="color:var(--muted);font-size:11px">(${idea.offer.pos} · ${idea.offer.pts.toFixed(1)} L4W)</span></span>
+          </div>
         </div>
-        <div class="ss-trade-impact">
-          <div class="ss-trade-stat"><span class="${oddCls}">${oddStr}</span> playoff</div>
-          <div class="ss-trade-stat"><span class="${oddCls}">${champStr}</span> champ</div>
-          <div class="ss-trade-pts">${ptsStr} pts/gm</div>
+        <div class="tc-wn-idea-stats">
+          <div class="tc-wn-stat">
+            <span class="tc-wn-statn ${pdCls}">${pdStr}</span>
+            <span class="tc-wn-statl">playoff</span>
+          </div>
+          <div class="tc-wn-stat">
+            <span class="tc-wn-statn ${cdCls}">${cdStr}</span>
+            <span class="tc-wn-statl">champ</span>
+          </div>
+          <div class="tc-wn-stat">
+            <span class="tc-wn-statn" style="font-size:11px;color:var(--muted)">${ptsStr}</span>
+            <span class="tc-wn-statl">pts/gm</span>
+          </div>
         </div>
       </div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>`:'';
+    return `<div class="tc-wn-group${isOpen?' open':''}">
+      <button class="tc-wn-row" onclick="ssTnToggle('${g.pos}')">
+        <div class="tc-wn-badge" style="background:${col}1f;border:1px solid ${col}55;color:${col}">${g.pos}</div>
+        <div style="flex:1;min-width:0;text-align:left">
+          <span class="tc-wn-title">${g.pos} Upgrades</span>
+          <span class="tc-wn-need ${needCls}">· ${g.label}</span>
+        </div>
+        <div class="tc-wn-count">${g.ideas.length} idea${g.ideas.length!==1?'s':''}</div>
+        <div class="tc-wn-caret" style="transform:rotate(${isOpen?90:0}deg)">›</div>
+      </button>
+      ${ideas}
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`<div class="ss-section-label">⚖️ WIN-NOW TRADE IDEAS</div>
+    <div class="ss-my-card show" style="padding:22px 24px">
+      <div class="tc-wn-header">
+        <div style="display:flex;align-items:center;gap:11px">
+          <span class="tc-wn-h1">Win-Now Trade Ideas</span>
+          <span class="tc-wn-total">${total}</span>
+        </div>
+        <div class="tc-wn-sub">Each trade simulated across 200 seasons — numbers show change to your playoff &amp; championship odds if you make this move</div>
+      </div>
+      <div class="tc-wn-list">${groups}</div>
+    </div>`;
 }
 
 function _ssRenderWaiver(){
@@ -27098,6 +27155,7 @@ window.ssRun = async function(){
   const btn=$ss('ss-run-btn'), prog=$ss('ss-progress'), fill=$ss('ss-progress-fill'), lbl=$ss('ss-progress-label');
   if(_ssLoading) return;
   _ssLoading=true; btn.disabled=true; btn.textContent='Loading…';
+  _ssTnCache=null; _ssTnOpen=null;
   prog?.classList.add('show');
   try {
     const {currentWeek,playoffStart,playoffTeams} = await _ssLoad();
