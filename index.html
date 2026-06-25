@@ -4024,7 +4024,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .glassnav .gn-word .t1{font-size:14px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase;color:var(--text)}
 .glassnav .gn-word .t1 span{color:var(--accent)}
 .glassnav .gn-word .t2{font-size:8px;font-weight:600;letter-spacing:0.16em;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;margin-top:1px;text-align:center}
-.glassnav .desktop-nav{display:flex;gap:3px;height:auto;align-items:center;flex:1 1 auto;justify-content:center;min-width:0;overflow-x:auto;scrollbar-width:none}
+.glassnav .desktop-nav{display:flex;gap:3px;height:auto;align-items:center;flex:1 1 auto;justify-content:center;min-width:0;overflow:visible;scrollbar-width:none}
 .glassnav .desktop-nav::-webkit-scrollbar{display:none}
 .glassnav .desktop-nav button{height:auto;padding:8px 12px;border:none;border-radius:9999px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:13px;font-weight:600;letter-spacing:0;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .glassnav .desktop-nav button:hover{color:var(--text);background:rgba(255,255,255,0.06)}
@@ -4149,7 +4149,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button id="nb-research" onclick="showPage('research')">Research</button>
     <button id="nb-myrankings" onclick="showPage('myrankings')">My Rankings</button>
     <div class="gn-dd-wrap" id="gnd-draft-wrap">
-      <button id="nb-draft" class="gn-dd-trigger" onclick="gnToggleDraftMenu(event)">Draft Vault <span class="gn-dd-chev">▾</span></button>
+      <button id="nb-draft" class="gn-dd-trigger" onclick="showPage('draft');dvShowBoard();gnToggleDraftMenu(event)">Draft Vault <span class="gn-dd-chev">▾</span></button>
       <div class="gn-dd-menu" id="gnd-draft-menu" style="display:none">
         <button onclick="showPage('draft');dvShowBoard();gnCloseDraftMenu()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M9 3h10a2 2 0 0 1 2 2v4"/><rect x="2" y="9" width="20" height="13" rx="2"/></svg>
