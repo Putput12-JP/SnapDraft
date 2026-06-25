@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault Fantasy — Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="vault-ds.css" rel="stylesheet">
+<style>
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased; letter-spacing:-.01em;
+  background-image:
+    radial-gradient(120% 80% at 100% 0%, rgba(77,134,240,.10), transparent 55%),
+    radial-gradient(90% 70% at 0% 100%, rgba(226,58,78,.08), transparent 55%);
+  background-attachment:fixed;
+}
+a{color:inherit}
+.wrap{display:grid;grid-template-columns:248px 1fr;max-width:1500px;margin:0 auto}
+
+/* sidebar */
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;padding:30px 22px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.side-brand{display:flex;align-items:center;gap:11px;margin-bottom:8px}
+.side-brand img{height:38px}
+.side-brand .wm{font-weight:800;font-size:15px;letter-spacing:-.02em;line-height:1.05}
+.side-brand .wm em{color:var(--red2);font-style:normal}
+.side-brand .tag{font-family:var(--font-mono);font-size:8px;letter-spacing:.22em;color:var(--muted);margin-top:3px}
+.side-sec{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin:18px 0 6px;padding-left:11px}
+.side a.nav{display:block;padding:7px 11px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;transition:all .12s}
+.side a.nav:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.theme-row{display:flex;gap:6px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.theme-btn{flex:1;padding:8px 0;border-radius:9px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--font-mono);font-size:8.5px;letter-spacing:.08em;font-weight:700;cursor:pointer;transition:all .15s}
+.theme-btn:hover{border-color:var(--border3)}
+.theme-btn.on{background:var(--accent);color:#fff;border-color:transparent}
+
+/* main */
+main{padding:0 0 120px;min-width:0}
+.hero{padding:88px 64px 64px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero h1{font-size:clamp(40px,6vw,76px);font-weight:900;letter-spacing:-.04em;line-height:.96;margin:0}
+.hero h1 em{color:var(--red2);font-style:normal}
+.hero p{max-width:560px;font-size:16px;line-height:1.6;color:var(--text2);margin:22px 0 0}
+.hero .meta{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
+
+section{padding:64px;border-bottom:1px solid var(--border);position:relative;scroll-margin-top:0}
+.sec-head{margin-bottom:36px;max-width:680px}
+.sec-num{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;color:var(--accent2);font-weight:700}
+.sec-head h2{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:8px 0 0}
+.sec-head p{font-size:15px;line-height:1.6;color:var(--muted);margin:12px 0 0}
+.lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
+
+.grid{display:grid;gap:16px}
+.specimen{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px;position:relative;overflow:hidden}
+.specimen.glassbg{background:radial-gradient(120% 90% at 50% 0%, #101826 0%, #0a0f17 70%)}
+.row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+
+/* color swatches */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px}
+.sw{border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.sw .chip{height:70px}
+.sw .info{padding:9px 11px;background:var(--s1)}
+.sw .nm{font-size:12px;font-weight:700}
+.sw .hex{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase}
+.sw .var{font-family:var(--font-mono);font-size:9px;color:var(--accent2);margin-top:3px}
+
+/* type scale rows */
+.type-row{display:flex;align-items:baseline;gap:20px;padding:16px 0;border-bottom:1px solid var(--border)}
+.type-row .specs{flex-shrink:0;width:170px;font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.6}
+.type-row .specs b{display:block;color:var(--text2);font-size:11px}
+.type-row .sample{min-width:0;flex:1}
+
+.tokens{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tok{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px}
+.tok .demo{height:48px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.tok .nm{font-family:var(--font-mono);font-size:10px;color:var(--accent2)}
+.tok .v{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px}
+
+.do-dont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+.dd{border-radius:12px;padding:16px 18px;font-size:13px;line-height:1.55}
+.dd.do{background:rgba(61,204,122,.07);border:1px solid rgba(61,204,122,.25)}
+.dd.dont{background:rgba(226,58,78,.06);border:1px solid rgba(226,58,78,.22)}
+.dd h4{margin:0 0 8px;font-size:11px;font-family:var(--font-mono);letter-spacing:.1em}
+.dd.do h4{color:#5fe09a} .dd.dont h4{color:#ff7b8c}
+.dd ul{margin:0;padding-left:18px;color:var(--text2)}
+.dd li{margin:4px 0}
+
+.cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start}
+.note{font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:14px}
+
+@media(max-width:920px){
+  .wrap{grid-template-columns:1fr}
+  .side{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);flex-direction:row;flex-wrap:wrap;align-items:center}
+  .side-sec,.side a.nav{display:none}
+  .hero,section{padding:48px 24px}
+  .do-dont{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ───────── SIDEBAR ───────── -->
+  <aside class="side">
+    <div class="side-brand">
+      <img src="assets/vault-shield.png" alt="Vault shield">
+      <div>
+        <div class="wm">VAULT <em>FANTASY</em></div>
+        <div class="tag">DESIGN SYSTEM</div>
+      </div>
+    </div>
+    <div class="side-sec">Foundations</div>
+    <a class="nav" href="#brand">Brand &amp; logo</a>
+    <a class="nav" href="#color">Color &amp; themes</a>
+    <a class="nav" href="#position">Position &amp; verdict</a>
+    <a class="nav" href="#type">Typography</a>
+    <a class="nav" href="#tokens">Radius · blur · glass</a>
+    <div class="side-sec">Components</div>
+    <a class="nav" href="#buttons">Buttons</a>
+    <a class="nav" href="#pills">Pills &amp; chips</a>
+    <a class="nav" href="#controls">Controls &amp; inputs</a>
+    <a class="nav" href="#nav">Navigation</a>
+    <div class="side-sec">Patterns</div>
+    <a class="nav" href="#cards">Cards</a>
+    <a class="nav" href="#mobile">Mobile dock</a>
+    <div class="theme-row">
+      <button class="theme-btn on" data-set="">VAPOR</button>
+      <button class="theme-btn" data-set="light">PAPER</button>
+      <button class="theme-btn" data-set="onyx">ONYX</button>
+    </div>
+  </aside>
+
+  <!-- ───────── MAIN ───────── -->
+  <main>
+    <header class="hero">
+      <div class="v-orb sky" style="width:420px;height:420px;top:-160px;right:-60px"></div>
+      <div class="v-orb red" style="width:340px;height:340px;bottom:-180px;left:-40px"></div>
+      <div style="position:relative;z-index:1">
+        <div class="sec-num">VAULT FANTASY FOOTBALL</div>
+        <h1>Liquid&nbsp;glass,<br>built for the <em>vault.</em></h1>
+        <p>The complete visual language behind Vault Fantasy — a frosted, depth-driven dynasty platform. Electric-blue primary, red reserved for live moments, position colors that never lie. Everything here is driven by <span class="v-mono" style="color:var(--accent2)">vault-ds.css</span>.</p>
+        <div class="meta">
+          <span class="v-pill mono"><span class="dot" style="background:var(--rb);box-shadow:0 0 10px rgba(61,204,122,.9)"></span>3 THEMES</span>
+          <span class="v-pill mono">4 TYPEFACES</span>
+          <span class="v-pill mono">GLASS · DEPTH · MONO</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- BRAND -->
+    <section id="brand">
+      <div class="sec-head"><div class="sec-num">01 · FOUNDATIONS</div><h2>Brand &amp; logo</h2>
+        <p>The shield carries the football and the Americana stripe. Wordmark is condensed athletic display caps; "FOOTBALL" rides beneath in red. Always pair the shield with clear space equal to half its height.</p></div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+        <div class="specimen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:230px">
+          <img src="assets/vault-lockup-full.png" alt="Full lockup" style="max-width:80%;max-height:150px;object-fit:contain">
+          <div class="lbl" style="margin:0">Primary lockup</div>
+        </div>
+        <div class="specimen glassbg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:230px">
+          <img src="assets/vault-lockup-knockout.png" alt="Knockout lockup" style="max-width:80%;max-height:150px;object-fit:contain">
+          <div class="lbl" style="margin:0">Knockout — on dark / glass</div>
+        </div>
+        <div class="specimen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:230px">
+          <img src="assets/vault-shield.png" alt="Shield mark" style="height:96px">
+          <div class="lbl" style="margin:0">Shield mark — app icon / FAB</div>
+        </div>
+      </div>
+      <div class="do-dont">
+        <div class="dd do"><h4>DO</h4><ul>
+          <li>Use the shield alone as app icon, favicon, and the floating Vault Command button.</li>
+          <li>Keep the knockout shield on photography, glass, and dark surfaces.</li>
+          <li>Render "FANTASY" in red within the inline wordmark.</li>
+        </ul></div>
+        <div class="dd dont"><h4>DON'T</h4><ul>
+          <li>Recolor the stripes or rotate the shield.</li>
+          <li>Set the full-color lockup on busy or low-contrast backgrounds.</li>
+          <li>Stretch, add shadows, or outline the wordmark.</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- COLOR -->
+    <section id="color">
+      <div class="sec-head"><div class="sec-num">02 · FOUNDATIONS</div><h2>Color &amp; themes</h2>
+        <p>Three shipped themes share one token contract — swap <span class="v-mono" style="color:var(--accent2)">data-theme</span> and every surface re-skins. <b>Vapor Sky</b> is the default: deep navy field, electric-blue primary, red held back for live/alert moments. Try the switcher in the sidebar.</p></div>
+
+      <div class="lbl">Core palette · current theme</div>
+      <div class="swatches" style="margin-bottom:34px">
+        <div class="sw"><div class="chip" style="background:var(--bg)"></div><div class="info"><div class="nm">Background</div><div class="hex" id="hx-bg">#070d18</div><div class="var">--bg</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--s2)"></div><div class="info"><div class="nm">Surface 2</div><div class="hex" id="hx-s2">#131d30</div><div class="var">--s2</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--s4)"></div><div class="info"><div class="nm">Surface 4</div><div class="hex" id="hx-s4">#243352</div><div class="var">--s4</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--accent)"></div><div class="info"><div class="nm">Accent</div><div class="hex" id="hx-accent">#2f63c4</div><div class="var">--accent</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--accent2)"></div><div class="info"><div class="nm">Accent 2</div><div class="hex" id="hx-accent2">#7bd0ff</div><div class="var">--accent2</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--red)"></div><div class="info"><div class="nm">Red · live</div><div class="hex" id="hx-red">#e23a4e</div><div class="var">--red</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--gold)"></div><div class="info"><div class="nm">Gold</div><div class="hex" id="hx-gold">#f5c842</div><div class="var">--gold</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--text)"></div><div class="info"><div class="nm">Text</div><div class="hex" id="hx-text">#eaf2fc</div><div class="var">--text</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--text2)"></div><div class="info"><div class="nm">Text 2</div><div class="hex" id="hx-text2">#bdcce2</div><div class="var">--text2</div></div></div>
+        <div class="sw"><div class="chip" style="background:var(--muted)"></div><div class="info"><div class="nm">Muted</div><div class="hex" id="hx-muted">#7d8ca3</div><div class="var">--muted</div></div></div>
+      </div>
+
+      <div class="lbl">Themes</div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+        <div class="specimen" style="background:#070d18;border-color:rgba(123,170,240,.17)">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#2f63c4"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#7bd0ff"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#e23a4e"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#f5c842"></span>
+          </div>
+          <div style="font-weight:800;color:#eaf2fc">Vapor Sky <span class="v-pill mono" style="font-size:8px;padding:3px 8px">DEFAULT</span></div>
+          <div class="note" style="color:#7d8ca3;margin-top:6px">Dark navy field · electric-blue primary · red = live only.</div>
+        </div>
+        <div class="specimen" style="background:#f4efe4;border-color:rgba(29,40,66,.17)">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#16233a"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#1f4e87"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#c52d3a"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#a76a16"></span>
+          </div>
+          <div style="font-weight:800;color:#1d2433">Americana Paper</div>
+          <div class="note" style="color:#6e7582;margin-top:6px">Warm paper · navy primary · vintage sports print.</div>
+        </div>
+        <div class="specimen" style="background:#0e0f13;border-color:rgba(255,255,255,.12)">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#c8a043"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#e7cf8c"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#e23a4e"></span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#5fe09a"></span>
+          </div>
+          <div style="font-weight:800;color:#f3f4f7">Onyx &amp; Gold</div>
+          <div class="note" style="color:#7e8493;margin-top:6px">Near-black · champagne-gold accent · premium tier.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- POSITION + VERDICT -->
+    <section id="position">
+      <div class="sec-head"><div class="sec-num">03 · FOUNDATIONS</div><h2>Position &amp; verdict color</h2>
+        <p>These carry meaning, not decoration. Position colors are constant across the app so a glance reads roster shape; verdict colors encode the model's call on a pick or trade.</p></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:34px">
+        <div>
+          <div class="lbl">Positions</div>
+          <div class="specimen"><div class="row" style="gap:18px">
+            <div style="text-align:center"><span class="v-pos QB" style="width:44px;height:30px;font-size:12px">QB</span><div class="note" style="margin-top:8px">#ff6680</div></div>
+            <div style="text-align:center"><span class="v-pos RB" style="width:44px;height:30px;font-size:12px">RB</span><div class="note" style="margin-top:8px">#3DCC7A</div></div>
+            <div style="text-align:center"><span class="v-pos WR" style="width:44px;height:30px;font-size:12px">WR</span><div class="note" style="margin-top:8px">#7bd0ff</div></div>
+            <div style="text-align:center"><span class="v-pos TE" style="width:44px;height:30px;font-size:12px">TE</span><div class="note" style="margin-top:8px">#f5c842</div></div>
+          </div></div>
+        </div>
+        <div>
+          <div class="lbl">Verdict tags</div>
+          <div class="specimen"><div class="row" style="gap:10px">
+            <span class="v-tag value">VALUE</span>
+            <span class="v-tag reach">REACH</span>
+            <span class="v-tag sugg">SUGGEST</span>
+            <span class="v-tag gold">HOLD</span>
+          </div>
+          <div class="note">Green = below market · Red = paying up · Blue = model pick · Gold = hold the asset.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TYPE -->
+    <section id="type">
+      <div class="sec-head"><div class="sec-num">04 · FOUNDATIONS</div><h2>Typography</h2>
+        <p><b>Archivo</b> drives every heading and UI label — tight tracking, heavy weights for stat energy. <b>Hanken Grotesk</b> is the body fallback. <b>JetBrains / Space Mono</b> handle numbers, kickers, and metadata. <b>Newsreader</b> appears in editorial/recap moments.</p></div>
+      <div class="type-row"><div class="specs"><b>Archivo 900</b>Display · -0.04em<br>clamp 40–76px</div><div class="sample"><div class="v-h" style="font-size:54px">Dynasty Degens</div></div></div>
+      <div class="type-row"><div class="specs"><b>Archivo 800</b>Section H2 · -0.03em<br>32px</div><div class="sample" style="font-weight:800;font-size:32px;letter-spacing:-.03em">Trade calculator</div></div>
+      <div class="type-row"><div class="specs"><b>Archivo 700</b>Card title<br>16px</div><div class="sample" style="font-weight:700;font-size:16px">Bijan Robinson · RB ATL</div></div>
+      <div class="type-row"><div class="specs"><b>Archivo 500</b>Body · Hanken<br>14px / 1.6</div><div class="sample" style="font-weight:500;font-size:14px;color:var(--text2);max-width:520px">Win probability updates live as games settle. The Vault syncs your roster from Sleeper and recomputes dynasty value every snap.</div></div>
+      <div class="type-row"><div class="specs"><b>JetBrains Mono 700</b>Stat / value<br>22px</div><div class="sample v-mono" style="font-weight:700;font-size:22px;color:var(--accent2)">9,840 ▲ 4.2%</div></div>
+      <div class="type-row"><div class="specs"><b>Space Mono 700</b>Kicker · .14em<br>10px upper</div><div class="sample v-kicker" style="font-size:11px">WK 14 · DYNASTY DEGENS</div></div>
+      <div class="type-row" style="border:none"><div class="specs"><b>Newsreader 500</b>Editorial<br>20px italic</div><div class="sample v-serif" style="font-size:22px;font-style:italic;color:var(--text2)">"The waiver wire never sleeps."</div></div>
+    </section>
+
+    <!-- TOKENS -->
+    <section id="tokens">
+      <div class="sec-head"><div class="sec-num">05 · FOUNDATIONS</div><h2>Radius · blur · glass</h2>
+        <p>Depth is the system's signature. Surfaces float on blurred glass over ambient orbs; corners run generous and consistent. Pills are fully rounded.</p></div>
+      <div class="lbl">Corner radius</div>
+      <div class="tokens" style="margin-bottom:30px">
+        <div class="tok"><div class="demo"><span style="width:56px;height:40px;background:var(--s4);border:1px solid var(--border2);border-radius:6px"></span></div><div class="nm">--radius-sm</div><div class="v">6px</div></div>
+        <div class="tok"><div class="demo"><span style="width:56px;height:40px;background:var(--s4);border:1px solid var(--border2);border-radius:10px"></span></div><div class="nm">--radius-md</div><div class="v">10px</div></div>
+        <div class="tok"><div class="demo"><span style="width:56px;height:40px;background:var(--s4);border:1px solid var(--border2);border-radius:16px"></span></div><div class="nm">--radius-lg</div><div class="v">16px</div></div>
+        <div class="tok"><div class="demo"><span style="width:56px;height:40px;background:var(--s4);border:1px solid var(--border2);border-radius:20px"></span></div><div class="nm">--radius-xl</div><div class="v">20px</div></div>
+        <div class="tok"><div class="demo"><span style="width:56px;height:40px;background:var(--s4);border:1px solid var(--border2);border-radius:999px"></span></div><div class="nm">--radius-pill</div><div class="v">999px</div></div>
+      </div>
+      <div class="lbl">Glass surfaces &amp; orbs</div>
+      <div class="specimen glassbg" style="min-height:220px;display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap">
+        <div class="v-orb red" style="width:200px;height:200px;top:-40px;left:10%"></div>
+        <div class="v-orb sky" style="width:240px;height:240px;bottom:-60px;right:5%"></div>
+        <div class="v-glass" style="position:relative;padding:22px 26px;width:200px"><div class="v-kicker">.v-glass</div><div style="font-weight:800;font-size:15px;margin-top:8px">Standard glass</div><div class="note">blur 22px · 55% fill</div></div>
+        <div class="v-glass v-glass-deep" style="position:relative;padding:22px 26px;width:200px"><div class="v-kicker">.v-glass-deep</div><div style="font-weight:800;font-size:15px;margin-top:8px">Deep glass</div><div class="note">docks · sheets · 72%</div></div>
+        <div class="v-glass v-glass-lite" style="position:relative;padding:22px 26px;width:200px"><div class="v-kicker">.v-glass-lite</div><div style="font-weight:800;font-size:15px;margin-top:8px">Lite glass</div><div class="note">nested rows · 6%</div></div>
+      </div>
+      <div class="note">Glass only reads when there's depth behind it — always float panels over content or ambient orbs (<span class="v-mono" style="color:var(--accent2)">.v-orb</span>), never on flat black.</div>
+    </section>
+
+    <!-- BUTTONS -->
+    <section id="buttons">
+      <div class="sec-head"><div class="sec-num">06 · COMPONENTS</div><h2>Buttons</h2>
+        <p>Primary uses the sky gradient with a sweeping sheen on hover. Red gradient is reserved for live / commit actions. Ghost buttons are glass.</p></div>
+      <div class="specimen glassbg"><div class="row" style="gap:14px">
+        <button class="v-btn"><span class="sheen"></span>＋ Connect league</button>
+        <button class="v-btn red"><span class="sheen"></span>● Go live</button>
+        <button class="v-btn ghost">Open trade calc</button>
+        <button class="v-btn sm">Switch</button>
+        <button class="v-btn ghost sm">Cancel</button>
+      </div></div>
+    </section>
+
+    <!-- PILLS -->
+    <section id="pills">
+      <div class="sec-head"><div class="sec-num">07 · COMPONENTS</div><h2>Pills, chips &amp; status</h2>
+        <p>The connective tissue of every screen — recut in glass. Status dots glow; the hot pill marks live and urgent states.</p></div>
+      <div class="specimen glassbg" style="display:flex;flex-direction:column;gap:18px">
+        <div class="row">
+          <span class="v-pos QB">QB</span><span class="v-pos RB">RB</span><span class="v-pos WR">WR</span><span class="v-pos TE">TE</span>
+          <span style="width:1px;height:24px;background:var(--border2)"></span>
+          <span class="v-pill mono"><span class="dot" style="background:var(--rb);box-shadow:0 0 10px rgba(61,204,122,.9)"></span>SYNCED</span>
+          <span class="v-pill mono"><span class="dot" style="background:var(--gold)"></span>POLLING</span>
+          <span class="v-pill hot mono">NEXT: PICK 3.07</span>
+        </div>
+        <div class="row">
+          <span class="v-tag value">VALUE</span><span class="v-tag reach">REACH</span><span class="v-tag sugg">SUGGEST</span><span class="v-tag gold">HOLD</span>
+          <span style="width:1px;height:24px;background:var(--border2)"></span>
+          <span class="v-avatar">MK</span>
+          <span class="v-avatar" style="background:linear-gradient(135deg,var(--sky),var(--rb))">TD</span>
+          <span class="v-ichip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg></span>
+          <span class="v-ichip lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTROLS -->
+    <section id="controls">
+      <div class="sec-head"><div class="sec-num">08 · COMPONENTS</div><h2>Controls &amp; inputs</h2>
+        <p>Segmented switches use mono caps; toggles glow red when active; fields are glass capsules.</p></div>
+      <div class="specimen glassbg" style="display:flex;flex-direction:column;gap:20px">
+        <div class="row" style="gap:14px">
+          <div class="v-seg"><button class="on">DYNASTY</button><button>REDRAFT</button></div>
+          <div class="v-seg"><button class="on">1QB</button><button>SF</button></div>
+          <div style="display:flex;align-items:center;gap:10px"><div class="v-tog on"><div class="knob"></div></div><span style="font-size:12.5px;font-weight:600">Live sync</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><div class="v-tog"><div class="knob"></div></div><span style="font-size:12.5px;font-weight:600;color:var(--muted)">Rookie fever</span></div>
+        </div>
+        <div class="row" style="gap:10px">
+          <div class="v-field" style="width:340px;max-width:100%">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+            Sleeper username…
+          </div>
+          <button class="v-btn"><span class="sheen"></span>Connect →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- NAV -->
+    <section id="nav">
+      <div class="sec-head"><div class="sec-num">09 · COMPONENTS</div><h2>Navigation</h2>
+        <p>Desktop nav is a floating glass pill of tab buttons; mobile uses category tiles that scale and glow when active.</p></div>
+      <div class="specimen glassbg" style="display:flex;flex-direction:column;gap:24px">
+        <div class="v-glass" style="position:relative;display:flex;align-items:center;gap:4px;padding:8px 12px;border-radius:999px;flex-wrap:wrap">
+          <button class="v-ntab on">My Team</button>
+          <button class="v-ntab">Portfolio</button>
+          <button class="v-ntab">Research</button>
+          <button class="v-ntab">Draft Vault</button>
+          <button class="v-ntab">League</button>
+          <button class="v-ntab">Calc</button>
+        </div>
+        <div class="row" style="gap:18px;justify-content:center">
+          <div class="v-cat on"><div class="tile">ALL</div><span class="lbl" style="margin:0">All</span></div>
+          <div class="v-cat"><div class="tile">QB</div><span class="lbl" style="margin:0">QB</span></div>
+          <div class="v-cat"><div class="tile">RB</div><span class="lbl" style="margin:0">RB</span></div>
+          <div class="v-cat"><div class="tile">WR</div><span class="lbl" style="margin:0">WR</span></div>
+          <div class="v-cat"><div class="tile">TE</div><span class="lbl" style="margin:0">TE</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARDS -->
+    <section id="cards">
+      <div class="sec-head"><div class="sec-num">10 · PATTERNS</div><h2>Cards</h2>
+        <p>Three workhorse patterns: a frosted-footer player spotlight, the live matchup card, and stat tiles with a red-glass alert.</p></div>
+      <div class="cards3">
+        <!-- spotlight -->
+        <div style="position:relative;height:430px;border-radius:28px;overflow:hidden;border:1px solid rgba(255,255,255,.12);box-shadow:var(--shadow-card)">
+          <div class="v-ph" style="position:absolute;inset:0"><span>PLAYER HERO SHOT</span></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(5,8,13,.9) 0%, rgba(5,8,13,.1) 48%, transparent 70%)"></div>
+          <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%)"><span class="v-pill mono" style="background:rgba(0,0,0,.45)">★ DYN #1 OVERALL</span></div>
+          <div style="position:absolute;bottom:0;left:0;right:0;padding:18px 20px 20px;background:rgba(255,255,255,.08);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.12);border-radius:24px 24px 0 0">
+            <div style="display:flex;align-items:center;gap:10px"><div class="v-h" style="font-size:20px">Bijan Robinson</div><span class="v-pos RB">RB</span></div>
+            <div class="v-kicker" style="margin-top:4px">ATL · AGE 24.3 · RD1 2023</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px">
+              <div><div class="v-kicker" style="font-size:8.5px">Dynasty value</div><div class="v-mono" style="font-size:17px;font-weight:700;margin-top:3px">9,840 <span style="font-size:10px;color:#5fe09a">▲ 4.2%</span></div></div>
+              <div style="text-align:right"><div class="v-kicker" style="font-size:8.5px">This week</div><div style="font-size:13px;font-weight:700;margin-top:4px">vs CAR · <span style="color:#5fe09a">22.4</span></div></div>
+            </div>
+          </div>
+        </div>
+        <!-- matchup -->
+        <div class="v-glass" style="padding:22px;position:relative">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span class="v-kicker">Week 14 · Live</span><span class="v-pill hot mono" style="padding:5px 12px;font-size:9px">● LIVE</span></div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:20px 0 16px">
+            <div style="text-align:center"><div class="v-avatar" style="width:52px;height:52px;margin:0 auto;font-size:15px">MK</div><div style="font-size:14px;font-weight:800;margin-top:9px">Mike's Vault</div><div class="v-mono" style="font-size:21px;font-weight:700;margin-top:4px">112.6</div></div>
+            <div class="v-mono" style="font-size:10px;color:var(--muted);letter-spacing:.1em">VS</div>
+            <div style="text-align:center;opacity:.75"><div class="v-avatar" style="width:52px;height:52px;margin:0 auto;font-size:15px;background:linear-gradient(135deg,var(--sky),var(--rb))">TD</div><div style="font-size:14px;font-weight:800;margin-top:9px">TD Merchants</div><div class="v-mono" style="font-size:21px;font-weight:700;margin-top:4px">98.1</div></div>
+          </div>
+          <div class="v-kicker" style="display:flex;justify-content:space-between;font-size:8.5px"><span>Win probability</span><span style="color:#5fe09a">71%</span></div>
+          <div class="v-bar" style="margin-top:7px"><i style="width:71%;background:linear-gradient(90deg,#3DCC7A,#5fe09a);box-shadow:0 0 12px rgba(61,204,122,.6)"></i></div>
+          <div class="row" style="gap:8px;margin-top:16px"><span class="v-tag value">3 YET TO PLAY</span><span class="v-tag sugg">OPP: 1 LEFT</span><span class="v-tag gold">MNF SWING</span></div>
+        </div>
+        <!-- stat stack + alert -->
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="v-glass" style="border-radius:18px;padding:16px 14px"><div class="v-kicker" style="font-size:8px">LEAGUE RANK</div><div class="v-h v-mono" style="font-size:20px;margin-top:7px">2nd</div><div class="v-mono" style="font-size:9px;color:var(--muted);margin-top:4px">of 12</div></div>
+            <div class="v-glass" style="border-radius:18px;padding:16px 14px"><div class="v-kicker" style="font-size:8px">ROSTER VALUE</div><div class="v-h v-mono" style="font-size:20px;margin-top:7px">58.4k</div><div class="v-mono" style="font-size:9px;color:#5fe09a;margin-top:4px">▲ 2.1%</div></div>
+          </div>
+          <div class="v-glass" style="border-radius:20px;padding:0;overflow:hidden;position:relative">
+            <div style="position:absolute;inset:0;background:linear-gradient(120deg,rgba(226,58,78,.82),rgba(178,34,50,.74))"></div>
+            <div style="position:relative;display:flex;align-items:center;gap:14px;padding:16px 18px">
+              <div class="v-ichip lg" style="background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.22);color:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h11l-3.5-3.5M17 14H6l3.5 3.5"/></svg></div>
+              <div><div style="font-size:14.5px;font-weight:800">New trade offer</div><div style="font-size:11.5px;color:rgba(255,255,255,.8);margin-top:2px">TD Merchants want Gibbs + 2027 1st</div></div>
+              <span class="v-pill mono" style="margin-left:auto;background:rgba(0,0,0,.25);border-color:rgba(255,255,255,.2);font-size:9px">+1,240</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MOBILE -->
+    <section id="mobile" style="border-bottom:none">
+      <div class="sec-head"><div class="sec-num">11 · PATTERNS</div><h2>Mobile dock &amp; command</h2>
+        <p>A floating glass dock anchors mobile, centered on the shield FAB that opens the Vault Command sheet — the fast lane to every tool.</p></div>
+      <div class="specimen glassbg" style="display:flex;justify-content:center;padding:40px 24px">
+        <div class="v-orb sky" style="width:240px;height:240px;top:0;right:10%"></div>
+        <div class="v-orb red" style="width:200px;height:200px;bottom:20px;left:15%"></div>
+        <div style="position:relative;width:320px">
+          <!-- command sheet -->
+          <div class="v-glass v-glass-deep" style="position:relative;border-radius:26px 26px 22px 22px;padding:14px 16px 18px;margin-bottom:14px">
+            <div style="width:38px;height:4px;border-radius:999px;background:rgba(255,255,255,.18);margin:0 auto 12px"></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px"><span class="v-h" style="font-size:15px">Vault Command</span><span class="v-kicker" style="font-size:8px">TAP SHIELD</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <div style="border-radius:16px;padding:13px 8px;text-align:center;background:linear-gradient(135deg,rgba(47,99,196,.9),rgba(123,208,255,.55));border:1px solid rgba(255,255,255,.2);font-size:10.5px;font-weight:700;box-shadow:0 12px 28px -10px rgba(47,99,196,.55)">Draft Vault</div>
+              <div style="border-radius:16px;padding:13px 8px;text-align:center;background:rgba(255,255,255,.05);border:1px solid var(--border2);font-size:10.5px;font-weight:700;color:var(--text2)">Rankings</div>
+              <div style="border-radius:16px;padding:13px 8px;text-align:center;background:rgba(255,255,255,.05);border:1px solid var(--border2);font-size:10.5px;font-weight:700;color:var(--text2)">Trade Calc</div>
+              <div style="border-radius:16px;padding:13px 8px;text-align:center;background:rgba(255,255,255,.05);border:1px solid var(--border2);font-size:10.5px;font-weight:700;color:var(--text2)">Research</div>
+              <div style="border-radius:16px;padding:13px 8px;text-align:center;background:rgba(255,255,255,.05);border:1px solid var(--border2);font-size:10.5px;font-weight:700;color:var(--text2)">Rosters</div>
+              <div style="border-radius:16px;padding:13px 8px;text-align:center;background:rgba(255,255,255,.05);border:1px solid var(--border2);font-size:10.5px;font-weight:700;color:var(--text2)">Settings</div>
+            </div>
+          </div>
+          <!-- dock -->
+          <div class="v-glass v-glass-deep" style="position:relative;height:64px;border-radius:999px;display:flex;align-items:center;justify-content:space-between;padding:0 12px">
+            <div style="width:46px;height:46px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 12px 26px -8px rgba(47,99,196,.6)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg></div>
+            <div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;color:var(--muted)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg></div>
+            <div style="width:54px;height:54px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 14px 30px -10px rgba(0,0,0,.6);position:relative"><img src="assets/vault-shield-knockout.png" alt="" style="height:30px"><span class="v-mono" style="position:absolute;top:-5px;right:-7px;font-size:7px;font-weight:700;padding:3px 6px;border-radius:999px;background:linear-gradient(135deg,var(--red),var(--red2));color:#fff">LIVE</span></div>
+            <div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;color:var(--muted)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v4.5a5 5 0 0 1-10 0V4z"/><path d="M7 5.5H4.5V8a3 3 0 0 0 3 3M17 5.5h2.5V8a3 3 0 0 1-3 3M12 13.5V17M9 20h6"/></svg></div>
+            <div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;color:var(--muted)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// theme switcher — re-skins the whole doc via data-theme + live hex readout
+const HEX = {
+  "":      {bg:"#070d18",s2:"#131d30",s4:"#243352",accent:"#2f63c4",accent2:"#7bd0ff",red:"#e23a4e",gold:"#f5c842",text:"#eaf2fc",text2:"#bdcce2",muted:"#7d8ca3"},
+  light:   {bg:"#f4efe4",s2:"#f7f1e4",s4:"#e3dbc6",accent:"#16233a",accent2:"#2c4063",red:"#c52d3a",gold:"#a76a16",text:"#1d2433",text2:"#3a4658",muted:"#6e7582"},
+  onyx:    {bg:"#0e0f13",s2:"#1c1e24",s4:"#2c2f38",accent:"#c8a043",accent2:"#e7cf8c",red:"#e23a4e",gold:"#e7cf8c",text:"#f3f4f7",text2:"#c9cdd6",muted:"#7e8493"}
+};
+function setTheme(set){
+  document.documentElement.setAttribute('data-theme', set);
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('on', b.dataset.set===set));
+  const h = HEX[set];
+  for(const k in h){ const el=document.getElementById('hx-'+k); if(el) el.textContent=h[k]; }
+}
+document.querySelectorAll('.theme-btn').forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.set)));
+</script>
+</body>
+</html>
