@@ -26248,7 +26248,61 @@ window.adpSearch = function(val) {
 .ss-dist-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--muted)}
 
 /* standings table */
-.ss-section-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.ss-section-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;margin-top:32px}
+
+/* GM Dispatch */
+.ss-dispatch{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:4px}
+.ss-dispatch-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.ss-dispatch-body p{margin:0 0 8px;font-size:14px;line-height:1.65;color:var(--text)}
+.ss-dispatch-body p:last-child{margin-bottom:0;color:var(--text2);font-size:13px}
+
+/* Trade War Room */
+.ss-trade-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.ss-trade-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s}
+.ss-trade-card:hover{border-color:var(--border2)}
+.ss-trade-header{display:flex;justify-content:space-between;align-items:center}
+.ss-trade-opp{font-size:11px;color:var(--muted);font-weight:600}
+.ss-trade-fair{font-size:11px;font-weight:800;letter-spacing:.02em}
+.ss-trade-players{display:flex;align-items:center;gap:10px}
+.ss-trade-side{flex:1}
+.ss-trade-dir{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.ss-trade-side.give .ss-trade-dir{color:#f87171}
+.ss-trade-side.get .ss-trade-dir{color:#22C55E}
+.ss-trade-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.ss-trade-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.ss-trade-arrow{font-size:20px;color:var(--muted);flex-shrink:0;text-align:center}
+.ss-trade-impact{display:flex;align-items:center;gap:16px;padding-top:8px;border-top:1px solid var(--border)}
+.ss-trade-stat{font-size:12px;color:var(--text2)}
+.ss-trade-stat span{font-weight:700;font-size:13px}
+.ss-trade-pts{font-size:12px;color:var(--muted);margin-left:auto}
+
+/* Waiver Wire */
+.ss-waiver-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.ss-waiver-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
+.ss-waiver-card:hover{border-color:var(--border2)}
+.ss-waiver-card.need{border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.04)}
+.ss-waiver-top{display:flex;align-items:center;gap:6px}
+.ss-waiver-pos{font-family:var(--font-mono);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.1);color:var(--text2)}
+.ss-waiver-pos.rb{background:rgba(59,130,246,.2);color:#93c5fd}
+.ss-waiver-pos.wr{background:rgba(34,197,94,.2);color:#86efac}
+.ss-waiver-pos.te{background:rgba(234,179,8,.2);color:#fde047}
+.ss-waiver-pos.qb{background:rgba(226,58,78,.2);color:#fca5a5}
+.ss-waiver-need-badge{font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:4px;background:rgba(234,179,8,.2);color:#fde047;text-transform:uppercase}
+.ss-waiver-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.ss-waiver-stats{display:flex;gap:12px}
+.ss-waiver-stat-val{font-size:14px;font-weight:800;color:var(--text)}
+.ss-waiver-stat-lbl{font-size:10px;color:var(--muted);margin-top:1px}
+
+/* Share card */
+.ss-share-card{background:linear-gradient(135deg,rgba(226,58,78,.12),rgba(29,78,216,.12));border:1px solid rgba(226,58,78,.25);border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:4px}
+.ss-share-left{flex:1;min-width:200px}
+.ss-share-team{font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px}
+.ss-share-stats{display:flex;gap:20px;flex-wrap:wrap}
+.ss-share-stat{text-align:center}
+.ss-share-stat-val{font-size:18px;font-weight:900;color:var(--rb)}
+.ss-share-stat-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.ss-share-btn{padding:10px 20px;background:var(--rb);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.ss-share-btn:hover{opacity:.85}
 .ss-table-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
 .ss-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .ss-tbl thead th{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:11px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -26783,6 +26837,229 @@ async function _ssRenderSuggestions(currentWeek, playoffTeams){
     </div>`;
 }
 
+function _ordinal(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+function _ssRenderDispatch(currentWeek){
+  const el=document.getElementById('ss-dispatch'); if(!el) return;
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const myRes=_ssResults?.[_ssMyRosterId];
+  if(!me||!myRes){el.innerHTML='';return;}
+
+  const weeksLeft=_ssSchedule.filter(wk=>!wk.played).length;
+  const playoffSpots=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
+  const myStanding=[..._ssTeams].sort((a,b)=>b.wins-a.wins||b.pf-a.pf).findIndex(t=>t.rosterId===_ssMyRosterId)+1;
+  const nextWk=_ssSchedule.find(wk=>!wk.played);
+  const nextOppId=nextWk?.pairs.find(p=>p.includes(_ssMyRosterId))?.find(id=>id!==_ssMyRosterId);
+  const nextOpp=_ssTeams.find(t=>t.rosterId===nextOppId);
+  const nextWinPct=nextOpp?_ssWinProb(me,nextOpp,300):null;
+
+  const lines=[];
+  if(myRes.playoffPct>=80){
+    lines.push(`${me.name} is in control — ${myRes.playoffPct}% playoff odds and the season is yours to lose.`);
+    lines.push(myStanding<=playoffSpots?`You're holding a playoff spot right now. Lock it up and chase seed position.`:`You're on the outside at #${myStanding} but the sim gives you strong odds. The standings will catch up to your roster.`);
+  } else if(myRes.playoffPct>=50){
+    lines.push(`${me.name} is in the hunt with ${myRes.playoffPct}% playoff odds and ${weeksLeft} week${weeksLeft!==1?'s':''} left.`);
+    lines.push(myStanding<=playoffSpots?`You're in a spot right now but this isn't locked. Somebody is coming for you — don't let them.`:`You're on the outside at #${myStanding}. Gap is closeable. It starts this week.`);
+  } else if(myRes.playoffPct>=20){
+    lines.push(`${me.name} is alive but the math demands urgency — ${myRes.playoffPct}% playoff odds with ${weeksLeft} weeks to go.`);
+    lines.push(`You need a streak. The sim says it's a climb, but you've seen longer shots cash.`);
+  } else {
+    lines.push(`${me.name} is in a tough spot at ${myRes.playoffPct}% playoff odds — it's time to play for the future.`);
+    lines.push(`${weeksLeft} weeks left. Trade expensive rentals, target waiver upside, and position yourself for next season.`);
+  }
+  if(nextOpp&&nextWinPct!=null){
+    const feel=nextWinPct>=65?'a favorable matchup':nextWinPct<=38?'your toughest test in weeks':'a coin-flip';
+    lines.push(`Week ${nextWk.week} is ${feel} — vs ${nextOpp.name}, you win this one ${nextWinPct}% of the time in simulation.`);
+  }
+
+  el.innerHTML=`<div class="ss-dispatch">
+    <div class="ss-dispatch-label">📰 WEEK ${currentWeek} GM DISPATCH</div>
+    <div class="ss-dispatch-body">${lines.map(l=>`<p>${l}</p>`).join('')}</div>
+  </div>`;
+}
+
+function _ssRenderShareCard(){
+  const el=document.getElementById('ss-share'); if(!el) return;
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const myRes=_ssResults?.[_ssMyRosterId];
+  if(!me||!myRes){el.innerHTML='';return;}
+  const nT=_ssTeams.length;
+  const arch=_ssArchetype(myRes.playoffPct,myRes.champPct,me.valRank||Math.round(nT/2),nT);
+  const pwrRank=me.valRank||Math.round(nT/2);
+
+  el.innerHTML=`<div class="ss-section-label">📤 MY VAULT FORECAST</div>
+    <div class="ss-share-card">
+      <div class="ss-share-left">
+        <div class="ss-share-team">${arch.icon} ${me.name}</div>
+        <div class="ss-share-stats">
+          <div class="ss-share-stat"><div class="ss-share-stat-val">${myRes.playoffPct}%</div><div class="ss-share-stat-lbl">Playoff</div></div>
+          <div class="ss-share-stat"><div class="ss-share-stat-val">${myRes.champPct}%</div><div class="ss-share-stat-lbl">Champ</div></div>
+          <div class="ss-share-stat"><div class="ss-share-stat-val">#${Math.round(parseFloat(myRes.avgFinish))}</div><div class="ss-share-stat-lbl">Proj Finish</div></div>
+          <div class="ss-share-stat"><div class="ss-share-stat-val">#${pwrRank}</div><div class="ss-share-stat-lbl">Power Rank</div></div>
+        </div>
+      </div>
+      <button class="ss-share-btn" onclick="(function(){
+        const txt='${me.name} | ${arch.icon} ${arch.label} | ${myRes.playoffPct}% playoff odds · ${myRes.champPct}% champ odds · Proj finish #${Math.round(parseFloat(myRes.avgFinish))} — powered by Vault Fantasy';
+        navigator.clipboard?.writeText(txt).then(()=>{ const b=document.querySelector('.ss-share-btn'); const orig=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=orig,2000); });
+      })()">Copy Forecast</button>
+    </div>`;
+}
+
+function _ssRenderTradeRoom(){
+  const el=document.getElementById('ss-trade-room'); if(!el) return;
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const myRes=_ssResults?.[_ssMyRosterId];
+  const hasPid=typeof globalPidToName!=='undefined'&&Object.keys(globalPidToName).length>0;
+  const hasVal=typeof getPlayerValue==='function';
+  const hasStats=typeof window.getNflversePlayer==='function';
+  if(!me||!myRes||!_ssRosters||!hasPid||!hasStats){el.innerHTML='';return;}
+  const playoffTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
+
+  const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId); if(!myRosterObj){el.innerHTML='';return;}
+  const POSITIONS=['RB','WR','TE','QB'];
+  const myPosPts={};
+  POSITIONS.forEach(p=>myPosPts[p]=[]);
+  const myPlayerData={};
+
+  const myStarters=[...(myRosterObj.starters||[])].filter(s=>s&&s!=='0');
+  myStarters.forEach(pid=>{
+    const name=globalPidToName[pid]; if(!name) return;
+    const p=window.getNflversePlayer(name); if(!p||!myPosPts[p.pos]) return;
+    const pts=p.l4w_avg||p.season?.avg_pts||0;
+    const val=hasVal?getPlayerValue(name)||0:0;
+    myPosPts[p.pos].push({pid,name,pts,pos:p.pos,val});
+    myPlayerData[pid]={name,pts,pos:p.pos,val};
+  });
+
+  const lgPosPts={};
+  POSITIONS.forEach(p=>lgPosPts[p]=[]);
+  _ssRosters.forEach(r=>{
+    if(r.roster_id===_ssMyRosterId) return;
+    [...(r.starters||[])].filter(s=>s&&s!=='0').forEach(pid=>{
+      const name=globalPidToName[pid]; if(!name) return;
+      const p=window.getNflversePlayer(name); if(!p||!lgPosPts[p.pos]) return;
+      lgPosPts[p.pos].push(p.l4w_avg||p.season?.avg_pts||0);
+    });
+  });
+
+  const med=arr=>{ if(!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/2)]; };
+  let weakPos=null,weakGap=-Infinity;
+  POSITIONS.forEach(pos=>{
+    const myAvg=myPosPts[pos].length?myPosPts[pos].reduce((s,p)=>s+p.pts,0)/myPosPts[pos].length:0;
+    const gap=med(lgPosPts[pos])-myAvg;
+    if(gap>weakGap){weakGap=gap;weakPos=pos;}
+  });
+
+  if(!weakPos||weakGap<1){el.innerHTML='';return;}
+
+  const proposals=[];
+  _ssRosters.forEach(r=>{
+    if(r.roster_id===_ssMyRosterId||proposals.length>=3) return;
+    const oppTeam=_ssTeams.find(t=>t.rosterId===r.roster_id); if(!oppTeam) return;
+    const oppStarters=[...(r.starters||[])].filter(s=>s&&s!=='0');
+    const theirAtWeak=oppStarters.map(pid=>{
+      const name=globalPidToName[pid]; if(!name) return null;
+      const p=window.getNflversePlayer(name); if(!p||p.pos!==weakPos) return null;
+      return {pid,name,pts:p.l4w_avg||0,val:hasVal?getPlayerValue(name)||0:0};
+    }).filter(Boolean).sort((a,b)=>b.val-a.val);
+    if(!theirAtWeak.length) return;
+    const target=theirAtWeak[0];
+    const myStrong=Object.values(myPlayerData).filter(p=>p.pos!==weakPos).sort((a,b)=>b.val-a.val);
+    if(!myStrong.length) return;
+    const offer=myStrong[0];
+    const maxV=Math.max(offer.val,target.val)||1;
+    const delta=Math.abs(offer.val-target.val)/maxV;
+    if(delta>0.28) return;
+    const fairLabel=delta<0.08?'Even Trade':offer.val>target.val?'Slight Win for You':'Slight Loss for You';
+    const fairColor=delta<0.08?'var(--text)':offer.val>target.val?'#22C55E':'#EAB308';
+    const ptsDelta=(target.pts||0)-(offer.pts||0);
+    const origMean=me.mean;
+    me.mean=Math.max(80,origMean+ptsDelta*0.65);
+    const altRes=_ssSim(120,playoffTeams);
+    me.mean=origMean;
+    const oddsDelta=altRes[_ssMyRosterId].playoffPct-myRes.playoffPct;
+    const champDelta=altRes[_ssMyRosterId].champPct-myRes.champPct;
+    proposals.push({offer,target,oppTeam,fairLabel,fairColor,ptsDelta,oddsDelta,champDelta,weakPos});
+  });
+
+  if(!proposals.length){el.innerHTML='';return;}
+  const myWeakAvg=myPosPts[weakPos].length?(myPosPts[weakPos].reduce((s,p)=>s+p.pts,0)/myPosPts[weakPos].length).toFixed(1):'—';
+
+  el.innerHTML=`<div class="ss-section-label">⚖️ TRADE WAR ROOM · Your ${weakPos} corps averages ${myWeakAvg} pts/game — below league median</div>
+    <div class="ss-trade-grid">${proposals.map(p=>{
+      const oddCol=p.oddsDelta>=3?'#22C55E':p.oddsDelta<=-3?'#E23A4E':'var(--muted)';
+      const oddStr=(p.oddsDelta>=0?'+':'')+p.oddsDelta+'%';
+      const champStr=(p.champDelta>=0?'+':'')+p.champDelta+'%';
+      const ptsStr=(p.ptsDelta*0.65>=0?'+':'')+(p.ptsDelta*0.65).toFixed(1);
+      return `<div class="ss-trade-card">
+        <div class="ss-trade-header"><span class="ss-trade-opp">vs ${p.oppTeam.name}</span><span class="ss-trade-fair" style="color:${p.fairColor}">${p.fairLabel}</span></div>
+        <div class="ss-trade-players">
+          <div class="ss-trade-side give"><div class="ss-trade-dir">You Give</div><div class="ss-trade-name">${p.offer.name}</div><div class="ss-trade-meta">${p.offer.pos} · ${p.offer.pts.toFixed(1)} L4W</div></div>
+          <div class="ss-trade-arrow">⇄</div>
+          <div class="ss-trade-side get"><div class="ss-trade-dir">You Get</div><div class="ss-trade-name">${p.target.name}</div><div class="ss-trade-meta">${p.target.pos} · ${p.target.pts.toFixed(1)} L4W</div></div>
+        </div>
+        <div class="ss-trade-impact">
+          <div class="ss-trade-stat"><span style="color:${oddCol}">${oddStr}</span> playoff</div>
+          <div class="ss-trade-stat"><span style="color:${oddCol}">${champStr}</span> champ</div>
+          <div class="ss-trade-pts">${ptsStr} pts/gm</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+}
+
+function _ssRenderWaiver(){
+  const el=document.getElementById('ss-waiver-wire'); if(!el) return;
+  const hasPid=typeof globalPidToName!=='undefined'&&Object.keys(globalPidToName).length>0;
+  const hasStats=typeof window.getNflversePlayer==='function';
+  if(!_ssRosters||!hasPid||!hasStats){el.innerHTML='';return;}
+
+  const rostered=new Set();
+  _ssRosters.forEach(r=>{ (r.players||[]).forEach(p=>rostered.add(String(p))); });
+
+  const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId);
+  const myStarters=[...(myRosterObj?.starters||[])].filter(s=>s&&s!=='0');
+  const myPosPts={QB:[],RB:[],WR:[],TE:[]};
+  myStarters.forEach(pid=>{
+    const name=globalPidToName[pid]; if(!name) return;
+    const p=window.getNflversePlayer(name); if(!p||!myPosPts[p.pos]) return;
+    myPosPts[p.pos].push(p.l4w_avg||0);
+  });
+  const posAvg=pos=>myPosPts[pos]?.length?myPosPts[pos].reduce((s,v)=>s+v,0)/myPosPts[pos].length:0;
+  const weakPos=['RB','WR','TE','QB'].reduce((wp,pos)=>posAvg(pos)<posAvg(wp)?pos:wp,'RB');
+
+  const fas=[];
+  Object.entries(globalPidToName).forEach(([pid,name])=>{
+    if(rostered.has(String(pid))) return;
+    const p=window.getNflversePlayer(name); if(!p) return;
+    const l4w=p.l4w_avg||0; if(l4w<4) return;
+    const avg=p.season?.avg_pts||l4w;
+    const trend=l4w-avg;
+    const score=l4w*0.6+Math.max(-5,Math.min(8,trend))*0.4;
+    fas.push({pid,name,pos:p.pos||'?',l4w,avg,trend,score});
+  });
+  fas.sort((a,b)=>b.score-a.score);
+
+  const atWeak=fas.filter(p=>p.pos===weakPos).slice(0,4);
+  const overall=fas.filter(p=>!atWeak.find(w=>w.pid===p.pid)).slice(0,3);
+  const picks=[...atWeak,...overall];
+  if(!picks.length){el.innerHTML='';return;}
+
+  el.innerHTML=`<div class="ss-section-label">📋 WAIVER WIRE · ${weakPos} is your biggest need — best available free agents</div>
+    <div class="ss-waiver-grid">${picks.map(p=>{
+      const trendCol=p.trend>=2?'#22C55E':p.trend<=-2?'#E23A4E':'var(--muted)';
+      const trendIcon=p.trend>=2?'↑':p.trend<=-2?'↓':'→';
+      const isNeed=p.pos===weakPos;
+      return `<div class="ss-waiver-card${isNeed?' need':''}">
+        <div class="ss-waiver-top"><span class="ss-waiver-pos ${p.pos.toLowerCase()}">${p.pos}</span>${isNeed?'<span class="ss-waiver-need-badge">NEED</span>':''}</div>
+        <div class="ss-waiver-name">${p.name}</div>
+        <div class="ss-waiver-stats">
+          <div class="ss-waiver-stat"><div class="ss-waiver-stat-val">${p.l4w.toFixed(1)}</div><div class="ss-waiver-stat-lbl">L4W avg</div></div>
+          <div class="ss-waiver-stat"><div class="ss-waiver-stat-val" style="color:${trendCol}">${trendIcon} ${Math.abs(p.trend).toFixed(1)}</div><div class="ss-waiver-stat-lbl">vs season</div></div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+}
+
 window.ssRun = async function(){
   const btn=$ss('ss-run-btn'), prog=$ss('ss-progress'), fill=$ss('ss-progress-fill'), lbl=$ss('ss-progress-label');
   if(_ssLoading) return;
@@ -26800,6 +27077,10 @@ window.ssRun = async function(){
     if(fill)fill.style.width='100%';
     _ssRenderHero(currentWeek, playoffStart);
     _ssRenderMyCard(currentWeek);
+    _ssRenderDispatch(currentWeek);
+    _ssRenderShareCard();
+    _ssRenderTradeRoom();
+    _ssRenderWaiver();
     await _ssRenderSuggestions(currentWeek, playoffTeams);
     _ssRenderTable();
     btn.textContent='↻ Re-run'; btn.disabled=false;
@@ -26829,6 +27110,10 @@ function _ssInjectPage(){
       <div class="ss-progress-bar"><div class="ss-progress-fill" id="ss-progress-fill" style="width:0%"></div></div>
     </div>
     <div class="ss-my-card" id="ss-my-card"></div>
+    <div id="ss-dispatch"></div>
+    <div id="ss-share"></div>
+    <div id="ss-trade-room"></div>
+    <div id="ss-waiver-wire"></div>
     <div id="ss-suggestions"></div>
     <div id="ss-table-wrap"></div>
   </div>`;
