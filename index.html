@@ -26403,17 +26403,22 @@ function _ssGetLid(){
     || (() => { try { return localStorage.getItem('dcmd-v5-primary-league'); } catch(e){ return null; } })();
 }
 function _ssGetMyRosterId(rosters, users){
-  // 1. Trust overview context if loaded
-  if(window._ovSosCtx?.myRosterId) return window._ovSosCtx.myRosterId;
-  // 2. Match by saved Sleeper username
+  const lid = _ssGetLid();
+  // 1. Most reliable: the connected Sleeper user_id, matched against THIS league's rosters
+  if(window.myTeamsUserId){
+    const r = rosters.find(x=>x.owner_id===window.myTeamsUserId);
+    if(r) return r.roster_id;
+  }
+  // 2. Match by saved Sleeper username (display_name or username)
   try {
-    const un = localStorage.getItem('dcmd-v5-username');
+    const un = (localStorage.getItem('dcmd-v5-username')||window.mySleeperUser?.username||'').trim();
     if(un){
       const u = users.find(x=>(x.display_name||'').toLowerCase()===un.toLowerCase()||(x.username||'').toLowerCase()===un.toLowerCase());
       if(u){ const r=rosters.find(x=>x.owner_id===u.user_id); if(r) return r.roster_id; }
     }
   } catch(e){}
-  // 3. Match by module-scoped myTeamsUserId via ovSosCtx
+  // 3. Overview context — ONLY if it was computed for the same league we just loaded
+  if(window._ovSosCtx?.myRosterId && window._ovSosCtx?.leagueId===lid) return window._ovSosCtx.myRosterId;
   return null;
 }
 
@@ -26949,11 +26954,20 @@ function _ssBuildTradeGroups(me, myRes, playoffTeams){
   try { if(window.TC?.isLive?.()&&typeof window.TC.winNowIdeas==='function') tcData=window.TC.winNowIdeas(); } catch(e){}
 
   if(tcData?.needs?.length){
+    // matched baseline: same 400-sim sample size used for each trade, so deltas
+    // reflect the roster change rather than sample-size/seed noise vs the 1000-run main sim
+    const baseRes=_ssSim(400,playoffTeams);
+    const basePlayoff=baseRes[_ssMyRosterId].playoffPct, baseChamp=baseRes[_ssMyRosterId].champPct;
     const groups=tcData.needs.map((need,gi)=>{
       const label=need.label||(['Primary Need','Secondary Need','Tertiary Need'][gi]||'Need');
       const ideas=[];
       (need.ideas||[]).forEach(idea=>{
-        // compute pts delta using nflverse L4W avg (falls back to 0 if no stats)
+        // TC trades are value-balanced, so the benefit is a POSITIONAL upgrade:
+        // idea.gainPct = how much better the target is than your best starter at
+        // that position. One starting slot is ~1/9 of your weekly lineup, so a
+        // gainPct% upgrade at one spot lifts your weekly mean by ~(gainPct/9)%.
+        const gainPct=Math.max(0,idea.gainPct||0);
+        const meanShift=me.mean*(gainPct/100)*(1/9);
         let ptsDelta=0;
         if(hasStats){
           const gp=window.getNflversePlayer(idea.target);
@@ -26964,24 +26978,26 @@ function _ssBuildTradeGroups(me, myRes, playoffTeams){
           },0);
           ptsDelta=getPts-sendPts;
         }
-        // run 200-season simulation with adjusted team mean
+        // run 400-season simulation with the upgraded team mean (more sims = less noise)
         const origMean=me.mean;
-        me.mean=Math.max(80,origMean+ptsDelta*0.65);
-        const altRes=_ssSim(200,playoffTeams);
+        me.mean=origMean+meanShift;
+        const altRes=_ssSim(400,playoffTeams);
         me.mean=origMean;
-        const playoffDelta=altRes[_ssMyRosterId].playoffPct-myRes.playoffPct;
-        const champDelta=altRes[_ssMyRosterId].champPct-myRes.champPct;
-        // only include trades that actually improve odds
-        if(playoffDelta>0||champDelta>0){
+        const playoffDelta=altRes[_ssMyRosterId].playoffPct-basePlayoff;
+        const champDelta=altRes[_ssMyRosterId].champPct-baseChamp;
+        // only include trades that meaningfully improve odds (>=0.5% so it rounds to +1)
+        if(playoffDelta>=0.5||champDelta>=0.5){
           ideas.push({
             target:idea.target, send:idea.send||[],
             teamName:idea.teamName, teamColor:idea.teamColor||'var(--accent2)',
             targetDyn:idea.targetDyn, sendDyn:idea.sendDyn,
-            ptsDelta, playoffDelta, champDelta,
+            ptsDelta, playoffDelta:Math.round(playoffDelta), champDelta:Math.round(champDelta),
+            _rawPlayoff:playoffDelta, _rawChamp:champDelta,
           });
         }
       });
-      return {pos:need.pos, label, ideas};
+      ideas.sort((a,b)=>(b._rawPlayoff+b._rawChamp)-(a._rawPlayoff+a._rawChamp));
+      return {pos:need.pos, label, ideas:ideas.slice(0,4)};
     }).filter(g=>g.ideas.length>0);
     if(groups.length) return groups;
     // TC data loaded but no trades improve odds
