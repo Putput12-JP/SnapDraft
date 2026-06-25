@@ -4395,7 +4395,7 @@ function vcRefreshLive(){
   var t=document.getElementById('vc-tile-draft'); if(t) t.classList.toggle('live', live);
   var sub=document.getElementById('vc-sub-draft'); if(sub) sub.textContent = live ? 'DRAFT IN PROGRESS' : 'RANKINGS & ROOMS';
 }
-setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!window.sleeperDraftId; }catch(e){} }, 5000);
+window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!window.sleeperDraftId; }catch(e){} }, 5000);
 </script>
 
 <!-- MORE bottom sheet — secondary nav (League / Trade / Draft Room) -->
@@ -5538,15 +5538,15 @@ function _fuzzy(map,name){
   // exact normalized match
   for(const k of Object.keys(map)){if(n(k)===t)return map[k];}
   // strip suffixes Jr Sr II III IV and retry
-  const strip=s=>s.replace(/s+(jr.?|sr.?|ii|iii|iv)$/i,'').trim();
+  const strip=s=>s.replace(/\s+(jr.?|sr.?|ii|iii|iv)$/i,'').trim();
   const t2=n(strip(name));
   for(const k of Object.keys(map)){if(n(strip(k))===t2)return map[k];}
   // try first+last only (drop middle names)
-  const parts=name.trim().split(/s+/);
+  const parts=name.trim().split(/\s+/);
   if(parts.length>2){
     const t3=n(parts[0]+parts[parts.length-1]);
     for(const k of Object.keys(map)){
-      const kp=k.trim().split(/s+/);
+      const kp=k.trim().split(/\s+/);
       if(n(kp[0]+(kp[kp.length-1]))===t3)return map[k];
     }
   }
@@ -6256,10 +6256,11 @@ function _psToggleValueSource() {
   try { _psRenderHeader(); } catch(e) {}
   // If RA was just requested and not yet loaded, poll briefly to re-render once it lands
   if (newSrc === 'ra' && !raLoaded) {
+    if (window._psToggleValueSourceTimer) { clearInterval(window._psToggleValueSourceTimer); }
     let tries = 0;
-    const t = setInterval(() => {
+    window._psToggleValueSourceTimer = setInterval(() => {
       tries++;
-      if (raLoaded || tries > 30) { clearInterval(t); try { _psRenderHeader(); renderList(); } catch(e){} }
+      if (raLoaded || tries > 30) { clearInterval(window._psToggleValueSourceTimer); window._psToggleValueSourceTimer = null; try { _psRenderHeader(); renderList(); } catch(e){} }
     }, 250);
   }
 }
@@ -6331,7 +6332,7 @@ function _psRenderTab(tab) {
   const body = document.getElementById('ps-body');
   if (!body) return;
   // weekly tab never needs _psData
-  if (tab === 'weekly') { window._psRenderGameLogs('2025'); return; }
+  if (tab === 'weekly') { window._psRenderGameLogs(window._resGlYear || '2025'); return; }
   // value tab can render from FantasyCalc data even without RA data
   if (!_psData && tab !== 'value') {
     body.innerHTML = `<div class="ps-loading"><div style="font-size:24px;animation:spin 1s linear infinite">⟳</div><span>Loading...</span></div>`;
@@ -17770,7 +17771,7 @@ function pickYear(year) {
   const POS_HEX = { QB:'#ff6680', RB:'#3DCC7A', WR:'#7bd0ff', TE:'#f5c842', PICK:'#b48cff' };
   const POS_ORDER = ['QB','RB','WR','TE','PICK'];
   const esc = s => String(s).replace(/'/g,"\\'");
-  function _lex(n){ try{ return eval(n); }catch(e){ return undefined; } }
+  function _lex(n){ try{ return window[n]; }catch(e){ return undefined; } }
   const PALETTE = ['#4d86f0','#ff5a6e','#f5c842','#3DCC7A','#b48cff','#7bd0ff','#ff9e64','#5be0c8','#e07bd0','#9ee07b'];
 
   // ── Demo league (only used when NO Sleeper league is connected) ──
@@ -24998,7 +24999,7 @@ body .page,body .page.on{background:transparent!important}
       const key = normName(nm);
       if (key && !map[key]) map[key] = { id, team: (p.team || '').toUpperCase() || null, pos: p.position };
     }
-    try { localStorage.setItem(SLEEPER_LS, JSON.stringify(map)); } catch (e) {}
+    try { localStorage.setItem(SLEEPER_LS, JSON.stringify(map)); } catch (e) { if (e && (e.name === 'QuotaExceededError' || e.code === 22)) { console.warn('Sleeper player map cache skipped: localStorage quota exceeded'); } }
     return map;
   }
 
