@@ -26299,7 +26299,8 @@ function _abbrev(n){ return (n||'').split(/\s+/).map(w=>w[0]||'').join('').toUpp
 function _ord(n){ return n===1?'st':n===2?'nd':n===3?'rd':'th'; }
 
 async function _ssLoad(){
-  const lid = window.vpPrimary || window.ovLeagueId;
+  const lid = window.ovLeagueId || window.teamsLeagueId || window.vpPrimary
+    || (() => { try { return localStorage.getItem('dcmd-v5-primary-league'); } catch(e){ return null; } })();
   if(!lid) throw new Error('No league connected — use My Team to connect Sleeper first.');
 
   const [lg, rosters, users] = await Promise.all([
