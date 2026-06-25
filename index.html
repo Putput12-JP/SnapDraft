@@ -26941,44 +26941,91 @@ function _ssRenderShareCard(){
     </div>`;
 }
 
+// resolve pids from a roster, preferring starters but falling back to players[]
+function _ssRosterPids(r, max){
+  const starters=[...(r.starters||[])].filter(s=>s&&s!=='0'&&s!==0);
+  if(starters.length>0) return starters;
+  // preseason / no lineup set — use highest-value players
+  const all=[...(r.players||[])].map(String).filter(Boolean);
+  if(!all.length) return [];
+  const hasVal=typeof getPlayerValue==='function';
+  const hasPid=typeof globalPidToName!=='undefined';
+  if(hasVal&&hasPid){
+    return all.sort((a,b)=>{
+      const va=getPlayerValue(globalPidToName?.[a]||'')||0;
+      const vb=getPlayerValue(globalPidToName?.[b]||'')||0;
+      return vb-va;
+    }).slice(0,max||10);
+  }
+  return all.slice(0,max||10);
+}
+
+// get position for a player — nflverse first, then FantasyCalc meta, then null
+function _ssPlayerPos(name){
+  if(typeof window.getNflversePlayer==='function'){
+    const p=window.getNflversePlayer(name);
+    if(p?.pos) return p.pos;
+  }
+  // FantasyCalc stores position in global player maps accessible via playerMeta
+  if(typeof window.fcPlayerMeta==='function'){
+    const m=window.fcPlayerMeta(name);
+    if(m?.pos) return m.pos;
+  }
+  return null;
+}
+
 function _ssBuildTradeGroups(me, myRes, playoffTeams){
   const hasPid=typeof globalPidToName!=='undefined'&&Object.keys(globalPidToName).length>0;
-  const hasStats=typeof window.getNflversePlayer==='function';
   const hasVal=typeof getPlayerValue==='function';
-  if(!hasPid||!hasStats) return null;
+  const hasStats=typeof window.getNflversePlayer==='function';
+  // need at minimum either value data or stats data to be useful
+  if(!hasPid) return {error:'playerMap'};
 
-  const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId); if(!myRosterObj) return null;
+  const myRosterObj=_ssRosters.find(r=>r.roster_id===_ssMyRosterId);
+  if(!myRosterObj) return {error:'noRoster'};
+
   const POSITIONS=['RB','WR','TE','QB'];
-  const myPosPts={};POSITIONS.forEach(p=>myPosPts[p]=[]);
+  const myPosByMetric={};POSITIONS.forEach(p=>myPosByMetric[p]=[]);
   const myPlayerData={};
 
-  [...(myRosterObj.starters||[])].filter(s=>s&&s!=='0').forEach(pid=>{
+  _ssRosterPids(myRosterObj, 12).forEach(pid=>{
     const name=globalPidToName[pid]; if(!name) return;
-    const p=window.getNflversePlayer(name); if(!p||!myPosPts[p.pos]) return;
-    const pts=p.l4w_avg||p.season?.avg_pts||0;
+    const statsData=hasStats?window.getNflversePlayer(name):null;
+    const pos=statsData?.pos||null; if(!pos||!myPosByMetric[pos]) return;
+    const pts=statsData?.l4w_avg||statsData?.season?.avg_pts||0;
     const val=hasVal?getPlayerValue(name)||0:0;
-    myPosPts[p.pos].push({pid,name,pts,pos:p.pos,val});
-    myPlayerData[pid]={name,pts,pos:p.pos,val};
+    const metric=pts||val/80; // normalize val to pts scale when no stats
+    myPosByMetric[pos].push({pid,name,pts,pos,val,metric});
+    myPlayerData[pid]={name,pts,pos,val,metric};
   });
 
-  const lgPosPts={};POSITIONS.forEach(p=>lgPosPts[p]=[]);
+  // check if any position data was populated (needs nflverse for pos)
+  const totalPlayers=Object.values(myPosByMetric).reduce((s,a)=>s+a.length,0);
+  if(totalPlayers===0) return {error:'noStats'};
+
+  const lgPosMetric={};POSITIONS.forEach(p=>lgPosMetric[p]=[]);
   _ssRosters.forEach(r=>{
     if(r.roster_id===_ssMyRosterId) return;
-    [...(r.starters||[])].filter(s=>s&&s!=='0').forEach(pid=>{
+    _ssRosterPids(r, 12).forEach(pid=>{
       const name=globalPidToName[pid]; if(!name) return;
-      const p=window.getNflversePlayer(name); if(!p||!lgPosPts[p.pos]) return;
-      lgPosPts[p.pos].push(p.l4w_avg||p.season?.avg_pts||0);
+      const statsData=hasStats?window.getNflversePlayer(name):null;
+      const pos=statsData?.pos||null; if(!pos||!lgPosMetric[pos]) return;
+      const pts=statsData?.l4w_avg||statsData?.season?.avg_pts||0;
+      const val=hasVal?getPlayerValue(name)||0:0;
+      lgPosMetric[pos].push(pts||val/80);
     });
   });
 
   const med=arr=>{ if(!arr.length) return 0; const s=[...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/2)]; };
   const posGaps=POSITIONS.map(pos=>{
-    const myAvg=myPosPts[pos].length?myPosPts[pos].reduce((s,p)=>s+p.pts,0)/myPosPts[pos].length:0;
-    return {pos,gap:med(lgPosPts[pos])-myAvg,myAvg};
+    const arr=myPosByMetric[pos];
+    const myAvg=arr.length?arr.reduce((s,p)=>s+p.metric,0)/arr.length:0;
+    return {pos,gap:med(lgPosMetric[pos])-myAvg,myAvg};
   }).sort((a,b)=>b.gap-a.gap);
 
-  const needPositions=posGaps.filter(p=>p.gap>0.5).slice(0,2);
-  if(!needPositions.length) return null;
+  // take top 2 positions where I'm behind league median
+  const needPositions=posGaps.filter(p=>p.gap>0).slice(0,2);
+  if(!needPositions.length) needPositions.push(posGaps[0]); // force at least 1
 
   const groups=needPositions.map(({pos,myAvg},gi)=>{
     const label=gi===0?'Primary Need':'Secondary Need';
@@ -26986,22 +27033,20 @@ function _ssBuildTradeGroups(me, myRes, playoffTeams){
     _ssRosters.forEach(r=>{
       if(r.roster_id===_ssMyRosterId||ideas.length>=3) return;
       const oppTeam=_ssTeams.find(t=>t.rosterId===r.roster_id); if(!oppTeam) return;
-      const oppStarters=[...(r.starters||[])].filter(s=>s&&s!=='0');
-      const theirAtPos=oppStarters.map(pid=>{
+      const theirAtPos=_ssRosterPids(r, 12).map(pid=>{
         const name=globalPidToName[pid]; if(!name) return null;
-        const p=window.getNflversePlayer(name); if(!p||p.pos!==pos) return null;
-        return {pid,name,pts:p.l4w_avg||0,val:hasVal?getPlayerValue(name)||0:0};
+        const statsData=hasStats?window.getNflversePlayer(name):null;
+        const ppos=statsData?.pos||null; if(ppos!==pos) return null;
+        return {pid,name,pts:statsData?.l4w_avg||0,val:hasVal?getPlayerValue(name)||0:0};
       }).filter(Boolean).sort((a,b)=>b.val-a.val||b.pts-a.pts);
       if(!theirAtPos.length) return;
       const target=theirAtPos[0];
       const myStrong=Object.values(myPlayerData).filter(p=>p.pos!==pos).sort((a,b)=>b.val-a.val||b.pts-a.pts);
       if(!myStrong.length) return;
-      const maxTV=target.val||1;
-      const offer=myStrong.find(p=>Math.abs(p.val-target.val)/maxTV<=0.30)||myStrong[0];
+      const maxTV=Math.max(target.val,1);
+      const offer=myStrong.find(p=>Math.abs(p.val-target.val)/maxTV<=0.40)||myStrong[0];
       if(!offer) return;
-      const maxV=Math.max(offer.val,target.val)||1;
-      if(Math.abs(offer.val-target.val)/maxV>0.35) return;
-      // pre-run simulation with this trade applied
+      if(Math.abs(offer.val-target.val)/Math.max(offer.val,target.val,1)>0.45) return;
       const ptsDelta=(target.pts||0)-(offer.pts||0);
       const origMean=me.mean;
       me.mean=Math.max(80,origMean+ptsDelta*0.65);
@@ -27009,13 +27054,12 @@ function _ssBuildTradeGroups(me, myRes, playoffTeams){
       me.mean=origMean;
       const playoffDelta=altRes[_ssMyRosterId].playoffPct-myRes.playoffPct;
       const champDelta=altRes[_ssMyRosterId].champPct-myRes.champPct;
-      const valDelta=Math.round((target.val||0)-(offer.val||0));
-      ideas.push({pos,target,offer,oppTeam,ptsDelta,playoffDelta,champDelta,valDelta});
+      ideas.push({pos,target,offer,oppTeam,ptsDelta,playoffDelta,champDelta});
     });
     return {pos,label,myAvg:myAvg.toFixed(1),ideas};
   }).filter(g=>g.ideas.length>0);
 
-  return groups.length?groups:null;
+  return groups.length?groups:{error:'noProposals'};
 }
 
 function _ssRenderTradeRoom(skipCalc){
@@ -27027,9 +27071,24 @@ function _ssRenderTradeRoom(skipCalc){
 
   if(!skipCalc||!_ssTnCache){
     _ssTnCache=_ssBuildTradeGroups(me,myRes,playoffTeams);
-    if(_ssTnCache&&!_ssTnOpen) _ssTnOpen=_ssTnCache[0].pos;
+    if(Array.isArray(_ssTnCache)&&!_ssTnOpen) _ssTnOpen=_ssTnCache[0].pos;
   }
-  if(!_ssTnCache){el.innerHTML='';return;}
+  // show a helpful message if data isn't ready
+  if(!Array.isArray(_ssTnCache)){
+    const msgs={
+      playerMap:'Player ID map not loaded — visit My Team first to initialize player data.',
+      noRoster:'Could not find your roster in the league data.',
+      noStats:'Player stats not loaded — visit My Team to load nflverse data, then re-run.',
+      noProposals:'No fair trade proposals found for your current roster needs.',
+    };
+    const code=_ssTnCache?.error||'noProposals';
+    el.innerHTML=`<div class="ss-section-label">⚖️ WIN-NOW TRADE IDEAS</div>
+      <div class="ss-my-card show" style="padding:18px 22px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:20px">🔍</span>
+        <span style="font-size:13px;color:var(--text2)">${msgs[code]||msgs.noProposals}</span>
+      </div>`;
+    return;
+  }
 
   const total=_ssTnCache.reduce((s,g)=>s+g.ideas.length,0);
 
