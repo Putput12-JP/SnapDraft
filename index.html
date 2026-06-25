@@ -26192,117 +26192,149 @@ window.adpSearch = function(val) {
 .ss-title{font-size:22px;font-weight:900;letter-spacing:-.03em;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:8px}
 .ss-info-btn{width:18px;height:18px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:9px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
 .ss-info-btn:hover .ss-tooltip{display:block}
-.ss-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:240px;background:rgba(16,23,34,.97);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text2);font-family:var(--font-sans);font-weight:400;text-align:left;z-index:9999;line-height:1.5;white-space:normal;pointer-events:none}
+.ss-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:240px;background:var(--s3);border:1px solid var(--border2);border-radius:var(--radius-md);padding:10px 12px;font-size:12px;color:var(--text2);font-family:var(--font-sans);font-weight:400;text-align:left;z-index:9999;line-height:1.5;white-space:normal;pointer-events:none}
 .ss-hero-chips{display:flex;gap:8px;flex-wrap:wrap}
-.ss-chip{padding:6px 12px;border-radius:999px;background:var(--s1);border:1px solid var(--border2);font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.ss-chip{padding:6px 12px;border-radius:var(--radius-pill);background:var(--s2);border:1px solid var(--border2);font-family:var(--font-mono);font-size:11px;color:var(--muted)}
 .ss-chip b{color:var(--text);font-weight:700}
-.ss-run-btn{padding:11px 22px;border-radius:var(--radius-md);background:var(--accent);border:none;color:#fff;font-family:var(--font-sans);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0}
-.ss-run-btn:hover{background:#c52f42;box-shadow:0 0 20px rgba(226,58,78,.4)}
-.ss-run-btn:disabled{opacity:.5;cursor:not-allowed}
+/* Run button — uses v-btn.red pattern */
+.ss-run-btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:7px;padding:11px 22px;background:linear-gradient(135deg,var(--red),var(--red2));color:#fff;border:none;border-radius:var(--radius-md);font-family:var(--font-sans);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .08s;box-shadow:0 0 20px rgba(226,58,78,.3);flex-shrink:0}
+.ss-run-btn:hover{opacity:.88}
+.ss-run-btn:active{transform:scale(.97)}
+.ss-run-btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* progress */
 .ss-progress{display:none;margin-bottom:24px}
 .ss-progress.show{display:block}
-.ss-progress-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:6px}
-.ss-progress-bar{height:4px;background:var(--s2);border-radius:2px;overflow:hidden}
-.ss-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .05s linear}
+.ss-progress-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:8px}
+.ss-progress-bar{height:4px;background:var(--s3);border-radius:var(--radius-pill);overflow:hidden}
+.ss-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:var(--radius-pill);transition:width .05s linear}
 
-/* my-team forecast card */
-.ss-my-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-left:3px solid var(--accent);border-radius:16px;padding:22px;margin-bottom:24px;display:none}
+/* my-team forecast card — v-glass-deep */
+.ss-my-card{background:var(--glass-2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:var(--radius-lg);padding:22px;margin-bottom:24px;display:none;backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);box-shadow:var(--shadow-card)}
 .ss-my-card.show{display:block}
-.ss-my-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;margin-bottom:16px}
+.ss-my-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--accent2);text-transform:uppercase;margin-bottom:16px}
 .ss-my-hero{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:22px;align-items:flex-end}
 .ss-my-stat{display:flex;flex-direction:column;gap:3px}
 .ss-my-stat-val{font-family:var(--font-mono);font-weight:900;line-height:1}
-.ss-my-stat-val.xl{font-size:42px;color:var(--accent)}
+.ss-my-stat-val.xl{font-size:42px;color:var(--accent2)}
 .ss-my-stat-val.lg{font-size:28px;color:var(--text)}
-.ss-my-stat-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.ss-my-stat-lbl{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
 
-/* archetype banner */
-.ss-arch-banner{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid;margin-bottom:20px}
+/* archetype banner — uses v-glass-lite surface */
+.ss-arch-banner{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:var(--radius-md);border:1px solid var(--border2);background:var(--glass-1);backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm);margin-bottom:20px}
+.ss-arch-banner.arch-champ{border-color:rgba(245,200,66,.28);background:rgba(245,200,66,.06)}
+.ss-arch-banner.arch-lock{border-color:rgba(226,58,78,.22);background:rgba(226,58,78,.05)}
+.ss-arch-banner.arch-threat{border-color:rgba(77,134,240,.22);background:rgba(77,134,240,.05)}
+.ss-arch-banner.arch-bubble{border-color:rgba(245,200,66,.22);background:rgba(245,200,66,.04)}
+.ss-arch-banner.arch-under{border-color:rgba(248,113,113,.2);background:rgba(248,113,113,.04)}
+.ss-arch-banner.arch-build{border-color:var(--border2);background:var(--glass-1)}
+.ss-arch-banner.arch-long{border-color:var(--border);background:var(--glass-1)}
 .ss-arch-icon{font-size:22px;line-height:1;flex-shrink:0;margin-top:1px}
 .ss-arch-label{font-size:13px;font-weight:800;letter-spacing:-.01em;margin-bottom:3px}
 .ss-arch-desc{font-size:12px;color:var(--text2);line-height:1.5}
 
 /* championship path */
-.ss-champ-path{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18);border-radius:10px;font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:20px}
+.ss-champ-path{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:rgba(245,200,66,.05);border:1px solid rgba(245,200,66,.18);border-radius:var(--radius-md);font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:20px}
 .ss-champ-path-icon{font-size:16px;flex-shrink:0;margin-top:1px}
 .ss-champ-path b{color:var(--text);font-weight:700}
 
 /* week timeline */
-.ss-timeline-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.ss-timeline-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
 .ss-timeline{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:22px}
 .ss-week-col{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:36px}
 .ss-week-opp{font-family:var(--font-mono);font-size:8px;color:var(--muted);text-transform:uppercase;text-align:center}
-.ss-week-pill{width:36px;padding:5px 2px;border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.ss-week-pill{width:36px;padding:5px 2px;border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;gap:2px}
 .ss-week-pill.past{opacity:.38}
-.ss-week-pill.current{box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.ss-week-pill.current{box-shadow:0 0 0 2px var(--border3)}
 .ss-week-pct{font-family:var(--font-mono);font-size:9px;font-weight:700}
-.ss-week-wn{font-family:var(--font-mono);font-size:7px;color:rgba(255,255,255,.5)}
+.ss-week-wn{font-family:var(--font-mono);font-size:7px;color:var(--muted)}
+/* win probability color classes — theme-aware */
+.ss-win-hi{color:var(--rb)}
+.ss-win-mid{color:var(--gold)}
+.ss-win-lo{color:var(--red)}
+.ss-win-past{color:var(--muted)}
 
 /* finish distribution */
-.ss-dist-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
-.ss-dist-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;gap:1px;margin-bottom:6px}
+.ss-dist-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.ss-dist-bar{display:flex;height:28px;border-radius:var(--radius-sm);overflow:hidden;gap:1px;margin-bottom:6px}
 .ss-dist-seg{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;color:rgba(255,255,255,.7);transition:opacity .2s}
-.ss-dist-seg.highlight{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6);color:#fff}
+.ss-dist-seg.highlight{box-shadow:inset 0 0 0 2px var(--border3);color:var(--text)}
 .ss-dist-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--muted)}
 
-/* standings table */
-.ss-section-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;margin-top:32px}
+/* DS color utility classes — theme-aware, no hardcoded hex */
+.c-gold{color:var(--gold)}.c-red{color:var(--red)}.c-red2{color:var(--red2)}.c-sky{color:var(--sky)}.c-rb{color:var(--rb)}.c-muted{color:var(--muted)}.c-text{color:var(--text)}.c-accent{color:var(--accent2)}
 
-/* GM Dispatch */
-.ss-dispatch{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:4px}
-.ss-dispatch-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
-.ss-dispatch-body p{margin:0 0 8px;font-size:14px;line-height:1.65;color:var(--text)}
+/* shared section label — matches v-kicker exactly */
+.ss-section-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;margin-top:32px}
+
+/* GM Dispatch — v-glass surface */
+.ss-dispatch{background:var(--glass-1);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:22px 24px;margin-bottom:4px;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.ss-dispatch-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.ss-dispatch-body p{margin:0 0 8px;font-size:14px;line-height:1.65;color:var(--text);font-family:var(--font-sans)}
 .ss-dispatch-body p:last-child{margin-bottom:0;color:var(--text2);font-size:13px}
 
 /* Trade War Room */
 .ss-trade-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.ss-trade-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s}
+.ss-trade-card{background:var(--glass-1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:12px;transition:border-color .15s;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
 .ss-trade-card:hover{border-color:var(--border2)}
 .ss-trade-header{display:flex;justify-content:space-between;align-items:center}
-.ss-trade-opp{font-size:11px;color:var(--muted);font-weight:600}
-.ss-trade-fair{font-size:11px;font-weight:800;letter-spacing:.02em}
+.ss-trade-opp{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--muted);font-weight:700;text-transform:uppercase}
+/* trade fairness — reuse v-tag token sizing */
+.ss-trade-fair{display:inline-flex;align-items:center;padding:3px 8px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.ss-trade-fair.win{background:rgba(61,204,122,.14);color:var(--rb)}
+.ss-trade-fair.even{background:rgba(123,208,255,.14);color:var(--accent2)}
+.ss-trade-fair.loss{background:rgba(245,200,66,.14);color:var(--gold)}
 .ss-trade-players{display:flex;align-items:center;gap:10px}
 .ss-trade-side{flex:1}
-.ss-trade-dir{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.ss-trade-side.give .ss-trade-dir{color:#f87171}
-.ss-trade-side.get .ss-trade-dir{color:#22C55E}
-.ss-trade-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
-.ss-trade-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.ss-trade-dir{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.ss-trade-side.give .ss-trade-dir{color:var(--red2)}
+.ss-trade-side.get .ss-trade-dir{color:var(--rb)}
+.ss-trade-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;font-family:var(--font-sans)}
+.ss-trade-meta{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--font-mono)}
 .ss-trade-arrow{font-size:20px;color:var(--muted);flex-shrink:0;text-align:center}
 .ss-trade-impact{display:flex;align-items:center;gap:16px;padding-top:8px;border-top:1px solid var(--border)}
-.ss-trade-stat{font-size:12px;color:var(--text2)}
-.ss-trade-stat span{font-weight:700;font-size:13px}
-.ss-trade-pts{font-size:12px;color:var(--muted);margin-left:auto}
+.ss-trade-stat{font-size:12px;color:var(--text2);font-family:var(--font-sans)}
+.ss-trade-stat .pos{color:var(--rb);font-weight:700}
+.ss-trade-stat .neg{color:var(--red);font-weight:700}
+.ss-trade-stat .neu{color:var(--muted);font-weight:700}
+.ss-trade-pts{font-size:11px;color:var(--muted);margin-left:auto;font-family:var(--font-mono)}
 
 /* Waiver Wire */
 .ss-waiver-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
-.ss-waiver-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
+.ss-waiver-card{background:var(--glass-1);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
 .ss-waiver-card:hover{border-color:var(--border2)}
-.ss-waiver-card.need{border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.04)}
-.ss-waiver-top{display:flex;align-items:center;gap:6px}
-.ss-waiver-pos{font-family:var(--font-mono);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.1);color:var(--text2)}
-.ss-waiver-pos.rb{background:rgba(59,130,246,.2);color:#93c5fd}
-.ss-waiver-pos.wr{background:rgba(34,197,94,.2);color:#86efac}
-.ss-waiver-pos.te{background:rgba(234,179,8,.2);color:#fde047}
-.ss-waiver-pos.qb{background:rgba(226,58,78,.2);color:#fca5a5}
-.ss-waiver-need-badge{font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.08em;padding:2px 5px;border-radius:4px;background:rgba(234,179,8,.2);color:#fde047;text-transform:uppercase}
-.ss-waiver-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.ss-waiver-card.need{border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.04)}
+.ss-waiver-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* Position badges — exact match to v-pos token colors */
+.ss-waiver-pos{display:inline-flex;align-items:center;justify-content:center;padding:3px 7px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.06em}
+.ss-waiver-pos.QB{background:rgba(255,102,128,.15);color:var(--qb)}
+.ss-waiver-pos.RB{background:rgba(61,204,122,.15);color:var(--rb)}
+.ss-waiver-pos.WR{background:rgba(123,208,255,.15);color:var(--wr)}
+.ss-waiver-pos.TE{background:rgba(245,200,66,.15);color:var(--te)}
+/* NEED badge — v-tag.gold pattern */
+.ss-waiver-need-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(245,200,66,.14);color:var(--gold)}
+.ss-waiver-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;font-family:var(--font-sans)}
 .ss-waiver-stats{display:flex;gap:12px}
-.ss-waiver-stat-val{font-size:14px;font-weight:800;color:var(--text)}
-.ss-waiver-stat-lbl{font-size:10px;color:var(--muted);margin-top:1px}
+.ss-waiver-stat-val{font-size:14px;font-weight:800;color:var(--text);font-family:var(--font-mono)}
+.ss-waiver-stat-lbl{font-size:9px;color:var(--muted);margin-top:2px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em}
+/* trend colors — theme-aware */
+.ss-trend-up{color:var(--rb)}
+.ss-trend-dn{color:var(--red)}
+.ss-trend-flat{color:var(--muted)}
 
-/* Share card */
-.ss-share-card{background:linear-gradient(135deg,rgba(226,58,78,.12),rgba(29,78,216,.12));border:1px solid rgba(226,58,78,.25);border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:4px}
+/* Share card — v-glass surface with red accent border */
+.ss-share-card{background:var(--glass-1);border:1px solid rgba(226,58,78,.22);border-radius:var(--radius-lg);padding:20px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
 .ss-share-left{flex:1;min-width:200px}
-.ss-share-team{font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px}
+.ss-share-team{font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;font-family:var(--font-sans)}
 .ss-share-stats{display:flex;gap:20px;flex-wrap:wrap}
 .ss-share-stat{text-align:center}
-.ss-share-stat-val{font-size:18px;font-weight:900;color:var(--rb)}
-.ss-share-stat-lbl{font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
-.ss-share-btn{padding:10px 20px;background:var(--rb);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s}
-.ss-share-btn:hover{opacity:.85}
+.ss-share-stat-val{font-size:18px;font-weight:900;color:var(--accent2);font-family:var(--font-mono)}
+.ss-share-stat-val.champ{color:var(--gold)}
+.ss-share-stat-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:2px}
+/* share button — v-btn.red pattern */
+.ss-share-btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:7px;padding:10px 20px;background:linear-gradient(135deg,var(--red),var(--red2));color:#fff;border:none;border-radius:var(--radius-md);font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s,transform .08s;box-shadow:0 0 16px rgba(226,58,78,.3)}
+.ss-share-btn:hover{opacity:.88}
+.ss-share-btn:active{transform:scale(.97)}
 .ss-table-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
 .ss-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .ss-tbl thead th{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:11px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -26574,13 +26606,13 @@ function _ssRenderHero(currentWeek, playoffStart){
 
 function _ssArchetype(playoffPct, champPct, valRank, totalTeams){
   const valPct = 1 - (valRank-1)/(totalTeams-1||1);
-  if(champPct>=20)               return {label:'Championship Contender', icon:'🏆', color:'#FFD700', desc:'Your roster is built to win it all. Every week matters — stay healthy and stay sharp.'};
-  if(playoffPct>=75)             return {label:'Playoff Lock', icon:'🔒', color:'var(--rb)', desc:'Barring a collapse, you\'re in. Focus on seeding — a bye or top seed changes everything in the playoffs.'};
-  if(playoffPct>=50)             return {label:'Playoff Threat', icon:'⚡', color:'var(--sky)', desc:'You\'re in the hunt but can\'t afford to slip. Every win from here is critical.'};
-  if(playoffPct>=30)             return {label:'Bubble Team', icon:'🫧', color:'#EAB308', desc:'You\'re on the edge. A 2-game winning streak could flip your season completely.'};
-  if(valPct>=0.5&&playoffPct<30) return {label:'Underperforming', icon:'⚠️', color:'#f87171', desc:'Your roster is worth more than your record shows. Figure out what\'s leaking points and fix it.'};
-  if(valRank<=totalTeams*0.4)    return {label:'Building', icon:'🏗️', color:'var(--muted)', desc:'The pieces are there but you\'re not quite there yet. Smart moves now set up a deep run next season.'};
-  return                                {label:'Long Shot', icon:'🎲', color:'var(--muted)', desc:'It\'s a steep climb. You need wins AND help, but stranger things have happened.'};
+  if(champPct>=20)               return {label:'Championship Contender', icon:'🏆', cls:'arch-champ', textCls:'c-gold',  desc:'Your roster is built to win it all. Every week matters — stay healthy and stay sharp.'};
+  if(playoffPct>=75)             return {label:'Playoff Lock',            icon:'🔒', cls:'arch-lock',  textCls:'c-red',   desc:'Barring a collapse, you\'re in. Focus on seeding — a bye or top seed changes everything in the playoffs.'};
+  if(playoffPct>=50)             return {label:'Playoff Threat',          icon:'⚡', cls:'arch-threat',textCls:'c-sky',   desc:'You\'re in the hunt but can\'t afford to slip. Every win from here is critical.'};
+  if(playoffPct>=30)             return {label:'Bubble Team',             icon:'🫧', cls:'arch-bubble',textCls:'c-gold',  desc:'You\'re on the edge. A 2-game winning streak could flip your season completely.'};
+  if(valPct>=0.5&&playoffPct<30) return {label:'Underperforming',         icon:'⚠️', cls:'arch-under', textCls:'c-red2',  desc:'Your roster is worth more than your record shows. Figure out what\'s leaking points and fix it.'};
+  if(valRank<=totalTeams*0.4)    return {label:'Building',                icon:'🏗️', cls:'arch-build', textCls:'c-muted', desc:'The pieces are there but you\'re not quite there yet. Smart moves now set up a deep run next season.'};
+  return                                {label:'Long Shot',                icon:'🎲', cls:'arch-long',  textCls:'c-muted', desc:'It\'s a steep climb. You need wins AND help, but stranger things have happened.'};
 }
 
 function _ssRenderMyCard(currentWeek){
@@ -26593,20 +26625,20 @@ function _ssRenderMyCard(currentWeek){
   const nT=_ssTeams.length;
   const arch=_ssArchetype(res.playoffPct, res.champPct, me.valRank||Math.round(nT/2), nT);
 
-  // archetype banner
-  const archetypeBanner=`<div class="ss-arch-banner" style="border-color:${arch.color}22;background:${arch.color}0d">
+  // archetype banner — uses CSS class instead of inline hex
+  const archetypeBanner=`<div class="ss-arch-banner ${arch.cls}">
     <span class="ss-arch-icon">${arch.icon}</span>
     <div>
-      <div class="ss-arch-label" style="color:${arch.color}">${arch.label}</div>
+      <div class="ss-arch-label ${arch.textCls}">${arch.label}</div>
       <div class="ss-arch-desc">${arch.desc}</div>
     </div>
   </div>`;
 
   // Zone 1 — hero stats
-  const champCol=res.champPct>=20?'#FFD700':res.champPct>=8?'var(--rb)':res.champPct>=3?'var(--text)':'var(--muted)';
+  const champCls=res.champPct>=20?'c-gold':res.champPct>=8?'c-rb':res.champPct>=3?'c-text':'c-muted';
   const z1=`
     <div class="ss-my-stat"><div class="ss-my-stat-val xl">${res.playoffPct}%</div><div class="ss-my-stat-lbl">Playoff Odds</div></div>
-    <div class="ss-my-stat"><div class="ss-my-stat-val lg" style="color:${champCol}">${res.champPct}%</div><div class="ss-my-stat-lbl">Champ Odds</div></div>
+    <div class="ss-my-stat"><div class="ss-my-stat-val lg ${champCls}">${res.champPct}%</div><div class="ss-my-stat-lbl">Champ Odds</div></div>
     <div class="ss-my-stat"><div class="ss-my-stat-val lg">${res.avgWins} wins</div><div class="ss-my-stat-lbl">Proj Record</div></div>
     <div class="ss-my-stat"><div class="ss-my-stat-val lg">#${Math.round(parseFloat(res.avgFinish))}</div><div class="ss-my-stat-lbl">Avg Finish</div></div>`;
 
@@ -26631,12 +26663,13 @@ function _ssRenderMyCard(currentWeek){
 
   const z2=mySched.map(w=>{
     const p=w.winPct;
-    const col=p==null?'rgba(255,255,255,.3)':p>=65?'#22C55E':p>=45?'#EAB308':'#E23A4E';
+    const cls=p==null?'ss-win-past':p>=65?'ss-win-hi':p>=45?'ss-win-mid':'ss-win-lo';
+    const bg=p==null?'rgba(255,255,255,.06)':p>=65?'rgba(61,204,122,.12)':p>=45?'rgba(245,200,66,.12)':'rgba(226,58,78,.12)';
     const lbl=p!=null?`${p}%`:w.played?'✓':'—';
     return `<div class="ss-week-col">
       <div class="ss-week-opp">${_abbrev(w.opp?.name||'BYE')}</div>
-      <div class="ss-week-pill${w.played?' past':''}${w.current?' current':''}" style="background:${col}22">
-        <div class="ss-week-pct" style="color:${col}">${lbl}</div>
+      <div class="ss-week-pill${w.played?' past':''}${w.current?' current':''}" style="background:${bg}">
+        <div class="ss-week-pct ${cls}">${lbl}</div>
         <div class="ss-week-wn">W${w.week}</div>
       </div>
     </div>`;
@@ -26892,8 +26925,8 @@ function _ssRenderShareCard(){
       <div class="ss-share-left">
         <div class="ss-share-team">${arch.icon} ${me.name}</div>
         <div class="ss-share-stats">
-          <div class="ss-share-stat"><div class="ss-share-stat-val">${myRes.playoffPct}%</div><div class="ss-share-stat-lbl">Playoff</div></div>
-          <div class="ss-share-stat"><div class="ss-share-stat-val">${myRes.champPct}%</div><div class="ss-share-stat-lbl">Champ</div></div>
+          <div class="ss-share-stat"><div class="ss-share-stat-val c-accent">${myRes.playoffPct}%</div><div class="ss-share-stat-lbl">Playoff</div></div>
+          <div class="ss-share-stat"><div class="ss-share-stat-val champ">${myRes.champPct}%</div><div class="ss-share-stat-lbl">Champ</div></div>
           <div class="ss-share-stat"><div class="ss-share-stat-val">#${Math.round(parseFloat(myRes.avgFinish))}</div><div class="ss-share-stat-lbl">Proj Finish</div></div>
           <div class="ss-share-stat"><div class="ss-share-stat-val">#${pwrRank}</div><div class="ss-share-stat-lbl">Power Rank</div></div>
         </div>
@@ -26987,20 +27020,21 @@ function _ssRenderTradeRoom(){
 
   el.innerHTML=`<div class="ss-section-label">⚖️ TRADE WAR ROOM · Your ${weakPos} corps averages ${myWeakAvg} pts/game — below league median</div>
     <div class="ss-trade-grid">${proposals.map(p=>{
-      const oddCol=p.oddsDelta>=3?'#22C55E':p.oddsDelta<=-3?'#E23A4E':'var(--muted)';
+      const oddCls=p.oddsDelta>=3?'pos':p.oddsDelta<=-3?'neg':'neu';
       const oddStr=(p.oddsDelta>=0?'+':'')+p.oddsDelta+'%';
       const champStr=(p.champDelta>=0?'+':'')+p.champDelta+'%';
       const ptsStr=(p.ptsDelta*0.65>=0?'+':'')+(p.ptsDelta*0.65).toFixed(1);
+      const fairCls=p.fairLabel.includes('Win')?'win':p.fairLabel.includes('Loss')?'loss':'even';
       return `<div class="ss-trade-card">
-        <div class="ss-trade-header"><span class="ss-trade-opp">vs ${p.oppTeam.name}</span><span class="ss-trade-fair" style="color:${p.fairColor}">${p.fairLabel}</span></div>
+        <div class="ss-trade-header"><span class="ss-trade-opp">vs ${p.oppTeam.name}</span><span class="ss-trade-fair ${fairCls}">${p.fairLabel}</span></div>
         <div class="ss-trade-players">
           <div class="ss-trade-side give"><div class="ss-trade-dir">You Give</div><div class="ss-trade-name">${p.offer.name}</div><div class="ss-trade-meta">${p.offer.pos} · ${p.offer.pts.toFixed(1)} L4W</div></div>
           <div class="ss-trade-arrow">⇄</div>
           <div class="ss-trade-side get"><div class="ss-trade-dir">You Get</div><div class="ss-trade-name">${p.target.name}</div><div class="ss-trade-meta">${p.target.pos} · ${p.target.pts.toFixed(1)} L4W</div></div>
         </div>
         <div class="ss-trade-impact">
-          <div class="ss-trade-stat"><span style="color:${oddCol}">${oddStr}</span> playoff</div>
-          <div class="ss-trade-stat"><span style="color:${oddCol}">${champStr}</span> champ</div>
+          <div class="ss-trade-stat"><span class="${oddCls}">${oddStr}</span> playoff</div>
+          <div class="ss-trade-stat"><span class="${oddCls}">${champStr}</span> champ</div>
           <div class="ss-trade-pts">${ptsStr} pts/gm</div>
         </div>
       </div>`;
@@ -27046,15 +27080,15 @@ function _ssRenderWaiver(){
 
   el.innerHTML=`<div class="ss-section-label">📋 WAIVER WIRE · ${weakPos} is your biggest need — best available free agents</div>
     <div class="ss-waiver-grid">${picks.map(p=>{
-      const trendCol=p.trend>=2?'#22C55E':p.trend<=-2?'#E23A4E':'var(--muted)';
+      const trendCls=p.trend>=2?'ss-trend-up':p.trend<=-2?'ss-trend-dn':'ss-trend-flat';
       const trendIcon=p.trend>=2?'↑':p.trend<=-2?'↓':'→';
       const isNeed=p.pos===weakPos;
       return `<div class="ss-waiver-card${isNeed?' need':''}">
-        <div class="ss-waiver-top"><span class="ss-waiver-pos ${p.pos.toLowerCase()}">${p.pos}</span>${isNeed?'<span class="ss-waiver-need-badge">NEED</span>':''}</div>
+        <div class="ss-waiver-top"><span class="ss-waiver-pos ${p.pos}">${p.pos}</span>${isNeed?'<span class="ss-waiver-need-badge">NEED</span>':''}</div>
         <div class="ss-waiver-name">${p.name}</div>
         <div class="ss-waiver-stats">
           <div class="ss-waiver-stat"><div class="ss-waiver-stat-val">${p.l4w.toFixed(1)}</div><div class="ss-waiver-stat-lbl">L4W avg</div></div>
-          <div class="ss-waiver-stat"><div class="ss-waiver-stat-val" style="color:${trendCol}">${trendIcon} ${Math.abs(p.trend).toFixed(1)}</div><div class="ss-waiver-stat-lbl">vs season</div></div>
+          <div class="ss-waiver-stat"><div class="ss-waiver-stat-val ${trendCls}">${trendIcon} ${Math.abs(p.trend).toFixed(1)}</div><div class="ss-waiver-stat-lbl">vs season</div></div>
         </div>
       </div>`;
     }).join('')}</div>`;
