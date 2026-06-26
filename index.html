@@ -14152,6 +14152,8 @@ async function switchGlobalLeague(leagueId) {
   ovLeagueId = leagueId || null;
   _txCache = null; _rosterCache = null; _usersCache = null;
   window._cachedTradeRoster = null; // reset when league changes
+  // Trade Calculator caches the previous league's rosters — clear so it reloads the new league's teams
+  try { if(window.TC){ window.TC._live = null; window.TC._wnCache = null; window.TC._seeded = false; if(typeof window.TC.loadLeague==='function') window.TC.loadLeague(); } } catch(e){}
   const leagueObj = myTeamsData.find(l => l.league_id === leagueId);
   const nameEl = document.getElementById('la-league-name');
   if (nameEl) nameEl.textContent = leagueObj?.name || '';
@@ -17812,6 +17814,10 @@ function pickYear(year) {
   const POS_ORDER = ['QB','RB','WR','TE','PICK'];
   const esc = s => String(s).replace(/'/g,"\\'");
   function _lex(n){ try{ return window[n]; }catch(e){ return undefined; } }
+  // ovLeagueId/teamsLeagueId/myTeamsUserId are bare module `let`s, NOT window props,
+  // so _lex() always returned undefined and TC fell back to demo teams. Read them directly.
+  function _lexLid(){ try{ if(typeof _ssGetLid==='function'){ const v=_ssGetLid(); if(v) return v; } }catch(e){} try{ if(typeof ovLeagueId!=='undefined'&&ovLeagueId) return ovLeagueId; }catch(e){} try{ if(typeof teamsLeagueId!=='undefined'&&teamsLeagueId) return teamsLeagueId; }catch(e){} return _lex('ovLeagueId')||_lex('teamsLeagueId'); }
+  function _lexUid(){ try{ if(typeof myTeamsUserId!=='undefined'&&myTeamsUserId) return myTeamsUserId; }catch(e){} return _lex('myTeamsUserId'); }
   const PALETTE = ['#4d86f0','#ff5a6e','#f5c842','#3DCC7A','#b48cff','#7bd0ff','#ff9e64','#5be0c8','#e07bd0','#9ee07b'];
 
   // ── Demo league (only used when NO Sleeper league is connected) ──
@@ -17838,10 +17844,10 @@ function pickYear(year) {
     _live:null, _loading:false, _mobSide:'b', _mobPos:'RB',
 
     isMobile(){ try{ return window.matchMedia('(max-width:700px)').matches; }catch(e){ return false; } },
-    leagueSelected(){ return !!(_lex('ovLeagueId') || _lex('teamsLeagueId')); },
+    leagueSelected(){ return !!(_lexLid()); },
     isLive(){ return !!(this._live && this._live.rosters && this._live.rosters.length); },
     // ── league-type detection → smart default value-set ──
-    leagueType(){ try{ const lid=_lex('ovLeagueId')||_lex('teamsLeagueId'); const md=(typeof myTeamsData!=='undefined')?myTeamsData:null; const lg=md?md.find(l=>l.league_id===lid):null; if(lg && typeof _isDynastyLeague==='function') return _isDynastyLeague(lg)?'dyn':'re'; }catch(e){} return null; },
+    leagueType(){ try{ const lid=_lexLid(); const md=(typeof myTeamsData!=='undefined')?myTeamsData:null; const lg=md?md.find(l=>l.league_id===lid):null; if(lg && typeof _isDynastyLeague==='function') return _isDynastyLeague(lg)?'dyn':'re'; }catch(e){} return null; },
     _smartVmode(){ try{ const s=localStorage.getItem('vault-tc-vmode'); if(s==='dyn'||s==='re') return s; }catch(e){} return this.leagueType()||'dyn'; },
     _showPicks(){ return this.vmode!=='re'; },           // redrafters don't trade picks
     _stripPicks(){ ['a','b'].forEach(s=>{ if(tradeAssets[s]) tradeAssets[s]=tradeAssets[s].filter(x=>x.type!=='pick'); }); },
@@ -17889,7 +17895,7 @@ function pickYear(year) {
         const umap = (typeof buildUserMap==='function') ? buildUserMap(this._live.users) : {};
         return this._live.rosters.map((r,i)=>{
           const nm = umap[r.owner_id] || ('Team '+(r.roster_id||i+1));
-          const mine = r.owner_id===_lex('myTeamsUserId');
+          const mine = r.owner_id===_lexUid();
           return { id:String(r.roster_id), name:mine?(nm+' (You)'):nm, owner:mine?'You':nm,
             color:mine?'#4d86f0':PALETTE[(i+1)%PALETTE.length],
             logo:(nm.replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase())||('T'+(i+1)),
@@ -17918,7 +17924,7 @@ function pickYear(year) {
     },
 
     async loadLeague(){
-      const lid = _lex('ovLeagueId') || _lex('teamsLeagueId');
+      const lid = _lexLid();
       if(!lid){ this._live=null; return false; }
       if(this._live && this._live.lid===lid) return true;
       this._loading=true; this.render();
@@ -17931,7 +17937,7 @@ function pickYear(year) {
           this._live={ lid, rosters:ctx.rosters, users:ctx.users };
           const _lt=this.leagueType(); if(_lt) this.vmode=_lt; // auto value-set from league settings
           const ids=ctx.rosters.map(r=>String(r.roster_id));
-          const mine=ctx.rosters.find(r=>r.owner_id===_lex('myTeamsUserId'));
+          const mine=ctx.rosters.find(r=>r.owner_id===_lexUid());
           this.teamA = mine?String(mine.roster_id):ids[0];
           this.teamB = ids.find(id=>id!==this.teamA) || ids[0];
           tradeAssets.a=[]; tradeAssets.b=[]; this._seeded=true; // never carry demo into a real league
@@ -18256,7 +18262,7 @@ function pickYear(year) {
     platform(){ return String(window.connectedPlatform||window.vpPlatform||'sleeper').toLowerCase(); },
     sendButtonHTML(full){
       if(this.platform()!=='sleeper') return `<div style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted);line-height:1.6">Trade offers can only be drafted on Sleeper-connected leagues.</div>`;
-      const connected = !!_lex('myTeamsUserId');
+      const connected = !!_lexUid();
       const icon=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       const handoff=`<div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px">Opens this matchup in Sleeper to review &amp; send. Sleeper doesn't let apps send trades directly.</div>`;
       if(!connected) return `<button class="tc-btn-primary" disabled style="background:var(--s3);color:var(--muted);cursor:not-allowed;box-shadow:none${full?';padding:15px;font-size:15px':''}">${icon}Draft offer in Sleeper</button><div style="font-family:var(--font-mono);font-size:9.5px;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px">Connect your Sleeper account on the League tab to draft offers.</div>`;
@@ -18267,8 +18273,8 @@ function pickYear(year) {
       if(this.platform()!=='sleeper') return;
       const tB=this.team(this.teamB);
       if(!((tradeAssets.a||[]).length||(tradeAssets.b||[]).length)){ this.toast('Add players to both sides first'); return; }
-      if(!_lex('myTeamsUserId')){ this.toast('Connect your Sleeper account on the League tab to send offers'); return; }
-      const lid=_lex('ovLeagueId')||_lex('teamsLeagueId');
+      if(!_lexUid()){ this.toast('Connect your Sleeper account on the League tab to send offers'); return; }
+      const lid=_lexLid();
       this.toast('Opening Sleeper to review your offer to '+tB.name+'…');
       const url=lid?('https://sleeper.com/leagues/'+lid+'/team'):'https://sleeper.com/';
       setTimeout(()=>{ try{ window.open(url,'_blank','noopener'); }catch(e){} },450);
