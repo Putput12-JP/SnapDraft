@@ -26627,7 +26627,7 @@ const SS_N = 1000;
 let _ssLeagueInfo=null, _ssRosters=null, _ssUsers=null;
 let _ssSchedule=null, _ssTeams=null, _ssMyRosterId=null;
 let _ssWeekResults=null, _ssCurrentWeek=0, _ssTotalWeeks=0;
-let _ssProjMap=null, _ssScoring=1; // Sleeper weekly projections for the lineup optimizer
+let _ssProjMap=null, _ssScoring=1, _ssProjLive=false; // Sleeper weekly projections for the lineup optimizer
 let _ssResults=null, _ssLoading=false, _ssRanLeagueId=null;
 let _ssTnCache=null, _ssTnOpen=null;
 const _SS_POS_HEX={QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'};
@@ -27318,21 +27318,24 @@ function _ssWinPctProj(meanMy, meanOpp){
 }
 // per-player weekly projection — real L4W/season data in-season, value-scaled proxy preseason
 function _ssProj(name, pos, pid){
-  // 1. Live Sleeper weekly projection for the current week (same source as My Team) — most accurate
-  if(pid && _ssProjMap){
-    const pm=_ssProjMap[String(pid)];
-    if(pm&&pm.stats && typeof _rdvProjPts==='function'){
-      const v=_rdvProjPts(pm.stats, _ssScoring);
-      if(v!=null && v>0) return {pts:v, basis:'sleeper'};
+  // When live weekly projections exist, trust them exclusively: a player absent from the
+  // projection feed (free agent, IR, bye, not on an NFL roster) is NOT projected to play → 0.
+  if(_ssProjLive){
+    if(pid && _ssProjMap){
+      const pm=_ssProjMap[String(pid)];
+      if(pm&&pm.stats && typeof _rdvProjPts==='function'){
+        const v=_rdvProjPts(pm.stats, _ssScoring);
+        if(v!=null) return {pts:Math.max(0,v), basis:'sleeper'};
+      }
     }
+    return {pts:0, basis:'sleeper'}; // live week, no projection = not playing
   }
-  // 2. nflverse recent scoring
+  // Preseason (no projections posted yet): nflverse recent scoring, then value-scaled proxy
   if(typeof window.getNflversePlayer==='function'){
     const p=window.getNflversePlayer(name);
     const v=p?.l4w_avg||p?.season?.avg_pts;
     if(v&&v>0) return {pts:v, basis:'l4w'};
   }
-  // 3. preseason value-scaled proxy
   const val=(typeof getPlayerValue==='function'?getPlayerValue(name)||0:0);
   const base={QB:18,RB:12,WR:11,TE:8,K:8,DEF:7}[pos]||9;
   return {pts:base+Math.min(12,val/700), basis:'proj'};
@@ -27956,7 +27959,9 @@ window.ssRun = async function(){
     try {
       const season = window._rdvCtx?.season || window._ovSosCtx?.season || String(new Date().getFullYear());
       _ssProjMap = (typeof _rdvFetchProjections==='function') ? await _rdvFetchProjections(season, currentWeek) : null;
-    } catch(e){ _ssProjMap=null; }
+      // "live" only if the feed actually has projections this week — otherwise fall back to preseason estimates
+      _ssProjLive = !!_ssProjMap && Object.values(_ssProjMap).some(pm=>pm.stats && typeof _rdvProjPts==='function' && _rdvProjPts(pm.stats,_ssScoring)>0);
+    } catch(e){ _ssProjMap=null; _ssProjLive=false; }
     setBtn('Simulating…',true);
     if(note) note.innerHTML=`<span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>Running ${SS_N.toLocaleString()} seasons…`;
     if(stEl) stEl.innerHTML=`<span class="ad-dot-live ad-dot-run"></span>MONTE CARLO · RUNNING ${SS_N.toLocaleString()} SEASONS…`;
