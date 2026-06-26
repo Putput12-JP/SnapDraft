@@ -26291,7 +26291,8 @@ window.adpSearch = function(val) {
 @media(max-width:640px){.ss-chart-note{text-align:left;max-width:none}}
 
 /* Lineup Optimizer */
-.ss-opt-card{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);box-shadow:var(--shadow-card)}
+.ss-opt-card{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);box-shadow:var(--shadow-card);margin-bottom:32px}
+#ss-optimizer{display:block;margin-top:8px}
 .ss-opt-win{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border)}
 .ss-opt-win-lbl{font-family:var(--font-sans);font-size:13px;color:var(--text2)}
 .ss-opt-win-vals{display:flex;align-items:center;gap:8px}
@@ -26626,6 +26627,7 @@ const SS_N = 1000;
 let _ssLeagueInfo=null, _ssRosters=null, _ssUsers=null;
 let _ssSchedule=null, _ssTeams=null, _ssMyRosterId=null;
 let _ssWeekResults=null, _ssCurrentWeek=0, _ssTotalWeeks=0;
+let _ssProjMap=null, _ssScoring=1; // Sleeper weekly projections for the lineup optimizer
 let _ssResults=null, _ssLoading=false, _ssRanLeagueId=null;
 let _ssTnCache=null, _ssTnOpen=null;
 const _SS_POS_HEX={QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'};
@@ -27315,12 +27317,22 @@ function _ssWinPctProj(meanMy, meanOpp){
   return Math.round(_ssNormCdf((meanMy-meanOpp)/sd)*100);
 }
 // per-player weekly projection — real L4W/season data in-season, value-scaled proxy preseason
-function _ssProj(name, pos){
+function _ssProj(name, pos, pid){
+  // 1. Live Sleeper weekly projection for the current week (same source as My Team) — most accurate
+  if(pid && _ssProjMap){
+    const pm=_ssProjMap[String(pid)];
+    if(pm&&pm.stats && typeof _rdvProjPts==='function'){
+      const v=_rdvProjPts(pm.stats, _ssScoring);
+      if(v!=null && v>0) return {pts:v, basis:'sleeper'};
+    }
+  }
+  // 2. nflverse recent scoring
   if(typeof window.getNflversePlayer==='function'){
     const p=window.getNflversePlayer(name);
     const v=p?.l4w_avg||p?.season?.avg_pts;
-    if(v&&v>0) return {pts:v, basis:'data'};
+    if(v&&v>0) return {pts:v, basis:'l4w'};
   }
+  // 3. preseason value-scaled proxy
   const val=(typeof getPlayerValue==='function'?getPlayerValue(name)||0:0);
   const base={QB:18,RB:12,WR:11,TE:8,K:8,DEF:7}[pos]||9;
   return {pts:base+Math.min(12,val/700), basis:'proj'};
@@ -27341,7 +27353,7 @@ function _ssOptimalLineup(rosterObj){
   const pool=[...(rosterObj.players||[])].map(String).map(pid=>{
     const name=globalPidToName?.[pid]; if(!name) return null;
     const pos=_ssPos(name); if(!pos) return null;
-    const pr=_ssProj(name,pos);
+    const pr=_ssProj(name,pos,pid);
     return {pid,name,pos,proj:pr.pts,basis:pr.basis,used:false};
   }).filter(Boolean);
   // fill most-restrictive slots first so flex/superflex don't steal a needed specialist
@@ -27354,7 +27366,7 @@ function _ssOptimalLineup(rosterObj){
     else filled[i]={slot:s,name:null,proj:0};
   });
   const total=filled.reduce((s,p)=>s+(p.proj||0),0);
-  const basis=pool.some(p=>p.basis==='data')?'data':'proj';
+  const basis=pool.some(p=>p.basis==='sleeper')?'sleeper':pool.some(p=>p.basis==='l4w')?'l4w':'proj';
   return {slots:filled, total, basis};
 }
 function _ssNextOpp(){
@@ -27376,15 +27388,16 @@ function _ssRenderOptimizer(currentWeek){
   if(!opt.slots.length||!opt.total){ el.innerHTML=''; return; }
 
   const curIds=[...(myRoster.starters||[])].map(String).filter(s=>s&&s!=='0');
-  const curNames=new Set(curIds.map(id=>globalPidToName?.[id]).filter(Boolean));
-  const curTotal=curIds.reduce((s,id)=>{ const nm=globalPidToName?.[id]; if(!nm) return s; const pos=_ssPos(nm); return s+_ssProj(nm,pos).pts; },0);
+  const curList=curIds.map(id=>{ const nm=globalPidToName?.[id]; if(!nm) return null; const pos=_ssPos(nm); return {pid:id,name:nm,pos,proj:_ssProj(nm,pos,id).pts}; }).filter(Boolean);
+  const curNames=new Set(curList.map(p=>p.name));
+  const curTotal=curList.reduce((s,p)=>s+p.proj,0);
 
   const optNames=new Set(opt.slots.map(p=>p.name).filter(Boolean));
   const hasCurrent=curNames.size>0;
   const gain=Math.max(0, opt.total-curTotal);
 
   const inPlayers=opt.slots.filter(p=>p.name&&!curNames.has(p.name)).map(p=>({...p})).sort((a,b)=>b.proj-a.proj);
-  const outPlayers=[...curNames].filter(nm=>!optNames.has(nm)).map(nm=>{ const pos=_ssPos(nm); return {name:nm,pos,proj:_ssProj(nm,pos).pts}; }).sort((a,b)=>a.proj-b.proj);
+  const outPlayers=curList.filter(p=>!optNames.has(p.name)).sort((a,b)=>a.proj-b.proj);
 
   const nxt=_ssNextOpp();
   let winRow='';
@@ -27401,30 +27414,32 @@ function _ssRenderOptimizer(currentWeek){
         <div class="ss-opt-win-vals">
           ${hasCurrent&&lift>0?`<span class="ss-opt-win-cur">${wCur}%</span><span class="ss-opt-win-arrow">→</span>`:''}
           <span class="ss-opt-win-opt">${wOpt}%</span>
-          <span class="ss-opt-win-tag">win prob${lift>0?` · +${lift} pts`:''}</span>
+          <span class="ss-opt-win-tag">win prob${lift>0?` · +${lift}%`:''}</span>
         </div>
       </div>`;
     }
   }
 
-  const basisNote = opt.basis==='data'
+  const basisNote = opt.basis==='sleeper'
+    ? `Live weekly projections from Sleeper for Week ${currentWeek}.`
+    : opt.basis==='l4w'
     ? `Projections from last-4-week scoring averages.`
-    : `Preseason estimate from player value — sharpens once Week 1 is played.`;
+    : `Preseason estimate from player value — sharpens once Week 1 projections post.`;
 
   let body;
   if(hasCurrent && gain<0.6){
     body=`<div class="ss-opt-optimal"><span class="ss-opt-check">✓</span> Your lineup is already optimal — every best play is in.</div>`;
   } else {
     const headline = hasCurrent
-      ? `<span class="c-rb">+${gain.toFixed(1)}</span> projected points on your bench`
-      : `<span class="c-accent">${opt.total.toFixed(1)}</span> projected points — set your optimal lineup`;
+      ? `<span class="c-rb">+${gain.toFixed(2)}</span> projected points on your bench`
+      : `<span class="c-accent">${opt.total.toFixed(2)}</span> projected points — set your optimal lineup`;
     const pairCount=Math.max(inPlayers.length,outPlayers.length);
     let rows='';
     for(let i=0;i<pairCount;i++){
       const In=inPlayers[i], Out=outPlayers[i];
       rows+=`<div class="ss-opt-swap">
-        <div class="ss-opt-in">${In?`<span class="ss-opt-arrow up">▲ START</span><span class="v-pos ${In.pos}">${In.pos}</span><span class="ss-opt-name">${In.name}</span><span class="ss-opt-pts">${In.proj.toFixed(1)}</span>`:''}</div>
-        <div class="ss-opt-out">${Out?`<span class="ss-opt-arrow dn">▼ BENCH</span><span class="ss-opt-name dim">${Out.name}</span><span class="ss-opt-pts dim">${Out.proj.toFixed(1)}</span>`:''}</div>
+        <div class="ss-opt-in">${In?`<span class="ss-opt-arrow up">▲ START</span><span class="v-pos ${In.pos}">${In.pos}</span><span class="ss-opt-name">${In.name}</span><span class="ss-opt-pts">${In.proj.toFixed(2)}</span>`:''}</div>
+        <div class="ss-opt-out">${Out?`<span class="ss-opt-arrow dn">▼ BENCH</span><span class="ss-opt-name dim">${Out.name}</span><span class="ss-opt-pts dim">${Out.proj.toFixed(2)}</span>`:''}</div>
       </div>`;
     }
     body=`<div class="ss-opt-headline">${headline}</div>${rows}`;
@@ -27936,6 +27951,12 @@ window.ssRun = async function(){
   prog?.classList.add('show');
   try {
     const {currentWeek,playoffStart,playoffTeams} = await _ssLoad();
+    // fetch live Sleeper weekly projections for the lineup optimizer (cached 15min by _rdvFetchProjections)
+    _ssScoring = _ssLeagueInfo?.scoring_settings || 1;
+    try {
+      const season = window._rdvCtx?.season || window._ovSosCtx?.season || String(new Date().getFullYear());
+      _ssProjMap = (typeof _rdvFetchProjections==='function') ? await _rdvFetchProjections(season, currentWeek) : null;
+    } catch(e){ _ssProjMap=null; }
     setBtn('Simulating…',true);
     if(note) note.innerHTML=`<span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>Running ${SS_N.toLocaleString()} seasons…`;
     if(stEl) stEl.innerHTML=`<span class="ad-dot-live ad-dot-run"></span>MONTE CARLO · RUNNING ${SS_N.toLocaleString()} SEASONS…`;
