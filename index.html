@@ -10019,6 +10019,11 @@ function showPage(p){
   if(sidebarMap[p]) document.getElementById(sidebarMap[p])?.classList.add('active');
   if(p==='overview') renderOverview();
   if(p==='portfolio') renderPortfolio();
+  // Season Sim: if the active league changed since the last run, the cached
+  // results (and trade ideas) are stale — recompute against the new roster set.
+  if(p==='seasonsim' && _ssResults && _ssRanLeagueId && _ssRanLeagueId!==_ssGetLid() && !_ssLoading){
+    if(typeof ssRun==='function') ssRun();
+  }
   if(p==='draft'){
     if (!PLAYERS.length || (usingDefaultRankings && !window._rankingsFetched)) {
       fetchLiveRankings().then(() => { window._rankingsFetched = true; renderAll(); });
@@ -26386,7 +26391,7 @@ const SS_N = 1000;
 
 let _ssLeagueInfo=null, _ssRosters=null, _ssUsers=null;
 let _ssSchedule=null, _ssTeams=null, _ssMyRosterId=null;
-let _ssResults=null, _ssLoading=false;
+let _ssResults=null, _ssLoading=false, _ssRanLeagueId=null;
 let _ssTnCache=null, _ssTnOpen=null;
 const _SS_POS_HEX={QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'};
 window.ssTnToggle=function(pos){ _ssTnOpen=_ssTnOpen===pos?null:pos; _ssRenderTradeRoom(true); };
@@ -26987,8 +26992,8 @@ function _ssBuildTradeGroups(me, myRes, playoffTeams){
     const avgBest=others.length?others.reduce((s,o)=>s+bestAt(o.players,pos),0)/others.length:0;
     return {pos,deficit:avgBest-myBest[pos]};
   }).sort((a,b)=>b.deficit-a.deficit);
-  const ranked=need.filter(n=>n.deficit>0).slice(0,3);
-  if(!ranked.length) ranked.push(need[0]);
+  // consider every position, ranked by need — render any that yields an improving trade
+  const ranked=need.slice();
 
   // my tradeable pool: everyone except my single best at each position (protect starters)
   const protectedNames=new Set();
@@ -27011,8 +27016,10 @@ function _ssBuildTradeGroups(me, myRes, playoffTeams){
   const basePlayoff=base[myId].playoffPct, baseChamp=base[myId].champPct;
   const origMean=me.mean;
 
-  const groups=ranked.map((nd,ni)=>{
-    const label=['Primary Need','Secondary Need','Tertiary Need'][ni]||'Need';
+  let needRank=0;
+  const groups=ranked.map((nd)=>{
+    // positions where I trail the league are "needs"; the rest are optional depth upgrades
+    const label = nd.deficit>0 ? (['Primary Need','Secondary Need','Tertiary Need','Depth Need'][needRank++]||'Need') : 'Depth Upgrade';
     const ideas=[];
     others.forEach(({r,players})=>{
       if(ideas.length>=3) return;
@@ -27277,7 +27284,7 @@ function _ssRenderTradeRoom(skipCalc){
           <span class="tc-wn-h1">Win-Now Trade Ideas</span>
           <span class="tc-wn-total">${total}</span>
         </div>
-        <div class="tc-wn-sub">Each trade simulated across 200 seasons — numbers show change to your playoff &amp; championship odds if you make this move</div>
+        <div class="tc-wn-sub">Each trade simulated across 500 seasons — numbers show change to your playoff &amp; championship odds if you make this move</div>
       </div>
       <div class="tc-wn-list">${groups}</div>
     </div>`;
@@ -27344,16 +27351,12 @@ window.ssRun = async function(){
   prog?.classList.add('show');
   try {
     const {currentWeek,playoffStart,playoffTeams} = await _ssLoad();
-    // seed TC with SS's already-fetched league data so winNowIdeas() works without a second API call
-    if(window.TC&&!window.TC.isLive()&&_ssRosters&&_ssUsers){
-      const lid=window.ovLeagueId||window.teamsLeagueId||window.vpPrimary||localStorage.getItem('dcmd-v5-primary-league');
-      if(lid) try{ window.TC._live={lid,rosters:_ssRosters,users:_ssUsers}; }catch(e){}
-    }
     btn.textContent='Simulating…';
     let count=0;
     const tick=setInterval(()=>{ count=Math.min(count+25,SS_N); if(lbl)lbl.textContent=`Simulating ${count.toLocaleString()} of ${SS_N.toLocaleString()} seasons…`; if(fill)fill.style.width=(count/SS_N*100)+'%'; if(count>=SS_N)clearInterval(tick); },8);
     await new Promise(r=>setTimeout(r,0));
     _ssResults=_ssSim(SS_N, playoffTeams);
+    _ssRanLeagueId=_ssGetLid(); // stamp which league these results belong to
     clearInterval(tick);
     if(lbl)lbl.textContent=`${SS_N.toLocaleString()} seasons simulated ✓`;
     if(fill)fill.style.width='100%';
