@@ -26241,6 +26241,11 @@ window.adpSearch = function(val) {
 .ss-arch-icon{font-size:22px;line-height:1;flex-shrink:0;margin-top:1px}
 .ss-arch-label{font-size:13px;font-weight:800;letter-spacing:-.01em;margin-bottom:3px}
 .ss-arch-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.ss-arch-dispatch{margin-top:14px;padding-top:13px;border-top:1px solid var(--border2)}
+.ss-arch-dispatch-lbl{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.ss-arch-dispatch-p{font-size:13px;line-height:1.6;color:var(--text2);margin:0 0 6px}
+.ss-arch-dispatch-p:last-child{margin-bottom:0}
+.ss-arch-dispatch-p.lead{color:var(--text);font-weight:600}
 
 /* championship path */
 .ss-champ-path{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:rgba(245,200,66,.05);border:1px solid rgba(245,200,66,.18);border-radius:var(--radius-md);font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:20px}
@@ -26393,6 +26398,197 @@ window.adpSearch = function(val) {
   .ss-week-col{min-width:30px}
   .ss-week-pill{width:30px}
   .ss-sug-grid{grid-template-columns:1fr}
+}
+
+/* ════════════ ANALYST DASHBOARD layout (Season Sim results) ════════════ */
+.ad-kick{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
+.ad-kick .live{color:var(--accent2)}
+.ad-dot-live{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rb);box-shadow:0 0 8px var(--rb)}
+.ad-dot-run{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:adPulse 1s ease-in-out infinite}
+@keyframes adPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.ad-tag-sm{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:var(--radius-pill);border:1px solid}
+.ad-tag-sm.up{color:var(--rb);border-color:rgba(61,204,122,.4);background:rgba(61,204,122,.1)}
+.ad-tag-sm.dn{color:var(--red2);border-color:rgba(226,58,78,.4);background:rgba(226,58,78,.12)}
+.ad-tag-sm.gold{color:var(--gold);border-color:rgba(245,200,66,.4);background:rgba(245,200,66,.1)}
+.ad-tag-sm.flat{color:var(--muted);border-color:var(--border2);background:rgba(255,255,255,.04)}
+
+.ad-top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+.ad-title{font-size:30px;font-weight:900;letter-spacing:-.035em;margin:8px 0 22px;color:var(--text)}
+.btn-run{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border:none;border-radius:var(--radius-md);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06101f;font-family:var(--font-sans);font-size:13px;font-weight:800;letter-spacing:-.01em;cursor:pointer;box-shadow:0 12px 30px -12px rgba(123,208,255,.55);transition:opacity .15s,transform .08s}
+.btn-run:hover{opacity:.92} .btn-run:active{transform:scale(.97)} .btn-run:disabled{opacity:.5;cursor:not-allowed}
+
+.ad-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.ad-fpill{display:inline-flex;align-items:center;gap:9px;padding:10px 15px;border-radius:var(--radius-md);background:var(--s2);border:1px solid var(--border2);font-size:13px;font-weight:600;color:var(--text2)}
+.ad-fpill .ic{width:20px;height:20px;border-radius:6px;background:rgba(123,208,255,.12);display:flex;align-items:center;justify-content:center;color:var(--accent2);font-size:11px;flex-shrink:0}
+
+.ad-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.ad-card{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 18px 14px;box-shadow:var(--shadow-card);backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.ad-card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ad-card-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
+.ad-card-ic svg{width:17px;height:17px}
+.ad-card-ic.blue{background:rgba(123,208,255,.1);border-color:rgba(123,208,255,.3);color:var(--accent2)}
+.ad-card-ic.gold{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.32);color:var(--gold)}
+.ad-card-ic.grn{background:rgba(61,204,122,.1);border-color:rgba(61,204,122,.32);color:var(--rb)}
+.ad-card-ic.red{background:rgba(226,58,78,.1);border-color:rgba(226,58,78,.32);color:var(--red2)}
+.ad-card-lbl{font-size:13px;font-weight:600;color:var(--text2)}
+.ad-card-val{font-family:var(--font-mono);font-weight:800;font-size:34px;letter-spacing:-.02em;line-height:1;margin-bottom:8px;color:var(--text)}
+.ad-card-val small{font-size:16px;color:var(--muted);font-weight:600;margin-left:2px}
+.ad-card-delta{font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:14px}
+.ad-spark{height:46px;width:100%;display:block}
+
+.ad-big{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:22px 24px 14px;box-shadow:var(--shadow-card);position:relative;margin-bottom:16px;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.ad-big-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:14px;flex-wrap:wrap}
+.ad-big-lbl{font-size:13px;color:var(--text2);font-weight:600;margin-bottom:6px}
+.ad-big-val{font-family:var(--font-mono);font-weight:800;font-size:28px;letter-spacing:-.02em;color:var(--text)}
+.ad-big-val small{font-size:15px;color:var(--muted);font-weight:600;margin-left:8px;font-family:var(--font-sans)}
+.ad-leg{display:flex;gap:18px;flex-wrap:wrap}
+.ad-leg span{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text2)}
+.ad-leg i{width:11px;height:11px;border-radius:3px}
+
+.ad-row2{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;margin-bottom:16px}
+.ad-panel{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:20px 22px;box-shadow:var(--shadow-card);backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.ad-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.ad-tbl th{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 8px 10px}
+.ad-tbl th.r,.ad-tbl td.r{text-align:right}
+.ad-tbl td{padding:9px 8px;border-top:1px solid var(--border);vertical-align:middle}
+.ad-tbl tr.me td{background:rgba(123,208,255,.06)}
+.ad-rk{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.ad-tm{font-weight:600;font-size:13px;color:var(--text)}
+.ad-mebadge{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.06em;padding:1px 5px;border-radius:4px;border:1px solid var(--accent2);color:var(--accent2);margin-left:6px;vertical-align:middle}
+.ad-mini-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:5px}
+.ad-mini-bar i{display:block;height:100%;border-radius:3px;transition:width .6s ease-out}
+.ad-pctnum{font-family:var(--font-mono);font-weight:700;font-size:13px}
+.ad-dist-lbl{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:8px}
+.ad-dist-lbl b{color:var(--text)}
+
+/* win-now trades */
+.ad-trades{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:8px}
+.ad-trade{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:14px;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.ad-trade.best{border-color:rgba(61,204,122,.35);background:linear-gradient(180deg,rgba(61,204,122,.06),var(--glass-2))}
+.ad-trade-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ad-trade-opp{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-trade-opp b{color:var(--text2)}
+.ad-trade-fair{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:var(--radius-sm);flex-shrink:0}
+.ad-trade-fair.win{background:rgba(61,204,122,.14);color:var(--rb)}
+.ad-trade-fair.even{background:rgba(123,208,255,.14);color:var(--accent2)}
+.ad-trade-swap{display:flex;align-items:flex-start;gap:10px}
+.ad-trade-side{flex:1;min-width:0}
+.ad-trade-dir{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.ad-trade-side.give .ad-trade-dir{color:var(--red2)} .ad-trade-side.get .ad-trade-dir{color:var(--rb)}
+.ad-trade-name{font-size:13px;font-weight:700;color:var(--text);line-height:1.25}
+.ad-trade-meta{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);margin-top:3px}
+.ad-trade-arrow{color:var(--muted);font-size:16px;flex-shrink:0;margin-top:8px}
+.ad-trade-impact{border-top:1px solid var(--border);padding-top:13px;display:flex;flex-direction:column;gap:11px}
+.ad-imp-row{display:flex;align-items:center;gap:10px}
+.ad-imp-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:48px;flex-shrink:0}
+.ad-imp-track{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.07);position:relative;overflow:hidden}
+.ad-imp-base{position:absolute;left:0;top:0;height:100%;border-radius:3px}
+.ad-imp-add{position:absolute;top:0;height:100%;border-radius:3px}
+.ad-imp-val{font-family:var(--font-mono);font-size:11px;font-weight:700;width:78px;flex-shrink:0;text-align:right;color:var(--text2)}
+.ad-imp-val b{color:var(--rb)} .ad-imp-val .arr{color:var(--muted);margin:0 2px}
+
+/* win-now trades — ranked list rows (Option A) */
+.ss-tr-list{display:flex;flex-direction:column;gap:10px}
+.ss-tr-row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:20px;padding:16px 20px;background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--shadow-card),var(--inset-hi);backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.ss-tr-row.best{border-color:rgba(61,204,122,.35);background:linear-gradient(90deg,rgba(61,204,122,.07),var(--glass-2))}
+.ss-tr-rank{font-family:var(--font-mono);font-weight:800;font-size:22px;color:var(--muted);width:30px;text-align:center}
+.ss-tr-row.best .ss-tr-rank{color:var(--rb)}
+.ss-tr-swap{display:flex;align-items:center;gap:14px;min-width:0}
+.ss-tr-side{min-width:0}
+.ss-tr-dir{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+.ss-tr-dir.give{color:var(--red2)} .ss-tr-dir.get{color:var(--rb)}
+.ss-tr-name{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-tr-meta{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);margin-top:2px}
+.ss-tr-arrow{color:var(--muted);font-size:17px;flex-shrink:0}
+.ss-tr-opp{text-align:right;min-width:110px}
+.ss-tr-opp-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.ss-tr-opp-name{font-size:12.5px;font-weight:600;color:var(--text2);white-space:nowrap}
+.ss-tr-lift{display:flex;gap:18px;padding-left:22px;border-left:1px solid var(--border)}
+.ss-tr-lift-item{text-align:center}
+.ss-tr-lift-num{font-family:var(--font-mono);font-weight:800;font-size:18px;letter-spacing:-.01em}
+.ss-tr-lift-lbl{font-family:var(--font-mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+@media(max-width:760px){
+  .ss-tr-row{grid-template-columns:auto 1fr;gap:14px}
+  .ss-tr-opp{grid-column:2;text-align:left;min-width:0}
+  .ss-tr-opp-lbl{display:inline;margin-right:6px}.ss-tr-opp-name{display:inline}
+  .ss-tr-lift{grid-column:1/-1;padding-left:0;border-left:none;border-top:1px solid var(--border);padding-top:12px;justify-content:flex-start}
+}
+
+@media(max-width:860px){
+  .ad-cards{grid-template-columns:repeat(2,1fr)}
+  .ad-row2{grid-template-columns:1fr}
+  .ad-trades{grid-template-columns:1fr}
+}
+@media(max-width:480px){ .ad-cards{grid-template-columns:1fr} }
+
+/* stat strip (replaces graph cards) */
+.o1-strip{display:grid;grid-template-columns:repeat(4,1fr);background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--shadow-card),var(--inset-hi);overflow:hidden;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm);margin-bottom:16px}
+.o1-cell{padding:26px 24px 24px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;text-align:center}
+.o1-cell:last-child{border-right:none}
+.o1-lbl{font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.o1-lbl i{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.o1-val{font-family:var(--font-mono);font-weight:800;font-size:46px;letter-spacing:-.03em;line-height:.9;margin-bottom:14px;color:var(--text)}
+.o1-val small{font-size:22px;color:var(--muted);font-weight:600}
+.o1-foot{display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-mono);font-size:10.5px;color:var(--muted)}
+@media(max-width:640px){ .o1-strip{grid-template-columns:repeat(2,1fr)} .o1-cell:nth-child(2){border-right:none} .o1-cell:nth-child(1),.o1-cell:nth-child(2){border-bottom:1px solid var(--border)} .o1-val{font-size:38px} }
+
+/* finish-panel recommendations */
+.ss-reco{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:12px}
+.ss-reco-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.ss-reco-item{display:flex;gap:11px;align-items:flex-start}
+.ss-reco-ic{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;border:1px solid;box-shadow:var(--inset-hi)}
+.ss-reco-ic.blue{background:rgba(123,208,255,.1);border-color:rgba(123,208,255,.3);color:var(--accent2)}
+.ss-reco-ic.gold{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.32);color:var(--gold)}
+.ss-reco-ic.grn{background:rgba(61,204,122,.1);border-color:rgba(61,204,122,.32);color:var(--rb)}
+.ss-reco-ic.red{background:rgba(226,58,78,.1);border-color:rgba(226,58,78,.3);color:var(--red2)}
+.ss-reco-tx{flex:1;min-width:0}
+.ss-reco-h{font-size:12.5px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.ss-reco-d{font-size:11.5px;color:var(--text2);line-height:1.45;margin-top:2px}
+
+/* ════════════ ENGINE BRIEFING (Season Sim pre-run) ════════════ */
+.ss-briefing{position:relative;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012)),var(--glass-1);border:1px solid rgba(255,255,255,.12);border-radius:28px;box-shadow:var(--shadow-card),var(--inset-hi);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);padding:60px 64px 66px;margin-top:10px}
+.ss-briefing>.eb-grid{position:relative;z-index:2}
+.ss-orb{position:absolute;border-radius:50%;filter:blur(85px);pointer-events:none;z-index:0;opacity:.7}
+.ss-orb.sky{background:rgba(77,134,240,.36)}
+.ss-orb.gld{background:rgba(245,200,66,.18)}
+.ss-orb.grn{background:rgba(61,204,122,.16)}
+.eb-grid{display:grid;grid-template-columns:1fr 1.12fr;gap:0;align-items:start}
+.eb-left{padding-right:54px;border-right:1px solid var(--border2)}
+.eb-right{padding-left:54px;align-self:center}
+.eb-title{font-size:60px;font-weight:900;letter-spacing:-.045em;line-height:.96;margin:22px 0 20px;color:var(--text)}
+.eb-sub{font-size:17.5px;color:var(--text2);line-height:1.55;margin-bottom:38px;max-width:480px}
+.eb-sub b{color:var(--text);font-weight:700}
+.eb-specs{display:flex;flex-direction:column;margin-bottom:38px;background:rgba(255,255,255,.045);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:4px 20px;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm);box-shadow:var(--inset-hi)}
+.eb-spec{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 2px;border-bottom:1px solid var(--border)}
+.eb-spec:last-child{border-bottom:none}
+.eb-spec-l{display:flex;align-items:center;gap:14px;min-width:0}
+.eb-spec-ic{width:38px;height:38px;border-radius:11px;background:rgba(123,208,255,.1);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--accent2);font-size:16px;flex-shrink:0;box-shadow:var(--inset-hi)}
+.eb-spec-k{font-size:15px;color:var(--text);font-weight:600}
+.eb-spec-sub{font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--font-mono)}
+.eb-spec-v{font-family:var(--font-mono);font-size:19px;font-weight:800;color:var(--text);letter-spacing:-.01em;flex-shrink:0;text-align:right}
+.eb-run-wrap{display:flex;flex-direction:column;gap:16px;align-items:stretch;width:100%}
+.eb-run-note{font-family:var(--font-mono);font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px;width:100%}
+.btn-run.lg{width:100%;text-align:center;padding:19px 44px;font-size:18px;border-radius:14px;box-shadow:0 18px 44px -14px rgba(123,208,255,.7),var(--inset-hi)}
+.eb-deliver-lbl{margin-bottom:22px;font-size:12px}
+.eb-list{display:flex;flex-direction:column;gap:13px}
+.eb-item{display:flex;align-items:center;gap:16px;padding:19px 20px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015)),var(--glass-2);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-lg);box-shadow:var(--shadow-card),var(--inset-hi);backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
+.eb-item-ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid;box-shadow:var(--inset-hi)}
+.eb-item-ic svg{width:21px;height:21px}
+.eb-ic-blue{background:rgba(123,208,255,.12);border-color:rgba(123,208,255,.32);color:var(--accent2)}
+.eb-ic-gold{background:rgba(245,200,66,.12);border-color:rgba(245,200,66,.34);color:var(--gold)}
+.eb-ic-grn{background:rgba(61,204,122,.12);border-color:rgba(61,204,122,.34);color:var(--rb)}
+.eb-ic-red{background:rgba(226,58,78,.12);border-color:rgba(226,58,78,.34);color:var(--red2)}
+.eb-item-body{flex:1;min-width:0}
+.eb-item-name{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.eb-item-desc{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+.eb-item-prev{width:92px;height:44px;flex-shrink:0;opacity:.9}
+@media(max-width:860px){
+  .ss-briefing{padding:38px 26px 42px}
+  .eb-grid{grid-template-columns:1fr;gap:36px}
+  .eb-left{border-right:none;padding-right:0;border-bottom:1px solid var(--border2);padding-bottom:36px}
+  .eb-right{padding-left:0}
+  .eb-title{font-size:44px}
+  .eb-item-prev{display:none}
 }
 </style>
 
@@ -26557,7 +26753,8 @@ async function _ssLoad(){
 
 function _ssSim(n, playoffTeams){
   const totals={};
-  _ssTeams.forEach(t=>{ totals[t.rosterId]={playoff:0,champ:0,finSum:0,winSum:0,champSeedSum:0,champBeatenNames:[]}; });
+  const nTeams=_ssTeams.length;
+  _ssTeams.forEach(t=>{ totals[t.rosterId]={playoff:0,champ:0,finSum:0,winSum:0,champSeedSum:0,champBeatenNames:[],finDist:new Array(nTeams).fill(0),winDist:{}}; });
 
   for(let i=0;i<n;i++){
     const rec={};
@@ -26575,7 +26772,7 @@ function _ssSim(n, playoffTeams){
     });
 
     const sorted=Object.entries(rec).map(([rid,r])=>({rid:Number(rid),...r})).sort((a,b)=>b.wins-a.wins||b.pf-a.pf);
-    sorted.forEach((t,idx)=>{ totals[t.rid].finSum+=idx+1; totals[t.rid].winSum+=t.wins; if(idx<playoffTeams) totals[t.rid].playoff++; });
+    sorted.forEach((t,idx)=>{ const T=totals[t.rid]; T.finSum+=idx+1; T.winSum+=t.wins; if(idx<nTeams) T.finDist[idx]++; const wk=Math.round(t.wins); T.winDist[wk]=(T.winDist[wk]||0)+1; if(idx<playoffTeams) T.playoff++; });
 
     // single-elim bracket — track seed and beaten opponents for my team
     const pfSeeds = sorted.slice(0,playoffTeams).map((t,i)=>({rid:t.rid,seed:i+1}));
@@ -26618,6 +26815,8 @@ function _ssSim(n, playoffTeams){
       champPct:Math.round(r.champ/n*100),
       avgWins:(r.winSum/n).toFixed(1),
       avgFinish:(r.finSum/n).toFixed(1),
+      finishDist:r.finDist.map(c=>c/n),
+      winDist:r.winDist, simN:n,
       topBeaten, avgChampSeed,
     };
   });
@@ -26675,18 +26874,61 @@ function _ssBuildOddsHistory(currentWeek, playoffTeams){
   return pts;
 }
 
+// Per-week history capturing my playoff%, champ%, projected wins, league rank, and
+// league-average playoff% — reuses one _ssSimAsOf pass per week (no extra sim cost
+// beyond the odds chart) and powers the stat-card sparklines + the trajectory chart.
+let _ssHist=null;
+function _ssBuildFullHistory(currentWeek, playoffTeams){
+  const out=[];
+  const last=Math.max(0, currentWeek||0);
+  for(let w=0; w<=last; w++){
+    const res = (w===currentWeek && _ssResults) ? _ssResults : _ssSimAsOf(w, 200, playoffTeams);
+    const r=res?.[_ssMyRosterId]; if(!r) continue;
+    const ranked=Object.entries(res).map(([rid,v])=>({rid:Number(rid),po:v.playoffPct,ch:v.champPct})).sort((a,b)=>b.po-a.po||b.ch-a.ch);
+    const rank=ranked.findIndex(x=>x.rid===_ssMyRosterId)+1;
+    const avg=Math.round(ranked.reduce((s,x)=>s+x.po,0)/(ranked.length||1));
+    out.push({week:w, playoff:r.playoffPct, champ:r.champPct, wins:parseFloat(r.avgWins), rank:rank||Math.round(_ssTeams.length/2), avg});
+  }
+  return out;
+}
+
+// Inline sparkline SVG (smooth area+line). invert=true → lower values plot higher (for rank).
+function _ssSpark(vals, color, invert){
+  const W=200,H=46,pad=4;
+  if(!vals||vals.length<2) return `<svg class="ad-spark" viewBox="0 0 ${W} ${H}"></svg>`;
+  let mn=Math.min(...vals), mx=Math.max(...vals); if(mx===mn) mx=mn+1;
+  const xs=i=>pad+i/(vals.length-1)*(W-2*pad);
+  const ys=v=>{ const t=(v-mn)/(mx-mn); return pad+(invert?t:1-t)*(H-2*pad); };
+  const pts=vals.map((v,i)=>({x:xs(i),y:ys(v)}));
+  let d=`M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for(let i=0;i<pts.length-1;i++){ const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
+    const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;
+    d+=` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`; }
+  const last=pts[pts.length-1];
+  const id='sp'+Math.random().toString(36).slice(2,8);
+  return `<svg class="ad-spark" viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".25"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${d} L${last.x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z" fill="url(#${id})"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3" fill="${color}"/>
+  </svg>`;
+}
+
 function _ssRenderHero(currentWeek, playoffStart){
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
-  const res=_ssResults?.[_ssMyRosterId];
   if(!me) return;
-  const chip=(lbl,val)=>`<div class="ss-chip"><b>${val}</b>&nbsp;${lbl}</div>`;
-  const el=$ss('ss-chips');
-  if(el) el.innerHTML=[
-    chip('My Team', me.name),
-    chip('Record', `${me.wins}–${me.losses}`),
-    res?chip('Proj Finish',`~${Math.round(parseFloat(res.avgFinish))}${_ord(Math.round(parseFloat(res.avgFinish)))}`)
-       :chip('Week',`${currentWeek}/${playoffStart-1}`),
+  const nT=_ssTeams.length;
+  const rec=_ssLeagueInfo?.scoring_settings?.rec;
+  const fmt=rec>=1?'PPR':rec>0?'Half-PPR':'Standard';
+  const fil=$ss('ss-filters');
+  if(fil) fil.innerHTML=[
+    `<div class="ad-fpill"><span class="ic">▤</span> ${me.name}</div>`,
+    `<div class="ad-fpill"><span class="ic">⚄</span> ${SS_N.toLocaleString()} sims</div>`,
+    `<div class="ad-fpill"><span class="ic">◷</span> Through Week ${currentWeek}</div>`,
+    `<div class="ad-fpill"><span class="ic">▦</span> ${nT}-team ${fmt}</div>`,
   ].join('');
+  const st=$ss('ss-status');
+  if(st) st.innerHTML=`<span class="ad-dot-live"></span>MONTE CARLO · ${SS_N.toLocaleString()} SEASONS · <span class="live">COMPLETE</span>`;
 }
 
 function _ssArchetype(playoffPct, champPct, valRank, totalTeams){
@@ -26704,124 +26946,167 @@ function _ssRenderMyCard(currentWeek){
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
   const res=_ssResults?.[_ssMyRosterId];
   if(!me||!res) return;
-  const card=$ss('ss-my-card'); if(!card) return;
-  card.classList.add('show');
-
   const nT=_ssTeams.length;
-  const arch=_ssArchetype(res.playoffPct, res.champPct, me.valRank||Math.round(nT/2), nT);
+  const hist=(_ssHist&&_ssHist.length)?_ssHist:[{playoff:res.playoffPct,champ:res.champPct,wins:parseFloat(res.avgWins),rank:me.valRank||Math.round(nT/2)}];
+  const pre=hist[0], cur=hist[hist.length-1];
+  const pwrRank=cur.rank||me.valRank||Math.round(nT/2);
 
-  // archetype banner — uses CSS class instead of inline hex
-  const archetypeBanner=`<div class="ss-arch-banner ${arch.cls}">
-    <span class="ss-arch-icon">${arch.icon}</span>
-    <div>
-      <div class="ss-arch-label ${arch.textCls}">${arch.label}</div>
-      <div class="ss-arch-desc">${arch.desc}</div>
+  const IC_BARS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>';
+  const IC_TROPHY='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12M8 4v4a4 4 0 008 0V4M12 12v4M9 20h6M5 4a3 3 0 003 3M19 4a3 3 0 01-3 3"/></svg>';
+  const IC_TREND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l5-5 4 3 7-9"/><path d="M20 9V5h-4"/></svg>';
+  const IC_STAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z"/></svg>';
+
+  const dTag=(d,unit,goodUp=true)=>{
+    const cls=d===0?'flat':(goodUp?d>0:d<0)?'up':'dn';
+    const arrow=d>0?'▲':d<0?'▼':'■';
+    return `<span class="ad-tag-sm ${cls}">${arrow} ${Math.abs(d)}${unit}</span>`;
+  };
+  const projL=(_ssTotalWeeks-parseFloat(res.avgWins)).toFixed(1);
+  const dPlayoff=Math.round(res.playoffPct-(pre.playoff||0));
+  const dChamp=Math.round(res.champPct-(pre.champ||0));
+  const dWins=+(parseFloat(res.avgWins)-(pre.wins||0)).toFixed(1);
+  const dRank=Math.round((pre.rank||pwrRank)-pwrRank);
+
+  const dtag2=(d,unit,goodUp=true)=>{
+    const cls=d===0?'flat':(goodUp?d>0:d<0)?'up':'dn';
+    const arrow=d>0?'▲':d<0?'▼':'■';
+    const txt=d===0?'no change':`${arrow} ${Math.abs(d)}${unit}`;
+    return `<span class="ad-tag-sm ${cls}">${txt}</span>`;
+  };
+  const cards=$ss('ss-cards');
+  if(cards) cards.innerHTML=`<div class="o1-strip">
+    <div class="o1-cell">
+      <div class="o1-lbl"><i style="background:var(--accent2)"></i>Playoff Odds</div>
+      <div class="o1-val" style="color:var(--accent2)">${res.playoffPct}%</div>
+      <div class="o1-foot">${dtag2(dPlayoff,' pts')} vs preseason</div>
+    </div>
+    <div class="o1-cell">
+      <div class="o1-lbl"><i style="background:var(--gold)"></i>Championship</div>
+      <div class="o1-val" style="color:var(--gold)">${res.champPct}%</div>
+      <div class="o1-foot">${dtag2(dChamp,' pts')} vs preseason</div>
+    </div>
+    <div class="o1-cell">
+      <div class="o1-lbl"><i style="background:var(--rb)"></i>Proj. Record</div>
+      <div class="o1-val">${res.avgWins}<small>–${projL}</small></div>
+      <div class="o1-foot">${dtag2(dWins,' W')} ${dWins>=0?'over':'under'} pace</div>
+    </div>
+    <div class="o1-cell">
+      <div class="o1-lbl"><i style="background:var(--red2)"></i>Power Rank</div>
+      <div class="o1-val">#${pwrRank}<small>/${nT}</small></div>
+      <div class="o1-foot">${dtag2(dRank,'')} ${Math.abs(dRank)===1?'spot':'spots'} since W1</div>
     </div>
   </div>`;
 
-  // Zone 1 — hero stats
-  const champCls=res.champPct>=20?'c-gold':res.champPct>=8?'c-rb':res.champPct>=3?'c-text':'c-muted';
-  const z1=`
-    <div class="ss-my-stat"><div class="ss-my-stat-val xl">${res.playoffPct}%</div><div class="ss-my-stat-lbl">Playoff Odds</div></div>
-    <div class="ss-my-stat"><div class="ss-my-stat-val lg ${champCls}">${res.champPct}%</div><div class="ss-my-stat-lbl">Champ Odds</div></div>
-    <div class="ss-my-stat"><div class="ss-my-stat-val lg">${res.avgWins} wins</div><div class="ss-my-stat-lbl">Proj Record</div></div>
-    <div class="ss-my-stat"><div class="ss-my-stat-val lg">#${Math.round(parseFloat(res.avgFinish))}</div><div class="ss-my-stat-lbl">Avg Finish</div></div>`;
-
-  // championship path narrative
-  let champPath='';
-  if(res.champPct>0){
-    const seedStr=res.avgChampSeed?`entering as the #${Math.round(parseFloat(res.avgChampSeed))} seed`:'';
-    const beatStr=res.topBeaten?`— often going through <b>${res.topBeaten}</b> to get there`:'';
-    champPath=`<div class="ss-champ-path">
-      <span class="ss-champ-path-icon">🏆</span>
-      <span>In simulations where <b>${me.name}</b> wins the championship, you typically win as ${seedStr||'a playoff team'} ${beatStr}. It happens in <b>${res.champPct}%</b> of seasons.</span>
-    </div>`;
+  // AI read / archetype banner
+  const arch=_ssArchetype(res.playoffPct, res.champPct, me.valRank||Math.round(nT/2), nT);
+  let beat='';
+  if(res.champPct>0 && res.topBeaten){
+    const seedStr=res.avgChampSeed?` as the #${Math.round(parseFloat(res.avgChampSeed))} seed`:'';
+    beat=` Title runs usually go through <b>${res.topBeaten}</b>${seedStr}.`;
   }
-
-  // Zone 2 — week timeline
-  const mySched=_ssSchedule.map(wk=>{
-    const pair=wk.pairs.find(p=>p.includes(_ssMyRosterId)); if(!pair) return null;
-    const oppId=pair.find(id=>id!==_ssMyRosterId);
-    const opp=_ssTeams.find(t=>t.rosterId===oppId);
-    return {week:wk.week,opp,winPct:wk.played?null:_ssWinProb(me,opp,300),played:wk.played,current:wk.week===currentWeek};
-  }).filter(Boolean);
-
-  const z2=mySched.map(w=>{
-    const p=w.winPct;
-    const cls=p==null?'ss-win-past':p>=65?'ss-win-hi':p>=45?'ss-win-mid':'ss-win-lo';
-    const bg=p==null?'rgba(255,255,255,.06)':p>=65?'rgba(61,204,122,.12)':p>=45?'rgba(245,200,66,.12)':'rgba(226,58,78,.12)';
-    const lbl=p!=null?`${p}%`:w.played?'✓':'—';
-    return `<div class="ss-week-col">
-      <div class="ss-week-opp">${_abbrev(w.opp?.name||'BYE')}</div>
-      <div class="ss-week-pill${w.played?' past':''}${w.current?' current':''}" style="background:${bg}">
-        <div class="ss-week-pct ${cls}">${lbl}</div>
-        <div class="ss-week-wn">W${w.week}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // Zone 3 — finish distribution
-  const pfTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
-  const avgF=parseFloat(res.avgFinish);
-  const z3=Array.from({length:nT},(_,i)=>{
-    const pos=i+1, isPf=pos<=pfTeams, isHi=Math.abs(pos-avgF)<=1;
-    const bg=isPf?`hsl(${210-i*12},65%,${55-i*2}%)`:(`rgba(255,255,255,${Math.max(0.07,0.17-i*0.013)})`);
-    return `<div class="ss-dist-seg${isHi?' highlight':''}" style="background:${bg}" title="#${pos}">${pos}</div>`;
-  }).join('');
-
-  card.innerHTML=`
-    <div class="ss-my-label">📊 ${me.name.toUpperCase()} · SEASON FORECAST</div>
-    ${archetypeBanner}
-    <div class="ss-my-hero">${z1}</div>
-    ${champPath}
-    <div class="ss-timeline-label">Win Probability · Remaining Schedule</div>
-    <div class="ss-timeline">${z2}</div>
-    <div class="ss-dist-label">Projected Finish · ${SS_N.toLocaleString()} Simulations</div>
-    <div class="ss-dist-bar">${z3}</div>
-    <div class="ss-dist-labels"><span>1st 🏆</span><span style="opacity:.5">▲ playoff line</span><span>${nT}th</span></div>`;
+  const archEl=$ss('ss-archetype');
+  const dlines=_ssDispatchLines(currentWeek);
+  const dispatchHtml=dlines.length?`<div class="ss-arch-dispatch">
+      <div class="ss-arch-dispatch-lbl">📰 Week ${currentWeek} GM Dispatch</div>
+      ${dlines.map((l,i)=>`<p class="ss-arch-dispatch-p${i===0?' lead':''}">${l}</p>`).join('')}
+    </div>`:'';
+  if(archEl) archEl.innerHTML=`<div class="ss-arch-banner ${arch.cls}" style="margin-bottom:16px">
+    <span class="ss-arch-icon">${arch.icon}</span>
+    <div style="flex:1;min-width:0">
+      <div class="ss-arch-label ${arch.textCls}">${arch.label}</div>
+      <div class="ss-arch-desc">${arch.desc}${beat}</div>
+      ${dispatchHtml}
+    </div>
+  </div>`;
 }
 
 function _ssRenderTable(){
-  const wrap=$ss('ss-table-wrap'); if(!wrap) return;
+  const wrap=$ss('ss-row2'); if(!wrap) return;
+  const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
+  const myRes=_ssResults?.[_ssMyRosterId];
+  const nT=_ssTeams.length;
   const sorted=[..._ssTeams].sort((a,b)=>{
     const ra=_ssResults?.[a.rosterId], rb=_ssResults?.[b.rosterId];
     if(ra&&rb) return rb.playoffPct-ra.playoffPct||b.wins-a.wins||b.pf-a.pf;
     return b.wins-a.wins||b.pf-a.pf;
   });
 
-  const pctCell=(val,col)=>{
-    const op=val>=70?1:val>=30?.7:.4;
-    return `<div class="ss-pct-wrap"><div class="ss-pct-num" style="color:${col};opacity:${op}">${val}%</div><div class="ss-pct-bar-bg"><div class="ss-pct-bar" style="width:${val}%;background:${col}"></div></div></div>`;
-  };
-
   const rows=sorted.map((t,i)=>{
     const res=_ssResults?.[t.rosterId]||{};
     const isMy=t.rosterId===_ssMyRosterId;
-    const projW=res.avgWins?`${res.avgWins}–${(14-parseFloat(res.avgWins)).toFixed(1)}`:'—';
-    return `<tr class="${isMy?'ss-my-row':''}">
-      <td class="ss-rk">${i+1}</td>
-      <td><div class="ss-team-name">${t.name}${isMy?'<span class="ss-my-badge">MY TEAM</span>':''}</div></td>
-      <td class="ss-rec r">${t.wins}–${t.losses}</td>
-      <td class="ss-proj r ss-col-hide">${projW}<small>${res.avgFinish?`avg #${res.avgFinish}`:''}</small></td>
-      <td class="r">${res.playoffPct!=null?pctCell(res.playoffPct,'var(--accent)'):'—'}</td>
-      <td class="r ss-col-hide">${res.champPct!=null?pctCell(res.champPct,'#FFD700'):'—'}</td>
+    const po=res.playoffPct||0;
+    const barCol=isMy?'var(--accent2)':'rgba(123,208,255,.4)';
+    return `<tr class="${isMy?'me':''}">
+      <td class="ad-rk">${i+1}</td>
+      <td>
+        <span class="ad-tm">${t.name}</span>${isMy?'<span class="ad-mebadge">YOU</span>':''}
+        <div class="ad-mini-bar"><i style="width:${po}%;background:${barCol}"></i></div>
+      </td>
+      <td class="r ad-rk">${t.wins}–${t.losses}</td>
+      <td class="r"><span class="ad-pctnum" style="color:${isMy?'var(--accent2)':'var(--text)'}">${res.playoffPct!=null?res.playoffPct+'%':'—'}</span></td>
+      <td class="r"><span class="ad-pctnum" style="color:var(--gold)">${res.champPct!=null?res.champPct+'%':'—'}</span></td>
     </tr>`;
   }).join('');
 
-  wrap.innerHTML=`<div class="ss-section-label">League Standings Forecast</div><div class="ss-table-card"><table class="ss-tbl">
-    <thead><tr>
-      <th>RK</th><th>TEAM</th><th class="r">REC</th>
-      <th class="r ss-col-hide">PROJ W–L</th>
-      <th class="r">PLAYOFF %</th>
-      <th class="r ss-col-hide">CHAMP %</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table></div>`;
+  // finish distribution for my team
+  const dist=myRes?.finishDist||[];
+  const maxP=Math.max(...dist,0.01);
+  const mlIdx=dist.indexOf(Math.max(...dist));
+  const pfTeams=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
+  const W=460,H=200,bw=(W-20)/Math.max(nT,1);
+  const bars=dist.map((p,i)=>{
+    const h=p/maxP*(H-44);const x=10+i*bw;const hot=i===mlIdx;const inPf=(i+1)<=pfTeams;
+    const fill=hot?'var(--accent2)':inPf?'rgba(123,208,255,.45)':'rgba(123,208,255,.18)';
+    const pctTxt=p>=0.04?Math.round(p*100)+'%':'';
+    return `<rect x="${(x+3).toFixed(1)}" y="${(H-26-h).toFixed(1)}" width="${(bw-6).toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${fill}"/>
+      <text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" font-weight="${hot?700:400}" fill="${hot?'var(--accent2)':'var(--muted)'}">${i+1}</text>
+      ${pctTxt?`<text x="${(x+bw/2).toFixed(1)}" y="${(H-32-h).toFixed(1)}" text-anchor="middle" font-size="9" font-family="var(--font-mono)" font-weight="${hot?700:400}" fill="${hot?'var(--accent2)':'var(--muted)'}">${pctTxt}</text>`:''}`;
+  }).join('');
+  const mlPct=dist.length?Math.round(dist[mlIdx]*100):0;
+  // data-driven recommendations to fill the panel
+  let recosHtml='';
+  if(dist.length && myRes){
+    const po=myRes.playoffPct, ch=myRes.champPct;
+    const byeOdds=Math.round(dist.slice(0,2).reduce((a,b)=>a+b,0)*100);
+    const items=[];
+    if(po>=85) items.push(['grn','🔒','Playoffs all but locked',`At ${po}% you can manage for seeding, not survival.`]);
+    else if(po>=60) items.push(['grn','↗','You control your spot',`A ${po}% bid — hold serve and you're in.`]);
+    else if(po>=40) items.push(['gold','▲','Squarely on the bubble',`At ${po}%, the next two weeks swing your season the most.`]);
+    else items.push(['red','▲','Playoff long shot',`At ${po}% you'll need wins and some help.`]);
+    let titleD;
+    if(ch>=15) titleD=`Chase a top-2 seed — the bye lifts your ${ch}% title odds the most.`;
+    else if(ch>=6) titleD=`A ${ch}% shot; winning home-field in round one matters.`;
+    else titleD=`Title odds sit at ${ch}% — bank the playoff berth first.`;
+    if(ch>0 && myRes.topBeaten) titleD+=` Most title runs go through ${myRes.topBeaten}.`;
+    items.push(['gold','🏆', ch>=6?'Live title threat':'Getting in is the goal', titleD]);
+    let proj=`Most likely you finish ${_ordinal(mlIdx+1)} (${mlPct}%).`;
+    if(byeOdds>0) proj+=` ${byeOdds}% of sims earn a top-2 bye.`;
+    items.push(['blue','◎','Projected outcome',proj]);
+    recosHtml=`<div class="ss-reco">
+      <div class="ss-reco-lbl">What the model suggests</div>
+      ${items.map(it=>`<div class="ss-reco-item"><div class="ss-reco-ic ${it[0]}">${it[1]}</div><div class="ss-reco-tx"><div class="ss-reco-h">${it[2]}</div><div class="ss-reco-d">${it[3]}</div></div></div>`).join('')}
+    </div>`;
+  }
+  const distPanel=dist.length?`<div class="ad-panel">
+    <div class="ss-section-label" style="margin:0 0 6px">Where you finish · ${SS_N.toLocaleString()} sims</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:200px;display:block">${bars}</svg>
+    <div class="ad-dist-lbl"><span>1st</span><span>Most likely: <b>${_ordinal(mlIdx+1)} (${mlPct}%)</b></span><span>${nT}th</span></div>
+    ${recosHtml}
+  </div>`:'';
 
-  // stagger bar animations
+  wrap.innerHTML=`<div class="ad-row2">
+    <div class="ad-panel">
+      <div class="ss-section-label" style="margin:0 0 6px">League standings forecast</div>
+      <table class="ad-tbl">
+        <thead><tr><th>RK</th><th>TEAM</th><th class="r">REC</th><th class="r">PLAYOFF</th><th class="r">CHAMP</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${distPanel}
+  </div>`;
+
   requestAnimationFrame(()=>{
-    const bars=document.querySelectorAll('.ss-pct-bar');
-    bars.forEach((el,i)=>{ const w=el.style.width; el.style.width='0'; setTimeout(()=>el.style.width=w,40*i); });
+    document.querySelectorAll('#ss-row2 .ad-mini-bar i').forEach((el,i)=>{ const w=el.style.width; el.style.width='0'; setTimeout(()=>el.style.width=w,35*i); });
   });
 }
 
@@ -26957,11 +27242,10 @@ async function _ssRenderSuggestions(currentWeek, playoffTeams){
 
 function _ordinal(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
-function _ssRenderDispatch(currentWeek){
-  const el=document.getElementById('ss-dispatch'); if(!el) return;
+function _ssDispatchLines(currentWeek){
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
   const myRes=_ssResults?.[_ssMyRosterId];
-  if(!me||!myRes){el.innerHTML='';return;}
+  if(!me||!myRes) return [];
 
   const weeksLeft=_ssSchedule.filter(wk=>!wk.played).length;
   const playoffSpots=parseInt(_ssLeagueInfo?.settings?.playoff_teams||4);
@@ -26989,23 +27273,24 @@ function _ssRenderDispatch(currentWeek){
     const feel=nextWinPct>=65?'a favorable matchup':nextWinPct<=38?'your toughest test in weeks':'a coin-flip';
     lines.push(`Week ${nextWk.week} is ${feel} — vs ${nextOpp.name}, you win this one ${nextWinPct}% of the time in simulation.`);
   }
+  return lines;
+}
 
-  el.innerHTML=`<div class="ss-dispatch">
-    <div class="ss-dispatch-label">📰 WEEK ${currentWeek} GM DISPATCH</div>
-    <div class="ss-dispatch-body">${lines.map(l=>`<p>${l}</p>`).join('')}</div>
-  </div>`;
+function _ssRenderDispatch(currentWeek){
+  // GM Dispatch is now merged into the status banner (see _ssRenderMyCard).
+  const el=document.getElementById('ss-dispatch'); if(el) el.innerHTML='';
 }
 
 function _ssRenderOddsChart(currentWeek, totalWeeks, playoffTeams){
-  const el=document.getElementById('ss-odds-chart'); if(!el) return;
+  const el=document.getElementById('ss-big'); if(!el) return;
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
   if(!me||!_ssResults){ el.innerHTML=''; return; }
-  let hist;
-  try { hist=_ssBuildOddsHistory(currentWeek, playoffTeams); } catch(e){ hist=null; }
+  let hist=_ssHist;
+  if(!hist||!hist.length){ try { hist=_ssBuildOddsHistory(currentWeek, playoffTeams).map(h=>({...h,avg:50})); } catch(e){ hist=null; } }
   if(!hist||!hist.length){ el.innerHTML=''; return; }
 
   const TW=Math.max(totalWeeks||14, currentWeek+1, 2);
-  const W=760, H=300, padL=46, padR=18, padT=18, padB=30;
+  const W=1040, H=300, padL=34, padR=14, padT=16, padB=30;
   const ix=W-padL-padR, iy=H-padT-padB;
   const xFor=wk=>padL + (TW>0?(wk/TW):0)*ix;
   const yFor=pct=>padT + (1-Math.max(0,Math.min(100,pct))/100)*iy;
@@ -27017,58 +27302,72 @@ function _ssRenderOddsChart(currentWeek, totalWeeks, playoffTeams){
 
   const poP=hist.map(h=>({x:xFor(h.week),y:yFor(h.playoff)}));
   const chP=hist.map(h=>({x:xFor(h.week),y:yFor(h.champ)}));
+  const avP=hist.map(h=>({x:xFor(h.week),y:yFor(h.avg!=null?h.avg:50)}));
   const cur=hist[hist.length-1];
   const baseY=yFor(0);
-
   const areaPath=p=>{ if(p.length<1) return ''; return smooth(p)+` L${p[p.length-1].x.toFixed(1)},${baseY} L${p[0].x.toFixed(1)},${baseY} Z`; };
 
-  // y gridlines
-  const grid=[0,25,50,75,100].map(v=>{ const y=yFor(v); return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1" opacity="0.5"/><text x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--font-mono)">${v}%</text>`; }).join('');
+  const grid=[0,25,50,75,100].map(v=>{ const y=yFor(v); return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1" opacity="0.55"/><text x="${padL-6}" y="${(y-4).toFixed(1)}" text-anchor="start" font-size="10" fill="var(--muted)" font-family="var(--font-mono)">${v}%</text>`; }).join('');
 
-  // x ticks — every other week, plus Start
   const tickStep=TW>10?2:1;
   let xticks='';
-  for(let w=0;w<=TW;w+=tickStep){ const x=xFor(w); xticks+=`<text x="${x.toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="var(--font-mono)">${w===0?'Start':'W'+w}</text>`; }
+  for(let w=0;w<=TW;w+=tickStep){ const x=xFor(w); xticks+=`<text x="${x.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--muted)" font-family="var(--font-mono)">${w===0?'Pre':'W'+w}</text>`; }
 
-  // future projection: faint dashed continuation from the current week to season end at current odds
+  // future projection band + dashed holds
   let future='';
   if(currentWeek<TW){
     const x1=xFor(currentWeek), x2=xFor(TW);
-    future=`<line x1="${x1.toFixed(1)}" y1="${yFor(cur.playoff).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${yFor(cur.playoff).toFixed(1)}" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.45"/>`+
-           `<line x1="${x1.toFixed(1)}" y1="${yFor(cur.champ).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${yFor(cur.champ).toFixed(1)}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.45"/>`;
+    future=`<rect x="${x1.toFixed(1)}" y="${padT}" width="${(x2-x1).toFixed(1)}" height="${(baseY-padT).toFixed(1)}" fill="rgba(123,170,240,.05)"/>`+
+           `<line x1="${x1.toFixed(1)}" y1="${yFor(cur.playoff).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${yFor(cur.playoff).toFixed(1)}" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.5"/>`+
+           `<line x1="${x1.toFixed(1)}" y1="${yFor(cur.champ).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${yFor(cur.champ).toFixed(1)}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.5"/>`;
   }
 
-  // "now" marker
   const nowX=xFor(currentWeek);
-  const nowMarker=`<line x1="${nowX.toFixed(1)}" y1="${padT}" x2="${nowX.toFixed(1)}" y2="${baseY}" stroke="var(--text2)" stroke-width="1" stroke-dasharray="2 3" opacity="0.35"/>`;
+  const nowMarker=`<line x1="${nowX.toFixed(1)}" y1="${padT}" x2="${nowX.toFixed(1)}" y2="${baseY}" stroke="var(--accent2)" stroke-width="1" stroke-dasharray="3 3" opacity="0.45"/>`;
+  const dot=(p,color)=>p.length?`<circle cx="${p[p.length-1].x.toFixed(1)}" cy="${p[p.length-1].y.toFixed(1)}" r="5" fill="${color}" stroke="var(--surface)" stroke-width="3"/>`:'';
 
-  const dot=(p,color)=>p.length?`<circle cx="${p[p.length-1].x.toFixed(1)}" cy="${p[p.length-1].y.toFixed(1)}" r="4" fill="${color}" stroke="var(--bg)" stroke-width="2"/>`:'';
+  // tooltip popover at current week (flips left near right edge)
+  const tw=176, th=80, left=nowX>W*0.6;
+  const tx=left?nowX-tw-12:nowX+12;
+  let ty=yFor(cur.playoff)-th-8; if(ty<padT) ty=padT+4;
+  const tip=`<g transform="translate(${tx.toFixed(1)},${ty.toFixed(1)})">
+    <rect x="0" y="0" width="${tw}" height="${th}" rx="10" fill="var(--s2)" stroke="var(--border2)" stroke-width="1"/>
+    <text x="14" y="24" font-size="13" font-weight="700" fill="var(--text)" font-family="var(--font-sans)">Week ${currentWeek} · now</text>
+    <circle cx="18" cy="44" r="4" fill="var(--accent2)"/><text x="30" y="48" font-size="12" fill="var(--text2)" font-family="var(--font-sans)">Playoff</text>
+    <text x="${tw-14}" y="48" text-anchor="end" font-size="12" font-weight="700" fill="var(--text)" font-family="var(--font-mono)">${cur.playoff}%</text>
+    <circle cx="18" cy="64" r="4" fill="var(--gold)"/><text x="30" y="68" font-size="12" fill="var(--text2)" font-family="var(--font-sans)">Champ</text>
+    <text x="${tw-14}" y="68" text-anchor="end" font-size="12" font-weight="700" fill="var(--text)" font-family="var(--font-mono)">${cur.champ}%</text>
+  </g>`;
 
   const note = currentWeek<=1
-    ? `Preseason projection. Solid fills in as real game results come in each week.`
-    : `Live through Week ${currentWeek}. Dashed line is your current projection holding to season's end.`;
+    ? `Preseason baseline — refines as real results post each week`
+    : `Live through Week ${currentWeek} · dashed = current projection held to season's end`;
 
-  el.innerHTML=`<div class="ss-section-label">📈 ODDS THROUGH THE SEASON</div>
-    <div class="ss-chart-card">
-      <div class="ss-chart-head">
-        <div class="ss-chart-legend">
-          <span class="ss-chart-leg"><i style="background:var(--accent)"></i>Playoff <b class="c-accent">${cur.playoff}%</b></span>
-          <span class="ss-chart-leg"><i style="background:var(--gold)"></i>Champ <b class="c-gold">${cur.champ}%</b></span>
+  el.innerHTML=`<div class="ad-big">
+      <div class="ad-big-head">
+        <div>
+          <div class="ad-big-lbl">Playoff odds trajectory</div>
+          <div class="ad-big-val">${cur.playoff}%<small>${note}</small></div>
         </div>
-        <div class="ss-chart-note">${note}</div>
+        <div class="ad-leg">
+          <span><i style="background:var(--accent2)"></i>Playoff</span>
+          <span><i style="background:var(--gold)"></i>Championship</span>
+          <span><i style="background:rgba(123,170,240,.35)"></i>League avg</span>
+        </div>
       </div>
-      <svg viewBox="0 0 ${W} ${H}" class="ss-chart-svg" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:300px;display:block;overflow:visible">
         <defs>
-          <linearGradient id="ssPoGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.22"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient>
-          <linearGradient id="ssChGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--gold)" stop-opacity="0.18"/><stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/></linearGradient>
+          <linearGradient id="ssPoGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent2)" stop-opacity="0.22"/><stop offset="100%" stop-color="var(--accent2)" stop-opacity="0"/></linearGradient>
+          <linearGradient id="ssChGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--gold)" stop-opacity="0.16"/><stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/></linearGradient>
         </defs>
-        ${grid}${xticks}${nowMarker}
+        ${grid}${xticks}${future}${nowMarker}
+        <path d="${smooth(avP)}" fill="none" stroke="rgba(123,170,240,.4)" stroke-width="2" stroke-dasharray="5 5"/>
         <path d="${areaPath(poP)}" fill="url(#ssPoGrad)"/>
         <path d="${areaPath(chP)}" fill="url(#ssChGrad)"/>
-        ${future}
-        <path d="${smooth(chP)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="${smooth(poP)}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        ${dot(chP,'var(--gold)')}${dot(poP,'var(--accent)')}
+        <path d="${smooth(chP)}" fill="none" stroke="var(--gold)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="${smooth(poP)}" fill="none" stroke="var(--accent2)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dot(chP,'var(--gold)')}${dot(poP,'var(--accent2)')}
+        ${tip}
       </svg>
     </div>`;
 }
@@ -27341,7 +27640,7 @@ function _ssBuildTradeGroups_TC_DISABLED(me, myRes, playoffTeams){
 }
 
 function _ssRenderTradeRoom(skipCalc){
-  const el=document.getElementById('ss-trade-room'); if(!el) return;
+  const el=document.getElementById('ss-trades'); if(!el) return;
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
   const myRes=_ssResults?.[_ssMyRosterId];
   if(!me||!myRes||!_ssRosters){el.innerHTML='';return;}
@@ -27351,7 +27650,8 @@ function _ssRenderTradeRoom(skipCalc){
     _ssTnCache=_ssBuildTradeGroups(me,myRes,playoffTeams);
     if(Array.isArray(_ssTnCache)&&!_ssTnOpen) _ssTnOpen=_ssTnCache[0].pos;
   }
-  // show a helpful message if data isn't ready
+  const secLabel=`<div class="ss-section-label" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">⚡ Win-now trade targets <span class="ad-tag-sm gold">RANKED BY ODDS LIFT</span></div>`;
+  // not-ready message
   if(!Array.isArray(_ssTnCache)){
     const msgs={
       playerMap:'Player ID map not loaded — visit My Team to initialize player data, then re-run.',
@@ -27362,81 +27662,56 @@ function _ssRenderTradeRoom(skipCalc){
       noProposals:'No trade proposals found for your current roster needs.',
     };
     const code=_ssTnCache?.error||'noProposals';
-    el.innerHTML=`<div class="ss-section-label">⚖️ WIN-NOW TRADE IDEAS</div>
-      <div class="ss-my-card show" style="padding:18px 22px;display:flex;align-items:center;gap:12px">
-        <span style="font-size:20px">🔍</span>
-        <span style="font-size:13px;color:var(--text2)">${msgs[code]||msgs.noProposals}</span>
-      </div>`;
+    el.innerHTML=`${secLabel}<div class="ad-panel" style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:20px">🔍</span>
+      <span style="font-size:13px;color:var(--text2)">${msgs[code]||msgs.noProposals}</span>
+    </div>`;
     return;
   }
 
-  const total=_ssTnCache.reduce((s,g)=>s+g.ideas.length,0);
+  // flatten groups → individual ideas, ranked by combined odds lift
+  const flat=[];
+  _ssTnCache.forEach(g=>{ (g.ideas||[]).forEach(idea=>flat.push({idea,pos:g.pos})); });
+  flat.sort((a,b)=>((b.idea.playoffDelta+b.idea.champDelta)-(a.idea.playoffDelta+a.idea.champDelta)));
+  const top=flat.slice(0,3);
 
-  const groups=_ssTnCache.map(g=>{
-    const col=_SS_POS_HEX[g.pos]||'var(--muted)';
-    const isOpen=_ssTnOpen===g.pos;
-    const needCls=g.label==='Primary Need'?'tc-wn-primary':'tc-wn-secondary';
-    const ideas=isOpen?`<div class="tc-wn-ideas">${g.ideas.map(idea=>{
-      const pdCls=idea.playoffDelta>=3?'c-rb':idea.playoffDelta>=1?'c-rb':'c-muted';
-      const cdCls=idea.champDelta>=2?'c-gold':idea.champDelta>=1?'c-gold':'c-muted';
-      const pdStr='+'+(idea.playoffDelta)+'%';
-      const cdStr=(idea.champDelta>=0?'+':'')+idea.champDelta+'%';
-      // handle both TC shape (target string + send array) and fallback shape (target obj + offer obj)
-      const targetName = typeof idea.target==='string'?idea.target:idea.target?.name||'—';
-      const sendText = idea.send?.length
-        ? idea.send.map(p=>p.name).join(' + ')
-        : (idea.offer?.name||'—');
-      const fromName = idea.teamName||idea.oppTeam?.name||'';
-      const fromColor = idea.teamColor||col;
-      return `<div class="tc-wn-idea">
-        <div class="tc-wn-idea-main">
-          <div class="tc-wn-get">
-            <span class="tc-wn-getlbl">GET</span>
-            <span class="tc-wn-pname">${targetName}</span>
-            <span class="tc-wn-from" style="color:${fromColor}">from ${fromName}</span>
-          </div>
-          <div class="tc-wn-give">
-            <span class="tc-wn-givelbl">SEND</span>
-            <span class="tc-wn-sname">${sendText}</span>
-          </div>
-        </div>
-        <div class="tc-wn-idea-stats">
-          <div class="tc-wn-stat">
-            <span class="tc-wn-statn ${pdCls}">${pdStr}</span>
-            <span class="tc-wn-statl">playoff</span>
-          </div>
-          <div class="tc-wn-stat">
-            <span class="tc-wn-statn ${cdCls}">${cdStr}</span>
-            <span class="tc-wn-statl">champ</span>
-          </div>
-        </div>
-      </div>`;
-    }).join('')}</div>`:'';
-    return `<div class="tc-wn-group${isOpen?' open':''}">
-      <button class="tc-wn-row" onclick="ssTnToggle('${g.pos}')">
-        <div class="tc-wn-badge" style="background:${col}1f;border:1px solid ${col}55;color:${col}">${g.pos}</div>
-        <div style="flex:1;min-width:0;text-align:left">
-          <span class="tc-wn-title">${g.pos} Upgrades</span>
-          <span class="tc-wn-need ${needCls}">· ${g.label}</span>
-        </div>
-        <div class="tc-wn-count">${g.ideas.length} idea${g.ideas.length!==1?'s':''}</div>
-        <div class="tc-wn-caret" style="transform:rotate(${isOpen?90:0}deg)">›</div>
-      </button>
-      ${ideas}
+  const basePo=myRes.playoffPct, baseCh=myRes.champPct;
+  const impRow=(lbl,before,delta,baseCol)=>{
+    const after=Math.max(0,Math.min(100,before+delta));
+    const addW=Math.max(0,Math.min(100-before,delta));
+    return `<div class="ad-imp-row"><span class="ad-imp-lbl">${lbl}</span>
+      <div class="ad-imp-track"><div class="ad-imp-base" style="width:${before}%;background:${baseCol}"></div><div class="ad-imp-add" style="left:${before}%;width:${addW}%;background:var(--rb)"></div></div>
+      <span class="ad-imp-val">${before}<span class="arr">→</span><b>${after}</b></span></div>`;
+  };
+
+  const rows=top.map(({idea,pos},i)=>{
+    const targetName=typeof idea.target==='string'?idea.target:idea.target?.name||'—';
+    const targetVal=Math.round(typeof idea.target==='object'&&idea.target?.val?idea.target.val:_ssVal(targetName));
+    const sendArr=idea.send?.length?idea.send:(idea.offer?[{name:idea.offer.name,pos:idea.offer.pos}]:[]);
+    const sendText=sendArr.map(p=>p.name).join(' + ')||'—';
+    const sendPos=sendArr.map(p=>p.pos).filter(Boolean).join('+')||'—';
+    const sendVal=Math.round(sendArr.reduce((s,p)=>s+_ssVal(p.name),0));
+    const teamName=idea.teamName||idea.oppTeam?.name||'a rival';
+    const pd=Math.round(idea.playoffDelta), cd=Math.round(idea.champDelta);
+    const sign=v=>v>0?`+${v}`:`${v}`;
+    return `<div class="ss-tr-row${i===0?' best':''}">
+      <div class="ss-tr-rank">${i+1}</div>
+      <div class="ss-tr-swap">
+        <div class="ss-tr-side"><div class="ss-tr-dir give">Send</div><div class="ss-tr-name">${sendText}</div><div class="ss-tr-meta">${sendPos} · ${sendVal.toLocaleString()}</div></div>
+        <div class="ss-tr-arrow">⇄</div>
+        <div class="ss-tr-side"><div class="ss-tr-dir get">Get</div><div class="ss-tr-name">${targetName}</div><div class="ss-tr-meta">${pos} · ${targetVal.toLocaleString()}</div></div>
+      </div>
+      <div class="ss-tr-opp"><div class="ss-tr-opp-lbl">From</div><div class="ss-tr-opp-name">${teamName}</div></div>
+      <div class="ss-tr-lift">
+        <div class="ss-tr-lift-item"><div class="ss-tr-lift-num" style="color:var(--accent2)">${sign(pd)}</div><div class="ss-tr-lift-lbl">Playoff</div></div>
+        <div class="ss-tr-lift-item"><div class="ss-tr-lift-num" style="color:var(--gold)">${sign(cd)}</div><div class="ss-tr-lift-lbl">Title</div></div>
+      </div>
     </div>`;
   }).join('');
 
-  el.innerHTML=`<div class="ss-section-label">⚖️ WIN-NOW TRADE IDEAS</div>
-    <div class="ss-my-card show" style="padding:22px 24px">
-      <div class="tc-wn-header">
-        <div style="display:flex;align-items:center;gap:11px">
-          <span class="tc-wn-h1">Win-Now Trade Ideas</span>
-          <span class="tc-wn-total">${total}</span>
-        </div>
-        <div class="tc-wn-sub">Each trade simulated across 500 seasons — numbers show change to your playoff &amp; championship odds if you make this move</div>
-      </div>
-      <div class="tc-wn-list">${groups}</div>
-    </div>`;
+  el.innerHTML=`${secLabel}
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin:-6px 0 14px">AI engine · each offer re-simulated across 500 seasons against your current ${basePo}% playoff / ${baseCh}% title odds</div>
+    <div class="ss-tr-list">${rows}</div>`;
 }
 
 function _ssRenderWaiver(){
@@ -27493,35 +27768,47 @@ function _ssRenderWaiver(){
 }
 
 window.ssRun = async function(){
-  const btn=$ss('ss-run-btn'), prog=$ss('ss-progress'), fill=$ss('ss-progress-fill'), lbl=$ss('ss-progress-label');
+  const prog=$ss('ss-progress'), fill=$ss('ss-progress-fill'), lbl=$ss('ss-progress-label');
   if(_ssLoading) return;
-  _ssLoading=true; btn.disabled=true; btn.textContent='Loading…';
-  _ssTnCache=null; _ssTnOpen=null;
+  const setBtn=(txt,dis)=>{ ['ss-run-btn','ss-rerun-btn'].forEach(id=>{ const b=$ss(id); if(b){ b.textContent=txt; b.disabled=dis; } }); };
+  const note=$ss('ss-run-note');
+  _ssLoading=true; setBtn('Loading…',true);
+  _ssTnCache=null; _ssTnOpen=null; _ssHist=null;
+  if(note) note.innerHTML=`<span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>Loading league data…`;
+  const stEl=$ss('ss-status'); if(stEl) stEl.innerHTML=`<span class="ad-dot-live ad-dot-run"></span>MONTE CARLO · LOADING LEAGUE…`;
   prog?.classList.add('show');
   try {
     const {currentWeek,playoffStart,playoffTeams} = await _ssLoad();
-    btn.textContent='Simulating…';
+    setBtn('Simulating…',true);
+    if(note) note.innerHTML=`<span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>Running ${SS_N.toLocaleString()} seasons…`;
+    if(stEl) stEl.innerHTML=`<span class="ad-dot-live ad-dot-run"></span>MONTE CARLO · RUNNING ${SS_N.toLocaleString()} SEASONS…`;
     let count=0;
     const tick=setInterval(()=>{ count=Math.min(count+25,SS_N); if(lbl)lbl.textContent=`Simulating ${count.toLocaleString()} of ${SS_N.toLocaleString()} seasons…`; if(fill)fill.style.width=(count/SS_N*100)+'%'; if(count>=SS_N)clearInterval(tick); },8);
     await new Promise(r=>setTimeout(r,0));
     _ssResults=_ssSim(SS_N, playoffTeams);
     _ssRanLeagueId=_ssGetLid(); // stamp which league these results belong to
+    try { _ssHist=_ssBuildFullHistory(currentWeek, playoffTeams); } catch(e){ _ssHist=null; }
     clearInterval(tick);
     if(lbl)lbl.textContent=`${SS_N.toLocaleString()} seasons simulated ✓`;
     if(fill)fill.style.width='100%';
+    prog?.classList.remove('show');
+    const brief=$ss('ss-briefing'), dash=$ss('ss-dashboard');
+    if(brief) brief.style.display='none';
+    if(dash) dash.style.display='';
     _ssRenderHero(currentWeek, playoffStart);
     _ssRenderMyCard(currentWeek);
+    _ssRenderOddsChart(currentWeek, _ssTotalWeeks, playoffTeams);
+    _ssRenderTable();
+    _ssRenderTradeRoom();
     _ssRenderDispatch(currentWeek);
     _ssRenderShareCard();
-    _ssRenderOddsChart(currentWeek, _ssTotalWeeks, playoffTeams);
-    _ssRenderTradeRoom();
     _ssRenderWaiver();
-    await _ssRenderSuggestions(currentWeek, playoffTeams);
-    _ssRenderTable();
-    btn.textContent='↻ Re-run'; btn.disabled=false;
+    setBtn('↻ Re-run simulation',false);
   } catch(e){
     if(lbl)lbl.textContent='⚠ '+(e.message||'Error loading data');
-    btn.textContent='Retry'; btn.disabled=false;
+    if(note) note.innerHTML=`<span class="ad-dot-live" style="background:var(--red2);box-shadow:none"></span>${(e.message||'Could not load league data')}`;
+    if(stEl) stEl.innerHTML=`<span class="ad-dot-live" style="background:var(--red2);box-shadow:none"></span>MONTE CARLO · ERROR`;
+    setBtn('Retry',false);
   }
   _ssLoading=false;
 };
@@ -27531,27 +27818,91 @@ function _ssInjectPage(){
   const page=document.createElement('div');
   page.className='page'; page.id='page-seasonsim';
   page.innerHTML=`<div class="ss-wrap">
-    <div class="ss-hero">
-      <div>
-        <h1 class="ss-title">Season Simulation
-          <button class="ss-info-btn" tabindex="-1">ⓘ<div class="ss-tooltip">Monte Carlo simulation — ${SS_N.toLocaleString()} randomized seasons using each team's average score and variance from completed weeks.</div></button>
-        </h1>
-        <div class="ss-hero-chips" id="ss-chips"><div class="ss-chip">Connect a league in My Team to simulate</div></div>
+    <!-- ── PRE-RUN: ENGINE BRIEFING ── -->
+    <div id="ss-briefing" class="ss-briefing">
+      <div class="ss-orb sky" style="width:440px;height:440px;top:-140px;left:34%"></div>
+      <div class="ss-orb gld" style="width:300px;height:300px;bottom:40px;right:-100px"></div>
+      <div class="eb-grid">
+        <div class="eb-left">
+          <div class="ad-kick"><span class="ad-dot-live"></span>MONTE CARLO ENGINE · v2.4</div>
+          <div class="eb-title">Season Simulation</div>
+          <div class="eb-sub">Before it runs, here's exactly what the engine looks at — and what it hands back.</div>
+          <div class="eb-specs">
+            <div class="eb-spec">
+              <div class="eb-spec-l"><span class="eb-spec-ic">⚄</span><div><div class="eb-spec-k">Simulated seasons</div><div class="eb-spec-sub">randomized playouts</div></div></div>
+              <div class="eb-spec-v">${SS_N.toLocaleString()}</div>
+            </div>
+            <div class="eb-spec">
+              <div class="eb-spec-l"><span class="eb-spec-ic">📊</span><div><div class="eb-spec-k">Scoring model</div><div class="eb-spec-sub">mean + variance per team</div></div></div>
+              <div class="eb-spec-v">Live</div>
+            </div>
+            <div class="eb-spec">
+              <div class="eb-spec-l"><span class="eb-spec-ic">🗓</span><div><div class="eb-spec-k">Remaining schedule</div><div class="eb-spec-sub">strength-adjusted</div></div></div>
+              <div class="eb-spec-v">Auto</div>
+            </div>
+            <div class="eb-spec">
+              <div class="eb-spec-l"><span class="eb-spec-ic">🏆</span><div><div class="eb-spec-k">Playoff bracket</div><div class="eb-spec-sub">single-elim, re-seeded</div></div></div>
+              <div class="eb-spec-v">Re-seeded</div>
+            </div>
+          </div>
+          <div class="eb-run-wrap">
+            <button class="btn-run lg" id="ss-run-btn" onclick="ssRun()">⚡ Run simulation</button>
+            <div class="eb-run-note" id="ss-run-note"><span class="ad-dot-live"></span>Completes in ~1s · re-run anytime new results post</div>
+          </div>
+          <div class="ss-progress" id="ss-progress">
+            <div class="ss-progress-label" id="ss-progress-label">Simulating…</div>
+            <div class="ss-progress-bar"><div class="ss-progress-fill" id="ss-progress-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="eb-right">
+          <div class="ad-kick eb-deliver-lbl"><span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>You'll get back</div>
+          <div class="eb-list">
+            <div class="eb-item">
+              <div class="eb-item-ic eb-ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></div>
+              <div class="eb-item-body"><div class="eb-item-name">Playoff &amp; championship odds</div><div class="eb-item-desc">Four headline numbers with vs-preseason deltas</div></div>
+              <svg class="eb-item-prev" viewBox="0 0 84 40" preserveAspectRatio="none"><rect x="2" y="2" width="38" height="17" rx="3" fill="var(--accent2)" opacity=".22"/><rect x="44" y="2" width="38" height="17" rx="3" fill="var(--gold)" opacity=".22"/><rect x="2" y="22" width="38" height="17" rx="3" fill="var(--rb)" opacity=".22"/><rect x="44" y="22" width="38" height="17" rx="3" fill="var(--red2)" opacity=".22"/></svg>
+            </div>
+            <div class="eb-item">
+              <div class="eb-item-ic eb-ic-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-10"/></svg></div>
+              <div class="eb-item-body"><div class="eb-item-name">Odds trajectory chart</div><div class="eb-item-desc">Playoff, title &amp; league-avg lines across the season</div></div>
+              <svg class="eb-item-prev" viewBox="0 0 84 40" preserveAspectRatio="none"><path d="M2,30 C20,28 30,20 44,16 C60,11 72,8 82,6" fill="none" stroke="var(--accent2)" stroke-width="2.2" stroke-linecap="round"/><path d="M2,36 C20,35 34,33 50,31 C66,29 74,28 82,27" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </div>
+            <div class="eb-item">
+              <div class="eb-item-ic eb-ic-grn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="3" rx="1"/><rect x="3" y="10.5" width="18" height="3" rx="1"/><rect x="3" y="17" width="18" height="3" rx="1"/></svg></div>
+              <div class="eb-item-body"><div class="eb-item-name">Standings &amp; finish distribution</div><div class="eb-item-desc">Full forecast table + where-you-land histogram</div></div>
+              <svg class="eb-item-prev" viewBox="0 0 84 40"><rect x="2" y="20" width="10" height="18" rx="2" fill="rgba(123,208,255,.3)"/><rect x="16" y="10" width="10" height="28" rx="2" fill="var(--accent2)"/><rect x="30" y="16" width="10" height="22" rx="2" fill="rgba(123,208,255,.3)"/><rect x="44" y="24" width="10" height="14" rx="2" fill="rgba(123,208,255,.3)"/><rect x="58" y="28" width="10" height="10" rx="2" fill="rgba(123,208,255,.3)"/><rect x="72" y="31" width="10" height="7" rx="2" fill="rgba(123,208,255,.3)"/></svg>
+            </div>
+            <div class="eb-item">
+              <div class="eb-item-ic eb-ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg></div>
+              <div class="eb-item-body"><div class="eb-item-name">Win-now trade targets</div><div class="eb-item-desc">Each offer re-simulated, ranked by odds lift</div></div>
+              <svg class="eb-item-prev" viewBox="0 0 84 40"><rect x="2" y="13" width="30" height="14" rx="3" fill="rgba(226,58,78,.25)"/><text x="42" y="25" fill="var(--muted)" font-size="13" text-anchor="middle">⇄</text><rect x="52" y="13" width="30" height="14" rx="3" fill="rgba(61,204,122,.28)"/></svg>
+            </div>
+            <div class="eb-item">
+              <div class="eb-item-ic eb-ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></div>
+              <div class="eb-item-body"><div class="eb-item-name">GM dispatch &amp; waiver wire</div><div class="eb-item-desc">An AI read on your team + targeted pickups</div></div>
+              <svg class="eb-item-prev" viewBox="0 0 84 40"><rect x="2" y="8" width="80" height="5" rx="2.5" fill="rgba(255,255,255,.14)"/><rect x="2" y="18" width="66" height="5" rx="2.5" fill="rgba(255,255,255,.12)"/><rect x="2" y="28" width="48" height="5" rx="2.5" fill="rgba(255,255,255,.1)"/></svg>
+            </div>
+          </div>
+        </div>
       </div>
-      <button class="ss-run-btn" id="ss-run-btn" onclick="ssRun()">▶ Run Simulation</button>
     </div>
-    <div class="ss-progress" id="ss-progress">
-      <div class="ss-progress-label" id="ss-progress-label">Simulating…</div>
-      <div class="ss-progress-bar"><div class="ss-progress-fill" id="ss-progress-fill" style="width:0%"></div></div>
+
+    <!-- ── POST-RUN: DASHBOARD ── -->
+    <div id="ss-dashboard" style="display:none">
+      <div class="ad-top" style="justify-content:flex-end">
+        <button class="btn-run" id="ss-rerun-btn" onclick="ssRun()">↻ Re-run simulation</button>
+      </div>
+      <div class="ad-title">Season Simulation</div>
+      <div class="ad-filters" id="ss-filters"></div>
+      <div id="ss-cards"></div>
+      <div id="ss-archetype"></div>
+      <div id="ss-big"></div>
+      <div id="ss-row2"></div>
+      <div id="ss-trades"></div>
+      <div id="ss-dispatch"></div>
+      <div id="ss-share"></div>
+      <div id="ss-waiver-wire"></div>
     </div>
-    <div class="ss-my-card" id="ss-my-card"></div>
-    <div id="ss-dispatch"></div>
-    <div id="ss-share"></div>
-    <div id="ss-odds-chart"></div>
-    <div id="ss-trade-room"></div>
-    <div id="ss-waiver-wire"></div>
-    <div id="ss-suggestions"></div>
-    <div id="ss-table-wrap"></div>
   </div>`;
   document.querySelector('.page')?.parentNode.appendChild(page);
 }
