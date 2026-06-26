@@ -14171,6 +14171,10 @@ async function switchGlobalLeague(leagueId) {
   const active = document.querySelector('.page.on')?.id;
   if (active === 'page-teams') {
     renderTeams();
+  } else if (active === 'page-seasonsim') {
+    // stay on Season Sim and recompute everything (forecast + trade ideas) for the new league
+    _ssResults = null; _ssRanLeagueId = null; _ssTnCache = null; _ssTnOpen = null;
+    if (typeof ssRun === 'function' && !_ssLoading) ssRun();
   } else {
     if (active !== 'page-overview') showPage('overview');
     else await renderOverview(); // already on overview, render directly
