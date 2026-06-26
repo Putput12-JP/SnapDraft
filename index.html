@@ -26408,14 +26408,21 @@ function _abbrev(n){ return (n||'').split(/\s+/).map(w=>w[0]||'').join('').toUpp
 function _ord(n){ return n===1?'st':n===2?'nd':n===3?'rd':'th'; }
 
 function _ssGetLid(){
-  return window.ovLeagueId || window.teamsLeagueId || window.vpPrimary
-    || (() => { try { return localStorage.getItem('dcmd-v5-primary-league'); } catch(e){ return null; } })();
+  // these are bare module-scope `let`s (not window props), so read them directly —
+  // window.ovLeagueId is undefined and would always fall through to stale localStorage.
+  try { if(typeof ovLeagueId!=='undefined' && ovLeagueId) return ovLeagueId; } catch(e){}
+  try { if(typeof teamsLeagueId!=='undefined' && teamsLeagueId) return teamsLeagueId; } catch(e){}
+  try { if(typeof vpPrimary!=='undefined' && vpPrimary) return vpPrimary; } catch(e){}
+  try { return localStorage.getItem('dcmd-v5-primary-league'); } catch(e){ return null; }
 }
 function _ssGetMyRosterId(rosters, users){
   const lid = _ssGetLid();
-  // 1. Most reliable: the connected Sleeper user_id, matched against THIS league's rosters
-  if(window.myTeamsUserId){
-    const r = rosters.find(x=>x.owner_id===window.myTeamsUserId);
+  // 1. Most reliable: the connected Sleeper user_id, matched against THIS league's rosters.
+  //    myTeamsUserId is a bare module-scope let, not a window prop — read it directly.
+  let myUid=null; try{ if(typeof myTeamsUserId!=='undefined') myUid=myTeamsUserId; }catch(e){}
+  myUid = myUid || window.myTeamsUserId;
+  if(myUid){
+    const r = rosters.find(x=>x.owner_id===myUid);
     if(r) return r.roster_id;
   }
   // 2. Match by saved Sleeper username (display_name or username)
