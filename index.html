@@ -26290,6 +26290,31 @@ window.adpSearch = function(val) {
 .ss-chart-svg{width:100%;height:auto;display:block}
 @media(max-width:640px){.ss-chart-note{text-align:left;max-width:none}}
 
+/* Lineup Optimizer */
+.ss-opt-card{background:var(--glass-2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px 20px;backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);box-shadow:var(--shadow-card)}
+.ss-opt-win{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border)}
+.ss-opt-win-lbl{font-family:var(--font-sans);font-size:13px;color:var(--text2)}
+.ss-opt-win-vals{display:flex;align-items:center;gap:8px}
+.ss-opt-win-cur{font-family:var(--font-mono);font-size:15px;color:var(--muted)}
+.ss-opt-win-arrow{color:var(--muted);font-size:13px}
+.ss-opt-win-opt{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--rb)}
+.ss-opt-win-tag{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ss-opt-headline{font-family:var(--font-sans);font-size:15px;font-weight:600;color:var(--text2);margin-bottom:14px}
+.ss-opt-headline span{font-weight:800;font-size:17px}
+.ss-opt-swap{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+.ss-opt-in,.ss-opt-out{display:flex;align-items:center;gap:8px;min-width:0;font-family:var(--font-sans);font-size:13px}
+.ss-opt-arrow{font-size:9px;font-weight:700;font-family:var(--font-mono);letter-spacing:.05em;flex-shrink:0}
+.ss-opt-arrow.up{color:var(--rb)}
+.ss-opt-arrow.dn{color:var(--muted)}
+.ss-opt-name{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-opt-name.dim{color:var(--muted);font-weight:500}
+.ss-opt-pts{margin-left:auto;font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text2);flex-shrink:0}
+.ss-opt-pts.dim{color:var(--muted);font-weight:500}
+.ss-opt-optimal{display:flex;align-items:center;gap:10px;font-family:var(--font-sans);font-size:14px;color:var(--text2)}
+.ss-opt-check{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(61,204,122,.15);color:var(--rb);font-weight:700;flex-shrink:0}
+.ss-opt-note{font-family:var(--font-sans);font-size:11.5px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+@media(max-width:640px){.ss-opt-swap{grid-template-columns:1fr}}
+
 /* GM Dispatch — v-glass surface */
 .ss-dispatch{background:var(--glass-1);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:22px 24px;margin-bottom:4px;backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm)}
 .ss-dispatch-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
@@ -27281,6 +27306,138 @@ function _ssRenderDispatch(currentWeek){
   const el=document.getElementById('ss-dispatch'); if(el) el.innerHTML='';
 }
 
+// ════════════════ LINEUP OPTIMIZER ════════════════
+function _ssErf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
+function _ssNormCdf(z){ return 0.5*(1+_ssErf(z/Math.SQRT2)); }
+function _ssWinPctProj(meanMy, meanOpp){
+  if(meanMy<=0&&meanOpp<=0) return 50;
+  const sd=Math.sqrt(Math.pow(0.30*Math.max(meanMy,1),2)+Math.pow(0.30*Math.max(meanOpp,1),2))||1;
+  return Math.round(_ssNormCdf((meanMy-meanOpp)/sd)*100);
+}
+// per-player weekly projection — real L4W/season data in-season, value-scaled proxy preseason
+function _ssProj(name, pos){
+  if(typeof window.getNflversePlayer==='function'){
+    const p=window.getNflversePlayer(name);
+    const v=p?.l4w_avg||p?.season?.avg_pts;
+    if(v&&v>0) return {pts:v, basis:'data'};
+  }
+  const val=(typeof getPlayerValue==='function'?getPlayerValue(name)||0:0);
+  const base={QB:18,RB:12,WR:11,TE:8,K:8,DEF:7}[pos]||9;
+  return {pts:base+Math.min(12,val/700), basis:'proj'};
+}
+const _SS_SLOT_ELIG={
+  QB:['QB'],RB:['RB'],WR:['WR'],TE:['TE'],K:['K'],DEF:['DEF','DST'],DST:['DEF','DST'],
+  FLEX:['RB','WR','TE'],WRRB_FLEX:['RB','WR'],REC_FLEX:['WR','TE'],
+  SUPER_FLEX:['QB','RB','WR','TE'],WRRB_WRT:['RB','WR','TE'],
+};
+function _ssStartSlots(){
+  const rp=_ssLeagueInfo?.roster_positions||_ssLeagueInfo?.settings?.roster_positions||[];
+  const slots=rp.filter(s=>s!=='BN'&&s!=='IR'&&s!=='TAXI');
+  return slots.length?slots:['QB','RB','RB','WR','WR','WR','TE','FLEX','FLEX'];
+}
+// greedily fill the league's starting slots with the highest-projected eligible players
+function _ssOptimalLineup(rosterObj){
+  const slots=_ssStartSlots();
+  const pool=[...(rosterObj.players||[])].map(String).map(pid=>{
+    const name=globalPidToName?.[pid]; if(!name) return null;
+    const pos=_ssPos(name); if(!pos) return null;
+    const pr=_ssProj(name,pos);
+    return {pid,name,pos,proj:pr.pts,basis:pr.basis,used:false};
+  }).filter(Boolean);
+  // fill most-restrictive slots first so flex/superflex don't steal a needed specialist
+  const order=slots.map((s,i)=>({s,i})).sort((a,b)=>(_SS_SLOT_ELIG[a.s]||[a.s]).length-(_SS_SLOT_ELIG[b.s]||[b.s]).length);
+  const filled=new Array(slots.length).fill(null);
+  order.forEach(({s,i})=>{
+    const elig=_SS_SLOT_ELIG[s]||[s];
+    const pick=pool.filter(p=>!p.used&&elig.includes(p.pos)).sort((a,b)=>b.proj-a.proj)[0];
+    if(pick){ pick.used=true; filled[i]={slot:s,...pick}; }
+    else filled[i]={slot:s,name:null,proj:0};
+  });
+  const total=filled.reduce((s,p)=>s+(p.proj||0),0);
+  const basis=pool.some(p=>p.basis==='data')?'data':'proj';
+  return {slots:filled, total, basis};
+}
+function _ssNextOpp(){
+  for(const wk of (_ssSchedule||[])){
+    if(wk.played) continue;
+    for(const [a,b] of wk.pairs){
+      if(a===_ssMyRosterId) return {week:wk.week, oppRid:b};
+      if(b===_ssMyRosterId) return {week:wk.week, oppRid:a};
+    }
+  }
+  return null;
+}
+function _ssRenderOptimizer(currentWeek){
+  const el=document.getElementById('ss-optimizer'); if(!el) return;
+  const myRoster=_ssRosters?.find(r=>r.roster_id===_ssMyRosterId);
+  if(!myRoster||typeof globalPidToName==='undefined'){ el.innerHTML=''; return; }
+
+  const opt=_ssOptimalLineup(myRoster);
+  if(!opt.slots.length||!opt.total){ el.innerHTML=''; return; }
+
+  const curIds=[...(myRoster.starters||[])].map(String).filter(s=>s&&s!=='0');
+  const curNames=new Set(curIds.map(id=>globalPidToName?.[id]).filter(Boolean));
+  const curTotal=curIds.reduce((s,id)=>{ const nm=globalPidToName?.[id]; if(!nm) return s; const pos=_ssPos(nm); return s+_ssProj(nm,pos).pts; },0);
+
+  const optNames=new Set(opt.slots.map(p=>p.name).filter(Boolean));
+  const hasCurrent=curNames.size>0;
+  const gain=Math.max(0, opt.total-curTotal);
+
+  const inPlayers=opt.slots.filter(p=>p.name&&!curNames.has(p.name)).map(p=>({...p})).sort((a,b)=>b.proj-a.proj);
+  const outPlayers=[...curNames].filter(nm=>!optNames.has(nm)).map(nm=>{ const pos=_ssPos(nm); return {name:nm,pos,proj:_ssProj(nm,pos).pts}; }).sort((a,b)=>a.proj-b.proj);
+
+  const nxt=_ssNextOpp();
+  let winRow='';
+  if(nxt){
+    const oppR=_ssRosters.find(r=>r.roster_id===nxt.oppRid);
+    const oppTeam=_ssTeams.find(t=>t.rosterId===nxt.oppRid);
+    if(oppR){
+      const oppTotal=_ssOptimalLineup(oppR).total;
+      const wCur=_ssWinPctProj(hasCurrent?curTotal:opt.total, oppTotal);
+      const wOpt=_ssWinPctProj(opt.total, oppTotal);
+      const lift=wOpt-wCur;
+      winRow=`<div class="ss-opt-win">
+        <div class="ss-opt-win-lbl">Week ${nxt.week} vs ${oppTeam?.name||'opponent'}</div>
+        <div class="ss-opt-win-vals">
+          ${hasCurrent&&lift>0?`<span class="ss-opt-win-cur">${wCur}%</span><span class="ss-opt-win-arrow">→</span>`:''}
+          <span class="ss-opt-win-opt">${wOpt}%</span>
+          <span class="ss-opt-win-tag">win prob${lift>0?` · +${lift} pts`:''}</span>
+        </div>
+      </div>`;
+    }
+  }
+
+  const basisNote = opt.basis==='data'
+    ? `Projections from last-4-week scoring averages.`
+    : `Preseason estimate from player value — sharpens once Week 1 is played.`;
+
+  let body;
+  if(hasCurrent && gain<0.6){
+    body=`<div class="ss-opt-optimal"><span class="ss-opt-check">✓</span> Your lineup is already optimal — every best play is in.</div>`;
+  } else {
+    const headline = hasCurrent
+      ? `<span class="c-rb">+${gain.toFixed(1)}</span> projected points on your bench`
+      : `<span class="c-accent">${opt.total.toFixed(1)}</span> projected points — set your optimal lineup`;
+    const pairCount=Math.max(inPlayers.length,outPlayers.length);
+    let rows='';
+    for(let i=0;i<pairCount;i++){
+      const In=inPlayers[i], Out=outPlayers[i];
+      rows+=`<div class="ss-opt-swap">
+        <div class="ss-opt-in">${In?`<span class="ss-opt-arrow up">▲ START</span><span class="v-pos ${In.pos}">${In.pos}</span><span class="ss-opt-name">${In.name}</span><span class="ss-opt-pts">${In.proj.toFixed(1)}</span>`:''}</div>
+        <div class="ss-opt-out">${Out?`<span class="ss-opt-arrow dn">▼ BENCH</span><span class="ss-opt-name dim">${Out.name}</span><span class="ss-opt-pts dim">${Out.proj.toFixed(1)}</span>`:''}</div>
+      </div>`;
+    }
+    body=`<div class="ss-opt-headline">${headline}</div>${rows}`;
+  }
+
+  el.innerHTML=`<div class="ss-section-label">🧮 LINEUP OPTIMIZER · WEEK ${currentWeek}</div>
+    <div class="ss-opt-card">
+      ${winRow}
+      ${body}
+      <div class="ss-opt-note">${basisNote}</div>
+    </div>`;
+}
+
 function _ssRenderOddsChart(currentWeek, totalWeeks, playoffTeams){
   const el=document.getElementById('ss-big'); if(!el) return;
   const me=_ssTeams.find(t=>t.rosterId===_ssMyRosterId);
@@ -27798,6 +27955,7 @@ window.ssRun = async function(){
     _ssRenderHero(currentWeek, playoffStart);
     _ssRenderMyCard(currentWeek);
     _ssRenderOddsChart(currentWeek, _ssTotalWeeks, playoffTeams);
+    _ssRenderOptimizer(currentWeek);
     _ssRenderTable();
     _ssRenderTradeRoom();
     _ssRenderDispatch(currentWeek);
@@ -27897,6 +28055,7 @@ function _ssInjectPage(){
       <div id="ss-cards"></div>
       <div id="ss-archetype"></div>
       <div id="ss-big"></div>
+      <div id="ss-optimizer"></div>
       <div id="ss-row2"></div>
       <div id="ss-trades"></div>
       <div id="ss-dispatch"></div>
