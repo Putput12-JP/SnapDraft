@@ -10021,8 +10021,10 @@ function showPage(p){
   if(p==='portfolio') renderPortfolio();
   // Season Sim: if the active league changed since the last run, the cached
   // results (and trade ideas) are stale, recompute against the new roster set.
-  if(p==='seasonsim' && _ssResults && _ssRanLeagueId && _ssRanLeagueId!==_ssGetLid() && !_ssLoading){
-    if(typeof ssRun==='function') ssRun();
+  // _ssResults etc. are private to the Season Sim scope, so go through the
+  // window-exposed helper rather than referencing them here (would ReferenceError).
+  if(p==='seasonsim' && window._ssStaleForLeague && window._ssStaleForLeague() && typeof ssRun==='function'){
+    ssRun();
   }
   if(p==='draft'){
     if (!PLAYERS.length || (usingDefaultRankings && !window._rankingsFetched)) {
@@ -14174,9 +14176,10 @@ async function switchGlobalLeague(leagueId) {
   if (active === 'page-teams') {
     renderTeams();
   } else if (active === 'page-seasonsim') {
-    // stay on Season Sim and recompute everything (forecast + trade ideas) for the new league
-    _ssResults = null; _ssRanLeagueId = null; _ssTnCache = null; _ssTnOpen = null;
-    if (typeof ssRun === 'function' && !_ssLoading) ssRun();
+    // stay on Season Sim and recompute everything (forecast + trade ideas) for the new league.
+    // Clear cached state via the window helper (these vars are private to the SS scope).
+    if (window._ssInvalidate) window._ssInvalidate();
+    if (typeof ssRun === 'function') ssRun();
   } else {
     if (active !== 'page-overview') showPage('overview');
     else await renderOverview(); // already on overview, render directly
@@ -24755,7 +24758,7 @@ body .page,body .page.on{background:transparent!important}
     var data=results.filter(Boolean);
     data.sort(function(a,b){ var fa=(a.hasOpp&&a.wp>=50)?1:0, fb=(b.hasOpp&&b.wp>=50)?1:0; if(fa!==fb) return fb-fa; return (b.myTot-b.oppTot)-(a.myTot-a.oppTot); });
     _moData=data; _moLoaded=true; _moLoading=false;
-    if(!data.length){ rowsEl.innerHTML='<div class="mo-state">Matchups aren't posted yet. Check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
+    if(!data.length){ rowsEl.innerHTML='<div class="mo-state">Matchups are not posted yet. Check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
     var favN=data.filter(function(d){return d.hasOpp&&d.wp>=50;}).length;
     var dogN=data.filter(function(d){return d.hasOpp&&d.wp<50;}).length;
     if(subEl) subEl.textContent=data.length+' leagues · '+favN+' favored'+(dogN?' · '+dogN+' underdog':'');
@@ -26639,6 +26642,10 @@ let _ssResults=null, _ssLoading=false, _ssRanLeagueId=null;
 let _ssTnCache=null, _ssTnOpen=null;
 const _SS_POS_HEX={QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'};
 window.ssTnToggle=function(pos){ _ssTnOpen=_ssTnOpen===pos?null:pos; _ssRenderTradeRoom(true); };
+// Exposed so global functions (showPage, switchGlobalLeague) can read/clear Season Sim
+// state without referencing these closure-private variables directly (which would throw).
+window._ssStaleForLeague=function(){ try{ return !!(_ssResults && _ssRanLeagueId && _ssRanLeagueId!==_ssGetLid() && !_ssLoading); }catch(e){ return false; } };
+window._ssInvalidate=function(){ try{ _ssResults=null; _ssRanLeagueId=null; _ssTnCache=null; _ssTnOpen=null; _ssHist=null; }catch(e){} };
 
 function $ss(id){ return document.getElementById(id); }
 function _mean(a){ return a.length?a.reduce((s,v)=>s+v,0)/a.length:0; }
