@@ -17910,7 +17910,8 @@ function pickYear(year) {
       if(this.isLive() && t._players){
         const seen=new Set();
         const out=(t._players||[]).map(pid=>{
-          const name=(_lex('globalPidToName')||{})[String(pid)];
+          const _pidMap=((typeof globalPidToName!=='undefined'&&globalPidToName)||window.globalPidToName||{});
+          const name=_pidMap[String(pid)];
           if(!name||seen.has(name))return null; seen.add(name);
           const inP=(typeof PLAYERS!=='undefined')&&PLAYERS.find(x=>x.name===name);
           const fc=(typeof getFCValue==='function')&&getFCValue(name);
