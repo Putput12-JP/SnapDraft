@@ -13401,9 +13401,9 @@ function renderTeams() {
         <div class="pf-empty-icon">🏈</div>
         <div class="pf-empty-title">${hasLeagues ? 'Pick a league' : 'No league connected'}</div>
         <div class="pf-empty-sub">${hasLeagues
-          ? 'Choose a league from the dropdown above to see your roster, power rankings, and team comparisons.'
-          : 'Connect your Sleeper account to load your leagues and view team analytics.'}</div>
-        <button onclick="${hasLeagues ? 'document.getElementById(\'teams-league-select\')?.focus()' : 'openPortfolioLeaguePicker()'}" class="pf-empty-cta">${hasLeagues ? 'Choose a league →' : 'Connect Sleeper →'}</button>
+          ? 'Pick a league above to see your roster, power rankings, and head-to-head comparisons.'
+          : 'Connect Sleeper and Vault loads every league you\'re in — values, standings, and trade targets in seconds.'}</div>
+        <button onclick="${hasLeagues ? 'document.getElementById(\'teams-league-select\')?.focus()' : 'openPortfolioLeaguePicker()'}" class="pf-empty-cta">${hasLeagues ? 'Choose a league →' : 'Connect Sleeper — free →'}</button>
       </div>`;
     }
     return;
@@ -14701,7 +14701,7 @@ function evaluateTrade() {
   let verdictText, verdictColor, verdictDesc;
   if (pctDiff <= 8) {
     verdictText = 'FAIR TRADE'; verdictColor = 'var(--te)';
-    verdictDesc = 'Balanced within standard variance. No clear winner.';
+    verdictDesc = 'Fair both ways — the values land within normal scoring variance.';
   } else if (diff > 0) {
     if (pctDiff > 30) { verdictText = 'MY TEAM WINS BIG'; verdictColor = 'var(--rb)'; verdictDesc = `You receive ${absDiff.toLocaleString()} more in value (${pctDiff}% edge) — significant advantage for your team.`; }
     else if (pctDiff > 15) { verdictText = 'MY TEAM WINS'; verdictColor = 'var(--rb)'; verdictDesc = `You receive ${absDiff.toLocaleString()} more in value (${pctDiff}% edge) — clear advantage for your team.`; }
@@ -16051,8 +16051,8 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
     const emptyHtml = `<div class="pf-empty-state">
       <div class="pf-empty-icon">📁</div>
       <div class="pf-empty-title">No leagues yet</div>
-      <div class="pf-empty-sub">Connect your Sleeper account to load your dynasty leagues, see values, and track your portfolio.</div>
-      <button onclick="openPortfolioLeaguePicker()" class="pf-empty-cta">Connect Sleeper →</button>
+      <div class="pf-empty-sub">Link Sleeper once. See what every player you own is worth and exactly where your dynasty stands.</div>
+      <button onclick="openPortfolioLeaguePicker()" class="pf-empty-cta">Connect Sleeper — free →</button>
     </div>`;
     ['portfolio-kpis','portfolio-leagues','portfolio-owned','portfolio-signals'].forEach(id => {
       const el = document.getElementById(id);
@@ -18010,7 +18010,7 @@ function pickYear(year) {
       const total=Math.max(recvA+recvB,1), pctA=Math.round(recvA/total*100);
       const diff=recvA-recvB, abs=Math.abs(diff), pctDiff=Math.round(abs/Math.max(recvA,recvB,1)*100);
       let text,color,sub;
-      if(pctDiff<=8){ text='EVEN TRADE'; color='var(--te)'; sub='Balanced within standard variance — fair both ways.'; }
+      if(pctDiff<=8){ text='EVEN TRADE'; color='var(--te)'; sub='Fair both ways — the values land within normal week-to-week variance.'; }
       else if(diff>0){ text=labelA+(pctDiff>30?' WINS BIG':pctDiff>15?' WINS':' EDGE'); color=pctDiff>15?'var(--rb)':'#4ade80'; sub=`${labelA} nets ${fmt(abs)} more value (${pctDiff}% edge).`; }
       else { text=labelB+(pctDiff>30?' WINS BIG':pctDiff>15?' WINS':' EDGE'); color=pctDiff>15?'var(--qb)':'#f87171'; sub=`${labelB} nets ${fmt(abs)} more value (${pctDiff}% edge).`; }
       return {text,color,sub,pctA,pctDiff};
@@ -18266,8 +18266,8 @@ function pickYear(year) {
       const connected = !!_lexUid();
       const icon=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       const handoff=`<div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px">Opens this matchup in Sleeper to review &amp; send. Sleeper doesn't let apps send trades directly.</div>`;
-      if(!connected) return `<button class="tc-btn-primary" disabled style="background:var(--s3);color:var(--muted);cursor:not-allowed;box-shadow:none${full?';padding:15px;font-size:15px':''}">${icon}Draft offer in Sleeper</button><div style="font-family:var(--font-mono);font-size:9.5px;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px">Connect your Sleeper account on the League tab to draft offers.</div>`;
-      const btn=`<button class="tc-btn-primary" style="background:linear-gradient(135deg,#4d86f0,#3a68c4);box-shadow:0 8px 24px rgba(77,134,240,.28)${full?';padding:15px;font-size:15px':''}" onclick="TC.sendOffer()">${icon}Draft offer in Sleeper</button>`;
+      if(!connected) return `<button class="tc-btn-primary" disabled style="background:var(--s3);color:var(--muted);cursor:not-allowed;box-shadow:none${full?';padding:15px;font-size:15px':''}">${icon}Build this trade in Sleeper</button><div style="font-family:var(--font-mono);font-size:9.5px;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px">Connect Sleeper on the League tab to build offers.</div>`;
+      const btn=`<button class="tc-btn-primary" style="background:linear-gradient(135deg,#4d86f0,#3a68c4);box-shadow:0 8px 24px rgba(77,134,240,.28)${full?';padding:15px;font-size:15px':''}" onclick="TC.sendOffer()">${icon}Build this trade in Sleeper</button>`;
       return btn;
     },
     sendOffer(){
@@ -28016,15 +28016,15 @@ function _ssInjectPage(){
       <div class="eb-grid">
         <div class="eb-left">
           <div class="ad-kick"><span class="ad-dot-live"></span>MONTE CARLO ENGINE · v2.4</div>
-          <div class="eb-title">Season Simulation</div>
-          <div class="eb-sub">Before it runs, here's exactly what the engine looks at — and what it hands back.</div>
+          <div class="eb-title">Find out how your season ends</div>
+          <div class="eb-sub">Vault plays your season out ${SS_N.toLocaleString()} times — every matchup, every playoff bracket — so you know your real shot at the title.</div>
           <div class="eb-specs">
             <div class="eb-spec">
-              <div class="eb-spec-l"><span class="eb-spec-ic">⚄</span><div><div class="eb-spec-k">Simulated seasons</div><div class="eb-spec-sub">randomized playouts</div></div></div>
+              <div class="eb-spec-l"><span class="eb-spec-ic">⚄</span><div><div class="eb-spec-k">Seasons played out</div><div class="eb-spec-sub">every game, every week</div></div></div>
               <div class="eb-spec-v">${SS_N.toLocaleString()}</div>
             </div>
             <div class="eb-spec">
-              <div class="eb-spec-l"><span class="eb-spec-ic">📊</span><div><div class="eb-spec-k">Scoring model</div><div class="eb-spec-sub">mean + variance per team</div></div></div>
+              <div class="eb-spec-l"><span class="eb-spec-ic">📊</span><div><div class="eb-spec-k">Each team's scoring</div><div class="eb-spec-sub">averages + hot and cold streaks</div></div></div>
               <div class="eb-spec-v">Live</div>
             </div>
             <div class="eb-spec">
@@ -28037,8 +28037,8 @@ function _ssInjectPage(){
             </div>
           </div>
           <div class="eb-run-wrap">
-            <button class="btn-run lg" id="ss-run-btn" onclick="ssRun()">⚡ Run simulation</button>
-            <div class="eb-run-note" id="ss-run-note"><span class="ad-dot-live"></span>Completes in ~1s · re-run anytime new results post</div>
+            <button class="btn-run lg" id="ss-run-btn" onclick="ssRun()">⚡ Run my season</button>
+            <div class="eb-run-note" id="ss-run-note"><span class="ad-dot-live"></span>Takes about a second · re-run any time the standings change</div>
           </div>
           <div class="ss-progress" id="ss-progress">
             <div class="ss-progress-label" id="ss-progress-label">Simulating…</div>
@@ -28046,7 +28046,7 @@ function _ssInjectPage(){
           </div>
         </div>
         <div class="eb-right">
-          <div class="ad-kick eb-deliver-lbl"><span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>You'll get back</div>
+          <div class="ad-kick eb-deliver-lbl"><span class="ad-dot-live" style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>Here's what you'll know</div>
           <div class="eb-list">
             <div class="eb-item">
               <div class="eb-item-ic eb-ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></div>
