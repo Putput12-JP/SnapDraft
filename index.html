@@ -27414,7 +27414,9 @@ function _ssRenderOptimizer(currentWeek){
   const gain=Math.max(0, opt.total-curTotal);
 
   const inPlayers=opt.slots.filter(p=>p.name&&!curNames.has(p.name)).map(p=>({...p})).sort((a,b)=>b.proj-a.proj);
-  const outPlayers=curList.filter(p=>!optNames.has(p.name)).sort((a,b)=>a.proj-b.proj);
+  // sort both descending so each row pairs the highest-value start with the highest-value
+  // sit (avoids showing a benched player with more points than the started player beside it)
+  const outPlayers=curList.filter(p=>!optNames.has(p.name)).sort((a,b)=>b.proj-a.proj);
 
   const nxt=_ssNextOpp();
   let winRow='';
