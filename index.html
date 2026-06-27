@@ -5340,7 +5340,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
         <div id="sync-leagues-body">
           <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
             <div style="font-size:24px;margin-bottom:8px">⟳</div>
-            Connect your Sleeper account to see active leagues here.
+            Connect Sleeper to see active leagues here.
           </div>
         </div>
         <!-- Footer -->
@@ -6857,7 +6857,7 @@ async function _resLoadLeaderboard() {
       body.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px">
         <div style="font-size:32px;margin-bottom:12px">⚠</div>
         <div style="font-weight:600;color:var(--text);margin-bottom:8px">Data temporarily unavailable</div>
-        <p style="font-size:13px;line-height:1.6">Connect your Sleeper account and rankings will load from RosterAudit automatically.</p>
+        <p style="font-size:13px;line-height:1.6">Connect Sleeper and rankings will load from RosterAudit automatically.</p>
         <button onclick="_resLoadLeaderboard()" style="margin-top:16px;padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(18,33,49,0.6);color:var(--text);font-family:var(--font-sans);font-size:13px;cursor:pointer">Retry →</button>
       </div>`;
     }
@@ -7311,7 +7311,7 @@ async function researchSelectPlayer(name, sleeperId, pos, team) {
       document.getElementById('res-tab-content').innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">
         <div style="font-size:24px;margin-bottom:12px">🔍</div>
         <div style="font-weight:600;color:var(--text);margin-bottom:8px">Player ID not found</div>
-        <p style="font-size:13px;line-height:1.6">Connect your Sleeper account to enable full player lookup.</p>
+        <p style="font-size:13px;line-height:1.6">Connect Sleeper to enable full player lookup.</p>
       </div>`;
       document.getElementById('res-kpis').innerHTML = '';
       return;
@@ -12004,7 +12004,7 @@ async function ldRescan() {
       const saved = localStorage.getItem(SK+'-username');
       if (saved) await loadMyTeams();
       if (!myTeamsUserId) {
-        msg.textContent = 'Connect your Sleeper account to detect active drafts.';
+        msg.textContent = 'Connect Sleeper to detect active drafts.';
         if (btn) btn.textContent = '↻ Re-scan';
         return;
       }
@@ -16598,7 +16598,7 @@ function openPortfolioLeaguePicker() {
   const modal = document.getElementById('portfolio-league-picker');
   if (!modal) return;
   if (!myTeamsData || !myTeamsData.length) {
-    alert('Connect your Sleeper account first to manage leagues.');
+    alert('Connect Sleeper first to manage leagues.');
     return;
   }
   modal.style.display = 'flex';
@@ -18274,7 +18274,7 @@ function pickYear(year) {
       if(this.platform()!=='sleeper') return;
       const tB=this.team(this.teamB);
       if(!((tradeAssets.a||[]).length||(tradeAssets.b||[]).length)){ this.toast('Add players to both sides first'); return; }
-      if(!_lexUid()){ this.toast('Connect your Sleeper account on the League tab to send offers'); return; }
+      if(!_lexUid()){ this.toast('Connect Sleeper on the League tab to send offers'); return; }
       const lid=_lexLid();
       this.toast('Opening Sleeper to review your offer to '+tB.name+'…');
       const url=lid?('https://sleeper.com/leagues/'+lid+'/team'):'https://sleeper.com/';
@@ -21235,7 +21235,7 @@ function pickYear(year) {
         <div>
           <h1 class="rh-title">Advanced Stats</h1>
           <div class="rh-rule"></div>
-          <p class="rh-sub">Advanced stats leaderboard, sortable, searchable, with customizable columns. Live from nflverse + RosterAudit.</p>
+          <p class="rh-sub">Every advanced stat, sortable and searchable with the columns you choose. Live from nflverse + RosterAudit.</p>
         </div>
         <div class="rh-modeseg">
           <button class="${AS.mode === 'data' ? 'on' : ''}" data-rh-mode="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>Data</button>
@@ -23880,7 +23880,7 @@ body .page,body .page.on{background:transparent!important}
   function emptyHtml(){
     const hasLeagues = (typeof myTeamsData!=='undefined' && myTeamsData && myTeamsData.length);
     return `<div class="lh-empty"><div class="ico">🏈</div><b>${hasLeagues?'Pick a league':'No league connected'}</b>
-      ${hasLeagues ? 'Choose a league from the picker above to load live rankings, standings, trades and more.' : 'Connect your Sleeper or ESPN account to load your leagues.'}</div>`;
+      ${hasLeagues ? 'Choose a league from the picker above to load live rankings, standings, trades and more.' : 'Connect Sleeper or ESPN to load your leagues.'}</div>`;
   }
 
   /* ---------- records from live rosters ---------- */
@@ -24088,7 +24088,7 @@ body .page,body .page.on{background:transparent!important}
         </div>
       </div>`;
     } else {
-      hero = `<div class="lh-ov-hero lh-card"><div class="lh-ovh-l"><div><div class="lh-ovh-eyebrow">LEAGUE</div><div class="lh-ovh-name">${esc((teams[0]&&teams[0].name)||'League')} +${total-1} teams</div><div class="lh-ovh-meta">Connect your team to see your personalized dashboard.</div></div></div></div>`;
+      hero = `<div class="lh-ov-hero lh-card"><div class="lh-ovh-l"><div><div class="lh-ovh-eyebrow">LEAGUE</div><div class="lh-ovh-name">${esc((teams[0]&&teams[0].name)||'League')} +${total-1} teams</div><div class="lh-ovh-meta">Connect your team to unlock your dashboard.</div></div></div></div>`;
     }
 
     /* pulse */
@@ -24736,7 +24736,7 @@ body .page,body .page.on{background:transparent!important}
     var md=(typeof myTeamsData!=='undefined')?myTeamsData:null;
     var uid=(typeof myTeamsUserId!=='undefined')?myTeamsUserId:null;
     if(!md || !md.length || !uid){
-      rowsEl.innerHTML='<div class="mo-state">Connect your Sleeper or ESPN account to see your weekly matchups across every league.</div>';
+      rowsEl.innerHTML='<div class="mo-state">Connect Sleeper or ESPN to see your weekly matchups across every league.</div>';
       if(subEl) subEl.textContent='Not connected'; _moLoading=false; return;
     }
     var leagues=portfolioLeagues();
@@ -24755,7 +24755,7 @@ body .page,body .page.on{background:transparent!important}
     var data=results.filter(Boolean);
     data.sort(function(a,b){ var fa=(a.hasOpp&&a.wp>=50)?1:0, fb=(b.hasOpp&&b.wp>=50)?1:0; if(fa!==fb) return fb-fa; return (b.myTot-b.oppTot)-(a.myTot-a.oppTot); });
     _moData=data; _moLoaded=true; _moLoading=false;
-    if(!data.length){ rowsEl.innerHTML='<div class="mo-state">No matchups are posted yet, check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
+    if(!data.length){ rowsEl.innerHTML='<div class="mo-state">Matchups aren't posted yet. Check back when Week '+week+' lineups lock.</div>'; if(subEl) subEl.textContent='Week '+week+' · no live matchups'; return; }
     var favN=data.filter(function(d){return d.hasOpp&&d.wp>=50;}).length;
     var dogN=data.filter(function(d){return d.hasOpp&&d.wp<50;}).length;
     if(subEl) subEl.textContent=data.length+' leagues · '+favN+' favored'+(dogN?' · '+dogN+' underdog':'');
