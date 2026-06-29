@@ -2142,6 +2142,9 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   margin:0 auto;
   min-height:100%;
 }
+/* Ultra-wide: let main content + rail breathe instead of pinning to a 1280 band */
+@media(min-width:1600px){ .proto-page{ max-width:1480px } }
+@media(min-width:1900px){ .proto-page{ max-width:1640px } .vtr-layout{ max-width:1480px; grid-template-columns:minmax(0,1fr) 360px } }
 .proto-page-hdr {
   display:flex;
   flex-direction:row;
@@ -2474,13 +2477,16 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   #page-research .res-toolbar { gap: 7px !important; }
   #page-research .res-search { flex: 1 1 100% !important; order: -1; }
   #page-research .res-select { flex: 1 1 auto; max-width: none !important; }
-  #page-research .res-head-actions { width: 100%; }
+  #page-research .res-head-actions { width: 100%; flex-wrap: wrap; gap: 8px; }
   #page-research .res-act {
     flex: 1;
     min-width: 0;
     min-height: 44px;
     justify-content: center;
+    white-space: nowrap;
   }
+  /* "Rank your way" is the longest label — give it the full row at narrow widths */
+  #page-research .res-act-mine { flex: 1 1 100%; }
   /* Dossier stacks on mobile */
   #page-research .res-dossier { flex-direction: column; gap: 14px; }
   
@@ -17277,13 +17283,19 @@ function pickYear(year) {
 
   /* Mobile: dropdown menu drops to a comfortable full-width sheet feel */
   @media(max-width:700px){
-    .vlg-trigger{ min-width:0; max-width:100%; width:100%; overflow:hidden; }
+    .vlg-trigger{ min-width:0; max-width:100%; width:100%; overflow:hidden; padding:10px 12px; min-height:44px; }
     .gn-leaguewrap .vlg{ flex:1 1 auto; min-width:0; max-width:100%; }
     .vlg-name{ min-width:0; font-size:12px; }
     .header-league-select-wrap{ flex:1 1 auto; min-width:0; overflow:hidden; }
     .vlg-menu{ width:min(330px,92vw); }
-    /* Keep the dark/light switch reachable from the mobile header too */
-    #theme-toggle{ display:flex!important; width:32px!important; height:32px!important; }
+    /* Keep header icons tappable on touch widths (44px hit-area) */
+    #theme-toggle, #settings-btn, #resync-btn{ display:flex!important; width:44px!important; height:44px!important; }
+    .glassnav .gn-ic{ width:44px; height:44px; }
+    /* Market / Mine segmented toggle — bump container + buttons together to 48/44 (use IDs to beat later .lr-srctoggle rules) */
+    #ov-srctoggle, #lr-srctoggle{ height:48px!important; padding:0 4px!important; }
+    #ov-srctoggle button, #lr-srctoggle button{ min-height:44px!important; line-height:44px!important; padding:0 14px!important; font-size:11px!important; }
+    /* Sync with Sleeper pill */
+    .proto-btn-ghost{ min-height:44px; padding:11px 20px; }
   }
 
   /* ───── Draft Vault: Command Strip hero ───── */
@@ -18930,6 +18942,16 @@ function pickYear(year) {
       .mr-act{flex-shrink:0;flex-direction:row;gap:5px}
       .mr-nudge{width:30px;height:30px;font-size:11px}
       .mr-note-row{flex-basis:100%;margin:2px 0 0 0}
+    }
+    @media(max-width:420px){
+      .mr-row{padding:9px 9px;gap:7px}
+      .mr-rank{width:20px;font-size:12px}
+      .mr-av{width:26px;height:26px}
+      .mr-pname{font-size:13px}
+      .mr-pmeta{font-size:9.5px}
+      .mr-val{min-width:46px;font-size:12.5px}
+      .mr-nudge{width:26px;height:26px;font-size:10px}
+      .mr-act{gap:3px}
     }`;
     const s = document.createElement('style'); s.id='mr-styles'; s.textContent = css;
     document.head.appendChild(s);
@@ -19076,6 +19098,15 @@ function pickYear(year) {
 #P .mr-myval{min-width:54px;flex-shrink:0}
 #P .mr-cdelta{flex-shrink:0}
 #P .mr-csum{grid-template-columns:1fr 1fr}
+}
+@media(max-width:420px){
+#P .mr-row{gap:7px;padding:10px 10px}
+#P .mr-rank .n{font-size:13px}
+#P .mr-pname{font-size:13px}
+#P .mr-pmeta{font-size:9.5px}
+#P .mr-val{min-width:46px;font-size:12.5px}
+#P .mr-nudge{width:26px;height:26px;font-size:10px}
+#P .mr-act{gap:3px}
 }`.replace(/#P /g,'#page-myrankings ');
     document.head.appendChild(s2);
   }
@@ -20385,9 +20416,14 @@ function pickYear(year) {
     .lc-subnav{display:none}
     @media(max-width:768px){
       .lc-subnav{display:flex;gap:4px;background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:4px;margin-bottom:16px}
-      .lc-subnav button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border:none;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13.5px;font-weight:600;padding:11px 8px;border-radius:10px;cursor:pointer;min-height:44px}
-      .lc-subnav button span{font-size:15px}
+      .lc-subnav button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;border:none;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13.5px;font-weight:600;padding:11px 8px;border-radius:10px;cursor:pointer;min-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .lc-subnav button span{font-size:15px;flex-shrink:0}
       .lc-subnav button.on{background:rgba(226,58,78,.16);color:var(--text);box-shadow:inset 0 0 0 1px rgba(226,58,78,.4)}
+    }
+    @media(max-width:400px){
+      .lc-subnav{gap:2px;padding:3px}
+      .lc-subnav button{font-size:11.5px;gap:4px;padding:11px 4px;letter-spacing:-.01em}
+      .lc-subnav button span{font-size:12px}
     }
     /* ── responsive ── */
     @media(max-width:920px){
@@ -22605,68 +22641,121 @@ function pickYear(year) {
 .vtr-strip.live .dot{background:var(--them);animation:vtrPulse 1.5s ease-in-out infinite}
 @keyframes vtrPulse{0%,100%{box-shadow:0 0 0 3px rgba(240,114,138,.30)}50%{box-shadow:0 0 0 7px rgba(240,114,138,.04)}}
 .vtr-strip .wk{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted)}
-.vtr-head-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:20px 20px 14px}
-.vtr-team{display:flex;align-items:center;gap:12px;min-width:0}
+/* full-width win-prob bar pinned to the very top of the card */
+.vtr-head{position:relative;padding-top:6px}
+.vtr-wpbar{display:flex;height:5px;gap:0;margin:0}
+.vtr-wpbar .a{background:var(--you2)}
+.vtr-wpbar .b{background:var(--them)}
+.vtr-head-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:20px 22px 10px}
+.vtr-team{display:flex;align-items:center;gap:14px;min-width:0}
 .vtr-team.opp{flex-direction:row-reverse;text-align:right}
-.vtr-avt{width:50px;height:50px;border-radius:13px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--text2)}
+.vtr-avt{width:54px;height:54px;border-radius:14px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--text2)}
 .vtr-avt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.vtr-team.me .vtr-avt{box-shadow:0 0 0 1px var(--you2),0 0 22px -7px var(--you2)}
-.vtr-team.opp .vtr-avt{box-shadow:0 0 0 1px var(--them),0 0 22px -7px var(--them)}
-.vtr-meta{min-width:0}
-.vtr-meta .usr{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vtr-meta .tnm{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vtr-meta .rec{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-top:2px}
-.vtr-vs .scores{display:flex;align-items:center;gap:14px;font-family:var(--font-mono);font-size:25px;font-weight:700;color:var(--text2)}
-.vtr-vs .scores .is-live{color:var(--text)}
-.vtr-vs .vlab{font-size:10px;letter-spacing:.16em;color:var(--muted);font-weight:600}
-.vtr-wpbar{display:flex;height:5px;gap:2px;margin:0 20px}
-.vtr-wpbar .a{background:var(--you2);border-radius:3px 0 0 3px}
-.vtr-wpbar .b{background:var(--them);border-radius:0 3px 3px 0}
-.vtr-wprow{display:flex;justify-content:space-between;padding:7px 20px 0;font-family:var(--font-mono);font-size:11px;font-weight:700}
-.vtr-wprow .pa{color:var(--you2)}.vtr-wprow .pb{color:var(--them)}
-.vtr-projrow{display:flex;justify-content:space-between;padding:5px 20px 0;font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text2)}
-.vtr-ytp{border-top:1px solid var(--border);margin-top:14px;padding:12px 20px;text-align:center;background:rgba(125,140,160,.04)}
-.vtr-ytp .t{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--text2);font-weight:600}
-.vtr-ytp .d{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:3px}
+.vtr-team.me .vtr-avt{box-shadow:0 0 0 1px var(--you2),0 0 26px -8px var(--you2)}
+.vtr-team.opp .vtr-avt{box-shadow:0 0 0 1px var(--them),0 0 26px -8px var(--them)}
+.vtr-scol{min-width:0;display:flex;flex-direction:column;gap:3px}
+.vtr-team.opp .vtr-scol{align-items:flex-end}
+.vtr-scol .wpct{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;font-weight:800;text-transform:uppercase}
+.vtr-scol .wpct.me{color:var(--you2)}
+.vtr-scol .wpct.opp{color:var(--them)}
+.vtr-scol .score{font-family:var(--font-mono);font-size:32px;font-weight:800;color:var(--text);letter-spacing:-.01em;line-height:1;font-feature-settings:"tnum"}
+.vtr-scol .score.is-live{color:var(--accent2)}
+.vtr-vs .vs-badge{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,var(--s2),var(--surface));border:1px solid var(--border2);box-shadow:0 8px 22px -10px rgba(0,0,0,.6)}
+.vtr-vs .vs-badge span{font-family:var(--font-mono);font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--text2)}
+.vtr-tnames{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 22px;align-items:end}
+.vtr-tnm{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.vtr-tnm.opp{text-align:right}
+.vtr-usrs{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:3px 22px 16px}
+.vtr-usr{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vtr-usr.opp{text-align:right}
+/* yet-to-play row, outside the card, mirroring the Sleeper-style sub-meta */
+.vtr-ytp-out{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;padding:12px 22px 4px;align-items:center}
+.vtr-ytp-out .ytp-side .t{font-family:var(--font-mono);font-size:10.5px;color:var(--text2);text-transform:lowercase;letter-spacing:.04em}
+.vtr-ytp-out .ytp-side .d{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.04em}
+.vtr-ytp-out .ytp-side.opp{text-align:right}
+.vtr-ytp-out .ytp-mid{color:var(--muted);display:flex;align-items:center;justify-content:center}
 .vtr-secbar{display:flex;align-items:center;justify-content:space-between;padding:13px 20px 11px;border-bottom:1px solid var(--border)}
 .vtr-secbar .t{font-size:15px;font-weight:800;letter-spacing:-.01em}
 .vtr-secbar .wk{font-family:var(--font-mono);font-size:10px;color:var(--muted);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;letter-spacing:.06em;text-transform:uppercase}
-.vtr-row{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;padding:11px 16px;gap:8px;border-bottom:1px solid var(--border)}
+/* Sleeper-style 5-col row: [info | score | badge | score | info], badges sized to match scores */
+.vtr-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);align-items:center;column-gap:12px;padding:16px 16px;border-bottom:1px solid var(--border)}
 .vtr-row:last-child{border-bottom:none}
 .vtr-row.lean-me{box-shadow:inset 3px 0 0 var(--you2)}
 .vtr-row.lean-opp{box-shadow:inset -3px 0 0 var(--them)}
-.vtr-side{display:flex;align-items:center;gap:11px;min-width:0}
-.vtr-side.opp{flex-direction:row-reverse;text-align:right}
-.vtr-av{width:40px;height:40px;border-radius:50%;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;background:var(--s3);border:2px solid var(--ring,var(--muted));font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text)}
-.vtr-av img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top center}
-.vtr-ini{position:relative;z-index:0}
-.vtr-tb{position:absolute;bottom:-3px;right:-3px;width:18px;height:18px;border-radius:50%;background:var(--surface);border:1.5px solid var(--s1);display:flex;align-items:center;justify-content:center;z-index:2}
-.vtr-side.opp .vtr-tb{right:auto;left:-3px}
-.vtr-tb img{width:13px;height:13px;object-fit:contain}
-.vtr-info{flex:1;min-width:0}
-.vtr-info .nm{font-size:14px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vtr-info .pm{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vtr-info .gl{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);opacity:.72;margin-top:3px}
-.vtr-info .gl .live{color:var(--you2);opacity:1;font-weight:700}
-.vtr-sc{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end}
-.vtr-side.opp .vtr-sc{align-items:flex-start}
-.vtr-sc .act{font-family:var(--font-mono);font-size:19px;font-weight:800;color:var(--text2);line-height:1}
-.vtr-sc .act.is-live{color:var(--text)}
-.vtr-sc .proj{font-family:var(--font-mono);font-size:9px;font-weight:600;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.06em}
-.vtr-badge{justify-self:center;align-self:center;min-width:34px;padding:4px 0;border-radius:7px;text-align:center;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.04em;color:#0c0f15}
+.vtr-cell{min-width:0}
+.vtr-cell.info.opp{text-align:right}
+.vtr-cell.info .nm{font-size:18px;font-weight:800;letter-spacing:-.015em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.vtr-cell.info .pm{font-family:var(--font-mono);font-size:11px;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px;letter-spacing:.02em}
+.vtr-cell.info.opp .pm{justify-content:flex-end}
+.vtr-cell.info .vtr-pchip{font-family:var(--font-mono);font-weight:800;font-size:11px;letter-spacing:.06em;line-height:1}
+.vtr-cell.info .vtr-pteam{color:var(--text2);font-weight:700;letter-spacing:.04em;font-size:11px}
+.vtr-cell.info .vtr-dot{color:var(--muted);opacity:.7}
+.vtr-cell.info .gl{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);opacity:.85;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
+.vtr-cell.info .gl .live{color:var(--you2);opacity:1;font-weight:700}
+.vtr-cell.sc{display:flex;flex-direction:column;align-items:center;min-width:54px}
+.vtr-cell.sc .act{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--text2);line-height:1;font-feature-settings:"tnum";letter-spacing:-.01em}
+.vtr-cell.sc .act.is-live{color:var(--accent2)}
+/* Big square color-coded center badge — Sleeper-style */
+.vtr-badge{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:800;letter-spacing:.04em;color:#0c0f15}
 @media(max-width:760px){
-  .vtr-head-top{padding:16px 13px 12px;gap:7px}
-  .vtr-avt{width:42px;height:42px;border-radius:11px}
-  .vtr-meta .tnm{font-size:13px;max-width:120px}
-  .vtr-vs .scores{font-size:20px;gap:9px}
-  .vtr-wpbar{margin:0 13px}
-  .vtr-wprow,.vtr-projrow{padding-left:13px;padding-right:13px}
-  .vtr-ytp{padding:11px 13px}
+  .vtr-head-top{padding:16px 14px 8px;gap:10px}
+  .vtr-avt{width:44px;height:44px;border-radius:12px}
+  .vtr-tnames,.vtr-usrs{padding-left:14px;padding-right:14px}
+  .vtr-tnm{font-size:14px}
+  .vtr-scol .score{font-size:26px}
+  .vtr-vs .vs-badge{width:40px;height:40px;border-radius:12px}
+  .vtr-vs .vs-badge span{font-size:10px}
+  .vtr-ytp-out{padding:10px 14px 4px;gap:10px}
   .vtr-secbar{padding:11px 13px 9px}
-  .vtr-row{grid-template-columns:1fr 34px 1fr;padding:10px 11px;gap:6px}
-  .vtr-av{width:34px;height:34px}
-  .vtr-info .nm{font-size:12.5px}
-  .vtr-sc .act{font-size:16px}
+  .vtr-row{column-gap:10px;padding:14px 14px}
+  .vtr-cell.info .nm{font-size:16px}
+  .vtr-cell.info .pm,.vtr-cell.info .vtr-pchip,.vtr-cell.info .vtr-pteam{font-size:10.5px}
+  .vtr-cell.info .gl{font-size:10px;margin-top:5px}
+  .vtr-cell.sc{min-width:50px}
+  .vtr-cell.sc .act{font-size:20px}
+  .vtr-badge{width:44px;height:44px;border-radius:11px;font-size:12px}
+}
+/* Narrow phones: tighten hero card and tame the badges so nothing collides */
+@media(max-width:480px){
+  .vtr-head-top{padding:14px 13px 8px;gap:8px}
+  .vtr-team{gap:10px}
+  .vtr-avt{width:40px;height:40px;border-radius:11px}
+  .vtr-scol .wpct{font-size:9px;letter-spacing:.1em}
+  .vtr-scol .score{font-size:22px}
+  .vtr-vs .vs-badge{width:34px;height:34px;border-radius:10px}
+  .vtr-vs .vs-badge span{font-size:9px;letter-spacing:.1em}
+  .vtr-tnames,.vtr-usrs{padding-left:13px;padding-right:13px;gap:10px}
+  .vtr-tnm{font-size:13px}
+  .vtr-usr{font-size:10px}
+  .vtr-ytp-out{padding:10px 13px 4px;gap:8px}
+  /* Starter rows — tighten for narrow phones (5-col grid stays intact) */
+  .vtr-row{column-gap:5px;padding:12px 8px}
+  .vtr-cell.info .nm{font-size:13.5px}
+  .vtr-cell.info .pm{font-size:10px;margin-top:4px;gap:4px}
+  .vtr-cell.info .vtr-pchip,.vtr-cell.info .vtr-pteam{font-size:10px}
+  .vtr-cell.info .gl{font-size:9.5px;margin-top:4px}
+  .vtr-cell.sc{min-width:38px}
+  .vtr-cell.sc .act{font-size:17px}
+  .vtr-badge{width:40px;height:40px;border-radius:10px;font-size:11px}
+}
+/* Sub-360 (iPhone SE / nano widths): stack starter row vertically + simplify hero */
+@media(max-width:360px){
+  .vtr-head-top{gap:6px}
+  .vtr-team{gap:8px}
+  .vtr-avt{width:36px;height:36px}
+  .vtr-scol .score{font-size:20px}
+  .vtr-scol .wpct{font-size:8.5px}
+  .vtr-row{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"infoMe scMe badge" "infoOp scOp badge";row-gap:8px;column-gap:8px;padding:10px 10px}
+  .vtr-row > .vtr-cell.info.me{grid-area:infoMe;text-align:left}
+  .vtr-row > .vtr-cell.sc.me{grid-area:scMe;justify-self:end}
+  .vtr-row > .vtr-badge{grid-area:badge;align-self:center}
+  .vtr-row > .vtr-cell.sc.opp{grid-area:scOp;justify-self:end}
+  .vtr-row > .vtr-cell.info.opp{grid-area:infoOp;text-align:left}
+  .vtr-row > .vtr-cell.info.opp .pm{justify-content:flex-start}
+  .vtr-row.lean-opp{box-shadow:inset 3px 0 0 var(--them)}
+  .vtr-cell.info .nm{font-size:14px}
+  .vtr-cell.sc .act{font-size:17px}
+  .vtr-badge{width:42px;height:42px;border-radius:10px}
 }
 /* ═══ VTR rail (coaching column) ═══ */
 .vtr-layout{--you2:var(--accent2);--them:#f0728a;max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 332px;gap:18px;align-items:start}
@@ -23184,37 +23273,46 @@ window._gcMatchupHTML=function(d){
       + (ph?'<img src="'+ph+'" loading="lazy" onerror="this.style.display=\'none\'">':'')
       + (lg?'<span class="vtr-tb"><img src="'+lg+'" onerror="this.parentNode.style.display=\'none\'"></span>':'')
       + '</div>'; }
-  function info(p){ if(!p) return '<div class="vtr-info"><div class="nm">Empty</div><div class="pm">—</div></div>';
-    return '<div class="vtr-info"><div class="nm">'+abbr(p.name)+'</div><div class="pm">'+(p.pos||'')+(p.team?' · '+p.team:'')+'</div>'
-      + '<div class="gl">'+(live?'<span class="live">Live</span>':'Yet to play')+'</div></div>'; }
-  function sc(p){ if(!p||p.pts==null) return '<div class="vtr-sc"><div class="act">–</div></div>';
-    return '<div class="vtr-sc"><div class="act'+(live?' is-live':'')+'">'+f2(p.pts)+'</div><div class="proj">'+(live?'live':'proj')+'</div></div>'; }
+  function info(p){ return _vtrInfo(p,live); }
+  function sc(p){ return _vtrSc(p,live); }
+  function _vtrInfo(p,live){ if(!p) return '<div class="nm">Empty</div><div class="pm">—</div>';
+    var pc=POS[p.pos]||'#7d8aa0';
+    return '<div class="nm">'+abbr(p.name)+'</div>'
+      + '<div class="pm"><span class="vtr-pchip" style="color:'+pc+'">'+(p.pos||'')+'</span>'+(p.team?' <span class="vtr-dot">·</span> <span class="vtr-pteam">'+p.team+'</span>':'')+'</div>'
+      + '<div class="gl">'+(live?'<span class="live">Live</span>':'Yet to play')+'</div>'; }
+  function _vtrSc(p,live){ if(!p||p.pts==null) return '<div class="act">–</div>';
+    return '<div class="act'+(live?' is-live':'')+'">'+f2(p.pts)+'</div>'; }
   var duels=rows.map(function(r){
     var ap=r.me&&r.me.pts!=null?r.me.pts:0, bp=r.op&&r.op.pts!=null?r.op.pts:0;
     var lean=hasOpp?(ap>bp?'lean-me':(bp>ap?'lean-opp':'')):'';
     var col=POS[r.base]||'#7d8aa0';
     return '<div class="vtr-row '+lean+'">'
-      + '<div class="vtr-side me">'+av(r.me)+info(r.me)+sc(r.me)+'</div>'
-      + '<div class="vtr-badge" style="background:'+col+'">'+(r.slotLabel||'')+'</div>'
-      + '<div class="vtr-side opp">'+av(r.op)+info(r.op)+sc(r.op)+'</div>'
+      + '<div class="vtr-cell info me">'+_vtrInfo(r.me,live)+'</div>'
+      + '<div class="vtr-cell sc me">'+_vtrSc(r.me,live)+'</div>'
+      + '<div class="vtr-badge" style="background:'+col+';color:#0c0f15">'+(r.slotLabel||'')+'</div>'
+      + '<div class="vtr-cell sc opp">'+_vtrSc(r.op,live)+'</div>'
+      + '<div class="vtr-cell info opp">'+_vtrInfo(r.op,live)+'</div>'
       + '</div>';
   }).join('');
   function crest(t){ return '<div class="vtr-avt"><span class="vtr-tini">'+_rdvInitials(t.name||'?')+'</span>'+(t.avatar?'<img src="'+t.avatar+'" onerror="this.style.display=\'none\'">':'')+'</div>'; }
   var comp=(function(){ var order=['QB','RB','WR','TE','K','FLEX','SUPER_FLEX','DEF'],lbl={QB:'QB',RB:'RB',WR:'WR',TE:'TE',K:'K',FLEX:'FLEX',SUPER_FLEX:'SF',DEF:'DEF'},cnt={};
     rows.forEach(function(r){ var b=r.base||'FLEX'; cnt[b]=(cnt[b]||0)+1; });
     return order.filter(function(b){return cnt[b];}).map(function(b){ return (cnt[b]>1?cnt[b]+' ':'')+(lbl[b]||b); }).join(' · '); })();
+  var meRec=(d.myT.rec||'')+(d.myT.seed?' ('+d.myT.seed+')':'');
+  var opRec=(d.opT.rec||'')+(d.opT.seed?' ('+d.opT.seed+')':'');
+  var bar=hasOpp?('<div class="vtr-wpbar"><span class="a" style="flex:'+wpMe+'"></span><span class="b" style="flex:'+wpOp+'"></span></div>'):'';
   var head='<div class="vtr-head-top">'
-    + '<div class="vtr-team me">'+crest(d.myT)+'<div class="vtr-meta"><div class="usr">'+(d.myT.user?'@'+d.myT.user:'')+'</div><div class="tnm">'+(d.myT.name||'My Team')+'</div><div class="rec">'+(d.myT.rec||'')+(d.myT.seed?' · '+d.myT.seed:'')+'</div></div></div>'
-    + '<div class="vtr-vs"><div class="scores"><span class="'+(live?'is-live':'')+'">'+f2(d.myTot)+'</span><span class="vlab">VS</span><span class="'+(live?'is-live':'')+'">'+(hasOpp?f2(d.opTot):'–')+'</span></div></div>'
-    + '<div class="vtr-team opp">'+crest(d.opT)+'<div class="vtr-meta"><div class="usr">'+(d.opT.user?'@'+d.opT.user:'')+'</div><div class="tnm">'+(d.opT.name||'TBD')+'</div><div class="rec">'+(d.opT.rec||'')+'</div></div></div>'
+    + '<div class="vtr-team me">'+crest(d.myT)+'<div class="vtr-scol">'+(hasOpp?'<div class="wpct me">'+wpMe+'% WIN</div>':'')+'<div class="score'+(live?' is-live':'')+'">'+f2(d.myTot)+'</div></div></div>'
+    + '<div class="vtr-vs"><div class="vs-badge"><span>VS</span></div></div>'
+    + '<div class="vtr-team opp"><div class="vtr-scol">'+(hasOpp?'<div class="wpct opp">'+wpOp+'% WIN</div>':'')+'<div class="score'+(live?' is-live':'')+'">'+(hasOpp?f2(d.opTot):'–')+'</div></div>'+crest(d.opT)+'</div>'
     + '</div>';
-  var bar=hasOpp?('<div class="vtr-wpbar"><span class="a" style="flex:'+wpMe+'"></span><span class="b" style="flex:'+wpOp+'"></span></div>'
-    + '<div class="vtr-wprow"><span class="pa">'+wpMe+'%</span><span class="pb">'+wpOp+'%</span></div>'):'';
-  var projr='<div class="vtr-projrow"><span>'+f2(d.myTot)+(live?' pts':' proj')+'</span><span>'+(hasOpp?(f2(d.opTot)+(live?' pts':' proj')):'')+'</span></div>';
-  var ytp='<div class="vtr-ytp"><div class="t">'+(live?'Lineup':'Yet to play')+' ('+n+')</div><div class="d">'+comp+'</div></div>';
+  var names='<div class="vtr-tnames"><div class="vtr-tnm me">'+(d.myT.name||'My Team')+'</div><div class="vtr-tnm opp">'+(d.opT.name||'TBD')+'</div></div>';
+  var usrs='<div class="vtr-usrs"><div class="vtr-usr me">'+(d.myT.user?'@'+d.myT.user:'')+(meRec?' · '+meRec:'')+'</div><div class="vtr-usr opp">'+(opRec?opRec+(d.opT.user?' · ':''):'')+(d.opT.user?'@'+d.opT.user:'')+'</div></div>';
+  var ytpOut='<div class="vtr-ytp-out"><div class="ytp-side"><div class="t">'+(live?'live':'yet to play')+' ('+n+')</div><div class="d">'+comp+'</div></div><div class="ytp-mid">'+(hasOpp?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></svg>':'')+'</div><div class="ytp-side opp"><div class="t">'+(hasOpp?(live?'live':'yet to play')+' ('+n+')':'')+'</div><div class="d">'+(hasOpp?comp:'')+'</div></div></div>';
   var card='<div class="vtr">'
     + '<div class="vtr-strip'+(live?' live':'')+'"><span class="lv"><span class="dot"></span>'+(live?'LIVE':'PROJECTED')+' · '+(d.src||'SLEEPER')+'</span><span class="wk">WEEK '+(d.week||1)+'</span></div>'
-    + '<div class="vtr-head">'+head+bar+projr+ytp+'</div>'
+    + '<div class="vtr-head">'+bar+head+names+usrs+'</div>'
+    + ytpOut
     + '<div class="vtr-secbar"><span class="t">Starters</span><span class="wk">'+(hasOpp?(wins+' of '+n+(live?' winning':' lean you')):'Projected')+'</span></div>'
     + '<div class="vtr-rows">'+duels+'</div>'
     + '</div>';
