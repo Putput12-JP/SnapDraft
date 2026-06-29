@@ -22286,6 +22286,26 @@ function pickYear(year) {
 .rmh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .rmh .t{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .rmh .tag{font-family:var(--font-mono);font-size:9px;color:var(--you2);border:1px solid var(--border2);border-radius:6px;padding:3px 7px;letter-spacing:.06em}
+/* ── Gradient stat-card treatment (meaning-coded) ── */
+.rmod-fx{position:relative;overflow:hidden;border-color:rgba(255,255,255,.12)!important}
+.rmod-fx>*{position:relative;z-index:1}
+.rmod-fx::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;background:var(--bloom)}
+.rmod-fx .rmh .t{display:inline-flex;align-items:center;gap:8px}
+.rmod-fx .rmh .t::before{content:'';width:22px;height:22px;border-radius:7px;flex-shrink:0;background:rgba(var(--mc),.16) var(--icon) center / 13px no-repeat;box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
+.rmod-fx .rmh .tag{color:rgb(var(--mc))!important;border-color:rgba(var(--mc),.32)!important;background:rgba(var(--mc),.10)!important}
+.rmod-winprob{--mc:61,204,122;--icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%233DCC7A%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M22%2011.08V12a10%2010%200%201%201-5.93-9.14%27%2F%3E%3Cpath%20d%3D%27M22%204%2012%2014.01l-3-3%27%2F%3E%3C%2Fsvg%3E");--bloom:radial-gradient(200px 140px at 100% 0%, rgba(61,204,122,.20), transparent 60%),linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+.rmod-move{--mc:250,204,21;--icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23facc15%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M13%202%203%2014h9l-1%208%2010-12h-9z%27%2F%3E%3C%2Fsvg%3E");--bloom:radial-gradient(200px 140px at 0% 0%, rgba(250,204,21,.18), transparent 60%),linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+.rmod-swings{--mc:61,204,122;--icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%233DCC7A%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M16%207h6v6%27%2F%3E%3Cpath%20d%3D%27m22%207-8.5%208.5-5-5L2%2017%27%2F%3E%3C%2Fsvg%3E");--bloom:radial-gradient(200px 150px at 100% 100%, rgba(61,204,122,.16), transparent 62%),linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+.rmod-bench{--mc:96,165,250;--icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%2360a5fa%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M2%2012s3-7%2010-7%2010%207%2010%207-3%207-10%207-10-7-10-7Z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%273%27%2F%3E%3C%2Fsvg%3E");--bloom:radial-gradient(200px 150px at 0% 100%, rgba(96,165,250,.16), transparent 62%),linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+/* ── Hero strip soft brand wash (no carding) ── */
+.rdv-ident{position:relative}
+.rdv-ident>*{position:relative;z-index:1}
+.rdv-ident::before{content:'';position:absolute;left:-26px;right:-26px;top:-20px;bottom:-20px;z-index:0;pointer-events:none;
+  background:radial-gradient(440px 150px at 90% 0%, rgba(250,204,21,.09), transparent 60%),radial-gradient(380px 170px at 2% 130%, rgba(226,58,78,.06), transparent 70%)}
+.lh-ov-hero{position:relative;overflow:hidden}
+.lh-ov-hero>*{position:relative;z-index:1}
+.lh-ov-hero::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(300px 170px at 100% 0%, rgba(250,204,21,.11), transparent 60%),radial-gradient(320px 190px at 0% 130%, rgba(226,58,78,.06), transparent 70%)}
 .wpg{display:flex;align-items:center;gap:16px}
 .wpg .ring{width:90px;height:90px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:conic-gradient(var(--you2) 0 var(--p),rgba(240,114,138,.85) var(--p) 100%);position:relative}
 .wpg .ring::before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--s1)}
@@ -22813,7 +22833,7 @@ window._gcMatchupHTML=function(d){
   var rl=d.rail||{};
   // win probability gauge
   var edge=d.myTot-d.opTot, em=(edge>=0?'+':'')+edge.toFixed(2);
-  var wpMod='<div class="rmod"><div class="rmh"><span class="t">Win Probability</span><span class="tag">MODEL</span></div>'
+  var wpMod='<div class="rmod rmod-fx rmod-winprob"><div class="rmh"><span class="t">Win Probability</span><span class="tag">MODEL</span></div>'
     + '<div class="wpg"><div class="ring" style="--p:'+wpMe+'%"><div class="v"><b>'+wpMe+'%</b><small>YOU</small></div></div>'
     + '<div class="wpg-meta">'
     + '<div class="ln"><span>'+(live?'Margin':'Proj. margin')+'</span><b class="'+(edge>=0?'vtr-up':'vtr-dn')+'">'+em+'</b></div>'
@@ -22823,19 +22843,19 @@ window._gcMatchupHTML=function(d){
   // one move (start/sit), only when caller provides optimizer data
   var moveMod='';
   if(rl.move){
-    moveMod='<div class="rmod"><div class="rmh"><span class="t">One move</span><span class="tag" style="color:var(--rb,#3DCC7A)">START/SIT</span></div>'
+    moveMod='<div class="rmod rmod-fx rmod-move"><div class="rmh"><span class="t">One move</span><span class="tag" style="color:var(--rb,#3DCC7A)">START/SIT</span></div>'
       + '<div class="rmove"><div class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg></div>'
       + '<div class="bd"><div class="h">Swap your '+rl.move.slot+'</div><div class="d">Start <b>'+rl.move.inName+'</b> over <b>'+rl.move.outName+'</b>, projects higher this week.</div></div>'
       + '<div class="gain">+'+rl.move.gain.toFixed(1)+'</div></div></div>';
   } else if(rl.optimal){
-    moveMod='<div class="rmod"><div class="rmh"><span class="t">One move</span><span class="tag" style="color:var(--rb,#3DCC7A)">START/SIT</span></div>'
+    moveMod='<div class="rmod rmod-fx rmod-move"><div class="rmh"><span class="t">One move</span><span class="tag" style="color:var(--rb,#3DCC7A)">START/SIT</span></div>'
       + '<div class="rmove ok"><div class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>'
       + '<div class="bd"><div class="h">Lineup is optimal</div><div class="d">No bench player out-projects a starter at its slot.</div></div></div></div>';
   }
   // biggest swings (computed from rows)
   var sw=rows.map(function(r){ var a=r.me&&r.me.pts!=null?r.me.pts:0,b=r.op&&r.op.pts!=null?r.op.pts:0; return {base:r.base,me:r.me,op:r.op,d:+(a-b).toFixed(1)}; })
     .filter(function(s){return s.me&&s.op;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);}).slice(0,3);
-  var swMod=sw.length?('<div class="rmod"><div class="rmh"><span class="t">Biggest swings</span><span class="tag">Δ '+(live?'NOW':'PROJ')+'</span></div>'
+  var swMod=sw.length?('<div class="rmod rmod-fx rmod-swings"><div class="rmh"><span class="t">Biggest swings</span><span class="tag">Δ '+(live?'NOW':'PROJ')+'</span></div>'
     + sw.map(function(s){ var up=s.d>=0,col=POS[s.base]||'#7d8aa0';
         return '<div class="rswing"><span class="pos" style="background:'+col+'">'+(s.base==='FLEX'?'FLX':s.base==='SUPER_FLEX'?'SF':s.base)+'</span>'
           + '<div class="vs"><span class="me">'+abbr(s.me.name)+'</span> <span class="sep">vs</span> <span class="op">'+abbr(s.op.name)+'</span></div>'
@@ -22844,7 +22864,7 @@ window._gcMatchupHTML=function(d){
   // bench watch
   var benchMod='';
   if(rl.bench && rl.bench.length){
-    benchMod='<div class="rmod"><div class="rmh"><span class="t">Bench watch</span><span class="tag">TOP PROJ</span></div><div class="rbench">'
+    benchMod='<div class="rmod rmod-fx rmod-bench"><div class="rmh"><span class="t">Bench watch</span><span class="tag">TOP PROJ</span></div><div class="rbench">'
       + rl.bench.slice(0,3).map(function(b){ var col=POS[b.pos]||'#7d8aa0';
           return '<div class="rbp"><span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
         }).join('')
