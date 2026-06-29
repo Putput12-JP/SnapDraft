@@ -21260,7 +21260,31 @@ function pickYear(year) {
     pos: 'QB', season: '2025', search: '', qualified: true,
     sortKey: 'fpts', sortDir: 'desc', hidden: {}, mode: 'data',
     colMenu: false, loading: true, err: null, rows: [], rowsCache: {}, booted: false,
+    // Per-position custom column order. Map of pos -> [key, key, ...]. Empty
+    // means "use the default order from D.COLS[pos]". Persisted to
+    // localStorage so a user's layout survives reloads.
+    order: (function () {
+      try { return JSON.parse(localStorage.getItem('vault.advstats.order') || '{}') || {}; }
+      catch (e) { return {}; }
+    })(),
   };
+  function asSaveOrder() {
+    try { localStorage.setItem('vault.advstats.order', JSON.stringify(AS.order)); } catch (e) {}
+  }
+  // Return COLS[pos] with the user's custom order applied (if any). Drops
+  // unknown keys (e.g. removed columns) and appends any new columns to the end
+  // so additions surface automatically without losing the user's layout.
+  function asOrderedCols(pos) {
+    const cols = D.COLS[pos] || [];
+    const custom = AS.order[pos];
+    if (!custom || !custom.length) return cols;
+    const byKey = Object.fromEntries(cols.map(c => [c.key, c]));
+    const seen = new Set();
+    const out = [];
+    custom.forEach(k => { if (byKey[k] && !seen.has(k)) { out.push(byKey[k]); seen.add(k); } });
+    cols.forEach(c => { if (!seen.has(c.key)) out.push(c); });
+    return out;
+  }
 
   function asLoadSeason() {
     const s = AS.season;
@@ -21278,7 +21302,7 @@ function pickYear(year) {
   // A column is hidden if the user explicitly toggled it off, else by its
   // def_hide default (advanced metrics start collapsed to keep the board calm).
   function asHidden(c) { const h = AS.hidden[c.key]; return h === undefined ? !!c.def_hide : h; }
-  function asVisCols() { return D.COLS[AS.pos].filter(c => !asHidden(c)); }
+  function asVisCols() { return asOrderedCols(AS.pos).filter(c => !asHidden(c)); }
   function asPosRows() { return AS.rows.filter(r => r.pos === AS.pos); }
   // Drop columns where every row's value is null. Keeps the table from
   // showing a wall of em-dashes when an advanced feed (e.g. NGS for a current
@@ -21352,10 +21376,96 @@ function pickYear(year) {
 
   function asColMenuHtml(cols) {
     if (!AS.colMenu) return '';
+    // Use the live (possibly reordered) column list so rows match the table.
+    const ordered = asOrderedCols(AS.pos);
     const order = [], byGroup = {};
-    cols.forEach(c => { if (!byGroup[c.group]) { byGroup[c.group] = []; order.push(c.group); } byGroup[c.group].push(c); });
-    const grp = g => `<div class="rh-colmenu-grp"><div class="rh-colmenu-gl">${GROUP_LABEL[g] || g}</div>${byGroup[g].map(c => `<label class="rh-colmenu-item"><input type="checkbox" data-rh-colkey="${c.key}" ${asHidden(c) ? '' : 'checked'} ${c.key === 'fpts' ? 'disabled' : ''}><span>${esc(c.label)}</span><span class="rh-colmenu-hint">${esc(c.hint)}</span></label>`).join('')}</div>`;
-    return `<div class="rh-colmenu">${order.map(grp).join('')}</div>`;
+    ordered.forEach(c => { if (!byGroup[c.group]) { byGroup[c.group] = []; order.push(c.group); } byGroup[c.group].push(c); });
+    const visCount = ordered.filter(c => !asHidden(c)).length;
+    const totalCount = ordered.length;
+    const isCustom = !!(AS.order[AS.pos] && AS.order[AS.pos].length);
+    const row = c => {
+      const on = !asHidden(c), locked = c.key === 'fpts';
+      // Tooltips reveal the metric source (e.g. "· PFR") that the table header truncates.
+      return `<div class="rh-colmenu-item${on ? ' on' : ''}${locked ? ' locked' : ''}" data-rh-colrow="${c.key}" draggable="${locked ? 'false' : 'true'}" title="${esc(c.hint)}">
+        <span class="rh-colmenu-drag" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="4" r=".9"/><circle cx="10" cy="4" r=".9"/><circle cx="6" cy="8" r=".9"/><circle cx="10" cy="8" r=".9"/><circle cx="6" cy="12" r=".9"/><circle cx="10" cy="12" r=".9"/></svg></span>
+        <span class="rh-colmenu-check" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"/></svg></span>
+        <input type="checkbox" data-rh-colkey="${c.key}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''} aria-label="Show ${esc(c.label)} column">
+        <span class="rh-colmenu-lab">${esc(c.label)}</span>
+        <span class="rh-colmenu-hint">${esc(c.hint)}</span>
+      </div>`;
+    };
+    const grp = g => `<div class="rh-colmenu-grp" data-rh-colgroup="${g}"><div class="rh-colmenu-gl">${GROUP_LABEL[g] || g}</div>${byGroup[g].map(row).join('')}</div>`;
+    const resetBtn = isCustom
+      ? `<button class="rh-colmenu-reset" data-rh-colreset title="Restore default column order">↺ Reset order</button>`
+      : '';
+    return `<div class="rh-colmenu" role="dialog" aria-label="Choose &amp; reorder columns">
+      <div class="rh-colmenu-head">
+        <div>
+          <div class="rh-colmenu-title">Columns</div>
+          <div class="rh-colmenu-sub">${visCount}/${totalCount} shown · drag <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:11px;height:11px;vertical-align:-2px"><circle cx="6" cy="4" r=".9"/><circle cx="10" cy="4" r=".9"/><circle cx="6" cy="8" r=".9"/><circle cx="10" cy="8" r=".9"/><circle cx="6" cy="12" r=".9"/><circle cx="10" cy="12" r=".9"/></svg> to reorder</div>
+        </div>
+        ${resetBtn}
+      </div>
+      ${order.map(grp).join('')}
+    </div>`;
+  }
+
+  // ── Column reorder · HTML5 drag + drop ───────────────────────────────
+  // Reordering happens within a single group (drag QB volume cols among QB
+  // volume cols) — keeps the table's group headers honest. Persists to
+  // AS.order[pos] and re-renders.
+  let _dragKey = null;
+  function asWireDrag(root) {
+    const menu = root.querySelector('.rh-colmenu');
+    if (!menu || menu._dragWired) return;
+    menu._dragWired = true;
+    menu.addEventListener('dragstart', e => {
+      const row = e.target.closest('[data-rh-colrow]');
+      if (!row || row.classList.contains('locked')) { e.preventDefault(); return; }
+      _dragKey = row.dataset.rhColrow;
+      row.classList.add('dragging');
+      try { e.dataTransfer.setData('text/plain', _dragKey); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+    });
+    menu.addEventListener('dragend', () => {
+      menu.querySelectorAll('.dragging,.drop-before,.drop-after').forEach(el => el.classList.remove('dragging', 'drop-before', 'drop-after'));
+      _dragKey = null;
+    });
+    menu.addEventListener('dragover', e => {
+      if (!_dragKey) return;
+      const row = e.target.closest('[data-rh-colrow]');
+      if (!row || row.dataset.rhColrow === _dragKey) return;
+      // Only allow drops within the same group so table groupings stay clean.
+      const srcGroup = menu.querySelector(`[data-rh-colrow="${_dragKey}"]`)?.closest('[data-rh-colgroup]')?.dataset.rhColgroup;
+      const dstGroup = row.closest('[data-rh-colgroup]')?.dataset.rhColgroup;
+      if (srcGroup !== dstGroup) return;
+      e.preventDefault();
+      menu.querySelectorAll('.drop-before,.drop-after').forEach(el => el.classList.remove('drop-before', 'drop-after'));
+      const r = row.getBoundingClientRect();
+      const after = (e.clientY - r.top) > r.height / 2;
+      row.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    menu.addEventListener('drop', e => {
+      if (!_dragKey) return;
+      const row = e.target.closest('[data-rh-colrow]');
+      if (!row || row.dataset.rhColrow === _dragKey) return;
+      const srcGroup = menu.querySelector(`[data-rh-colrow="${_dragKey}"]`)?.closest('[data-rh-colgroup]')?.dataset.rhColgroup;
+      const dstGroup = row.closest('[data-rh-colgroup]')?.dataset.rhColgroup;
+      if (srcGroup !== dstGroup) return;
+      e.preventDefault();
+      const r = row.getBoundingClientRect();
+      const after = (e.clientY - r.top) > r.height / 2;
+      const keys = asOrderedCols(AS.pos).map(c => c.key);
+      const from = keys.indexOf(_dragKey);
+      if (from < 0) return;
+      keys.splice(from, 1);
+      let to = keys.indexOf(row.dataset.rhColrow);
+      if (to < 0) return;
+      if (after) to += 1;
+      keys.splice(to, 0, _dragKey);
+      AS.order[AS.pos] = keys;
+      asSaveOrder();
+      asRender();
+    });
   }
 
   /* Mobile (≤700px): one metric ranks the board at a time, chips re-rank,
@@ -21458,6 +21568,7 @@ function pickYear(year) {
       </div>
       ${middle}
       <div class="rh-foot">Stats via <a href="https://github.com/nflverse" target="_blank" rel="noopener">nflverse</a> · age via <a href="https://rosteraudit.com" target="_blank" rel="noopener">RosterAudit</a> · weekly logs aggregated to season totals &amp; efficiency</div>`;
+    if (AS.colMenu) asWireDrag(mount);
   }
 
   /* ════════════════════════ COMPARE ════════════════════════ */
@@ -21726,6 +21837,15 @@ function pickYear(year) {
       const clr = e.target.closest('[data-rh-clear]'); if (clr) { AS.search = ''; asRender(); return; }
       const sort = e.target.closest('[data-rh-sort]'); if (sort) { const k = sort.dataset.rhSort; if (AS.sortKey === k) AS.sortDir = AS.sortDir === 'desc' ? 'asc' : 'desc'; else { AS.sortKey = k; AS.sortDir = 'desc'; } asRender(); return; }
       const cm = e.target.closest('[data-rh-colmenu]'); if (cm) { AS.colMenu = !AS.colMenu; asRender(); return; }
+      const reset = e.target.closest('[data-rh-colreset]'); if (reset) { delete AS.order[AS.pos]; asSaveOrder(); asRender(); return; }
+      // Click on the polished row toggles the checkbox (label-like behavior) — but
+      // not on the drag handle or directly on the input itself.
+      const colRow = e.target.closest('[data-rh-colrow]');
+      if (colRow && !e.target.closest('.rh-colmenu-drag') && e.target.tagName !== 'INPUT' && !colRow.classList.contains('locked')) {
+        const cb = colRow.querySelector('input[type=checkbox]');
+        if (cb) { cb.checked = !cb.checked; AS.hidden[colRow.dataset.rhColrow] = !cb.checked; asRender(); }
+        return;
+      }
       if (AS.colMenu && !e.target.closest('.rh-colmenu') && !e.target.closest('[data-rh-colmenu]')) { AS.colMenu = false; asRender(); }
       if (CMP.acOpen && !e.target.closest('.rh-cmp-search')) { CMP.acOpen = false; cmpRenderAc(); }
       return;
@@ -21803,13 +21923,35 @@ function pickYear(year) {
     ${S} .rh-tool:hover{border-color:var(--rh-border3);color:var(--text)}
     ${S} .rh-tool.on{background:rgba(77,134,240,.14);border-color:rgba(77,134,240,.5);color:#fff}
     ${S} .rh-colwrap{position:relative}
-    ${S} .rh-colmenu{position:absolute;top:calc(100% + 8px);right:0;width:340px;max-height:440px;overflow-y:auto;background:var(--s1);border:1px solid var(--border2);border-radius:13px;padding:8px;z-index:50;box-shadow:0 24px 60px rgba(0,0,0,.55)}
-    ${S} .rh-colmenu-gl{font-family:var(--font-mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);padding:6px 10px}
-    ${S} .rh-colmenu-item{display:grid;grid-template-columns:18px 54px 1fr;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:var(--font-sans)}
-    ${S} .rh-colmenu-item:hover{background:var(--s3)}
-    ${S} .rh-colmenu-item input{accent-color:var(--sky);width:15px;height:15px;cursor:pointer}
-    ${S} .rh-colmenu-item>span:nth-child(2){font-family:var(--font-mono);font-weight:600;color:var(--text)}
-    ${S} .rh-colmenu-hint{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    ${S} .rh-colmenu{position:absolute;top:calc(100% + 8px);right:0;width:380px;max-height:520px;overflow-y:auto;background:var(--s1);border:1px solid var(--border2);border-radius:14px;padding:6px;z-index:50;box-shadow:0 28px 72px rgba(0,0,0,.62)}
+    ${S} .rh-colmenu-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 12px 10px;border-bottom:1px solid var(--border);margin-bottom:4px}
+    ${S} .rh-colmenu-title{font-family:var(--font-sans);font-size:13px;font-weight:700;color:var(--text);line-height:1.1}
+    ${S} .rh-colmenu-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:var(--muted);margin-top:4px}
+    ${S} .rh-colmenu-reset{background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;padding:6px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:all .14s}
+    ${S} .rh-colmenu-reset:hover{border-color:var(--rh-border3);color:var(--text);background:var(--s3)}
+    ${S} .rh-colmenu-grp{padding:4px 2px 6px}
+    ${S} .rh-colmenu-gl{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:8px 12px 6px}
+    ${S} .rh-colmenu-item{display:grid;grid-template-columns:18px 18px 64px 1fr;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:var(--font-sans);position:relative;transition:background .12s,box-shadow .12s;user-select:none;color:var(--text2)}
+    ${S} .rh-colmenu-item input[type=checkbox]{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+    ${S} .rh-colmenu-drag{display:flex;align-items:center;justify-content:center;color:var(--faint);opacity:0;transition:opacity .14s,color .14s;cursor:grab}
+    ${S} .rh-colmenu-drag svg{width:14px;height:14px}
+    ${S} .rh-colmenu-item:hover .rh-colmenu-drag{opacity:.8}
+    ${S} .rh-colmenu-item:hover .rh-colmenu-drag:hover{color:var(--text);opacity:1}
+    ${S} .rh-colmenu-item.locked .rh-colmenu-drag{display:none}
+    ${S} .rh-colmenu-item.locked{cursor:default;opacity:.78}
+    ${S} .rh-colmenu-check{display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border2);background:transparent;color:transparent;transition:all .14s}
+    ${S} .rh-colmenu-check svg{width:11px;height:11px}
+    ${S} .rh-colmenu-item:hover{background:rgba(123,208,255,.06)}
+    ${S} .rh-colmenu-item:hover .rh-colmenu-check{border-color:var(--rh-border3)}
+    ${S} .rh-colmenu-item.on .rh-colmenu-check{background:var(--sky);border-color:var(--sky);color:#0a1828}
+    ${S} .rh-colmenu-item.on{color:var(--text)}
+    ${S} .rh-colmenu-item.on .rh-colmenu-lab{color:var(--text)}
+    ${S} .rh-colmenu-lab{font-family:var(--font-mono);font-weight:600;color:var(--text2);font-size:12px;letter-spacing:.02em}
+    ${S} .rh-colmenu-hint{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-sans)}
+    ${S} .rh-colmenu-item.dragging{opacity:.55;background:var(--s3);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+    ${S} .rh-colmenu-item.drop-before::before,${S} .rh-colmenu-item.drop-after::after{content:'';position:absolute;left:6px;right:6px;height:2px;background:var(--sky);border-radius:2px;box-shadow:0 0 0 2px rgba(123,208,255,.18)}
+    ${S} .rh-colmenu-item.drop-before::before{top:-1px}
+    ${S} .rh-colmenu-item.drop-after::after{bottom:-1px}
     ${S} .rh-status{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.02em;margin-bottom:16px}
     ${S} .rh-status b{color:var(--text2)}${S} .rh-status-dot{margin:0 4px}
     ${S} .rh-leaders{margin-bottom:18px}
