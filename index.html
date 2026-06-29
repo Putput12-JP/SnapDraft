@@ -5532,6 +5532,25 @@ const NFLVERSE_BASE=(function(){const h=window.location.hostname;if(h.includes('
 let _nflStats=null,_nflSnaps=null,_nflInjuries=null,_nflMeta=null,_nflLoading=false,_nflLoadProm=null;
 window.nflverseLoaded=false;
 window._nflverseCache={};
+// Single source of truth for "current NFL season" across the app. Driven by
+// nflverse_meta.json (which the pipeline auto-detects via Sleeper /state/nfl)
+// so the whole app rolls over to a new season on its own. Falls back to a
+// date-derived guess when meta hasn't loaded yet (NFL league year flips in
+// March, so Jan/Feb still belong to the prior season).
+window.vaultNflSeason = function () {
+  const m = _nflMeta;
+  if (m && (m.current_season || m.season)) return String(m.current_season || m.season);
+  const now = new Date();
+  return String(now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1);
+};
+window.vaultNflArchiveYears = function () {
+  const m = _nflMeta;
+  if (m && Array.isArray(m.archive_years) && m.archive_years.length) {
+    return m.archive_years.slice(0, 3).map(String);
+  }
+  const c = Number(window.vaultNflSeason());
+  return [String(c), String(c - 1), String(c - 2)];
+};
 window.initNflverse=async function(){
   if(window.nflverseLoaded)return;if(_nflLoading)return _nflLoadProm;_nflLoading=true;
   _nflLoadProm=(async()=>{try{
@@ -5539,7 +5558,7 @@ window.initNflverse=async function(){
     if(!sR.ok)throw new Error('stats '+sR.status);if(!snR.ok)throw new Error('snaps '+snR.status);
     _nflStats=await sR.json();_nflSnaps=await snR.json();_nflInjuries=iR?.ok?await iR.json():{};_nflMeta=mR?.ok?await mR.json():null;
     window.nflverseLoaded=true;
-    const curSeason=String(_nflMeta?.current_season||_nflMeta?.season||2024);
+    const curSeason=window.vaultNflSeason();
     window._nflverseCache[curSeason]={stats:_nflStats,snaps:_nflSnaps,inj:_nflInjuries||{}};
     console.log('[Vault] nflverse loaded —',Object.keys(_nflStats).length,'players, season',curSeason);
   }catch(e){console.warn('[Vault] nflverse failed:',e.message);throw e;}finally{_nflLoading=false;}})();return _nflLoadProm;};
@@ -5553,7 +5572,7 @@ window.initNflverseYear=async function(year){
       fetch(NFLVERSE_BASE+'/nflverse_stats_'+y+'.json').then(r=>r.ok?r.json():null).catch(()=>null),
       fetch(NFLVERSE_BASE+'/nflverse_snaps_'+y+'.json').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
-    const curSzn=String((_nflMeta?.current_season||_nflMeta?.season)||2024);
+    const curSzn=window.vaultNflSeason();
     const stats=sR||(y===curSzn?_nflStats:null)||{};
     const snaps=snR||(y===curSzn?_nflSnaps:null)||{};
     window._nflverseCache[y]={stats,snaps,inj:_nflInjuries||{}};
@@ -5594,11 +5613,11 @@ window.renderNflverseCard=function(name,el,yr){
   // Store current name on el for year switching
   el._nflvName = name;
   const meta=getNflverseMeta();
-  const curSzn = String(meta?.current_season||meta?.season||2025);
+  const curSzn = window.vaultNflSeason();
   const activeYr = yr || window._nflvCardYear || curSzn;
   window._nflvCardYear = activeYr;
 
-  const yrSw=['2025','2024','2023'].map(y=>{
+  const yrSw=window.vaultNflArchiveYears().map(y=>{
     const on=y===activeYr;
     const style=`padding:2px 11px;border-radius:2px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.05em;cursor:pointer;border:1px solid ${on?'var(--sky)':'var(--border2)'};background:${on?'rgba(123,208,255,0.12)':'transparent'};color:${on?'var(--sky)':'var(--muted)'};transition:all 120ms ease`;
     return `<button onclick="window._nflvCardYear='${y}';window.renderNflverseCard(this.closest('[data-nflv-card]')?._nflvName||'${name}',this.closest('[data-nflv-card]'),'${y}')" style="${style}">${y}</button>`;
@@ -5702,7 +5721,7 @@ window._psRenderGameLogs = async function(year, targetEl) {
   if (!body || !_psPlayer) return;
   const { name, pos, sleeperId } = _psPlayer;
   const posC = {QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'}[pos]||'var(--muted)';
-  const yr = year || '2025';
+  const yr = year || window.vaultNflSeason();
 
   // ── Year availability cache (which years has this player been seen in?) ──
   // Populated lazily as years are fetched. Key: player name → Set of year strings.
@@ -5715,7 +5734,7 @@ window._psRenderGameLogs = async function(year, targetEl) {
 
   // All possible years (most recent first), plus Career
   const ALL_YEARS = [];
-  for (let y = 2025; y >= 1999; y--) ALL_YEARS.push(String(y));
+  for (let y = +window.vaultNflSeason(); y >= 1999; y--) ALL_YEARS.push(String(y));
 
   function mkYrBtn(label, key, on, title) {
     return `<button title="${title||''}" onclick="window._resGlYear='${key}';if(window._resCurrentPlayer)window._psPlayer=window._resCurrentPlayer;window._psRenderGameLogs('${key}', window._glTargetEl || document.getElementById('ps-body'));if(window._resUpdateKPIsForYear&&'${key}'!=='Career')window._resUpdateKPIsForYear('${key}')"
@@ -5723,17 +5742,18 @@ window._psRenderGameLogs = async function(year, targetEl) {
   }
 
   function mkYrSw(active) {
-    // Compact picker: [Career] [Current Year 2025] [Year ▾]
+    // Compact picker: [Career] [Current Year ·NFL] [Year ▾]
     // The "Year ▾" button opens a bottom sheet with all seasons grouped by decade.
-    // The active year shows in the button if it's not 2025 or Career.
-    const seenYears = window._yearAvailability[name] || new Set(['2025']);
-    seenYears.add('2025');
+    // The active year shows in the button if it's not the current season or Career.
+    const cur = window.vaultNflSeason();
+    const seenYears = window._yearAvailability[name] || new Set([cur]);
+    seenYears.add(cur);
 
     const careerBtn = mkYrBtn('Career', 'Career', active === 'Career', 'Career totals across all seasons');
-    const currentBtn = mkYrBtn('2025·NFL', '2025', active === '2025', '2025 season');
+    const currentBtn = mkYrBtn(cur + '·NFL', cur, active === cur, cur + ' season');
 
-    // If active year is something other than Career or 2025, show that as the pill
-    const showActiveOther = active !== 'Career' && active !== '2025';
+    // If active year is something other than Career or the current season, show that as the pill
+    const showActiveOther = active !== 'Career' && active !== cur;
     const otherBtn = showActiveOther
       ? mkYrBtn(active, active, true, `${active} season`)
       : '';
@@ -5863,10 +5883,10 @@ window._psRenderGameLogs = async function(year, targetEl) {
   async function fetchYearData(yearKey) {
     if (window._yearDataCache[yearKey]) return window._yearDataCache[yearKey];
     try {
-      // 2025 also gets snap counts file; older years are stats only
+      // Current season also gets a snap-counts file; older years are stats only
       const fetches = [fetch(`${dataBase}/nflverse_stats_${yearKey}.json`).then(r=>r.ok?r.json():null).catch(()=>null)];
-      if (yearKey === '2025') {
-        fetches.push(fetch(`${dataBase}/nflverse_snaps_2025.json`).then(r=>r.ok?r.json():null).catch(()=>null));
+      if (yearKey === window.vaultNflSeason()) {
+        fetches.push(fetch(`${dataBase}/nflverse_snaps_${yearKey}.json`).then(r=>r.ok?r.json():null).catch(()=>null));
       } else {
         fetches.push(Promise.resolve(null));
       }
@@ -6010,10 +6030,11 @@ window._psRenderGameLogs = async function(year, targetEl) {
     return;
   }
 
-  // ── Single-year view: any year from 1999 to 2025 ──
+  // ── Single-year view: any year from 1999 to the current NFL season ──
   // Validate the year
+  const curNfl = +window.vaultNflSeason();
   const yrInt = parseInt(yr);
-  if (isNaN(yrInt) || yrInt < 1999 || yrInt > 2025) {
+  if (isNaN(yrInt) || yrInt < 1999 || yrInt > curNfl) {
     body.innerHTML = mkYrSw(yr) + `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-family:var(--font-mono);font-size:12px">Invalid year: ${yr}</div>`;
     return;
   }
@@ -6024,8 +6045,8 @@ window._psRenderGameLogs = async function(year, targetEl) {
   const nfl = fuzz(yrData.stats, name);
   const snaps = fuzz(yrData.snaps || {}, name);
   if (!nfl?.weeks?.length) {
-    const msg = yr === '2025'
-      ? '2025 season data is not yet available. The nflverse pipeline will populate this once the season starts.'
+    const msg = (yr === String(curNfl))
+      ? `${yr} season data is not yet available. The nflverse pipeline will populate this once the season starts.`
       : `No data found for ${name} in the ${yr} nflverse dataset. This player may not have played that season.`;
     body.innerHTML = mkYrSw(yr) + `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-family:var(--font-mono);font-size:12px">
       <div style="font-size:28px;margin-bottom:12px">📅</div>
@@ -6053,9 +6074,9 @@ window._psRenderGameLogs = async function(year, targetEl) {
     ? [['Avg FPTS', ssn.avg_pts], ['Games', ssn.games], ['L4W Avg', nfl.l4w_avg, '#ffb3b6'], ['Rush Yds/G', ssn.avg_ryds, '#3DCC7A'], ['Car/G', ssn.avg_car], ['Tgt/G', ssn.avg_tgt, '#7bd0ff']]
     : [['Avg FPTS', ssn.avg_pts], ['Games', ssn.games], ['L4W Avg', nfl.l4w_avg, '#ffb3b6'], ['Rec Yds/G', ssn.avg_recyds, '#7bd0ff'], ['Tgt/G', ssn.avg_tgt], ['Tgt Share', ssn.avg_ts != null ? ssn.avg_ts + '%' : null, '#f5c842']];
 
-  // Opponent column: prefer the opp baked into the per-week row (nflverse opponent_team for 1999-2024).
-  // For 2025, supplement with ESPN data for any in-progress weeks where nflverse hasn't updated yet.
-  if (yr === '2025') {
+  // Opponent column: prefer the opp baked into the per-week row (nflverse opponent_team for completed seasons).
+  // For the current season, supplement with ESPN data for any in-progress weeks where nflverse hasn't updated yet.
+  if (yr === String(curNfl)) {
     const playerTeam = (window._psPlayer?.team || '').toUpperCase();
     const weekNums = [...new Set(sorted.map(w => w.wk))];
     if (playerTeam) {
@@ -6237,9 +6258,9 @@ async function openPlayerStats(normN, name, pos, team) {
 
   _psRenderHeader();
   _psSetTabActive('weekly');
-  // immediately start loading game logs, default to 2025 (current season)
-  window._resGlYear = window._resGlYear || '2025';
-  window._psRenderGameLogs('2025');
+  // immediately start loading game logs, default to the current season
+  window._resGlYear = window._resGlYear || window.vaultNflSeason();
+  window._psRenderGameLogs(window._resGlYear);
 
   // async: fetch RA data, only use /players (200 OK), skip /player-page (401)
   if (sleeperId) {
@@ -6363,7 +6384,7 @@ function _psRenderTab(tab) {
   const body = document.getElementById('ps-body');
   if (!body) return;
   // weekly tab never needs _psData
-  if (tab === 'weekly') { window._psRenderGameLogs(window._resGlYear || '2025'); return; }
+  if (tab === 'weekly') { window._psRenderGameLogs(window._resGlYear || window.vaultNflSeason()); return; }
   // value tab can render from FantasyCalc data even without RA data
   if (!_psData && tab !== 'value') {
     body.innerHTML = `<div class="ps-loading"><div style="font-size:24px;animation:spin 1s linear infinite">⟳</div><span>Loading...</span></div>`;
@@ -7097,14 +7118,15 @@ async function _resApplyOppFilter(opp) {
   try {
     const base = 'https://putput12-jp.github.io/Vault-Fantasy/data';
     // Load nflverse data if needed (cached after first load)
+    const curSzn = window.vaultNflSeason();
     if (!_resOppData) {
-      _resOppData = await fetch(base+'/nflverse_stats_2025.json').then(r=>r.ok?r.json():null).catch(()=>null);
+      _resOppData = await fetch(base+`/nflverse_stats_${curSzn}.json`).then(r=>r.ok?r.json():null).catch(()=>null);
     }
-    if (!_resOppData) { lb.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">Could not load 2025 stats</div>`; return; }
+    if (!_resOppData) { lb.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">Could not load ${curSzn} stats</div>`; return; }
 
     // Pre-fetch all 18 ESPN schedule weeks in parallel (cached after first call)
     if (window.getOpponentMap) {
-      await Promise.all(Array.from({length:18},(_,i)=>window.getOpponentMap('2025',i+1)));
+      await Promise.all(Array.from({length:18},(_,i)=>window.getOpponentMap(curSzn,i+1)));
     }
 
     // Check if opp filter changed while we were loading
@@ -7138,7 +7160,7 @@ async function _resApplyOppFilter(opp) {
       if (!team) continue;
 
       const oppGames = pdata.weeks.filter(w => {
-        const wkMap = window._espnOppCache?.[`2025_${w.wk}`];
+        const wkMap = window._espnOppCache?.[`${curSzn}_${w.wk}`];
         const wkOpp = wkMap ? (wkMap[team]||'').replace('@','') : '';
         return wkOpp === oppClean;
       });
@@ -7187,7 +7209,7 @@ async function _resApplyOppFilter(opp) {
     lb.innerHTML = `
       <div style="padding:10px 14px;background:rgba(204,0,60,0.08);border:1px solid rgba(204,0,60,0.2);border-radius:8px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
         <span style="font-size:13px;font-weight:700;color:var(--accent2);font-family:var(--font-mono)">VS ${oppClean}</span>
-        <span style="font-size:12px;color:var(--muted)">${results.length} players · avg PPR pts · 2025 season</span>
+        <span style="font-size:12px;color:var(--muted)">${results.length} players · avg PPR pts · ${curSzn} season</span>
       </div>
       <div style="background:var(--s1);border-radius:10px;overflow:hidden;border:1px solid var(--border)">${rows}</div>`;
 
@@ -7493,8 +7515,9 @@ function _resUpdateKPIsForYear(yr) {
   const posColors = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
   const pc = posColors[pos]||'var(--muted)';
 
-  if (yr === '2025' || yr === '2024') {
-    // Use nflverse data for 2025/2024
+  // Use nflverse for the current and immediately-prior season
+  const _curN = +window.vaultNflSeason();
+  if (yr === String(_curN) || yr === String(_curN - 1)) {
     const base = 'https://putput12-jp.github.io/Vault-Fantasy/data';
     const suffix = yr;
     fetch(`${base}/nflverse_stats_${suffix}.json`).then(r=>r.ok?r.json():null).catch(()=>null).then(data => {
@@ -7634,7 +7657,7 @@ async function _resRenderTab(tab, name, pos, sid, stats, val) {
     // Store target so year-switch buttons know where to render
     window._glTargetEl = resEl;
 
-    const glYear = window._resGlYear || '2025';
+    const glYear = window._resGlYear || window.vaultNflSeason();
     _resUpdateKPIsForYear(glYear);
 
     try {
@@ -16705,9 +16728,10 @@ async function openYearPicker(playerName, pos) {
 
   // Now we know exactly which years the player has data for
   const seenYears = (window._yearAvailability && window._yearAvailability[playerName]) || new Set();
-  // Always include 2025 if not yet known (current season may not be played)
-  if (window._yearDataCache['2025']?.stats?.[playerName]) seenYears.add('2025');
-  const currentActive = window._resGlYear || '2025';
+  // Always include the current season if not yet known (may not be played)
+  const _curSzn = window.vaultNflSeason();
+  if (window._yearDataCache[_curSzn]?.stats?.[playerName]) seenYears.add(_curSzn);
+  const currentActive = window._resGlYear || _curSzn;
 
   // Build set of decades that contain at least one year of data for this player
   const yearsByDecade = {
@@ -16728,11 +16752,11 @@ async function openYearPicker(playerName, pos) {
   const decadeHTML = decadesToRender.map(d => {
     const yearChips = d.years.map(y => {
       const isActive = y === currentActive;
-      const isCurrent = y === '2025';
+      const isCurrent = y === _curSzn;
       const bg = isActive ? posColor + '22' : 'var(--s2)';
       const border = isActive ? posColor : 'var(--border2)';
       const color = isActive ? posColor : 'var(--text)';
-      const label = isCurrent ? '2025·NFL' : y;
+      const label = isCurrent ? (_curSzn + '·NFL') : y;
       return `<button onclick="pickYear('${y}')"
         style="padding:12px 10px;border-radius:8px;font-family:var(--font-mono);font-size:13px;font-weight:600;cursor:pointer;border:1px solid ${border};background:${bg};color:${color};transition:all 120ms ease;min-height:44px;display:flex;align-items:center;justify-content:center">${label}</button>`;
     }).join('');
@@ -16761,7 +16785,7 @@ async function openYearPicker(playerName, pos) {
     listEl.innerHTML = careerHTML + `<div style="text-align:center;padding:24px;color:var(--muted);font-family:var(--font-mono);font-size:12px">
       <div style="font-size:24px;margin-bottom:8px">📭</div>
       <div style="color:var(--text);margin-bottom:4px">No seasons found</div>
-      <div>${playerName} doesn't appear in nflverse historical data (1999-2025).</div>
+      <div>${playerName} doesn't appear in nflverse historical data (1999-${_curSzn}).</div>
     </div>`;
   } else {
     listEl.innerHTML = careerHTML + decadeHTML;
@@ -16791,7 +16815,7 @@ async function prescanYearAvailability() {
         : '/data';
     })();
     const years = [];
-    for (let y = 1999; y <= 2025; y++) years.push(String(y));
+    for (let y = 1999; y <= +window.vaultNflSeason(); y++) years.push(String(y));
     // Fetch in batches of 6 to be polite to the server
     for (let i = 0; i < years.length; i += 6) {
       const batch = years.slice(i, i + 6);
@@ -20612,9 +20636,16 @@ function pickYear(year) {
     return '/data';
   })();
 
-  const CURRENT = 2025;
+  // CURRENT + ARCHIVE_YEARS are seeded with a sane default but get overwritten
+  // by fetchMeta() from nflverse_meta.json, so the season rolls over on its own.
+  // ARCHIVE_YEARS is mutated in place (never reassigned) to keep the exported
+  // reference live for consumers.
+  let CURRENT = 2025;
   const ARCHIVE_YEARS = [2025, 2024, 2023];
   const POSSET = new Set(['QB', 'RB', 'WR', 'TE']);
+  // Per-position single-game boom / bust thresholds (PPR) for consistency stats.
+  const BOOM = { QB: 24, RB: 20, WR: 20, TE: 15 };
+  const BUST = { QB: 12, RB: 8, WR: 7, TE: 5 };
 
   const _cache = {};          // year -> { name: player }
   const _meta = { updated: null, current: CURRENT };
@@ -20644,8 +20675,30 @@ function pickYear(year) {
   function fetchMeta() {
     return fetch(BASE + '/nflverse_meta.json')
       .then(r => r.ok ? r.json() : null)
-      .then(m => { if (m) { _meta.updated = m.updated_at; _meta.current = m.current_season || CURRENT; } return _meta; })
+      .then(m => {
+        if (m) {
+          _meta.updated = m.updated_at;
+          _meta.current = m.current_season || CURRENT;
+          _meta.detected = m.detected_season || _meta.current;
+          _meta.seasonType = m.season_type || null;
+          _meta.dataThroughWeek = (m.data_through_week != null) ? m.data_through_week : null;
+          _meta.ngsAvailable = !!m.ngs_available;
+          _meta.latestComplete = m.latest_complete_season || _meta.current;
+          CURRENT = _meta.current;
+          const years = (m.archive_years && m.archive_years.length)
+            ? m.archive_years.slice(0, 3).map(Number)
+            : [CURRENT, CURRENT - 1, CURRENT - 2];
+          ARCHIVE_YEARS.length = 0; years.forEach(y => ARCHIVE_YEARS.push(y));
+        }
+        return _meta;
+      })
       .catch(() => _meta);
+  }
+  // True when the detected season hasn't produced regular-season data yet
+  // (offseason / preseason), so the page is showing the last complete season.
+  function inOffseason() {
+    return _meta.detected != null && _meta.current != null
+      && _meta.detected > _meta.current;
   }
 
   const sum = (arr, k) => arr.reduce((a, w) => a + (Number(w[k]) || 0), 0);
@@ -20671,9 +20724,15 @@ function pickYear(year) {
     const g = weeks.length;
     if (!g) return null;
     const fpts = sum(weeks, 'pts');
+    // consistency from real weekly scores
+    const boom = weeks.filter(w => (w.pts || 0) >= (BOOM[pos] || 99)).length;
+    const bust = weeks.filter(w => (w.pts || 0) <= (BUST[pos] || -1)).length;
     const base = {
       name, pos, team: team || 'FA', headshot, l4w, age: null,
       g, fpts: r1(fpts), fppg: r1(fpts / g),
+      boomPct: r1(boom / g * 100), bustPct: r1(bust / g * 100),
+      // joined later by applyAdvanced(): snap, snapTrend, injury + NGS fields
+      snap: null, snapTrend: null, injury: null,
     };
 
     if (pos === 'QB') {
@@ -20681,8 +20740,9 @@ function pickYear(year) {
       const pyds = sum(weeks, 'pyds'), ptd = sum(weeks, 'ptds');
       const ruatt = sum(weeks, 'car'), ruyds = sum(weeks, 'ryds');
       const epa = sum(weeks, 'pepa');
+      const ints = sum(weeks, 'ints'), sck = sum(weeks, 'sck'), pfd = sum(weeks, 'pfd');
       Object.assign(base, {
-        att, cmp, pyds, ptd, ruatt, ruyds,
+        att, cmp, pyds, ptd, ruatt, ruyds, ints, sck, pfd,
         cmpPct: r1(safe(cmp / att) * 100), ya: r2(safe(pyds / att)),
         epaG: r2(safe(epa / g)), pydsG: r1(pyds / g),
       });
@@ -20690,8 +20750,11 @@ function pickYear(year) {
       const car = sum(weeks, 'car'), ruyds = sum(weeks, 'ryds'), rutd = sum(weeks, 'rtds');
       const tgt = sum(weeks, 'tgt'), rec = sum(weeks, 'rec'), recyds = sum(weeks, 'recyds'), rectd = sum(weeks, 'rectds');
       const scrim = ruyds + recyds, touch = car + rec;
+      const yac = sum(weeks, 'yac'), recfd = sum(weeks, 'recfd'), rfd = sum(weeks, 'rfd');
+      const tsVals = weeks.map(w => w.ts).filter(v => v != null);
+      const ts = tsVals.length ? r1(tsVals.reduce((a, b) => a + b, 0) / tsVals.length) : null;
       Object.assign(base, {
-        car, ruyds, rutd, tgt, rec, recyds, rectd,
+        car, ruyds, rutd, tgt, rec, recyds, rectd, yac, recfd, rfd, ts,
         ypc: r2(safe(ruyds / car)), scrim, touch,
         yptch: r2(safe(scrim / touch)), ruydsG: r1(ruyds / g), tgtG: r1(tgt / g),
       });
@@ -20699,8 +20762,9 @@ function pickYear(year) {
       const tgt = sum(weeks, 'tgt'), rec = sum(weeks, 'rec'), recyds = sum(weeks, 'recyds'), rectd = sum(weeks, 'rectds');
       const air = sum(weeks, 'ays');
       const ts = sum(weeks, 'ts'), wopr = sum(weeks, 'wopr'), racr = sum(weeks, 'racr');
+      const yac = sum(weeks, 'yac'), recfd = sum(weeks, 'recfd');
       Object.assign(base, {
-        tgt, rec, recyds, rectd, air,
+        tgt, rec, recyds, rectd, air, yac, recfd,
         catchPct: r1(safe(rec / tgt) * 100), ypr: r2(safe(recyds / rec)),
         adot: r1(safe(air / tgt)), ts: r1(ts / g), wopr: r2(wopr / g), racr: r2(racr / g),
       });
@@ -20767,6 +20831,67 @@ function pickYear(year) {
     return _agePromise;
   }
 
+  /* ── Advanced joins: Next Gen Stats, snap share, injuries ──────────────
+     All keyed by normalized name, all lazy + timeout-guarded so a missing or
+     slow feed never blocks the leaderboard. NGS is keyed by normName already;
+     snaps/injuries ship with display names so we normalize on load.          */
+  const _ngsCache = {}, _snapCache = {};
+  let _injMap = null, _injPromise = null;
+
+  function _yearFile(stem, year) {
+    return BASE + (Number(year) === CURRENT ? '/' + stem + '.json' : '/' + stem + '_' + year + '.json');
+  }
+  function loadNGS(year) {
+    year = Number(year) || CURRENT;
+    if (_ngsCache[year]) return Promise.resolve(_ngsCache[year]);
+    return fetchT(_yearFile('nflverse_ngs', year), 7000)
+      .then(r => r.ok ? r.json() : {})
+      .then(j => { _ngsCache[year] = j || {}; return _ngsCache[year]; })
+      .catch(() => { _ngsCache[year] = {}; return {}; });
+  }
+  function loadSnaps(year) {
+    year = Number(year) || CURRENT;
+    if (_snapCache[year]) return Promise.resolve(_snapCache[year]);
+    return fetchT(_yearFile('nflverse_snaps', year), 7000)
+      .then(r => r.ok ? r.json() : {})
+      .then(j => {
+        const map = {};
+        Object.keys(j || {}).forEach(n => { map[normName(n)] = j[n]; });
+        _snapCache[year] = map; return map;
+      })
+      .catch(() => { _snapCache[year] = {}; return {}; });
+  }
+  function loadInjuries() {
+    if (_injPromise) return _injPromise;
+    _injPromise = fetchT(BASE + '/nflverse_injuries.json', 7000)
+      .then(r => r.ok ? r.json() : {})
+      .then(j => {
+        const map = {};
+        Object.keys(j || {}).forEach(n => { map[normName(n)] = j[n]; });
+        _injMap = map; return map;
+      })
+      .catch(() => { _injMap = {}; return {}; });
+    return _injPromise;
+  }
+  // Merge NGS + snaps + (current-season) injuries onto rows. Returns a promise.
+  function applyAdvanced(rows, sel) {
+    const year = (sel === 'all' || sel == null) ? CURRENT : Number(sel);
+    const wantInj = (year === CURRENT);
+    return Promise.all([loadNGS(year), loadSnaps(year), wantInj ? loadInjuries() : Promise.resolve({})])
+      .then(([ngs, snaps, inj]) => {
+        rows.forEach(r => {
+          const k = normName(r.name);
+          const n = ngs[k];
+          if (n) Object.keys(n).forEach(f => { if (r[f] == null) r[f] = n[f]; });
+          const s = snaps[k];
+          if (s) { if (s.avg_off != null) r.snap = s.avg_off; if (s.trend != null) r.snapTrend = s.trend; }
+          const i = inj[k];
+          if (i && i.status) { r.injury = i.status; r.injuryDes = i.designation || ''; }
+        });
+        return true;
+      }).catch(() => false);
+  }
+
   /* ── column model, per position ──────────────────────────────────────
      group: 'info' | 'vol' | 'eff'   ·  dec: decimal places
      hi: true = higher is better (heatmap hot)  ·  lo: lower is better      */
@@ -20774,6 +20899,7 @@ function pickYear(year) {
   const fmtDec1 = v => (v == null ? '—' : Number(v).toFixed(1));
   const fmtDec2 = v => (v == null ? '—' : Number(v).toFixed(2));
   const fmtPct = v => (v == null ? '—' : Number(v).toFixed(1));
+  const fmtSigned = v => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(1));
 
   const fmtAge = v => (v == null ? '—' : Number(v).toFixed(1));
   const COMMON_INFO = [
@@ -20790,11 +20916,21 @@ function pickYear(year) {
       { key: 'ptd', label: 'P TD', group: 'vol', w: 52, fmt: fmtInt, hi: true, hint: 'Passing touchdowns' },
       { key: 'ruatt', label: 'RU ATT', group: 'vol', w: 60, fmt: fmtInt, hi: true, hint: 'Rush attempts' },
       { key: 'ruyds', label: 'RU YDS', group: 'vol', w: 62, fmt: fmtInt, hi: true, hint: 'Rushing yards' },
+      { key: 'pfd', label: 'P 1D', group: 'vol', w: 54, fmt: fmtInt, hi: true, hint: 'Passing first downs', def_hide: true },
+      { key: 'ints', label: 'INT', group: 'vol', w: 48, fmt: fmtInt, lo: true, hint: 'Interceptions thrown', def_hide: true },
+      { key: 'sck', label: 'SACK', group: 'vol', w: 54, fmt: fmtInt, lo: true, hint: 'Sacks taken', def_hide: true },
       { key: 'cmpPct', label: 'CMP%', group: 'eff', w: 58, fmt: fmtPct, hi: true, hint: 'Completion percentage' },
       { key: 'ya', label: 'Y/A', group: 'eff', w: 52, fmt: fmtDec2, hi: true, hint: 'Yards per attempt' },
       { key: 'epaG', label: 'EPA/G', group: 'eff', w: 60, fmt: fmtDec2, hi: true, hint: 'Expected points added per game (passing)' },
       { key: 'pydsG', label: 'P YDS/G', group: 'eff', w: 68, fmt: fmtDec1, hi: true, hint: 'Passing yards per game' },
       { key: 'fppg', label: 'FP/G', group: 'eff', w: 56, fmt: fmtDec1, hi: true, hint: 'Fantasy points per game' },
+      { key: 'cpoe', label: 'CPOE', group: 'ngs', w: 58, fmt: fmtDec1, hi: true, hint: 'Completion % over expected · Next Gen', def_hide: true },
+      { key: 'ttt', label: 'TTT', group: 'ngs', w: 54, fmt: fmtDec2, lo: true, hint: 'Avg time to throw (sec) · Next Gen', def_hide: true },
+      { key: 'aggr', label: 'AGG%', group: 'ngs', w: 56, fmt: fmtDec1, hint: 'Aggressiveness — throws into tight windows · Next Gen', def_hide: true },
+      { key: 'ayts', label: 'AY2S', group: 'ngs', w: 58, fmt: fmtDec1, hi: true, hint: 'Air yards to the sticks · Next Gen', def_hide: true },
+      { key: 'snap', label: 'SNAP%', group: 'opp', w: 60, fmt: fmtPct, hi: true, hint: 'Offensive snap share', def_hide: true },
+      { key: 'boomPct', label: 'BOOM%', group: 'opp', w: 62, fmt: fmtPct, hi: true, hint: '% of games at a boom score (24+ PPR)', def_hide: true },
+      { key: 'bustPct', label: 'BUST%', group: 'opp', w: 62, fmt: fmtPct, lo: true, hint: '% of games at a bust score (≤12 PPR)', def_hide: true },
     ]),
     RB: COMMON_INFO.concat([
       { key: 'car', label: 'CAR', group: 'vol', w: 54, fmt: fmtInt, hi: true, hint: 'Carries' },
@@ -20804,11 +20940,21 @@ function pickYear(year) {
       { key: 'rec', label: 'REC', group: 'vol', w: 52, fmt: fmtInt, hi: true, hint: 'Receptions' },
       { key: 'recyds', label: 'RE YDS', group: 'vol', w: 62, fmt: fmtInt, hi: true, hint: 'Receiving yards' },
       { key: 'rectd', label: 'RE TD', group: 'vol', w: 56, fmt: fmtInt, hi: true, hint: 'Receiving touchdowns' },
+      { key: 'yac', label: 'YAC', group: 'vol', w: 54, fmt: fmtInt, hi: true, hint: 'Receiving yards after catch', def_hide: true },
       { key: 'ypc', label: 'Y/CAR', group: 'eff', w: 60, fmt: fmtDec2, hi: true, hint: 'Yards per carry' },
       { key: 'scrim', label: 'SCRIM', group: 'eff', w: 62, fmt: fmtInt, hi: true, hint: 'Total scrimmage yards' },
       { key: 'touch', label: 'TCH', group: 'eff', w: 54, fmt: fmtInt, hi: true, hint: 'Total touches (car + rec)' },
       { key: 'yptch', label: 'Y/TCH', group: 'eff', w: 60, fmt: fmtDec2, hi: true, hint: 'Yards per touch' },
+      { key: 'ts', label: 'TGT%', group: 'eff', w: 56, fmt: fmtPct, hi: true, hint: 'Team target share', def_hide: true },
       { key: 'fppg', label: 'FP/G', group: 'eff', w: 56, fmt: fmtDec1, hi: true, hint: 'Fantasy points per game' },
+      { key: 'ryoe', label: 'RYOE', group: 'ngs', w: 60, fmt: fmtDec1, hi: true, hint: 'Rush yards over expected · Next Gen', def_hide: true },
+      { key: 'ryoe_att', label: 'RYOE/A', group: 'ngs', w: 64, fmt: fmtDec2, hi: true, hint: 'Rush yards over expected per attempt · Next Gen', def_hide: true },
+      { key: 'box8', label: '8+BOX%', group: 'ngs', w: 64, fmt: fmtDec1, lo: true, hint: '% of carries vs 8+ in the box · Next Gen', def_hide: true },
+      { key: 'reff', label: 'EFF', group: 'ngs', w: 52, fmt: fmtDec2, lo: true, hint: 'Rush efficiency — lower is more north-south · Next Gen', def_hide: true },
+      { key: 'snap', label: 'SNAP%', group: 'opp', w: 60, fmt: fmtPct, hi: true, hint: 'Offensive snap share' },
+      { key: 'snapTrend', label: 'SNAPΔ', group: 'opp', w: 62, fmt: fmtSigned, hi: true, hint: 'Last-4-week snap% vs season average', def_hide: true },
+      { key: 'boomPct', label: 'BOOM%', group: 'opp', w: 62, fmt: fmtPct, hi: true, hint: '% of games at a boom score (20+ PPR)', def_hide: true },
+      { key: 'bustPct', label: 'BUST%', group: 'opp', w: 62, fmt: fmtPct, lo: true, hint: '% of games at a bust score (≤8 PPR)', def_hide: true },
     ]),
     WR: null, TE: null,
   };
@@ -20818,6 +20964,7 @@ function pickYear(year) {
     { key: 'recyds', label: 'RE YDS', group: 'vol', w: 64, fmt: fmtInt, hi: true, hint: 'Receiving yards' },
     { key: 'rectd', label: 'RE TD', group: 'vol', w: 56, fmt: fmtInt, hi: true, hint: 'Receiving touchdowns' },
     { key: 'air', label: 'AIR YDS', group: 'vol', w: 68, fmt: fmtInt, hi: true, hint: 'Total air yards' },
+    { key: 'yac', label: 'YAC', group: 'vol', w: 54, fmt: fmtInt, hi: true, hint: 'Yards after catch', def_hide: true },
     { key: 'catchPct', label: 'CATCH%', group: 'eff', w: 64, fmt: fmtPct, hi: true, hint: 'Catch rate (rec / tgt)' },
     { key: 'ypr', label: 'Y/R', group: 'eff', w: 52, fmt: fmtDec2, hi: true, hint: 'Yards per reception' },
     { key: 'adot', label: 'aDOT', group: 'eff', w: 56, fmt: fmtDec1, hi: true, hint: 'Average depth of target' },
@@ -20825,6 +20972,14 @@ function pickYear(year) {
     { key: 'wopr', label: 'WOPR', group: 'eff', w: 58, fmt: fmtDec2, hi: true, hint: 'Weighted opportunity rating' },
     { key: 'racr', label: 'RACR', group: 'eff', w: 56, fmt: fmtDec2, hi: true, hint: 'Receiver air conversion ratio' },
     { key: 'fppg', label: 'FP/G', group: 'eff', w: 56, fmt: fmtDec1, hi: true, hint: 'Fantasy points per game' },
+    { key: 'sep', label: 'SEP', group: 'ngs', w: 52, fmt: fmtDec1, hi: true, hint: 'Avg yards of separation at the catch · Next Gen', def_hide: true },
+    { key: 'cush', label: 'CUSH', group: 'ngs', w: 54, fmt: fmtDec1, hi: true, hint: 'Avg cushion from the defender · Next Gen', def_hide: true },
+    { key: 'xyac', label: '+YAC', group: 'ngs', w: 56, fmt: fmtDec1, hi: true, hint: 'YAC over expected · Next Gen', def_hide: true },
+    { key: 'tays', label: 'TAY%', group: 'ngs', w: 58, fmt: fmtDec1, hi: true, hint: '% share of team intended air yards · Next Gen', def_hide: true },
+    { key: 'snap', label: 'SNAP%', group: 'opp', w: 60, fmt: fmtPct, hi: true, hint: 'Offensive snap share' },
+    { key: 'snapTrend', label: 'SNAPΔ', group: 'opp', w: 62, fmt: fmtSigned, hi: true, hint: 'Last-4-week snap% vs season average', def_hide: true },
+    { key: 'boomPct', label: 'BOOM%', group: 'opp', w: 62, fmt: fmtPct, hi: true, hint: '% of games at a boom score', def_hide: true },
+    { key: 'bustPct', label: 'BUST%', group: 'opp', w: 62, fmt: fmtPct, lo: true, hint: '% of games at a bust score', def_hide: true },
   ]);
   COLS.WR = RECV; COLS.TE = RECV;
 
@@ -20848,23 +21003,23 @@ function pickYear(year) {
     RB: [
       { tag: 'Highest Volume', key: 'car', sub: 'Bell-cow carry share', fmt: v => Math.round(v) + ' car' },
       { tag: 'Most Efficient', key: 'ypc', sub: 'Top yards per carry', fmt: v => v.toFixed(2) + ' Y/C' },
-      { tag: 'Receiving Threat', key: 'recyds', sub: 'Most receiving yards', fmt: v => Math.round(v) + ' yds' },
       { tag: 'Goal Line', key: 'rutd', sub: 'Most rushing TDs', fmt: v => Math.round(v) + ' TD' },
       { tag: 'Workhorse', key: 'touch', sub: 'Most total touches', fmt: v => Math.round(v) + ' tch' },
+      { tag: 'Most Elusive', key: 'ryoe', sub: 'Rush yards over expected · Next Gen', fmt: v => v.toFixed(1) + ' RYOE' },
     ],
     WR: [
       { tag: 'Highest Volume', key: 'tgt', sub: 'Most targets earned', fmt: v => Math.round(v) + ' tgt' },
       { tag: 'Most Efficient', key: 'wopr', sub: 'Top opportunity rating', fmt: v => v.toFixed(2) + ' WOPR' },
       { tag: 'Most Explosive', key: 'air', sub: 'Most air yards', fmt: v => Math.round(v) + ' AY' },
       { tag: 'Best Hands', key: 'catchPct', sub: 'Top catch rate', fmt: v => v.toFixed(1) + '%' },
-      { tag: 'Red Zone', key: 'rectd', sub: 'Most receiving TDs', fmt: v => Math.round(v) + ' TD' },
+      { tag: 'Most Open', key: 'sep', sub: 'Avg yards of separation · Next Gen', fmt: v => v.toFixed(1) + ' yd' },
     ],
     TE: [
       { tag: 'Highest Volume', key: 'tgt', sub: 'Most targets earned', fmt: v => Math.round(v) + ' tgt' },
       { tag: 'Most Efficient', key: 'wopr', sub: 'Top opportunity rating', fmt: v => v.toFixed(2) + ' WOPR' },
       { tag: 'Yards Leader', key: 'recyds', sub: 'Most receiving yards', fmt: v => Math.round(v) + ' yds' },
       { tag: 'Best Hands', key: 'catchPct', sub: 'Top catch rate', fmt: v => v.toFixed(1) + '%' },
-      { tag: 'Red Zone', key: 'rectd', sub: 'Most receiving TDs', fmt: v => Math.round(v) + ' TD' },
+      { tag: 'Most Open', key: 'sep', sub: 'Avg yards of separation · Next Gen', fmt: v => v.toFixed(1) + ' yd' },
     ],
   };
 
@@ -21031,6 +21186,7 @@ function pickYear(year) {
     BASE, CURRENT, ARCHIVE_YEARS, POSSET,
     fetchMeta, buildRows, applyAges, COLS, QUALIFY, LEADERS,
     computeLeaders, percentiles, loadAges, meta: _meta,
+    applyAdvanced, loadNGS, loadSnaps, loadInjuries, inOffseason,
     // game logs
     FPA, FPA_RANK, dvp, matchupTier, loadSchedule, oppFor,
     playerIndex, getPlayerLog, LOG_COLS, normName,
@@ -21055,13 +21211,31 @@ function pickYear(year) {
   const D = window.RHData;
   const POS_LIST = ['QB', 'RB', 'WR', 'TE'];
   const POS_COLOR = { QB: 'var(--qb)', RB: 'var(--rb)', WR: 'var(--wr)', TE: 'var(--te)' };
-  const SEASONS = [['2025', '2025'], ['2024', '2024'], ['2023', '2023'], ['all', 'All']];
-  const GL_SEASONS = ['2025', '2024', '2023'];
-  const GROUP_LABEL = { info: 'Player Info', vol: 'Volume / Usage', eff: 'Efficiency / Advanced' };
+  // Season lists are rebuilt from nflverse_meta.json in syncSeasons() so the
+  // page rolls over on its own; these are just the offline defaults.
+  let SEASONS = [['2025', '2025'], ['2024', '2024'], ['2023', '2023'], ['all', 'All']];
+  let GL_SEASONS = ['2025', '2024', '2023'];
+  const GROUP_LABEL = { info: 'Player Info', vol: 'Volume / Usage', eff: 'Efficiency / Advanced', ngs: 'Next Gen Stats', opp: 'Opportunity / Consistency' };
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const initials = n => (n || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const r1 = n => Math.round(n * 10) / 10;
+  // Injury status → short tag + severity class for the inline player badge.
+  function injClass(s) {
+    s = (s || '').toLowerCase();
+    if (s.includes('out') || s.includes('reserve') || s === 'ir') return 'out';
+    if (s.includes('doubt')) return 'doubt';
+    if (s.includes('quest')) return 'q';
+    return 'q';
+  }
+  function injShort(s) {
+    s = (s || '').toLowerCase();
+    if (s.includes('reserve') || s === 'ir') return 'IR';
+    if (s.includes('out')) return 'OUT';
+    if (s.includes('doubt')) return 'D';
+    if (s.includes('quest')) return 'Q';
+    return s.slice(0, 1).toUpperCase();
+  }
 
   // avatar with headshot + initials fallback (img onerror reveals initials)
   function avatar(p, cls) {
@@ -21087,10 +21261,14 @@ function pickYear(year) {
       if (!rows.length) AS.err = 'No data returned for ' + s + '.';
       asRender();
       D.loadAges().then(() => { if (D.applyAges(rows) && AS.season === s) asRender(); }).catch(() => {});
+      D.applyAdvanced(rows, s).then(ok => { if (ok && AS.season === s) asRender(); }).catch(() => {});
     }).catch(e => { AS.err = e.message; AS.loading = false; asRender(); });
   }
 
-  function asVisCols() { return D.COLS[AS.pos].filter(c => !AS.hidden[c.key]); }
+  // A column is hidden if the user explicitly toggled it off, else by its
+  // def_hide default (advanced metrics start collapsed to keep the board calm).
+  function asHidden(c) { const h = AS.hidden[c.key]; return h === undefined ? !!c.def_hide : h; }
+  function asVisCols() { return D.COLS[AS.pos].filter(c => !asHidden(c)); }
   function asPosRows() { return AS.rows.filter(r => r.pos === AS.pos); }
 
   function asComputed() {
@@ -21132,13 +21310,23 @@ function pickYear(year) {
       const active = AS.sortKey === c.key;
       return `<th class="rh-th${active ? ' on' : ''}${c.group === 'eff' ? ' grp-eff' : ''}" data-rh-sort="${c.key}" title="${esc(c.hint)}"><span class="rh-th-in">${esc(c.label)}<span class="rh-sort">${active ? (AS.sortDir === 'desc' ? '▾' : '▴') : '⇅'}</span></span></th>`;
     }).join('')}</tr>`;
+    // Per-column percentile ramps drive a quiet heatmap. Only directional
+    // metrics (hi/lo) get shaded, so neutral stats stay plain — tasteful by
+    // default, the column you sort by glows a touch hotter.
+    const heatFns = {};
+    cols.forEach(c => { if (c.group !== 'info' && (c.hi || c.lo)) heatFns[c.key] = D.percentiles(rows, c.key, !!c.lo); });
     const body = rows.length ? rows.map((row, ri) => {
       const cells = cols.map(c => {
         const v = row[c.key];
         const on = AS.sortKey === c.key;
-        return `<td class="rh-td num${c.group === 'eff' ? ' grp-eff' : ''}${on ? ' on' : ''}"><span class="rh-val">${esc(c.fmt(v))}</span></td>`;
+        const hf = heatFns[c.key];
+        const hp = (hf && v != null) ? hf(v) : null;
+        const tint = hp != null ? Math.round(hp * (on ? 22 : 15)) : 0;
+        const style = tint > 0 ? ` style="background:color-mix(in srgb, ${POS_COLOR[row.pos]} ${tint}%, transparent)"` : '';
+        return `<td class="rh-td num${c.group === 'eff' ? ' grp-eff' : ''}${on ? ' on' : ''}"${style}><span class="rh-val">${esc(c.fmt(v))}</span></td>`;
       }).join('');
-      return `<tr class="rh-tr"><td class="rh-td rh-sticky rh-td-player"><div class="rh-pl"><span class="rh-rank">${ri + 1}</span>${avatar(row, 'rh-av')}<span class="rh-pl-id"><span class="rh-pl-name">${esc(row.name)}</span><span class="rh-pl-meta"><span class="rh-pos" style="color:${POS_COLOR[row.pos]};border-color:${POS_COLOR[row.pos]}40;background:${POS_COLOR[row.pos]}14">${esc(row.pos)}</span><span class="rh-team">${esc(row.team)}</span></span></span></div></td>${cells}</tr>`;
+      const inj = row.injury ? `<span class="rh-inj rh-inj-${injClass(row.injury)}" title="${esc((row.injuryDes ? row.injuryDes + ' · ' : '') + row.injury)}">${esc(injShort(row.injury))}</span>` : '';
+      return `<tr class="rh-tr"><td class="rh-td rh-sticky rh-td-player"><div class="rh-pl"><span class="rh-rank">${ri + 1}</span>${avatar(row, 'rh-av')}<span class="rh-pl-id"><span class="rh-pl-name">${esc(row.name)}${inj}</span><span class="rh-pl-meta"><span class="rh-pos" style="color:${POS_COLOR[row.pos]};border-color:${POS_COLOR[row.pos]}40;background:${POS_COLOR[row.pos]}14">${esc(row.pos)}</span><span class="rh-team">${esc(row.team)}</span></span></span></div></td>${cells}</tr>`;
     }).join('') : `<tr><td class="rh-empty" colspan="${cols.length + 1}">No players match these filters.</td></tr>`;
     const colgroup = `<colgroup><col style="width:268px">${cols.map(c => `<col style="width:${c.w}px">`).join('')}</colgroup>`;
     return `<div class="rh-tablewrap"><table class="rh-table">${colgroup}<thead>${groupRow}${colRow}</thead><tbody>${body}</tbody></table></div>`;
@@ -21146,10 +21334,10 @@ function pickYear(year) {
 
   function asColMenuHtml(cols) {
     if (!AS.colMenu) return '';
-    const byGroup = { info: [], vol: [], eff: [] };
-    cols.forEach(c => { if (byGroup[c.group]) byGroup[c.group].push(c); });
-    const grp = g => `<div class="rh-colmenu-grp"><div class="rh-colmenu-gl">${GROUP_LABEL[g]}</div>${byGroup[g].map(c => `<label class="rh-colmenu-item"><input type="checkbox" data-rh-colkey="${c.key}" ${AS.hidden[c.key] ? '' : 'checked'} ${c.key === 'fpts' ? 'disabled' : ''}><span>${esc(c.label)}</span><span class="rh-colmenu-hint">${esc(c.hint)}</span></label>`).join('')}</div>`;
-    return `<div class="rh-colmenu">${['info', 'vol', 'eff'].map(grp).join('')}</div>`;
+    const order = [], byGroup = {};
+    cols.forEach(c => { if (!byGroup[c.group]) { byGroup[c.group] = []; order.push(c.group); } byGroup[c.group].push(c); });
+    const grp = g => `<div class="rh-colmenu-grp"><div class="rh-colmenu-gl">${GROUP_LABEL[g] || g}</div>${byGroup[g].map(c => `<label class="rh-colmenu-item"><input type="checkbox" data-rh-colkey="${c.key}" ${asHidden(c) ? '' : 'checked'} ${c.key === 'fpts' ? 'disabled' : ''}><span>${esc(c.label)}</span><span class="rh-colmenu-hint">${esc(c.hint)}</span></label>`).join('')}</div>`;
+    return `<div class="rh-colmenu">${order.map(grp).join('')}</div>`;
   }
 
   /* Mobile (≤700px): one metric ranks the board at a time, chips re-rank,
@@ -21239,6 +21427,7 @@ function pickYear(year) {
           <h1 class="rh-title">Advanced Stats</h1>
           <div class="rh-rule"></div>
           <p class="rh-sub">Every advanced stat, sortable and searchable with the columns you choose. Live from nflverse + RosterAudit.</p>
+          ${(D.inOffseason && D.inOffseason()) ? `<div class="rh-offnote">◷ ${esc(String(D.meta.detected))} season hasn’t started — showing ${esc(String(D.meta.current))}.</div>` : ''}
         </div>
         <div class="rh-modeseg">
           <button class="${AS.mode === 'data' ? 'on' : ''}" data-rh-mode="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>Data</button>
@@ -21321,8 +21510,12 @@ function pickYear(year) {
     const headCols = players.map(p => `<th class="rh-cmp-ph"><span class="rh-cmp-ph-in">${avatar(p, 'rh-cmp-ph-av')}<span class="rh-cmp-ph-name">${esc(p.name.split(' ').slice(-1)[0])}</span><span class="rh-cmp-ph-team">${esc(p.team)}</span></span></th>`).join('');
     let rowsHtml = '';
     groups.forEach(g => {
+      // only show metrics at least one player has a value for (keeps NGS rows
+      // from filling the table with em-dashes when that feed isn't in yet)
+      const liveCols = g.cols.filter(c => players.some(p => p[c.key] != null && isFinite(p[c.key])));
+      if (!liveCols.length) return;
       rowsHtml += `<tr class="rh-cmp-grouprow"><td colspan="${players.length + 1}">${GROUP_LABEL[g.key] || ''}</td></tr>`;
-      g.cols.forEach(c => {
+      liveCols.forEach(c => {
         const vals = players.map(p => p[c.key]);
         const valid = vals.filter(v => v != null && isFinite(v));
         const lo = !!c.lo;
@@ -21506,7 +21699,7 @@ function pickYear(year) {
     const adv = e.target.closest('#page-advstats');
     if (adv) {
       const pos = e.target.closest('[data-rh-pos]'); if (pos) { AS.pos = pos.dataset.rhPos; AS.sortKey = 'fpts'; AS.sortDir = 'desc'; AS.hidden = {}; AS.colMenu = false; CMP.players = []; CMP.search = ''; CMP.acOpen = false; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
-      const ssn = e.target.closest('[data-rh-season]'); if (ssn) { AS.season = ssn.dataset.rhSeason; asLoadSeason(); return; }
+      const ssn = e.target.closest('[data-rh-season]'); if (ssn) { AS.season = ssn.dataset.rhSeason; AS._userSeason = true; asLoadSeason(); return; }
       const mode = e.target.closest('[data-rh-mode]'); if (mode) { AS.mode = mode.dataset.rhMode; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
       const cmpAdd = e.target.closest('[data-rh-cmpadd]'); if (cmpAdd) { const n = cmpAdd.dataset.rhCmpadd; if (CMP.players.indexOf(n) < 0 && CMP.players.length < 3) CMP.players.push(n); CMP.search = ''; CMP.acOpen = false; asRender(); return; }
       const cmpRm = e.target.closest('[data-rh-cmpremove]'); if (cmpRm) { CMP.players = CMP.players.filter(x => x !== cmpRm.dataset.rhCmpremove); asRender(); return; }
@@ -21522,7 +21715,7 @@ function pickYear(year) {
     // ── Game Logs ──
     const gl = e.target.closest('#page-gamelogs');
     if (gl) {
-      const ssn = e.target.closest('[data-rh-glseason]'); if (ssn) { GL.season = ssn.dataset.rhGlseason; GL.acOpen = false; GL.acQuery = ''; glLoadSeason(); return; }
+      const ssn = e.target.closest('[data-rh-glseason]'); if (ssn) { GL.season = ssn.dataset.rhGlseason; GL._userSeason = true; GL.acOpen = false; GL.acQuery = ''; glLoadSeason(); return; }
       const pick = e.target.closest('[data-rh-glpick]'); if (pick) { GL.name = pick.dataset.rhGlpick; GL.acOpen = false; GL.acQuery = ''; glBuild(); glRender(); return; }
       const dvp = e.target.closest('[data-rh-gldvp]'); if (dvp) { GL.dvpFilter = dvp.dataset.rhGldvp; glRenderBody(); return; }
       const ha = e.target.closest('[data-rh-glha]'); if (ha) { GL.ha = ha.dataset.rhGlha; glRenderBody(); return; }
@@ -21540,7 +21733,7 @@ function pickYear(year) {
   });
   document.addEventListener('change', e => {
     if (e.target.id === 'rh-gl-opp') { GL.opp = e.target.value; glRenderBody(); }
-    if (e.target.dataset && e.target.dataset.rhColkey) { const k = e.target.dataset.rhColkey; AS.hidden[k] = !e.target.checked ? true : false; if (e.target.checked) delete AS.hidden[k]; asRender(); }
+    if (e.target.dataset && e.target.dataset.rhColkey) { const k = e.target.dataset.rhColkey; AS.hidden[k] = !e.target.checked; asRender(); }
   });
   document.addEventListener('focusin', e => {
     if (e.target.id === 'rh-gl-search') { GL.acOpen = true; glRenderAc(); }
@@ -21647,6 +21840,11 @@ function pickYear(year) {
     ${S} .rh-av{width:34px;height:34px;border-radius:9px;overflow:hidden;flex-shrink:0;background:var(--s3);border:1px solid var(--border2);font-size:11px}
     ${S} .rh-pl-id{display:flex;flex-direction:column;gap:2px;min-width:0}
     ${S} .rh-pl-name{font-family:var(--font-sans);font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:var(--text);white-space:nowrap}
+    ${S} .rh-inj{display:inline-block;margin-left:6px;font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.04em;padding:1px 4px;border-radius:4px;vertical-align:middle;border:1px solid transparent}
+    ${S} .rh-inj-out{color:var(--accent2,#ff6b6b);background:color-mix(in srgb,var(--accent2,#ff6b6b) 16%,transparent);border-color:color-mix(in srgb,var(--accent2,#ff6b6b) 38%,transparent)}
+    ${S} .rh-inj-doubt{color:#ff9a4d;background:color-mix(in srgb,#ff9a4d 16%,transparent);border-color:color-mix(in srgb,#ff9a4d 38%,transparent)}
+    ${S} .rh-inj-q{color:var(--te,#e0b54d);background:color-mix(in srgb,var(--te,#e0b54d) 15%,transparent);border-color:color-mix(in srgb,var(--te,#e0b54d) 34%,transparent)}
+    ${S} .rh-offnote{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;color:var(--te,#e0b54d);background:color-mix(in srgb,var(--te,#e0b54d) 12%,transparent);border:1px solid color-mix(in srgb,var(--te,#e0b54d) 30%,transparent);border-radius:7px;padding:4px 9px;margin-top:9px}
     ${S} .rh-pl-meta{display:flex;align-items:center;gap:6px}
     ${S} .rh-pos{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;border:1px solid}
     ${S} .rh-team{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);letter-spacing:.05em}
@@ -21860,11 +22058,24 @@ function pickYear(year) {
 
   function injectResearchSubnav() { /* removed, Research Hub now lands directly on Advanced Stats */ }
 
+  // Rebuild the season pickers from nflverse_meta.json so the whole page rolls
+  // over to a new season automatically. Respects a user's manual season pick.
+  function syncSeasons() {
+    const cur = (D.meta && D.meta.current) || 2025;
+    const ys = (D.ARCHIVE_YEARS && D.ARCHIVE_YEARS.length ? D.ARCHIVE_YEARS : [cur, cur - 1, cur - 2]).slice(0, 3);
+    SEASONS = ys.map(y => [String(y), String(y)]).concat([['all', 'All']]);
+    GL_SEASONS = ys.map(String);
+    if (!AS._userSeason) AS.season = String(cur);
+    if (!GL._userSeason) GL.season = String(cur);
+    if (AS.booted) asLoadSeason(); else asRender();
+    if (GL.booted) glRender();
+  }
+
   function boot() {
     if (!window.RHData) { return; }
     injectStyles(); injectStylesForNav(); injectPages(); injectNavDropdown();
-    // prime ages + meta early (cheap, cached)
-    try { D.fetchMeta(); D.loadAges(); } catch (e) {}
+    // prime ages + meta early (cheap, cached); meta sets the season pickers
+    try { D.loadAges(); D.fetchMeta().then(syncSeasons).catch(() => {}); } catch (e) {}
     let tries = 0;
     const t = setInterval(() => { if (hookShowPage() || ++tries > 50) clearInterval(t); }, 100);
   }
