@@ -21258,18 +21258,38 @@ function pickYear(year) {
   /* ════════════════════════ ADVANCED STATS ════════════════════════ */
   const AS = {
     pos: 'QB', season: '2025', search: '', qualified: true,
-    sortKey: 'fpts', sortDir: 'desc', hidden: {}, mode: 'data',
+    sortKey: 'fpts', sortDir: 'desc', mode: 'data',
     colMenu: false, loading: true, err: null, rows: [], rowsCache: {}, booted: false,
-    // Per-position custom column order. Map of pos -> [key, key, ...]. Empty
-    // means "use the default order from D.COLS[pos]". Persisted to
-    // localStorage so a user's layout survives reloads.
+    // Per-position layout state, persisted to localStorage so a user's column
+    // ordering AND show/hide choices survive reloads + position switches. Maps
+    // are keyed by position (QB/RB/WR/TE); each value is itself keyed by
+    // column key. `hidden` is { pos: { colKey: true/false } } — true means
+    // the user explicitly hid the column, false means they explicitly showed
+    // it (overriding a def_hide default). Undefined means "use def_hide".
     order: (function () {
       try { return JSON.parse(localStorage.getItem('vault.advstats.order') || '{}') || {}; }
       catch (e) { return {}; }
     })(),
+    hiddenByPos: (function () {
+      try { return JSON.parse(localStorage.getItem('vault.advstats.hidden') || '{}') || {}; }
+      catch (e) { return {}; }
+    })(),
   };
+  // Active position's hidden map — kept as a live reference into hiddenByPos
+  // so existing asHidden() / the toggle handlers don't need rewrites.
+  AS.hidden = AS.hiddenByPos[AS.pos] = AS.hiddenByPos[AS.pos] || {};
   function asSaveOrder() {
     try { localStorage.setItem('vault.advstats.order', JSON.stringify(AS.order)); } catch (e) {}
+  }
+  function asSaveHidden() {
+    try { localStorage.setItem('vault.advstats.hidden', JSON.stringify(AS.hiddenByPos)); } catch (e) {}
+  }
+  // Swap the active hidden map when the user picks a different position. The
+  // map is shared by reference with hiddenByPos[pos], so subsequent mutations
+  // (toggle / reset) flow through to localStorage on the next save.
+  function asUsePos(pos) {
+    AS.pos = pos;
+    AS.hidden = AS.hiddenByPos[pos] = AS.hiddenByPos[pos] || {};
   }
   // Return COLS[pos] with the user's custom order applied (if any). Drops
   // unknown keys (e.g. removed columns) and appends any new columns to the end
@@ -21827,7 +21847,7 @@ function pickYear(year) {
     // ── Advanced Stats ──
     const adv = e.target.closest('#page-advstats');
     if (adv) {
-      const pos = e.target.closest('[data-rh-pos]'); if (pos) { AS.pos = pos.dataset.rhPos; AS.sortKey = 'fpts'; AS.sortDir = 'desc'; AS.hidden = {}; AS.colMenu = false; CMP.players = []; CMP.search = ''; CMP.acOpen = false; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
+      const pos = e.target.closest('[data-rh-pos]'); if (pos) { asUsePos(pos.dataset.rhPos); AS.sortKey = 'fpts'; AS.sortDir = 'desc'; AS.colMenu = false; CMP.players = []; CMP.search = ''; CMP.acOpen = false; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
       const ssn = e.target.closest('[data-rh-season]'); if (ssn) { AS.season = ssn.dataset.rhSeason; AS._userSeason = true; asLoadSeason(); return; }
       const mode = e.target.closest('[data-rh-mode]'); if (mode) { AS.mode = mode.dataset.rhMode; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
       const cmpAdd = e.target.closest('[data-rh-cmpadd]'); if (cmpAdd) { const n = cmpAdd.dataset.rhCmpadd; if (CMP.players.indexOf(n) < 0 && CMP.players.length < 3) CMP.players.push(n); CMP.search = ''; CMP.acOpen = false; asRender(); return; }
@@ -21843,7 +21863,7 @@ function pickYear(year) {
       const colRow = e.target.closest('[data-rh-colrow]');
       if (colRow && !e.target.closest('.rh-colmenu-drag') && e.target.tagName !== 'INPUT' && !colRow.classList.contains('locked')) {
         const cb = colRow.querySelector('input[type=checkbox]');
-        if (cb) { cb.checked = !cb.checked; AS.hidden[colRow.dataset.rhColrow] = !cb.checked; asRender(); }
+        if (cb) { cb.checked = !cb.checked; AS.hidden[colRow.dataset.rhColrow] = !cb.checked; asSaveHidden(); asRender(); }
         return;
       }
       if (AS.colMenu && !e.target.closest('.rh-colmenu') && !e.target.closest('[data-rh-colmenu]')) { AS.colMenu = false; asRender(); }
@@ -21871,7 +21891,7 @@ function pickYear(year) {
   });
   document.addEventListener('change', e => {
     if (e.target.id === 'rh-gl-opp') { GL.opp = e.target.value; glRenderBody(); }
-    if (e.target.dataset && e.target.dataset.rhColkey) { const k = e.target.dataset.rhColkey; AS.hidden[k] = !e.target.checked; asRender(); }
+    if (e.target.dataset && e.target.dataset.rhColkey) { const k = e.target.dataset.rhColkey; AS.hidden[k] = !e.target.checked; asSaveHidden(); asRender(); }
   });
   document.addEventListener('focusin', e => {
     if (e.target.id === 'rh-gl-search') { GL.acOpen = true; glRenderAc(); }
