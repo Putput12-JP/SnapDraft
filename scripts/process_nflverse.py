@@ -23,8 +23,10 @@ ARCHIVE_SEASON = None
 STATS_BASE = "https://github.com/nflverse/nflverse-data/releases/download/stats_player"
 OLD_BASE   = "https://github.com/nflverse/nflverse-data/releases/download"
 NGS_BASE   = "https://github.com/nflverse/nflverse-data/releases/download/nextgen_stats"
+PFR_BASE   = "https://github.com/nflverse/nflverse-data/releases/download/pfr_advstats"
 SLEEPER_STATE = "https://api.sleeper.com/state/nfl"
 NGS_FIRST_YEAR = 2016  # Next Gen Stats only exist from 2016 on
+PFR_FIRST_YEAR = 2018  # PFR advanced stats coverage starts here
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -326,6 +328,93 @@ def fetch_ngs(season):
     return merged
 
 
+# ── PFR advanced stats ─────────────────────────────────────────────────────
+# PFR ships WEEKLY rows (no season-summary row), so we aggregate to a season
+# summary: weighted averages for rates (drop %, pressure %, YBC/A, YAC/A) and
+# totals for counting stats (broken tackles, hurries, etc.). Reliably published
+# for 2024 + 2025 — the gap NGS currently has.
+PFR_PASS_SUM = ("times_sacked", "times_blitzed", "times_hurried", "times_hit",
+                "times_pressured", "passing_bad_throws", "passing_drops")
+PFR_REC_SUM = ("receiving_drop", "receiving_broken_tackles", "receiving_int")
+PFR_RUSH_SUM = ("carries", "rushing_yards_before_contact",
+                "rushing_yards_after_contact", "rushing_broken_tackles")
+
+
+def _accum(d, key, val):
+    f = sf(val); d[key] = d.get(key, 0) + (f if f is not None else 0)
+
+
+def process_pfr(kind, rows):
+    """Aggregate weekly PFR rows by player → season summary."""
+    by = {}
+    for row in rows:
+        if row.get("game_type", "REG") not in ("REG", "regular"):
+            continue
+        name = row.get("pfr_player_name") or ""
+        if not name: continue
+        rec = by.setdefault(norm_name(name), {"_g": 0})
+        rec["_g"] += 1
+        if kind == "pass":
+            for f in PFR_PASS_SUM: _accum(rec, f, row.get(f))
+        elif kind == "rec":
+            for f in PFR_REC_SUM: _accum(rec, f, row.get(f))
+            # receiving_rat is already a rate; average it across games
+            r = sf(row.get("receiving_rat"))
+            if r is not None:
+                rec.setdefault("_rat", []).append(r)
+        elif kind == "rush":
+            for f in PFR_RUSH_SUM: _accum(rec, f, row.get(f))
+    out = {}
+    for k, rec in by.items():
+        g = rec.get("_g", 0)
+        if not g: continue
+        slot = {}
+        if kind == "pass":
+            # carry totals + derived per-game / rate fields
+            sk = rec.get("times_sacked", 0); pr = rec.get("times_pressured", 0)
+            hu = rec.get("times_hurried", 0); ht = rec.get("times_hit", 0)
+            bz = rec.get("times_blitzed", 0); bt = rec.get("passing_bad_throws", 0)
+            # PFR pressure/bad-throw % are fractions in the CSV (e.g. 0.18 = 18%).
+            # We store as a real percentage so the front-end renders 18.0%.
+            slot["press_pct"] = round(pr / max(bz, 1) * 100, 1)
+            slot["bt_pct_g"] = round(bt / g, 1)
+            slot["hur_g"] = round(hu / g, 1)
+            slot["hit_g"] = round(ht / g, 1)
+            slot["sk_g"] = round(sk / g, 2)
+        elif kind == "rec":
+            dr = rec.get("receiving_drop", 0); brk = rec.get("receiving_broken_tackles", 0)
+            slot["drops"] = int(dr)
+            slot["bktk"] = int(brk)
+            rats = rec.get("_rat") or []
+            if rats:
+                slot["rec_rat"] = round(sum(rats) / len(rats), 1)
+        elif kind == "rush":
+            car = rec.get("carries", 0)
+            ybc = rec.get("rushing_yards_before_contact", 0)
+            yac_r = rec.get("rushing_yards_after_contact", 0)
+            brk = rec.get("rushing_broken_tackles", 0)
+            slot["ybca"] = round(ybc / car, 2) if car else None
+            slot["yaca"] = round(yac_r / car, 2) if car else None
+            slot["rbktk"] = int(brk)
+        for f, v in slot.items():
+            if v is not None: out.setdefault(k, {})[f] = v
+    return out
+
+
+def fetch_pfr(season):
+    """Return {normName: {…pfr fields}} for a season, merged across pass/rec/rush."""
+    if season < PFR_FIRST_YEAR:
+        return {}
+    merged = {}
+    for kind in ("pass", "rec", "rush"):
+        rows = try_fetch_csv_gz(f"{PFR_BASE}/advstats_week_{kind}_{season}.csv.gz",
+                                f"pfr_{season}_{kind}")
+        if rows:
+            for k, rec in process_pfr(kind, rows).items():
+                merged.setdefault(k, {}).update(rec)
+    return merged
+
+
 def process_snaps(rows):
     players = {}
     for row in rows:
@@ -381,7 +470,13 @@ def run_season(season, with_injuries=False):
 
     snaps = process_snaps(try_fetch_csv(f"{OLD_BASE}/snap_counts/snap_counts_{season}.csv",
                                         f"snap_counts_{season}"))
+    # NGS + PFR live in the same "advanced tracking" file. NGS is the deep
+    # 2016-2023 record; PFR fills the 2024+ gap with pressure / contact /
+    # broken-tackle data nflverse currently hasn't republished for NGS.
     ngs = fetch_ngs(season)
+    pfr = fetch_pfr(season)
+    for k, rec in pfr.items():
+        ngs.setdefault(k, {}).update(rec)
 
     if with_injuries:
         inj = process_injuries(try_fetch_csv(f"{OLD_BASE}/injuries/injuries_{season}.csv",

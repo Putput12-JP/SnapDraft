@@ -20928,6 +20928,10 @@ function pickYear(year) {
       { key: 'ttt', label: 'TTT', group: 'ngs', w: 54, fmt: fmtDec2, lo: true, hint: 'Avg time to throw (sec) · Next Gen', def_hide: true },
       { key: 'aggr', label: 'AGG%', group: 'ngs', w: 56, fmt: fmtDec1, hint: 'Aggressiveness — throws into tight windows · Next Gen', def_hide: true },
       { key: 'ayts', label: 'AY2S', group: 'ngs', w: 58, fmt: fmtDec1, hi: true, hint: 'Air yards to the sticks · Next Gen', def_hide: true },
+      { key: 'press_pct', label: 'PRESS%', group: 'ngs', w: 64, fmt: fmtPct, lo: true, hint: '% of dropbacks pressured when blitzed · PFR' },
+      { key: 'bt_pct_g', label: 'BAD/G', group: 'ngs', w: 58, fmt: fmtDec1, lo: true, hint: 'Bad throws per game · PFR' },
+      { key: 'hur_g', label: 'HUR/G', group: 'ngs', w: 58, fmt: fmtDec1, lo: true, hint: 'Hurries allowed per game · PFR', def_hide: true },
+      { key: 'hit_g', label: 'HIT/G', group: 'ngs', w: 58, fmt: fmtDec1, lo: true, hint: 'QB hits taken per game · PFR', def_hide: true },
       { key: 'snap', label: 'SNAP%', group: 'opp', w: 60, fmt: fmtPct, hi: true, hint: 'Offensive snap share', def_hide: true },
       { key: 'boomPct', label: 'BOOM%', group: 'opp', w: 62, fmt: fmtPct, hi: true, hint: '% of games at a boom score (24+ PPR)', def_hide: true },
       { key: 'bustPct', label: 'BUST%', group: 'opp', w: 62, fmt: fmtPct, lo: true, hint: '% of games at a bust score (≤12 PPR)', def_hide: true },
@@ -20951,6 +20955,9 @@ function pickYear(year) {
       { key: 'ryoe_att', label: 'RYOE/A', group: 'ngs', w: 64, fmt: fmtDec2, hi: true, hint: 'Rush yards over expected per attempt · Next Gen', def_hide: true },
       { key: 'box8', label: '8+BOX%', group: 'ngs', w: 64, fmt: fmtDec1, lo: true, hint: '% of carries vs 8+ in the box · Next Gen', def_hide: true },
       { key: 'reff', label: 'EFF', group: 'ngs', w: 52, fmt: fmtDec2, lo: true, hint: 'Rush efficiency — lower is more north-south · Next Gen', def_hide: true },
+      { key: 'ybca', label: 'YBC/A', group: 'ngs', w: 60, fmt: fmtDec2, hi: true, hint: 'Rushing yards before contact per attempt · PFR' },
+      { key: 'yaca', label: 'YAC/A', group: 'ngs', w: 60, fmt: fmtDec2, hi: true, hint: 'Rushing yards after contact per attempt · PFR' },
+      { key: 'rbktk', label: 'BRK', group: 'ngs', w: 54, fmt: fmtInt, hi: true, hint: 'Broken tackles on rushes · PFR' },
       { key: 'snap', label: 'SNAP%', group: 'opp', w: 60, fmt: fmtPct, hi: true, hint: 'Offensive snap share' },
       { key: 'snapTrend', label: 'SNAPΔ', group: 'opp', w: 62, fmt: fmtSigned, hi: true, hint: 'Last-4-week snap% vs season average', def_hide: true },
       { key: 'boomPct', label: 'BOOM%', group: 'opp', w: 62, fmt: fmtPct, hi: true, hint: '% of games at a boom score (20+ PPR)', def_hide: true },
@@ -20976,6 +20983,9 @@ function pickYear(year) {
     { key: 'cush', label: 'CUSH', group: 'ngs', w: 54, fmt: fmtDec1, hi: true, hint: 'Avg cushion from the defender · Next Gen', def_hide: true },
     { key: 'xyac', label: '+YAC', group: 'ngs', w: 56, fmt: fmtDec1, hi: true, hint: 'YAC over expected · Next Gen', def_hide: true },
     { key: 'tays', label: 'TAY%', group: 'ngs', w: 58, fmt: fmtDec1, hi: true, hint: '% share of team intended air yards · Next Gen', def_hide: true },
+    { key: 'drops', label: 'DROPS', group: 'ngs', w: 58, fmt: fmtInt, lo: true, hint: 'Dropped passes · PFR' },
+    { key: 'bktk', label: 'BRK', group: 'ngs', w: 54, fmt: fmtInt, hi: true, hint: 'Broken tackles after the catch · PFR' },
+    { key: 'rec_rat', label: 'REC RAT', group: 'ngs', w: 70, fmt: fmtDec1, hi: true, hint: 'Receiver rating when targeted · PFR', def_hide: true },
     { key: 'snap', label: 'SNAP%', group: 'opp', w: 60, fmt: fmtPct, hi: true, hint: 'Offensive snap share' },
     { key: 'snapTrend', label: 'SNAPΔ', group: 'opp', w: 62, fmt: fmtSigned, hi: true, hint: 'Last-4-week snap% vs season average', def_hide: true },
     { key: 'boomPct', label: 'BOOM%', group: 'opp', w: 62, fmt: fmtPct, hi: true, hint: '% of games at a boom score', def_hide: true },
@@ -21215,7 +21225,7 @@ function pickYear(year) {
   // page rolls over on its own; these are just the offline defaults.
   let SEASONS = [['2025', '2025'], ['2024', '2024'], ['2023', '2023'], ['all', 'All']];
   let GL_SEASONS = ['2025', '2024', '2023'];
-  const GROUP_LABEL = { info: 'Player Info', vol: 'Volume / Usage', eff: 'Efficiency / Advanced', ngs: 'Next Gen Stats', opp: 'Opportunity / Consistency' };
+  const GROUP_LABEL = { info: 'Player Info', vol: 'Volume / Usage', eff: 'Efficiency / Advanced', ngs: 'Advanced Tracking', opp: 'Opportunity / Consistency' };
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const initials = n => (n || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -21270,6 +21280,14 @@ function pickYear(year) {
   function asHidden(c) { const h = AS.hidden[c.key]; return h === undefined ? !!c.def_hide : h; }
   function asVisCols() { return D.COLS[AS.pos].filter(c => !asHidden(c)); }
   function asPosRows() { return AS.rows.filter(r => r.pos === AS.pos); }
+  // Drop columns where every row's value is null. Keeps the table from
+  // showing a wall of em-dashes when an advanced feed (e.g. NGS for a current
+  // season nflverse hasn't published) has no data — affected columns simply
+  // disappear until the feed is back.
+  function asLiveCols(cols, rows) {
+    if (!rows || !rows.length) return cols;
+    return cols.filter(c => c.group === 'info' || rows.some(r => r[c.key] != null && isFinite(r[c.key])));
+  }
 
   function asComputed() {
     const posRows = asPosRows();
@@ -21405,8 +21423,8 @@ function pickYear(year) {
       let main;
       if (AS.loading) main = `<div class="rh-loading"><span class="rh-spin">⟳</span> Loading ${esc(seasonLabel)} from nflverse…</div>`;
       else if (AS.err) main = `<div class="rh-loading err">Couldn’t load data, ${esc(AS.err)}</div>`;
-      else main = asIsMobile() ? asMobileHtml(rows, visCols)
-        : asLeadersHtml(posRows) + asTableHtml(rows, visCols);
+      else { const liveCols = asLiveCols(visCols, posRows); main = asIsMobile() ? asMobileHtml(rows, liveCols)
+        : asLeadersHtml(posRows) + asTableHtml(rows, liveCols); }
       middle = `
       <div class="rh-tools">
         <div class="rh-search">
