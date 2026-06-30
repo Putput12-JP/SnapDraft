@@ -50,7 +50,7 @@
    Requires Node 18+ (global fetch). No npm install needed for the turnkey set.
    ════════════════════════════════════════════════════════════════════════ */
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { buildVegas } from './src-vegas.mjs';
 
@@ -364,14 +364,38 @@ async function main() {
   put(sleeper, 'sleeper'); put(espnOk, 'espn'); put(cbsOk, 'cbs'); put(nflOk, 'nfl'); put(dkOk, 'draftkings');
   for (const id of Object.keys(statlines)) if (players[id]) players[id].stats = statlines[id];
 
+  /* PRESERVE EXISTING PROPS when this run produced none.
+     PrizePicks props are written by a SEPARATE workflow (update-props.yml).
+     Without this guard, every 6h this lineup builder would overwrite their
+     work with `{}` — exactly the race that left vegas_player_props empty
+     for months. We only swap in fresh props when liveProps actually returned
+     a non-empty bundle (ParlayAPI subscribed); otherwise we keep what
+     update-props.yml put there. Same logic for vegas_meta.props_* fields. */
+  let preservedProps = vegas.vegas_player_props || {};
+  let preservedMeta = { ...vegas.meta };
+  if (!Object.keys(preservedProps).length) {
+    try {
+      const prev = JSON.parse(await readFile(OUT, 'utf8'));
+      const prevProps = prev && prev.vegas_player_props;
+      if (prevProps && Object.keys(prevProps).length) {
+        preservedProps = prevProps;
+        preservedMeta.props_source = prev.vegas_meta?.props_source ?? preservedMeta.props_source;
+        preservedMeta.props_players = prev.vegas_meta?.props_players ?? preservedMeta.props_players;
+        preservedMeta.props_events = prev.vegas_meta?.props_events ?? preservedMeta.props_events;
+        if (prev.vegas_meta?.props_generated) preservedMeta.props_generated = prev.vegas_meta.props_generated;
+        log(`  preserved ${Object.keys(prevProps).length} player props from previous feed (${preservedMeta.props_source})`);
+      }
+    } catch (e) { /* no previous feed, fine */ }
+  }
+
   const feed = {
     season, week, generated: new Date().toISOString(), players,
     ...(dvp ? { dvp } : {}),
     vegas_teams: vegas.vegas_teams,
     vegas_games: vegas.vegas_games,
     vegas_players: vegas.vegas_players,
-    vegas_player_props: vegas.vegas_player_props,
-    vegas_meta: vegas.meta,
+    vegas_player_props: preservedProps,
+    vegas_meta: preservedMeta,
   };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(feed));
