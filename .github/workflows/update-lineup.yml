@@ -37,6 +37,8 @@ jobs:
           #     parlay-api.com (v1 base, X-API-Key header, flat /props endpoint).
           #   The Odds API instead:    set PROPS_API_HOST=api.the-odds-api.com
           PROPS_API_KEY: ${{ secrets.PROPS_API_KEY }}
+          # PARLAY_API_KEY accepted as an alias so either secret name works.
+          PARLAY_API_KEY: ${{ secrets.PARLAY_API_KEY }}
           PROPS_API_HOST: ${{ vars.PROPS_API_HOST }}
       - name: Commit refreshed feed
         run: |
