@@ -25760,6 +25760,12 @@ body .page,body .page.on{background:transparent!important}
       // dedupe by matchup (feeds can repeat a game per book / per market)
       const seenMatch = new Set();
       fg = fg.filter(g => { const k = (g.away || '') + '@' + (g.home || ''); if (seenMatch.has(k)) return false; seenMatch.add(k); return true; });
+      // drop games that have already finished (kept until ~4h after kickoff so
+      // a game stays visible while it's in progress, then disappears)
+      const GAME_OVER_MS = 4 * 60 * 60 * 1000, nowMs = Date.now();
+      fg = fg.filter(g => { const t = g.commence ? Date.parse(g.commence) : NaN; return isNaN(t) || (t + GAME_OVER_MS) > nowMs; });
+      // chronological order: earliest kickoff first; undated games sort last
+      fg.sort((a, b) => { const ta = a.commence ? Date.parse(a.commence) : Infinity, tb = b.commence ? Date.parse(b.commence) : Infinity; return ta - tb; });
       // hard guard: an NFL week never exceeds 16 games
       if (fg.length > 16) fg = fg.slice(0, 16);
       games = fg.map(g => normalizeFeedGame(g));
@@ -26205,9 +26211,9 @@ body .page,body .page.on{background:transparent!important}
     const fb = F(), gm = curGM;
     const books = gatherBooks(g => g[gm] && g[gm].quotes);
     let rows = MODEL.games.slice();
-    rows.sort((a, b) => gm === 'total' ? gSort.dir * ((a.total.cons ?? -999) - (b.total.cons ?? -999))
-      : gm === 'spread' ? gSort.dir * (Math.abs(a.spread.cons?.away ?? 0) - Math.abs(b.spread.cons?.away ?? 0))
-      : gSort.dir * (((a.implied.away ?? 0) + (a.implied.home ?? 0)) - ((b.implied.away ?? 0) + (b.implied.home ?? 0))));
+    // Always chronological — earliest kickoff first (model is already date-sorted
+    // and pruned of finished games; re-sort here so it holds across re-renders).
+    rows.sort((a, b) => { const ta = a.commence ? Date.parse(a.commence) : Infinity, tb = b.commence ? Date.parse(b.commence) : Infinity; return ta - tb; });
     const TN = fb.TEAMNAME || {}, fullName = c => TN[c] || c;
     if (searchQ) { const q = searchQ.toLowerCase(); rows = rows.filter(g => (g.away + ' ' + g.home + ' ' + fullName(g.away) + ' ' + fullName(g.home)).toLowerCase().includes(q)); }
     const gmLabel = (GM_TABS.find(t => t[0] === gm) || ['', ''])[1];
