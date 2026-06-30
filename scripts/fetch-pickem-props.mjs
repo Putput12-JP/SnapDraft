@@ -137,7 +137,7 @@ function resolveSleeper(sl, name, team) {
 
 /* ── PrizePicks loader (paginated JSON:API) ───────────────────────────── */
 async function loadPrizePicks() {
-  let raw;
+  let raw, firstPageError = null;
   if (PP_FIX) {
     raw = [readFixture(PP_FIX)];
   } else {
@@ -146,7 +146,7 @@ async function loadPrizePicks() {
       const url = `https://api.prizepicks.com/projections?league_id=${LEAGUE}&per_page=250&single_stat=true&page=${page}`;
       let j;
       try { j = await getJSON(url, `prizepicks p${page}`); }
-      catch (e) { log('fetch failed:', e.message); break; }
+      catch (e) { log('fetch failed:', e.message); if (page === 1) firstPageError = e; break; }
       raw.push(j);
       const data = j.data || [];
       const totalPages = j.meta && j.meta.total_pages;
@@ -155,6 +155,10 @@ async function loadPrizePicks() {
       await new Promise(r => setTimeout(r, 350)); // be polite
     }
   }
+  // Surface a hard failure (Cloudflare block, network) by re-throwing — the
+  // cron's outer catch logs it and exits 0, but the visible "ERROR:" log + the
+  // 0-props line in the workflow tells you the pipeline broke vs. PP being empty.
+  if (firstPageError) throw new Error(`PrizePicks unreachable (page 1): ${firstPageError.message}`);
   // flatten across pages
   const players = {}; // ppId -> {name,team,pos}
   const projections = [];

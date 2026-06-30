@@ -392,6 +392,28 @@ function buildVegasPlayers(seed, rid, resolver, identity) {
   return { players, matched, total: (seed?.players || []).length };
 }
 
+/* schedule → matchup-to-week map.
+   Sleeper /schedule/nfl/regular/{season} returns one row per game with
+   { week, home, away }. We key BOTH orientations so a lookup by either
+   (away, home) or (home, away) finds the right week. Used to tag each
+   live odds game with the NFL week it belongs to — without that tag
+   the client can't filter by current week and ends up with a mix. */
+async function loadWeekByMatchup(season) {
+  try {
+    const r = await fetch(`https://api.sleeper.com/schedule/nfl/regular/${season}`, { headers: UA });
+    if (!r.ok) return {};
+    const data = await r.json();
+    const out = {};
+    for (const g of data || []) {
+      const w = g.week; if (!w) continue;
+      const home = (g.home || '').toUpperCase(), away = (g.away || '').toUpperCase();
+      if (!home || !away) continue;
+      out[`${away}@${home}`] = w; out[`${home}@${away}`] = w;
+    }
+    return out;
+  } catch (e) { warn('schedule', e); return {}; }
+}
+
 /* ── orchestrate: returns { vegas_teams, vegas_players, meta } ──────────── */
 export async function buildVegas(season, week, rid, resolver, identity = {}) {
   const seed = await loadVegasSeed();
@@ -407,6 +429,17 @@ export async function buildVegas(season, week, rid, resolver, identity = {}) {
   if (!live) {
     try { const e2 = await liveESPN(season, week); if (e2) { live = e2; liveSrc = 'espn'; } }
     catch (e) { warn('vegas:espn', e); }
+  }
+
+  // tag each live odds game with its NFL week, so the client can show only
+  // the current week's slate (Odds API returns every upcoming game across
+  // multiple weeks; without this tag they all collapse together).
+  if (liveGames.length) {
+    const weekByMatchup = await loadWeekByMatchup(season);
+    for (const g of liveGames) {
+      const k = `${g.away}@${g.home}`;
+      if (weekByMatchup[k]) g.week = weekByMatchup[k];
+    }
   }
 
   const vegas_teams = blend(seed, live, week);

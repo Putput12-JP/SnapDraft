@@ -19871,7 +19871,17 @@ function pickYear(year) {
     const mu = matchup(rank);
     const rec = m.rec != null ? m.rec : DEF_REC[m.pos];
     const adj = m.live ? 1 : matchAdjOf(rank);
-    const consensus = (m.ppr || 0) * adj;
+    /* Vegas game-environment nudge: high implied team totals tend to mean more
+       fantasy points (pace, volume, scoring). We apply a damped multiplier
+       (env × 0.20) so a +18% above-average total nudges projections ~+3.6%,
+       and a low-total game (-15%) trims ~3%. Damped because Sleeper's
+       consensus already partly bakes in pace/script — we're adding signal,
+       not redoing it. Surfaced on the player as { vegasTotal, vegasEnv,
+       vegasNudge } so the card can show WHY. */
+    const vt = LIVE.vegasTeam(m.team);
+    const vegasEnv = vt && typeof vt.env === 'number' ? vt.env : null;
+    const vegasNudge = vegasEnv != null ? 1 + vegasEnv * 0.20 : 1;
+    const consensus = (m.ppr || 0) * adj * vegasNudge;
     const feed = LIVE.feedFor(m.id);
     let sources;
     if (feed && feed.sources) {
@@ -19888,6 +19898,12 @@ function pickYear(year) {
         const jitter = (rng(m.id + s.key + 'j') - 0.5) * 2 * (m.spread || 0.11);
         return { key: s.key, name: s.name, how: s.how, val: r1(consensus * (1 + jitter + (SRC_BIAS[s.key] || 0))) };
       });
+    }
+    // For LIVE feed sources we also apply the Vegas nudge so floor/ceiling and
+    // alternate sources reflect the game environment (the feed values are raw
+    // per-source projections that don't carry game-environment context).
+    if (feed && feed.sources && vegasNudge !== 1) {
+      sources = sources.map(s => s.val != null && s.key !== 'sleeper' ? { ...s, val: r1(s.val * vegasNudge) } : s);
     }
     const vals = sources.filter(s => s.val != null).map(s => s.val);
     const low = vals.length ? Math.min.apply(null, vals) : 0;
@@ -19908,6 +19924,10 @@ function pickYear(year) {
       fmtLow: { lg: r1(low * lgK), ppr: r1(low), half: r1(low - rec / 2), std: r1(low - rec) },
       fmtHigh: { lg: r1(high * lgK), ppr: r1(high), half: r1(high - rec / 2), std: r1(high - rec) },
       lgK: lgK, lgLive: lgRaw != null,
+      vegasTotal: vt ? vt.total : null,
+      vegasEnv: vegasEnv,
+      vegasNudgePct: vegasEnv != null ? Math.round((vegasNudge - 1) * 1000) / 10 : null,
+      vegasSource: vt ? vt.source : null,
       agreement: avg ? Math.max(0, Math.min(1, 1 - sd / (avg * 0.16))) : 0.5,
     };
   }
@@ -19969,7 +19989,17 @@ function pickYear(year) {
     function feedFor(id) { const f = feeds[curWeek()]; return f && f.players ? f.players[id] : null; }
     function dvpFeed() { const f = feeds[curWeek()]; return f && f.dvp ? f.dvp : null; }
     function hasFeed() { return !!feeds[curWeek()]; }
-    return { BASE, status, metas, metaMap, getState, load, loadFeed, feedFor, dvpFeed, hasFeed, feeds };
+    /* Vegas team total for the given team code, from the current-week feed.
+       Returns { total, env, source } or null. `env` is the high/low-total
+       environment modifier vs league average (e.g. +0.18 means an 18% above-
+       average implied total). Live during the season via The Odds API; falls
+       back to the preseason workbook in weeks 1–3. */
+    function vegasTeam(team) {
+      const f = feeds[curWeek()];
+      const vt = f && f.vegas_teams; if (!vt || !team) return null;
+      return vt[team.toUpperCase()] || null;
+    }
+    return { BASE, status, metas, metaMap, getState, load, loadFeed, feedFor, dvpFeed, vegasTeam, hasFeed, feeds };
   })();
   try { window.__LC = LIVE; } catch (e) {}
 
@@ -20043,6 +20073,22 @@ function pickYear(year) {
   const posTag = p => `<span class="lc-mono" style="color:${POSC[p.pos]}">${p.pos}</span> · ${p.team}`;
   const statusPill = p => !p.status ? '' : `<span class="lc-pill" style="background:rgba(255,179,71,.18);color:#ffb347">${p.status.toUpperCase()}</span>`;
   const matchupPill = p => `<span class="lc-pill" style="background:color-mix(in srgb,${p.mu.color} 14%,transparent);color:${p.mu.color}">◈ ${p.mu.short}</span>`;
+  /* Vegas game-environment pill: shows the player's team implied total and
+     direction (high/avg/low). The projection above is already nudged by this
+     env × 0.20 — the pill explains the signal so the user sees WHY a number
+     moved. Hidden when we have no Vegas total for this team. */
+  const vegasPill = p => {
+    if (p.vegasTotal == null) return '';
+    const e = p.vegasEnv || 0;
+    let col, lab;
+    if (e >= 0.08) { col = 'var(--rb)'; lab = 'HIGH'; }
+    else if (e <= -0.08) { col = 'var(--accent2)'; lab = 'LOW'; }
+    else { col = 'var(--muted)'; lab = 'AVG'; }
+    const nudge = p.vegasNudgePct != null && Math.abs(p.vegasNudgePct) >= 0.5
+      ? ` ${p.vegasNudgePct > 0 ? '+' : ''}${p.vegasNudgePct}%` : '';
+    const tip = `Vegas implied team total ${p.vegasTotal.toFixed(1)} pts (${p.vegasSource || 'feed'}). Projection nudged${nudge ? ' ' + nudge : ' 0%'}.`;
+    return `<span class="lc-pill" style="background:color-mix(in srgb,${col} 14%,transparent);color:${col}" title="${tip}">◆ ${p.vegasTotal.toFixed(1)} · ${lab}${nudge}</span>`;
+  };
   const diffBars = (t, c) => `<div style="display:flex;gap:3px;align-items:flex-end;height:14px">${[1, 2, 3, 4, 5].map(i => `<div style="width:7px;height:${4 + i * 2}px;border-radius:2px;background:${i <= t ? c : 'rgba(255,255,255,.12)'}"></div>`).join('')}</div>`;
   const srcTag = how => { const m = { api: ['API', 'var(--rb)'], scrape: ['scrape', 'var(--muted)'], dfs: ['DFS', 'var(--wr)'] }; const [t, c] = m[how] || ['', 'var(--muted)']; return `<span class="lc-mono" style="font-size:8px;color:${c};opacity:.7;letter-spacing:.05em">${t}</span>`; };
 
@@ -20103,7 +20149,7 @@ function pickYear(year) {
           <button class="lc-cardx" data-rm="${p.id}">×</button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:15px 0 14px">
-          <div style="display:flex;gap:7px;flex-wrap:wrap">${isBest ? `<span class="lc-pill" style="background:rgba(61,204,122,.16);color:var(--rb)">★ BEST START</span>` : ''}${matchupPill(p)}</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">${isBest ? `<span class="lc-pill" style="background:rgba(61,204,122,.16);color:var(--rb)">★ BEST START</span>` : ''}${matchupPill(p)}${vegasPill(p)}</div>
           <div style="text-align:right"><div class="lc-lab" style="font-size:8.5px">Confidence</div><div class="lc-mono" style="font-size:20px;font-weight:700;color:${confColor(c)};line-height:1">${c}%</div></div>
         </div>
         <div class="lc-proj">
@@ -25537,8 +25583,15 @@ body .page,body .page.on{background:transparent!important}
   }
 
   async function getJSON(url) {
-    try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); }
-    catch (e) { return null; }
+    // Bypass HTTP cache for the betting feed so the hourly cron's fresh props
+    // and game lines reach the UI immediately. External feeds (Sleeper players
+    // map) still use normal HTTP caching.
+    try {
+      const opts = /lineup-feed\.json|vegas-preseason\.json/.test(url) ? { cache: 'no-store' } : {};
+      const r = await fetch(url, opts);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
   }
 
   /* ── format helpers (UI-facing) ───────────────────────────────────────── */
