@@ -25681,12 +25681,14 @@ body .page,body .page.on{background:transparent!important}
 
     // ── weekly props (live) ──────────────────────────────────────────────
     const weeklyById = {};
+    const propIdentityById = {};   // id -> { name, team, pos } embedded by the fetcher
     if (hasFeedProps) {
       for (const id in feed.vegas_player_props) {
         const w = feed.vegas_player_props[id];
         const lines = {};
         for (const mk in (w.lines || {})) { const m = MARKET_BY_KEY[mk]; if (m) lines[mk] = cellFromFeed(w.lines[mk], m.kind); }
         weeklyById[id] = { lines, opp: w.opp || null, ha: w.ha || null, event: w.event || null, commence: w.commence || null, slot: slotFromCommence(w.commence), derived: false };
+        if (w.name || w.team || w.pos) propIdentityById[id] = { name: w.name || null, team: w.team || null, pos: w.pos || null };
       }
     }
 
@@ -25717,6 +25719,26 @@ body .page,body .page.on{background:transparent!important}
         id: id || null, name: ident.name, team: ident.team || null,
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
         rank: ident.rank ?? null, headshot: headshotFor(id), season, weekly,
+      });
+    }
+
+    // ── orphan props ─────────────────────────────────────────────────────
+    // Props for players the workbook doesn't cover (backups, lesser-known WRs)
+    // are dropped by the loop above because it only iterates `seasonById`.
+    // Add a record for each prop player who wasn't already pushed, using the
+    // identity the fetcher embedded into the prop entry (name/team/pos).
+    const seenIds = new Set(players.map(p => p.id).filter(Boolean));
+    for (const id in weeklyById) {
+      if (seenIds.has(id)) continue;
+      const ident = propIdentityById[id] || {};
+      if (!ident.name) continue;   // skip if we can't even name them
+      const lines = {};
+      // weekly props live; no season block (workbook has no entry for them)
+      const wk = weeklyById[id];
+      players.push({
+        id, name: ident.name, team: ident.team || null,
+        teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
+        rank: null, headshot: headshotFor(id), season: null, weekly: wk,
       });
     }
 
@@ -26323,6 +26345,23 @@ body .page,body .page.on{background:transparent!important}
     const t = infoText();
     el.innerHTML = t ? '<span class="bt-info" tabindex="0">ⓘ ' + t[0] + '<span class="tip">' + t[1] + '</span></span>' : '';
   }
+  /* Pick the market for a position with the MOST actual weekly props in the
+     feed. Falls back to the first market in the list if no weekly data is
+     loaded yet. Without this, switching to TE jumps to "Receptions" (the
+     first TE market in MARKETS) and the user sees "No players match" because
+     PrizePicks doesn't post TE receptions — only Rec Yds. */
+  function bestMarketFor(pos) {
+    const fb = F(); if (!fb || !MODEL) return fb ? fb.marketsFor(pos)[0]?.key : 'pass_yd';
+    const mks = fb.marketsFor(pos);
+    const counts = {};
+    for (const p of MODEL.players) {
+      if (p.pos !== pos || !p.weekly || p.weekly.derived) continue;
+      for (const mk in p.weekly.lines) counts[mk] = (counts[mk] || 0) + 1;
+    }
+    let best = mks[0]?.key, bestN = -1;
+    for (const m of mks) { const n = counts[m.key] || 0; if (n > bestN) { bestN = n; best = m.key; } }
+    return best;
+  }
   function renderPosSeg() {
     const seg = document.getElementById('bt-posseg');
     if (view !== 'props') { seg.style.display = 'none'; return; }
@@ -26330,11 +26369,11 @@ body .page,body .page.on{background:transparent!important}
     if (isMobile()) {
       seg.className = 'bt-selwrap';
       seg.innerHTML = selHTML('bt-possel', [['QB', 'QB'], ['RB', 'RB'], ['WR', 'WR'], ['TE', 'TE']], curPos);
-      seg.querySelector('select').onchange = e => { curPos = e.target.value; const mks = F().marketsFor(curPos); curMarket = mks[0].key; renderPosSeg(); renderMkts(); renderProps(); };
+      seg.querySelector('select').onchange = e => { curPos = e.target.value; curMarket = bestMarketFor(curPos); renderPosSeg(); renderMkts(); renderProps(); };
     } else {
       seg.className = 'bt-pos';
       seg.innerHTML = ['QB', 'RB', 'WR', 'TE'].map(p => { const on = p === curPos, c = POS_COLOR[p]; return '<button data-p="' + p + '" style="' + (on ? 'color:var(--on-primary);background:' + c + ';border-color:transparent' : 'color:' + c) + '">' + p + '</button>'; }).join('');
-      seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; const mks = F().marketsFor(curPos); curMarket = mks[0].key; renderPosSeg(); renderMkts(); renderProps(); });
+      seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; curMarket = bestMarketFor(curPos); renderPosSeg(); renderMkts(); renderProps(); });
     }
   }
   function renderMkts() {

@@ -323,6 +323,11 @@ async function srcDraftKings(season, week, resolver, sleeperPts) {
 async function main() {
   const { season, week } = await getState();
   log(`Building feed for ${season} week ${week}…`);
+  // Log which optional auth the run sees, so you can confirm in the workflow
+  // logs that the right secrets are wired up (without leaking the values).
+  const propsKey = process.env.PROPS_API_KEY || process.env.PARLAY_API_KEY;
+  const oddsKey = process.env.ODDS_API_KEY;
+  log(`  auth: ParlayAPI/Props ${propsKey ? '✓ (' + propsKey.length + ' chars)' : '— not set'} · OddsAPI ${oddsKey ? '✓ (' + oddsKey.length + ' chars)' : '— not set'}`);
 
   const { values: sleeper, rows, statlines } = await srcSleeper(season, week);
   const resolver = await buildResolver(rows);

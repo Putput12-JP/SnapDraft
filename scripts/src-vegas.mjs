@@ -71,7 +71,10 @@ export async function loadVegasSeed() {
    per-team implied totals. 1 request → well within any free/paid tier. */
 const UA = { 'user-agent': 'vault-lineup-cron/1.0' };
 function propsProvider() {
-  const key = process.env.PROPS_API_KEY || '';
+  // Accept either PROPS_API_KEY or PARLAY_API_KEY — both names appear in the
+  // probe script and the workflow YAML, so users who configured one or the
+  // other don't have to remember which.
+  const key = process.env.PROPS_API_KEY || process.env.PARLAY_API_KEY || '';
   const host = process.env.PROPS_API_HOST || (key ? 'parlay-api.com' : '');
   const isParlay = /parlay/i.test(host);
   return { key, host, isParlay, base: isParlay ? `https://${host}/v1` : `https://${host}/v4` };

@@ -215,7 +215,18 @@ function buildProps(pp, sl) {
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
 
-    if (!out[id]) out[id] = { lines: {}, opp: null, commence: null };
+    if (!out[id]) {
+      // Embed identity (name/team/pos) on the prop so the betting UI can
+      // surface props for players the preseason workbook doesn't cover
+      // (PrizePicks routinely posts lines for backups and lesser-known WRs
+      // the workbook skips). Identity comes from the Sleeper resolver hit.
+      out[id] = {
+        name: ppPlayer.name || null,
+        team: hit.team || ppPlayer.team || null,
+        pos: hit.pos || ppPlayer.pos || null,
+        lines: {}, opp: null, commence: null,
+      };
+    }
     const cell = {
       line: proj.line, over: null, under: null, book: 'PrizePicks',
       quotes: [{ book: 'PrizePicks', line: proj.line, over: null, under: null }],
