@@ -26304,7 +26304,7 @@ body .page,body .page.on{background:transparent!important}
         boxes = '<div class="bt-ob best pk"><div class="bk">' + (r.book || 'PP') + '</div><div class="od">' + r.line + '</div><div class="sd">PICK</div></div>';
       } else {
         boxes = books.map(b => { const q = qBy[b]; if (!q || q.over == null) return ''; return '<div class="bt-ob' + (b === bo ? ' best' : '') + '"><div class="bk">' + b + '</div><div class="od">' + fb.fmtOdds(q.over) + '</div><div class="sd">OVER</div></div>'; }).join('');
-        if (!isProb && r.best.under) boxes += '<div class="bt-ob"><div class="bk">Best U</div><div class="od">' + fb.fmtOdds(r.best.under.price) + '</div><div class="sd">UNDER</div></div>';
+        if (!isProb && r.best.under) boxes += '<div class="bt-ob best" title="Best Under price across all books — from ' + (r.best.under.book || 'book') + '"><div class="bk">BEST</div><div class="od">' + fb.fmtOdds(r.best.under.price) + '</div><div class="sd">UNDER</div></div>';
       }
       const hs = '<span class="bt-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>';
       const meta = '<span class="pb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span>' + (r.team ? '<span class="tm">' + r.team + (showOpp && r.opp ? ' · vs ' + r.opp : '') + '</span>' : '') + (r.modeled ? '<span class="bt-pj">PROJ</span>' : '');

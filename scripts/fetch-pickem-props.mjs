@@ -246,25 +246,52 @@ function buildProps(pp, sl) {
   return { props: out, stats: { players: matched, unmatched, lines, events: events.size } };
 }
 
-/* ── merge into feed ──────────────────────────────────────────────────── */
+/* ── merge into feed ──────────────────────────────────────────────────────
+   MERGE, don't replace. ParlayAPI (run by build-lineup-feed.mjs every 6h) is
+   the richer source — it returns PrizePicks AND other books with real
+   two-sided prices. This hourly keyless job runs more often, so we let it
+   keep things fresh by FILLING GAPS only: players or markets the richer feed
+   doesn't already cover. We never overwrite an existing priced line with the
+   keyless line. That way both jobs run at full cadence without fighting over
+   `vegas_player_props` (the flip-flop that would otherwise alternate the tab
+   between rich ParlayAPI odds and bare PrizePicks lines every :17).         */
 function mergeFeed(props, stats) {
   if (!existsSync(FEED)) { log('feed not found, nothing to merge:', FEED); return false; }
   const feed = JSON.parse(readFileSync(FEED, 'utf8'));
-  const had = feed.vegas_player_props ? Object.keys(feed.vegas_player_props).length : 0;
+  const existing = feed.vegas_player_props || {};
+  const had = Object.keys(existing).length;
 
   if (!stats.players && !FORCE) {
     log(`0 props parsed — leaving existing feed untouched (had ${had}). Use --force to clear.`);
     return false;
   }
-  feed.vegas_player_props = props;
+
+  let addedPlayers = 0, addedMarkets = 0, kept = 0;
+  for (const id in props) {
+    const pp = props[id];
+    if (!existing[id]) { existing[id] = pp; addedPlayers++; continue; }
+    const cur = existing[id];
+    // backfill identity / matchup if the richer feed left any of it blank
+    cur.name = cur.name || pp.name; cur.team = cur.team || pp.team; cur.pos = cur.pos || pp.pos;
+    cur.opp = cur.opp || pp.opp; cur.commence = cur.commence || pp.commence;
+    cur.lines = cur.lines || {};
+    for (const mk in (pp.lines || {})) {
+      if (cur.lines[mk]) { kept++; continue; }   // richer source already has this market — keep it
+      cur.lines[mk] = pp.lines[mk]; addedMarkets++;
+    }
+  }
+
+  feed.vegas_player_props = existing;
   feed.vegas_meta = feed.vegas_meta || {};
-  feed.vegas_meta.props_source  = stats.players ? 'prizepicks' : 'none';
-  feed.vegas_meta.props_players = stats.players;
-  feed.vegas_meta.props_events  = stats.events;
-  feed.vegas_meta.props_generated = new Date().toISOString();
-  if (DRY) { log('DRY — would write feed with', stats.players, 'players /', stats.lines, 'lines'); return true; }
+  // Only claim 'prizepicks' as the headline source when nothing richer set one.
+  if (!feed.vegas_meta.props_source || feed.vegas_meta.props_source === 'none') feed.vegas_meta.props_source = 'prizepicks';
+  feed.vegas_meta.props_players = Object.keys(existing).length;
+  feed.vegas_meta.props_pp_filled = addedPlayers + addedMarkets;   // what THIS run contributed
+  feed.vegas_meta.props_pp_generated = new Date().toISOString();
+  const summary = `+${addedPlayers} players, +${addedMarkets} markets (kept ${kept} from richer feed) — ${had} → ${Object.keys(existing).length}`;
+  if (DRY) { log('DRY — would merge:', summary); return true; }
   writeFileSync(FEED, JSON.stringify(feed));
-  log(`wrote ${FEED}: ${stats.players} players, ${stats.lines} lines (was ${had})`);
+  log(`merged into ${FEED}: ${summary}`);
   return true;
 }
 
