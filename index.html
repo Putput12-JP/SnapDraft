@@ -9953,15 +9953,15 @@ function toggleHide(){
   renderList();
 }
 
-// ===== Draft Vault: list cap (Top 15 default, toggle to All) =====
-window._draftListCap = (function(){
-  try { const s = localStorage.getItem('dcmd-v5-listcap'); return s==='15' ? 15 : 0; } catch(e){ return 0; }
-})();
+// ===== Draft Vault: list cap =====
+// The Top-15 cap is retired — the full ranked list always renders and the page
+// scrolls. (The toggle button was hidden, so a stale '15' in localStorage used to
+// strand users on 15 rows with no way out.) Clear any old value and force 0.
+window._draftListCap = 0;
+try { localStorage.removeItem('dcmd-v5-listcap'); } catch(e){}
 function toggleDraftListCap(){
-  window._draftListCap = window._draftListCap === 15 ? 0 : 15;
-  try { localStorage.setItem('dcmd-v5-listcap', window._draftListCap === 0 ? 'all' : '15'); } catch(e){}
-  const btn = document.getElementById('sb-listcap');
-  if(btn) btn.textContent = window._draftListCap === 15 ? 'Top 15 ▾' : 'Show All ▾';
+  // No-op kept for the legacy hidden button; the list is never capped now.
+  window._draftListCap = 0;
   renderList();
 }
 // ===== Draft Vault: hide future draft picks toggle =====
