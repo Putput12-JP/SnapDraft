@@ -480,6 +480,18 @@ header{
 .plist-thead th:first-child{text-align:right;padding-right:8px}
 @media(max-width:700px){.plist-thead{display:none}}
 .plist{padding:0 14px 110px;display:block;width:100%;overflow-x:hidden;max-width:1100px;margin:0 auto}
+/* Draft Vault "continuous scroll": on desktop the ranking list becomes its own
+   scroll pane so the toolbar + sticky column header stay locked while the rows
+   scroll inside it. Height is set inline by sizeDraftListPane() to fill the
+   viewport below the toolbar and above the roster bar. */
+#page-draft .plist.dv-scrollpane{overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-bottom:24px}
+#page-draft.dv-paned{padding-bottom:0!important}
+/* A table <thead> won't position:sticky inside a nested scroll pane (Chrome), so
+   _dvStickHeader() pins it via transform on scroll. Keeping it the same element as
+   the body means columns (incl. the id-based Dynasty/Redraft/Status hide rules) stay
+   perfectly aligned. It needs an opaque backdrop so rows don't show through. */
+#page-draft .plist.dv-scrollpane thead.plist-thead{position:relative;z-index:7;will-change:transform}
+#page-draft .plist.dv-scrollpane thead.plist-thead th{background:var(--s2)}
 /* Draft Vault page: lock every section to the same 1100px container with the same 14px side padding so summary, list, and board are visually aligned */
 #page-draft #intel-bar, #page-draft .pstrip, #page-draft .search-bar-wrap, #page-draft .suggest-bar, #page-draft .controls, #page-draft .draft-summary, #page-draft .ld-page{
   max-width:1100px;margin-left:auto;margin-right:auto;padding-left:14px;padding-right:14px;box-sizing:border-box;
@@ -9953,6 +9965,68 @@ function toggleHide(){
   renderList();
 }
 
+// ===== Draft Vault: continuous-scroll list pane =====
+// Turns the ranking list into its own scroll region (desktop) so the toolbar and
+// column header stay put while the rows scroll. Sizes the pane to fill the space
+// between the toolbar and the fixed roster bar. No-ops on mobile / ADP view.
+function sizeDraftListPane(){
+  try{
+    const page = document.getElementById('page-draft');
+    const pl = document.getElementById('plist');
+    if(!page || !pl) return;
+    const desktop = window.matchMedia('(min-width:768px)').matches;
+    const listShown = page.classList.contains('on') && !page.classList.contains('adp-mode') && getComputedStyle(pl).display !== 'none';
+    if(!desktop || !listShown){
+      pl.classList.remove('dv-scrollpane'); page.classList.remove('dv-paned'); pl.style.height='';
+      _dvStickHeader();   // detaches the scroll listener + clears the header transform
+      return;
+    }
+    const main = document.getElementById('app-main');
+    if(main) main.scrollTop = 0;            // measure from the top of the scroller
+    page.classList.add('dv-paned');
+    pl.classList.add('dv-scrollpane');
+    pl.style.height='';                     // clear before measuring the pane's top edge
+    const top = pl.getBoundingClientRect().top;
+    const rbar = document.getElementById('global-rbar');
+    const rbarH = (rbar && getComputedStyle(rbar).display !== 'none') ? rbar.offsetHeight : 0;
+    const h = Math.max(260, Math.round(window.innerHeight - top - rbarH - 12));
+    pl.style.height = h + 'px';
+    _dvStickHeader();
+  }catch(e){}
+}
+// Faux-sticky the column header inside the scroll pane (a table <thead> won't
+// position:sticky in a nested scroller). Re-derives the header's resting offset each
+// call (handles the freshness bar / mode toggles above it) and translates it down by
+// the scroll amount so it stays pinned at the top of the pane.
+function _dvStickHeader(){
+  try{
+    const pl = document.getElementById('plist');
+    if(!pl) return;
+    const table = pl.querySelector('.plist-table');
+    const thead = table && table.querySelector('thead.plist-thead');
+    if(!thead) return;
+    if(!pl.classList.contains('dv-scrollpane')){
+      if(pl._dvScroll){ pl.removeEventListener('scroll', pl._dvScroll); pl._dvScroll = null; }
+      thead.style.transform = '';
+      return;
+    }
+    thead.style.transform = 'none';   // clear so we measure the true resting offset
+    const nat = (thead.getBoundingClientRect().top - pl.getBoundingClientRect().top) + pl.scrollTop;
+    pl._dvNat = nat;
+    const upd = () => { const y = Math.max(0, pl.scrollTop - (pl._dvNat||0)); thead.style.transform = y ? ('translateY(' + y + 'px)') : 'none'; };
+    if(pl._dvScroll) pl.removeEventListener('scroll', pl._dvScroll);
+    pl._dvScroll = upd;
+    pl.addEventListener('scroll', upd, { passive:true });
+    upd();
+  }catch(e){}
+}
+let _dvPaneRaf = 0;
+function scheduleDraftPaneSize(){
+  if(_dvPaneRaf) cancelAnimationFrame(_dvPaneRaf);
+  _dvPaneRaf = requestAnimationFrame(()=>{ _dvPaneRaf = 0; sizeDraftListPane(); });
+}
+window.addEventListener('resize', scheduleDraftPaneSize);
+
 // ===== Draft Vault: list cap (Top 15 default, toggle to All) =====
 window._draftListCap = (function(){
   try { const s = localStorage.getItem('dcmd-v5-listcap'); return s==='15' ? 15 : 0; } catch(e){ return 0; }
@@ -10083,6 +10157,7 @@ function showPage(p){
     try { renderDraftSummary(); } catch(e) {}
     try { _adpAutoInit(); } catch(e) {}
     try { _dvAutoMode(); } catch(e) {}     // apply Dynasty/Redraft mode + collapse to one value column
+    try { setTimeout(scheduleDraftPaneSize, 60); } catch(e) {}   // fit the continuous-scroll list pane once the page is laid out
     // Connect-first: if no live draft is connected, surface the connect modal
     // once per session so the user can either link a draft or browse rankings.
     if (!sleeperDraftId && !window._draftPromptDismissed) {
@@ -11248,7 +11323,7 @@ async function buildEspnContext(leagueId){
         fpts: Math.floor(pf), fpts_decimal: Math.round((pf%1)*100),
         fpts_against: Math.floor(rec.pointsAgainst||0) }
     });
-    users.push({ user_id: ownerId, display_name: tname, username: tname, avatar: null, metadata: { team_name: tname } });
+    users.push({ user_id: ownerId, display_name: tname, username: tname, avatar: t.logo || null, metadata: { team_name: tname } });
   });
   return { lid: leagueId, rosters, users };
 }
@@ -11924,6 +11999,8 @@ function renderList(){
     if(dvhC && typeof PLAYERS!=='undefined' && PLAYERS.length) dvhC.textContent = PLAYERS.filter(x=>x.pos!=='PICK').length;
   }catch(e){}
 
+  // Re-fit the continuous-scroll list pane now that rows (and any bars above it) are in the DOM
+  try{ scheduleDraftPaneSize(); }catch(e){}
 }
 
 // ════════════════════════════════════
@@ -12577,6 +12654,23 @@ function buildUserMap(users) {
   (users||[]).forEach(u => {
     m[u.user_id] = u.metadata?.team_name || u.display_name || u.username || `Team ${u.user_id.slice(-4)}`;
   });
+  return m;
+}
+
+// Profile-picture URL for a Sleeper user (or an ESPN team stub, which stashes its
+// logo URL in .avatar). Custom team avatars live in metadata.avatar as full URLs;
+// account avatars are hashes served from Sleeper's CDN. Returns '' when none.
+function vaultUserAvatar(u) {
+  if (!u) return '';
+  const meta = u.metadata || {};
+  if (meta.avatar && /^https?:\/\//.test(meta.avatar)) return meta.avatar;   // custom team avatar
+  if (u.avatar && /^https?:\/\//.test(u.avatar)) return u.avatar;            // full URL (e.g. ESPN logo)
+  if (u.avatar) return `https://sleepercdn.com/avatars/thumbs/${u.avatar}`;   // Sleeper account avatar
+  return '';
+}
+function buildUserAvatarMap(users) {
+  const m = {};
+  (users||[]).forEach(u => { m[u.user_id] = vaultUserAvatar(u); });
   return m;
 }
 
@@ -13474,6 +13568,7 @@ async function renderTeamsFromLeague(leagueId) {
     _rosterCache = rosters; _usersCache = users; _txLeagueId = leagueId;
 
     const userMap = buildUserMap(users);
+    const avatarMap = buildUserAvatarMap(users);
     const rosterOwnerMap = buildRosterOwnerMap(rosters);
 
     // Redraft-aware, source-aware team value: redraft leagues rank by 1QB redraft value,
@@ -13540,7 +13635,7 @@ async function renderTeamsFromLeague(leagueId) {
       const totalVal = ages.reduce((s,x)=>s+x.val,0);
       const avgAge = totalVal>0 ? ages.reduce((s,x)=>s+(x.age*x.val),0)/totalVal : null;
 
-      return { idx:i, name, roster: dedupedRoster, fcTotal, qbs, rbs, wrs, tes, best, bestFC:{value:bestVal}, trendSum, avgAge, isMe, ownerId };
+      return { idx:i, name, avatarUrl: avatarMap[ownerId] || '', roster: dedupedRoster, fcTotal, qbs, rbs, wrs, tes, best, bestFC:{value:bestVal}, trendSum, avgAge, isMe, ownerId };
     });
 
     renderPowerRankingsTable(teamData);
@@ -24445,8 +24540,17 @@ body .page,body .page.on{background:transparent!important}
   function sidOf(name){ const f = fcOf(name); if (f && f.sleeperId) return f.sleeperId; try { return (sleeperPlayerMap[normName(name)]||{}).player_id || ''; } catch(e){ return ''; } }
   function el(){ return document.getElementById('power-rankings'); }
 
-  function avatar(name, color, size){
-    return `<div class="lh-av" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.36)}px;background:linear-gradient(150deg,${color},color-mix(in srgb,${color} 60%,#0b1320))">${esc(initials(name))}</div>`;
+  // Name→profile-picture registry, populated from teamData so every view (standings,
+  // transactions, grades, movers) can resolve a team's photo by display name alone.
+  let _avByName = {};
+  function setAvatars(teamData){ try{ (teamData||[]).forEach(t=>{ if(t && t.name) _avByName[t.name] = t.avatarUrl || ''; }); }catch(e){} }
+  function avatar(name, color, size, url){
+    const u = (url != null ? url : _avByName[name]) || '';
+    const ini = esc(initials(name));
+    const bg = `linear-gradient(150deg,${color},color-mix(in srgb,${color} 60%,#0b1320))`;
+    // Render the photo when we have one; on load failure fall back to initials in place.
+    const inner = u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.style.display='none';this.parentNode.textContent='${ini}'">` : ini;
+    return `<div class="lh-av" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.36)}px;background:${bg}">${inner}</div>`;
   }
   function posPill(pos){ const c = POSV[pos] || 'var(--muted)'; return `<span class="lh-pos" style="color:${c};background:color-mix(in srgb,${c} 16%,transparent)">${esc(pos||'?')}</span>`; }
   function deltaHtml(n){ if (!n) return `<span class="lh-delta flat">—</span>`; const up = n>0; return `<span class="lh-delta ${up?'up':'down'}">${up?'▲':'▼'} ${up?'+':'−'}${kfmt(Math.abs(n))}</span>`; }
@@ -24535,6 +24639,7 @@ body .page,body .page.on{background:transparent!important}
 
   /* ---------- ranked teamData with all derived fields ---------- */
   function buildRanked(teamData){
+    setAvatars(teamData);
     const teams = (teamData||[]).slice();
     const total = teams.length || 1;
     const rec = recMap();
@@ -25144,6 +25249,7 @@ body .page,body .page.on{background:transparent!important}
   // builds teamData. Route it to the right redesigned view.
   window.renderPowerRankingsTable = function(teamData){
     try { _lastTeamData = teamData; } catch(e){}
+    setAvatars(teamData);
     const tab = curTab();
     if (tab === 'gr'){ renderGradesView(); return; }
     if (tab === 'ov'){ renderOverviewView(teamData); return; }
@@ -26623,10 +26729,12 @@ let _adpCache   = {};
 window.dvShowBoard = function() {
   document.getElementById('page-draft').classList.remove('adp-mode');
   document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'draft'));
+  try{ scheduleDraftPaneSize(); }catch(e){}
 };
 window.dvShowADP = function() {
   document.getElementById('page-draft').classList.add('adp-mode');
   document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'adp-explorer'));
+  try{ sizeDraftListPane(); }catch(e){}   // list hidden in ADP mode → un-pane
   _adpLoad();
 };
 
