@@ -17944,6 +17944,45 @@ function pickYear(year) {
       return TEAM_META.slice();
     },
     team(id){ const ts=this.teams(); return ts.find(t=>String(t.id)===String(id)) || ts[0]; },
+    // Map a {season,round} pick to a PICK_VALUES key. Round 1 defaults to "Mid"
+    // (traded_picks carries no draft-order info), rounds 2–4 use flat labels.
+    _pickName(season, round){
+      const ord = round===1 ? '1st Mid' : round===2 ? '2nd' : round===3 ? '3rd' : round===4 ? '4th' : (round+'th');
+      return season+' '+ord;
+    },
+    // Compute each roster's REAL owned future picks from Sleeper's traded_picks.
+    // Seasons whose rookie draft is already complete are excluded (a completed
+    // 2026 draft means those picks are spent, so the window starts at 2027).
+    async _loadPicks(lid, rosters){
+      const picksByRoster={};
+      (rosters||[]).forEach(r=>{ picksByRoster[String(r.roster_id)]=[]; });
+      try{
+        const lg=(typeof myTeamsData!=='undefined'&&myTeamsData)?myTeamsData.find(l=>l.league_id===lid):null;
+        const isEspn = lg && typeof vpPlat==='function' && vpPlat(lg)==='espn'; // ESPN exposes no traded-pick data
+        const league = await fetch('https://api.sleeper.app/v1/league/'+lid).then(r=>r.json()).catch(()=>null);
+        const rounds = (league&&league.settings&&league.settings.draft_rounds) || 4;
+        const curSeason = (league&&parseInt(league.season)) || new Date().getFullYear();
+        // Earliest future season = first one whose draft hasn't completed yet
+        let latestComplete=0;
+        if(!isEspn){
+          const drafts = await fetch('https://api.sleeper.app/v1/league/'+lid+'/drafts').then(r=>r.json()).catch(()=>[]);
+          (drafts||[]).forEach(d=>{ if(d && d.status==='complete') latestComplete=Math.max(latestComplete, parseInt(d.season)||0); });
+        }
+        const startSeason = Math.max(curSeason, latestComplete+1);
+        const futureSeasons=[]; for(let s=startSeason;s<=startSeason+2;s++) futureSeasons.push(String(s));
+        // Base allotment: every roster owns its own pick in every round of every future season
+        const owner={};
+        futureSeasons.forEach(season=>{ (rosters||[]).forEach(r=>{ for(let rd=1;rd<=rounds;rd++) owner[season+'-'+rd+'-'+r.roster_id]=r.roster_id; }); });
+        // Apply trades: keyed by ORIGINAL owner (roster_id); owner_id = current owner
+        if(!isEspn){
+          const traded = await fetch('https://api.sleeper.app/v1/league/'+lid+'/traded_picks').then(r=>r.json()).catch(()=>[]);
+          (traded||[]).forEach(tp=>{ const k=tp.season+'-'+tp.round+'-'+tp.roster_id; if(k in owner) owner[k]=tp.owner_id; });
+        }
+        Object.keys(owner).forEach(k=>{ const p=k.split('-'); const arr=picksByRoster[String(owner[k])]; if(arr) arr.push({season:parseInt(p[0]),round:parseInt(p[1])}); });
+        Object.keys(picksByRoster).forEach(id=>picksByRoster[id].sort((x,y)=>x.season-y.season||x.round-y.round));
+      }catch(e){ console.warn('TC _loadPicks failed:', e); }
+      return picksByRoster;
+    },
     roster(id){
       const t=this.team(id); if(!t) return [];
       if(this.isLive() && t._players){
@@ -17957,7 +17996,10 @@ function pickYear(year) {
           const sp=(typeof sleeperPlayerMap!=='undefined')&&sleeperPlayerMap[(typeof normName==='function'?normName(name):name)];
           return { name, pos:(inP&&inP.pos&&inP.pos!=='?'&&inP.pos)||(fc&&(fc.pos||fc.position))||(sp&&sp.position)||'?', team:(inP&&inP.team)||(fc&&fc.team)||(sp&&sp.team)||'' };
         }).filter(Boolean);
-        if(this._showPicks()) out.push({name:'2026 1st Mid',pos:'PICK',type:'pick'},{name:'2026 2nd',pos:'PICK',type:'pick'},{name:'2027 1st Mid',pos:'PICK',type:'pick'});
+        if(this._showPicks()){
+          const bag=(this._live && this._live.picksByRoster && this._live.picksByRoster[String(id)])||[];
+          bag.forEach(pk=>out.push({name:this._pickName(pk.season,pk.round),pos:'PICK',type:'pick'}));
+        }
         return out;
       }
       return DEMO_ROSTERS[id] || [];
@@ -17974,7 +18016,8 @@ function pickYear(year) {
         if(typeof getLeagueContext_ov==='function'){ try{ ctx=await getLeagueContext_ov(); }catch(e){} }
         if((!ctx||!ctx.rosters) && typeof getLeagueContext==='function'){ try{ ctx=await getLeagueContext(); }catch(e){} }
         if(ctx && ctx.rosters && ctx.rosters.length && ctx.users){
-          this._live={ lid, rosters:ctx.rosters, users:ctx.users };
+          this._live={ lid, rosters:ctx.rosters, users:ctx.users, picksByRoster:{} };
+          try{ this._live.picksByRoster = await this._loadPicks(lid, ctx.rosters); }catch(e){ console.warn('TC pick load failed:', e); }
           const _lt=this.leagueType(); if(_lt) this.vmode=_lt; // auto value-set from league settings
           const ids=ctx.rosters.map(r=>String(r.roster_id));
           const mine=ctx.rosters.find(r=>r.owner_id===_lexUid());
