@@ -22407,6 +22407,847 @@ function pickYear(year) {
 })();
 
 </script>
+<!-- ════ Research Hub · Player Profile ("Command Center", injected) ════
+     Ultimate player profile: career stats, weekly logs, advanced metrics and
+     betting markets for any skill player. Data is LIVE:
+       · stats/logs/advanced  → RHData (nflverse feeds + ESPN schedule)
+       · betting              → VaultBetting (data/lineup-feed.json; the props
+         cron refreshes hourly, so weekly lines roll over automatically)
+       · ADP                  → data/adp_ppr_12team.json
+     Weekly props lead the betting view; season-long markets collapse once a
+     live weekly board exists (they matter less as kickoff approaches). -->
+<script>
+(function () {
+  'use strict';
+  if (window.__ppVaultLoaded) return; window.__ppVaultLoaded = true;
+
+  const D = window.RHData;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const r1 = n => (n == null || !isFinite(n)) ? null : Math.round(n * 10) / 10;
+  const fmt = (v, d) => (v == null || !isFinite(v)) ? '—' : Number(v).toFixed(d == null ? 1 : d);
+  const fmtI = v => (v == null || !isFinite(v)) ? '—' : Math.round(v).toLocaleString();
+  const POS_COLOR = { QB: 'var(--qb)', RB: 'var(--rb)', WR: 'var(--wr)', TE: 'var(--te)' };
+
+  const PLR = {
+    name: (function () { try { return localStorage.getItem('vault.pp.player') || null; } catch (e) { return null; } })(),
+    season: '2025', tab: 'overview', booted: false, token: 0,
+    idx: null,                    // current-season player index (search)
+    rows: null,                   // active season rows
+    row: null,                    // active player's row
+    log: null, logKey: '',        // weekly log w/ opponents
+    logErr: false,
+    career: null, careerFor: null,
+    bet: null, betErr: false,     // VaultBetting model
+    adp: null,                    // ADP map by normName
+    search: '', acOpen: false,
+    seasonsSeg: ['2025', '2024', '2023'],
+  };
+
+  /* ── data loaders (all cached, token-guarded re-renders) ── */
+  const _rowsCache = {};
+  function rowsFor(season) {
+    if (_rowsCache[season]) return _rowsCache[season];
+    _rowsCache[season] = D.buildRows(season).then(rows => {
+      // enrich with NGS/snaps/injuries in the background, then repaint once
+      D.applyAdvanced(rows, season).then(ok => { if (ok) soft(); }).catch(() => {});
+      return rows;
+    });
+    return _rowsCache[season];
+  }
+
+  let _adpP = null;
+  function loadAdp() {
+    if (_adpP) return _adpP;
+    _adpP = fetch((D.BASE || 'data') + '/adp_ppr_12team.json').then(r => r.ok ? r.json() : null).then(j => {
+      const map = {};
+      ((j && j.players) || []).forEach(p => { map[D.normName(p.name)] = p; });
+      PLR.adp = map; return map;
+    }).catch(() => (PLR.adp = {}));
+    return _adpP;
+  }
+
+  let _betP = null;
+  function loadBet() {
+    if (_betP) return _betP;
+    const VB = window.VaultBetting;
+    if (!VB) { PLR.betErr = true; return Promise.resolve(null); }
+    _betP = VB.load().then(m => { PLR.bet = m; return m; })
+      .catch(() => { PLR.betErr = true; return null; });
+    return _betP;
+  }
+
+  function loadLog() {
+    const key = PLR.name + '|' + PLR.season;
+    if (PLR.logKey === key && (PLR.log || PLR.logErr)) return Promise.resolve(PLR.log);
+    const tok = PLR.token;
+    PLR.log = null; PLR.logErr = false; PLR.logKey = key;
+    return Promise.all([D.loadSchedule(Number(PLR.season)), D.playerIndex(Number(PLR.season))])
+      .then(() => {
+        if (PLR.token !== tok) return null;
+        PLR.log = D.getPlayerLog(PLR.name, Number(PLR.season));
+        if (!PLR.log) PLR.logErr = true;
+        soft(); return PLR.log;
+      })
+      .catch(() => { if (PLR.token === tok) { PLR.logErr = true; soft(); } return null; });
+  }
+
+  function loadCareer() {
+    if (PLR.careerFor === PLR.name && PLR.career) return Promise.resolve(PLR.career);
+    const tok = PLR.token, name = PLR.name, nn = D.normName(name);
+    PLR.career = null; PLR.careerFor = name;
+    const cur = Number(PLR.season);
+    // walk the full nflverse archive (files go back to 1999) — the miss-based
+    // early stop below keeps a rookie from fetching two decades of seasons
+    const years = [];
+    for (let y = cur; y >= 1999; y--) years.push(y);
+    const out = [];
+    let misses = 0;
+    const step = i => {
+      if (i >= years.length || misses > 1 || out.length >= 20) return Promise.resolve(out);
+      return rowsFor(String(years[i])).then(rows => {
+        const r = rows.find(x => D.normName(x.name) === nn);
+        if (r && r.g > 0) {
+          const posRows = rows.filter(x => x.pos === r.pos).sort((a, b) => (b.fpts || 0) - (a.fpts || 0));
+          out.push({ yr: years[i], row: r, fin: posRows.findIndex(x => x === r) + 1 });
+          misses = 0;
+        } else if (out.length) misses++;
+        else if (i >= 2) return out; // not in the 3 newest seasons → give up
+        return step(i + 1);
+      }).catch(() => out);
+    };
+    return step(0).then(list => {
+      if (PLR.token !== tok) return null;
+      PLR.career = list; soft(); return list;
+    });
+  }
+
+  /* ── derived helpers ── */
+  function qualRows(rows, pos) {
+    const q = rows.filter(r => r.pos === pos && (r.g || 0) >= 6 && (r.fpts || 0) > 0);
+    return q.length >= 12 ? q : rows.filter(r => r.pos === pos && (r.fpts || 0) > 0);
+  }
+  // rank-based percentile + positional rank for a stat among qualified peers
+  function pct(rows, row, key, lower) {
+    if (!row || row[key] == null || !isFinite(row[key])) return null;
+    const peers = qualRows(rows, row.pos).map(r => r[key]).filter(v => v != null && isFinite(v));
+    if (peers.length < 8) return null;
+    const v = row[key];
+    const below = peers.filter(x => lower ? x > v : x < v).length;
+    const p = Math.round(100 * below / (peers.length - 1 || 1));
+    const rank = peers.filter(x => lower ? x < v : x > v).length + 1;
+    return { p: Math.max(1, Math.min(99, p)), rank };
+  }
+  function posRank(rows, row) {
+    if (!row) return null;
+    const peers = rows.filter(r => r.pos === row.pos).sort((a, b) => (b.fpts || 0) - (a.fpts || 0));
+    return peers.findIndex(r => r === row) + 1;
+  }
+  function boomBust(pos) { return pos === 'QB' ? [24, 12] : [20, 10]; }
+
+  const KPI_DEFS = {
+    QB: [['fppg', 'FP/G', 'blue', 1], ['fpts', 'Total Points', 'violet', 1], ['pydsG', 'Pass Yds / G', 'green', 1], ['epaG', 'EPA / Game', 'gold', 2], ['boomPct', 'Boom Rate', 'red', 0]],
+    RB: [['fppg', 'FP/G', 'blue', 1], ['fpts', 'Total Points', 'violet', 1], ['touch', 'Touches', 'green', 0], ['scrim', 'Scrimmage Yds', 'gold', 0], ['boomPct', 'Boom Rate', 'red', 0]],
+    WR: [['fppg', 'FP/G', 'blue', 1], ['fpts', 'Total Points', 'violet', 1], ['ts', 'Target Share', 'green', 1], ['wopr', 'WOPR', 'gold', 2], ['boomPct', 'Boom Rate', 'red', 0]],
+    TE: [['fppg', 'FP/G', 'blue', 1], ['fpts', 'Total Points', 'violet', 1], ['ts', 'Target Share', 'green', 1], ['wopr', 'WOPR', 'gold', 2], ['boomPct', 'Boom Rate', 'red', 0]],
+  };
+  const PCT_SUFFIX = { ts: '%', boomPct: '%', bustPct: '%', catchPct: '%', cmpPct: '%', snap: '%' };
+  const RAIL_DEFS = {
+    QB: [['pydsG', 'Pass Yds / G'], ['epaG', 'EPA / Game'], ['ya', 'Yards / Attempt'], ['cmpPct', 'Completion %'], ['fppg', 'Fantasy Pts / G'], ['boomPct', 'Boom Rate']],
+    RB: [['touch', 'Touches'], ['scrim', 'Scrimmage Yards'], ['ypc', 'Yards / Carry'], ['rec', 'Receptions'], ['fppg', 'Fantasy Pts / G'], ['boomPct', 'Boom Rate']],
+    WR: [['ts', 'Target Share'], ['wopr', 'WOPR'], ['adot', 'aDOT'], ['ypr', 'Yards / Reception'], ['racr', 'RACR'], ['fppg', 'Fantasy Pts / G']],
+    TE: [['ts', 'Target Share'], ['wopr', 'WOPR'], ['adot', 'aDOT'], ['ypr', 'Yards / Reception'], ['racr', 'RACR'], ['fppg', 'Fantasy Pts / G']],
+  };
+  const CAREER_COLS = {
+    QB: [['pyds', 'P YDS'], ['ptd', 'P TD'], ['ruyds', 'RU YDS']],
+    RB: [['ruyds', 'RU YDS'], ['rutd', 'RU TD'], ['rec', 'REC']],
+    WR: [['rec', 'REC'], ['recyds', 'YDS'], ['rectd', 'TD']],
+    TE: [['rec', 'REC'], ['recyds', 'YDS'], ['rectd', 'TD']],
+  };
+  const ADV_COLS = {
+    QB: [['cmpPct', 'CMP%', 1], ['ya', 'Y/A', 2], ['epaG', 'EPA/G', 2], ['pydsG', 'PYD/G', 1], ['boomPct', 'BOOM%', 0], ['bustPct', 'BUST%', 0]],
+    RB: [['ypc', 'Y/CAR', 2], ['touch', 'TCH', 0], ['scrim', 'SCRIM', 0], ['snap', 'SNAP%', 0], ['boomPct', 'BOOM%', 0], ['bustPct', 'BUST%', 0]],
+    WR: [['ts', 'TS%', 1], ['wopr', 'WOPR', 2], ['racr', 'RACR', 2], ['adot', 'aDOT', 1], ['boomPct', 'BOOM%', 0], ['bustPct', 'BUST%', 0]],
+    TE: [['ts', 'TS%', 1], ['wopr', 'WOPR', 2], ['racr', 'RACR', 2], ['adot', 'aDOT', 1], ['boomPct', 'BOOM%', 0], ['bustPct', 'BUST%', 0]],
+  };
+
+  /* ── styles (scoped) ── */
+  function ppStyles() {
+    if (document.getElementById('pp-vault-styles')) return;
+    const S = '#page-playerprofile';
+    const css = `
+    ${S} .pp-wrap{max-width:1240px;margin:0 auto;padding:24px 22px 90px}
+    ${S} .pp-top{display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    ${S} .pp-crumb{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+    ${S} .pp-crumb b{color:var(--accent2)}
+    ${S} .pp-live{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:4px 10px;border-radius:999px;background:rgba(61,204,122,.12);border:1px solid rgba(61,204,122,.35);color:var(--rb)}
+    ${S} .pp-searchwrap{position:relative;flex:1;min-width:200px;max-width:360px}
+    ${S} .pp-search{display:flex;align-items:center;gap:9px;padding:9px 15px;background:var(--s2);border:1px solid var(--border2);border-radius:999px;color:var(--muted)}
+    ${S} .pp-search:focus-within{border-color:var(--accent2)}
+    ${S} .pp-search svg{width:13px;height:13px;flex-shrink:0}
+    ${S} .pp-search input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font-sans);font-size:13px;width:100%}
+    ${S} .pp-ac{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--s1);border:1px solid var(--border2);border-radius:12px;padding:5px;box-shadow:0 24px 60px rgba(0,0,0,.5);z-index:30;display:none;max-height:330px;overflow-y:auto}
+    ${S} .pp-ac.show{display:block}
+    ${S} .pp-ac-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;color:var(--text)}
+    ${S} .pp-ac-item:hover{background:var(--s3)}
+    ${S} .pp-ac-av{width:30px;height:30px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--border2)}
+    ${S} .pp-ac-av img{width:100%;height:100%;object-fit:cover}
+    ${S} .pp-ac-name{font-size:13px;font-weight:600;font-family:var(--font-sans)}
+    ${S} .pp-ac-meta{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--muted);white-space:nowrap}
+    ${S} .pp-seg{display:inline-flex;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px;margin-left:auto}
+    ${S} .pp-seg button{padding:6px 13px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;cursor:pointer}
+    ${S} .pp-seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
+    ${S} .pp-hero{display:flex;align-items:center;gap:20px;padding:20px 22px;background:var(--s1);border:1px solid var(--border2);border-radius:16px;margin-bottom:14px;flex-wrap:wrap}
+    ${S} .pp-shot{width:88px;height:88px;border-radius:50%;padding:3px;flex-shrink:0;background:linear-gradient(135deg,var(--s4),var(--s2))}
+    ${S} .pp-shot .in{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--muted)}
+    ${S} .pp-shot img{width:100%;height:100%;object-fit:cover}
+    ${S} .pp-id{flex:1;min-width:220px}
+    ${S} .pp-name{font-size:30px;font-weight:900;letter-spacing:-.04em;line-height:1;font-family:var(--font-sans);color:var(--text)}
+    ${S} .pp-meta{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+    ${S} .pp-pos{display:inline-flex;padding:4px 10px;border-radius:6px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;background:rgba(255,255,255,.07)}
+    ${S} .pp-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:999px;font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap}
+    ${S} .pp-pill .d{width:6px;height:6px;border-radius:50%;background:var(--rb)}
+    ${S} .pp-pill .d.warn{background:var(--gold)}
+    ${S} .pp-pill .d.out{background:var(--red)}
+    ${S} .pp-pill.mono{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em}
+    ${S} .pp-hright{display:flex;gap:26px;margin-left:auto;padding-left:22px;border-left:1px solid var(--border2)}
+    ${S} .pp-hs{text-align:right}
+    ${S} .pp-hs .v{font-family:var(--font-mono);font-size:21px;font-weight:700;color:var(--text)}
+    ${S} .pp-hs .v.gold{color:var(--gold)}${S} .pp-hs .v.sky{color:var(--accent2)}
+    ${S} .pp-hs .l{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+    ${S} .pp-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+    ${S} .pp-kpi{position:relative;overflow:hidden;padding:14px 15px;border-radius:14px;border:1px solid var(--border2);background:var(--s2)}
+    ${S} .pp-kpi::before{content:'';position:absolute;inset:0;opacity:.22;pointer-events:none}
+    ${S} .pp-kpi.blue::before{background:linear-gradient(135deg,#2f63c4,transparent 65%)}
+    ${S} .pp-kpi.green::before{background:linear-gradient(135deg,#1e8a52,transparent 65%)}
+    ${S} .pp-kpi.gold::before{background:linear-gradient(135deg,#a97f16,transparent 65%)}
+    ${S} .pp-kpi.red::before{background:linear-gradient(135deg,#c22a3d,transparent 65%)}
+    ${S} .pp-kpi.violet::before{background:linear-gradient(135deg,#6b4fd0,transparent 65%)}
+    ${S} .pp-kpi .v{position:relative;font-family:var(--font-mono);font-size:22px;font-weight:700;line-height:1;color:var(--text)}
+    ${S} .pp-kpi .l{position:relative;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:7px}
+    ${S} .pp-kpi .s{position:relative;font-size:10.5px;color:var(--text2);margin-top:4px;font-family:var(--font-sans)}
+    ${S} .pp-kpi .s b{color:var(--rb)}
+    ${S} .pp-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
+    ${S} .pp-tabs::-webkit-scrollbar{display:none}
+    ${S} .pp-tabs button{padding:9px 18px;border:1px solid transparent;border-radius:999px;background:transparent;color:var(--muted);font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;font-family:var(--font-sans);min-height:40px}
+    ${S} .pp-tabs button:hover{color:var(--text);background:rgba(255,255,255,.06)}
+    ${S} .pp-tabs button.on{background:var(--accent);color:#fff;box-shadow:0 2px 10px -3px rgba(47,99,196,.55)}
+    ${S} .pp-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px;align-items:start}
+    ${S} .pp-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+    ${S} .pp-card{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:17px 19px;transition:border-color 150ms ease}
+    ${S} .pp-card:hover{border-color:var(--border3)}
+    ${S} .pp-ch{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:13px}
+    ${S} .pp-ct{font-size:15px;font-weight:800;letter-spacing:-.02em;font-family:var(--font-sans);color:var(--text)}
+    ${S} .pp-ck{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+    ${S} .pp-loading{display:flex;align-items:center;gap:9px;padding:26px 8px;color:var(--muted);font-family:var(--font-mono);font-size:11px}
+    ${S} .pp-spin{display:inline-block;animation:pp-rot 1s linear infinite}
+    @keyframes pp-rot{to{transform:rotate(360deg)}}
+    ${S} .pp-leg{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+    ${S} .pp-leg span{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+    ${S} .pp-leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+    ${S} table.pp-t{width:100%;border-collapse:collapse}
+    ${S} .pp-t th{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);text-align:right;padding:7px 8px;border-bottom:1px solid var(--border2);white-space:nowrap}
+    ${S} .pp-t th.l{text-align:left;padding-left:0}
+    ${S} .pp-t td{font-family:var(--font-mono);font-size:12.5px;font-weight:500;color:var(--text2);text-align:right;padding:10px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+    ${S} .pp-t td.l{text-align:left;padding-left:0;font-family:var(--font-sans);font-weight:700;color:var(--text)}
+    ${S} .pp-t tr:last-child td{border-bottom:none}
+    ${S} .pp-t tr:hover td{background:rgba(123,170,240,.04)}
+    ${S} .pp-fin{font-weight:700}${S} .pp-fin.g{color:var(--gold)}${S} .pp-fin.s{color:var(--accent2)}
+    ${S} .pp-note{font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5;font-family:var(--font-sans)}
+    ${S} .pp-note b{color:var(--text2)}
+    ${S} .pp-prop{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--border)}
+    ${S} .pp-prop:last-child{border-bottom:none}
+    ${S} .pp-prop .m{flex:1 1 100%;display:flex;align-items:baseline;gap:8px;min-width:0}
+    ${S} .pp-prop .m b{font-size:12.5px;font-weight:700;white-space:nowrap;color:var(--text);font-family:var(--font-sans)}
+    ${S} .pp-prop .m span{font-size:10px;color:var(--muted);white-space:nowrap;font-family:var(--font-sans)}
+    ${S} .pp-prop .line{font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--accent2);margin-right:auto}
+    ${S} .pp-odds{display:flex;gap:5px}
+    ${S} .pp-odds i{font-style:normal;font-family:var(--font-mono);font-size:10.5px;font-weight:700;padding:5px 8px;border-radius:6px;background:var(--s3);border:1px solid var(--border2)}
+    ${S} .pp-odds i.o{color:var(--rb)}${S} .pp-odds i.u{color:var(--red2)}
+    ${S} .pp-bk{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.08em;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.08);color:var(--muted);white-space:nowrap}
+    ${S} .pp-bk.mod{background:rgba(245,200,66,.12);color:var(--gold)}
+    ${S} .pp-rail{margin-bottom:13px}${S} .pp-rail:last-child{margin-bottom:0}
+    ${S} .pp-rail .t{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:5px;font-family:var(--font-sans)}
+    ${S} .pp-rail .t b{font-weight:700;color:var(--text)}
+    ${S} .pp-rail .t span{font-family:var(--font-mono);font-size:10.5px;color:var(--muted)}
+    ${S} .pp-rail .t span b{color:var(--accent2)}
+    ${S} .pp-rail .bar{height:6px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+    ${S} .pp-rail .bar i{display:block;height:100%;border-radius:99px}
+    ${S} .pp-rail.elite .bar i{background:linear-gradient(90deg,#1e8a52,var(--rb))}
+    ${S} .pp-rail.good .bar i{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    ${S} .pp-rail.mid .bar i{background:linear-gradient(90deg,#a97f16,var(--gold))}
+    ${S} .pp-pts{display:inline-block;min-width:46px;text-align:center;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;font-family:var(--font-mono)}
+    ${S} .pp-pts.boom{background:rgba(61,204,122,.14);color:var(--rb)}
+    ${S} .pp-pts.mid{background:rgba(123,208,255,.10);color:var(--accent2)}
+    ${S} .pp-pts.bust{background:rgba(226,58,78,.14);color:var(--red2)}
+    ${S} .pp-dvp{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px;border:1px solid}
+    ${S} .pp-splitgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    ${S} .pp-split{padding:14px 15px;background:var(--s2);border:1px solid var(--border);border-radius:10px}
+    ${S} .pp-split .k{font-family:var(--font-mono);font-size:8.5px;font-weight:700;color:var(--muted);letter-spacing:.1em}
+    ${S} .pp-split .v{font-family:var(--font-mono);font-size:20px;font-weight:700;margin-top:5px;color:var(--text)}
+    ${S} .pp-split .v.up{color:var(--rb)}${S} .pp-split .v.dn{color:var(--red2)}
+    ${S} .pp-split .d{font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:3px}
+    ${S} .pp-seasontoggle{width:100%;margin-top:4px;padding:10px;border:1px dashed var(--border2);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;cursor:pointer}
+    ${S} .pp-seasontoggle:hover{color:var(--text);border-color:var(--border3)}
+    ${S} .pp-durrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:11.5px;color:var(--text2)}
+    ${S} .pp-durrow:last-child{border-bottom:none}
+    ${S} .pp-durrow .yr{width:44px;color:var(--text);font-weight:700}
+    ${S} .pp-durrow .bar{flex:1;height:6px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+    ${S} .pp-durrow .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    ${S} .pp-durrow .n{width:56px;text-align:right}
+    @media(max-width:960px){
+      ${S} .pp-grid{grid-template-columns:1fr}
+      ${S} .pp-kpis{grid-template-columns:repeat(3,1fr)}
+      ${S} .pp-hright{border-left:none;padding-left:0;margin-left:0;width:100%;justify-content:space-between}
+      ${S} .pp-splitgrid{grid-template-columns:repeat(2,1fr)}
+      ${S} .pp-seg{margin-left:0}
+    }
+    @media(max-width:560px){
+      ${S} .pp-wrap{padding:14px 14px 84px}
+      ${S} .pp-hero{padding:15px;gap:14px}
+      ${S} .pp-shot{width:62px;height:62px}
+      ${S} .pp-name{font-size:22px}
+      ${S} .pp-kpis{grid-template-columns:repeat(2,1fr);gap:8px}
+      ${S} .pp-kpi .v{font-size:18px}
+      ${S} .pp-hs .v{font-size:16px}
+      ${S} .pp-card{padding:13px}
+      ${S} .pp-t th,${S} .pp-t td{padding:8px 5px;font-size:11px}
+      ${S} .pp-tabs button{min-height:44px}
+    }`;
+    const el = document.createElement('style'); el.id = 'pp-vault-styles'; el.textContent = css; document.head.appendChild(el);
+  }
+
+  /* ── betting cards ── */
+  function betPlayer() {
+    if (!PLR.bet || !PLR.bet.players) return null;
+    const nn = D.normName(PLR.name);
+    return PLR.bet.players.find(p => D.normName(p.name) === nn) || null;
+  }
+  function marketsForPos(pos) {
+    const VB = window.VaultBetting;
+    const list = (VB && VB.MARKETS) || [];
+    return list.filter(m => (m.pos || []).includes(pos) && m.key !== 'tackles' && m.key !== 'sacks');
+  }
+  function propRowHtml(m, cell, sub) {
+    const VB = window.VaultBetting;
+    const line = VB ? VB.fmtLine(cell, m.kind) : '—';
+    const over = cell && cell.over != null ? (m.kind === 'prob' ? '' : 'O ') + VB.fmtOdds(cell.over) : null;
+    const under = cell && cell.under != null ? 'U ' + VB.fmtOdds(cell.under) : null;
+    const modeled = cell && (cell.modeled || cell.derived);
+    const bk = modeled ? '<span class="pp-bk mod">MODEL</span>' : (cell && cell.book ? `<span class="pp-bk">${esc(cell.book)}</span>` : '');
+    return `<div class="pp-prop">
+      <div class="m"><b>${esc(m.label)}</b><span>${esc(sub)}</span></div>
+      <span class="line">${esc(line)}</span>
+      <div class="pp-odds">${over ? `<i class="o">${esc(over)}</i>` : ''}${under ? `<i class="u">${esc(under)}</i>` : ''}</div>
+      ${bk}
+    </div>`;
+  }
+  // Weekly-first betting card. Season-long markets collapse whenever a live
+  // weekly board exists — they matter less as kickoff approaches.
+  let seasonOpen = false;
+  function bettingCardHtml(compact) {
+    if (PLR.betErr) return `<div class="pp-card"><div class="pp-ch"><div class="pp-ct">Betting Board</div></div><div class="pp-note">Betting feed unavailable right now.</div></div>`;
+    if (!PLR.bet) return `<div class="pp-card"><div class="pp-ch"><div class="pp-ct">Betting Board</div></div><div class="pp-loading"><span class="pp-spin">⟳</span> Loading betting feed…</div></div>`;
+    const bp = betPlayer(), row = PLR.row;
+    const pos = (bp && bp.pos) || (row && row.pos) || 'WR';
+    const mkts = marketsForPos(pos);
+    const wk = PLR.bet.week;
+    const live = bp && bp.weekly && !bp.weekly.derived;
+    const wkTitle = wk != null ? `Week ${wk} Props` : 'Weekly Props';
+    let weekly = '';
+    if (bp && bp.weekly) {
+      const opp = bp.weekly.opp ? ` · ${bp.weekly.ha === '@' ? '@ ' : 'vs '}${bp.weekly.opp}` : '';
+      const rows = mkts.map(m => {
+        const cell = bp.weekly.lines[m.key];
+        if (!cell) return '';
+        return propRowHtml(m, cell, (live ? 'This week' : 'Projected (season ÷ 17)') + opp);
+      }).filter(Boolean);
+      weekly = rows.slice(0, compact ? 4 : rows.length).join('');
+    }
+    if (!weekly) weekly = `<div class="pp-note">No weekly markets posted for this player yet — the props cron refreshes hourly, lines appear as books post them.</div>`;
+    let seasonRows = '';
+    if (bp && bp.season) {
+      seasonRows = mkts.map(m => bp.season.lines[m.key] ? propRowHtml(m, bp.season.lines[m.key], 'Season total') : '').filter(Boolean).join('');
+    }
+    const collapse = live && !compact;
+    let seasonHtml = '';
+    if (seasonRows && !compact) {
+      seasonHtml = collapse && !seasonOpen
+        ? `<button class="pp-seasontoggle" data-pp-seasontoggle>SHOW SEASON-LONG MARKETS ▾</button>`
+        : `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border2)">
+             <div class="pp-ck" style="margin-bottom:8px">SEASON-LONG${collapse ? ' <button class="pp-seasontoggle" data-pp-seasontoggle style="width:auto;margin:0 0 0 8px;padding:3px 9px;display:inline-block">HIDE ▴</button>' : ''}</div>
+             ${seasonRows}
+           </div>`;
+    }
+    const gen = PLR.bet.generated ? new Date(PLR.bet.generated) : null;
+    const genTxt = gen && !isNaN(gen) ? gen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + gen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null;
+    return `<div class="pp-card">
+      <div class="pp-ch"><div><div class="pp-ck">VEGAS · ${PLR.bet.season || ''} SEASON</div><div class="pp-ct">${esc(wkTitle)}</div></div>
+        <span class="pp-live">${live ? 'LIVE' : 'MODELED'}</span></div>
+      ${weekly}
+      ${seasonHtml}
+      <div class="pp-note">Auto-refreshes from the live feed — props update <b>hourly</b>, so weekly lines roll over on their own.${genTxt ? ` Last update <b>${genTxt}</b>.` : ''}</div>
+    </div>`;
+  }
+
+  /* ── cards ── */
+  function railsCardHtml() {
+    const row = PLR.row;
+    if (!row) return '';
+    const defs = RAIL_DEFS[row.pos] || RAIL_DEFS.WR;
+    const rails = defs.map(dd => {
+      const [key, label] = dd;
+      const info = pct(PLR.rows, row, key);
+      if (!info || row[key] == null) return '';
+      const cls = info.p >= 85 ? 'elite' : info.p >= 60 ? 'good' : 'mid';
+      const suf = PCT_SUFFIX[key] || '';
+      return `<div class="pp-rail ${cls}">
+        <div class="t"><b>${esc(label)} ${fmt(row[key], key === 'wopr' || key === 'racr' || key === 'ya' || key === 'ypc' || key === 'epaG' ? 2 : (key === 'touch' || key === 'scrim' || key === 'rec' ? 0 : 1))}${suf}</b><span><b>${info.p}th</b> · ${row.pos}${info.rank}</span></div>
+        <div class="bar"><i style="width:${info.p}%"></i></div>
+      </div>`;
+    }).filter(Boolean).join('');
+    return `<div class="pp-card">
+      <div class="pp-ch"><div><div class="pp-ck">${esc(PLR.season)} · VS QUALIFIED ${esc(PLR.row.pos)}s</div><div class="pp-ct">Percentile Profile</div></div></div>
+      ${rails || '<div class="pp-note">Not enough qualified peers to rank.</div>'}
+    </div>`;
+  }
+
+  function careerCardHtml() {
+    const pos = PLR.row ? PLR.row.pos : 'WR';
+    const cols = CAREER_COLS[pos] || CAREER_COLS.WR;
+    let body;
+    if (!PLR.career) body = `<div class="pp-loading"><span class="pp-spin">⟳</span> Building career from nflverse archives…</div>`;
+    else if (!PLR.career.length) body = `<div class="pp-note">No prior seasons found.</div>`;
+    else {
+      const rows = PLR.career.map(c => {
+        const r = c.row;
+        const finc = c.fin === 1 ? 'g' : c.fin <= 5 ? 's' : '';
+        return `<tr><td class="l">${c.yr}</td><td>${fmtI(r.g)}</td>${cols.map(cc => `<td>${fmtI(r[cc[0]])}</td>`).join('')}<td>${fmt(r.fppg)}</td><td>${fmt(r.fpts)}</td><td class="pp-fin ${finc}">${r.pos}${c.fin}</td></tr>`;
+      }).join('');
+      const tg = PLR.career.reduce((a, c) => a + (c.row.g || 0), 0);
+      const tp = PLR.career.reduce((a, c) => a + (c.row.fpts || 0), 0);
+      body = `<div style="overflow-x:auto"><table class="pp-t">
+        <thead><tr><th class="l">Season</th><th>G</th>${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>PPG</th><th>PTS</th><th>FIN</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+        <div class="pp-note">Career: <b>${PLR.career.length} seasons · ${tg} games · ${fmt(tp)} PPR pts · ${fmt(tg ? tp / tg : null)} PPG</b></div>`;
+    }
+    return `<div class="pp-card">
+      <div class="pp-ch"><div><div class="pp-ck">CAREER · NFLVERSE ARCHIVES</div><div class="pp-ct">Season by Season</div></div><span class="pp-pill mono">PPR</span></div>
+      ${body}
+    </div>`;
+  }
+
+  function chartCardHtml() {
+    let inner;
+    if (PLR.logErr) inner = `<div class="pp-note">No weekly log available for ${esc(PLR.name)} in ${esc(PLR.season)}.</div>`;
+    else if (!PLR.log) inner = `<div class="pp-loading"><span class="pp-spin">⟳</span> Loading ${esc(PLR.season)} weekly log…</div>`;
+    else {
+      const [bT, dT] = boomBust(PLR.log.pos);
+      inner = `<svg id="pp-wkchart" width="100%" viewBox="0 0 720 240" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="pp-leg">
+        <span><i style="background:linear-gradient(135deg,var(--accent),var(--accent2))"></i>WEEKLY PTS</span>
+        <span><i style="background:var(--rb)"></i>BOOM (${bT}+)</span>
+        <span><i style="background:rgba(226,58,78,.8)"></i>BUST (&lt;${dT})</span>
+        <span><i style="background:var(--gold);height:2px;border-radius:0"></i>AVG ${fmt(PLR.row && PLR.row.fppg)}</span>
+      </div>`;
+    }
+    return `<div class="pp-card">
+      <div class="pp-ch"><div><div class="pp-ck">${esc(PLR.season)} SEASON · WEEK BY WEEK</div><div class="pp-ct">Fantasy Points</div></div><span class="pp-pill mono">PPR</span></div>
+      ${inner}
+    </div>`;
+  }
+
+  function durabilityCardHtml() {
+    let inner;
+    if (!PLR.career) inner = `<div class="pp-loading"><span class="pp-spin">⟳</span> Loading…</div>`;
+    else {
+      const inj = PLR.row && PLR.row.injury;
+      inner = (PLR.career.slice(0, 6).map(c => {
+        const g = c.row.g || 0, max = 17;
+        return `<div class="pp-durrow"><span class="yr">${c.yr}</span><span class="bar"><i style="width:${Math.min(100, Math.round(100 * g / max))}%"></i></span><span class="n">${g} G</span></div>`;
+      }).join('')) +
+      `<div class="pp-note">${inj ? `Current designation: <b>${esc(inj)}${PLR.row.injuryDes ? ' — ' + esc(PLR.row.injuryDes) : ''}</b>` : 'No current injury designation.'}</div>`;
+    }
+    return `<div class="pp-card">
+      <div class="pp-ch"><div><div class="pp-ck">DURABILITY</div><div class="pp-ct">Games Played</div></div></div>
+      ${inner}
+    </div>`;
+  }
+
+  /* ── tab bodies ── */
+  const BODY = {
+    overview() {
+      return `<div class="pp-grid">
+        <div class="pp-col">${chartCardHtml()}${careerCardHtml()}</div>
+        <div class="pp-col">${bettingCardHtml(true)}${railsCardHtml()}${durabilityCardHtml()}</div>
+      </div>`;
+    },
+    gamelogs() {
+      let body;
+      if (PLR.logErr) body = `<div class="pp-note">No weekly log available.</div>`;
+      else if (!PLR.log) body = `<div class="pp-loading"><span class="pp-spin">⟳</span> Loading schedule &amp; logs…</div>`;
+      else {
+        const cols = PLR.log.cols || [];
+        const [bT, dT] = boomBust(PLR.log.pos);
+        const rows = PLR.log.weeks.slice().reverse().map(w => {
+          const cls = w.pts >= bT ? 'boom' : w.pts < dT ? 'bust' : 'mid';
+          const opp = w.opp ? `${w.ha === '@' ? '@' : 'vs'} ${w.opp}` : '—';
+          const tier = w.tier && w.tier.t ? `<span class="pp-dvp" style="color:${w.tier.color};border-color:${w.tier.color}55">${esc(w.tier.short)}</span>` : '—';
+          return `<tr><td class="l">${w.wk}</td><td class="l" style="font-family:var(--font-mono);font-weight:500;color:var(--text2)">${esc(opp)}</td><td>${tier}</td>${cols.map(c => `<td>${c.fmt(w)}</td>`).join('')}<td><span class="pp-pts ${cls}">${fmt(w.pts)}</span></td></tr>`;
+        }).join('');
+        body = `<div style="overflow-x:auto"><table class="pp-t">
+          <thead><tr><th class="l">WK</th><th class="l">OPP</th><th>DVP</th>${cols.map(c => `<th>${esc(c.label)}</th>`).join('')}<th>PTS</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+          <div class="pp-note">Logs via nflverse · opponents via ESPN schedule · DvP = Vault fantasy-points-allowed model.</div>`;
+      }
+      return `<div class="pp-card">
+        <div class="pp-ch"><div><div class="pp-ck">${esc(PLR.season)} · EVERY GAME</div><div class="pp-ct">Game Log</div></div><span class="pp-pill mono">PPR</span></div>
+        ${body}
+      </div>`;
+    },
+    advanced() {
+      const pos = PLR.row ? PLR.row.pos : 'WR';
+      const cols = ADV_COLS[pos] || ADV_COLS.WR;
+      let table;
+      if (!PLR.career) table = `<div class="pp-loading"><span class="pp-spin">⟳</span> Loading seasons…</div>`;
+      else {
+        const rows = PLR.career.slice(0, 5).map(c => {
+          const r = c.row;
+          return `<tr><td class="l">${c.yr}</td><td>${fmtI(r.g)}</td>${cols.map(cc => `<td>${fmt(r[cc[0]], cc[2])}${r[cc[0]] != null && PCT_SUFFIX[cc[0]] ? PCT_SUFFIX[cc[0]] : ''}</td>`).join('')}</tr>`;
+        }).join('');
+        table = `<div style="overflow-x:auto"><table class="pp-t">
+          <thead><tr><th class="l">Season</th><th>G</th>${cols.map(c => `<th>${c[1]}</th>`).join('')}</tr></thead>
+          <tbody>${rows}</tbody></table></div>
+          <div class="pp-note">Some advanced feeds (NGS, snaps) publish after early loads — values fill in as they arrive.</div>`;
+      }
+      return `<div class="pp-grid">
+        <div class="pp-col"><div class="pp-card">
+          <div class="pp-ch"><div><div class="pp-ck">USAGE &amp; EFFICIENCY · BY SEASON</div><div class="pp-ct">Advanced Metrics</div></div></div>
+          ${table}
+        </div></div>
+        <div class="pp-col">${railsCardHtml()}</div>
+      </div>`;
+    },
+    betting() {
+      return `<div class="pp-grid">
+        <div class="pp-col">${bettingCardHtml(false)}</div>
+        <div class="pp-col">
+          <div class="pp-card">
+            <div class="pp-ch"><div><div class="pp-ck">HOW THIS BOARD WORKS</div><div class="pp-ct">Feed &amp; Cadence</div></div></div>
+            <div class="pp-note" style="font-size:12px;margin-top:0;line-height:1.65">
+              <b>Weekly props lead.</b> Once books post a live weekly board, season-long markets collapse below — they matter less as kickoff approaches.<br><br>
+              Lines come from the Vault props feed (<b>refreshed hourly</b>, PrizePicks/Underdog + Vegas books when keyed). Cells marked <b style="color:var(--gold)">MODEL</b> are Vault-projected placeholders that live lines replace automatically.
+            </div>
+          </div>
+        </div>
+      </div>`;
+    },
+    splits() {
+      let body;
+      if (PLR.logErr) body = `<div class="pp-note">No weekly log available.</div>`;
+      else if (!PLR.log) body = `<div class="pp-loading"><span class="pp-spin">⟳</span> Computing splits…</div>`;
+      else {
+        const wks = PLR.log.weeks.filter(w => w.pts != null);
+        const avg = a => a.length ? a.reduce((s, w) => s + w.pts, 0) / a.length : null;
+        const seasonAvg = avg(wks);
+        const home = wks.filter(w => w.ha === 'vs'), away = wks.filter(w => w.ha === '@');
+        const tough = wks.filter(w => w.dvpRank != null && w.dvpRank <= 13);
+        const easy = wks.filter(w => w.dvpRank != null && w.dvpRank >= 20);
+        const l4 = wks.slice(-4);
+        const [bT, dT] = boomBust(PLR.log.pos);
+        const boom = wks.filter(w => w.pts >= bT).length, bust = wks.filter(w => w.pts < dT).length;
+        const cell = (k, v, d, ref) => {
+          const cls = (v != null && ref != null) ? (v > ref + 1 ? ' up' : v < ref - 1 ? ' dn' : '') : '';
+          return `<div class="pp-split"><div class="k">${k}</div><div class="v${cls}">${fmt(v)}</div><div class="d">${d}</div></div>`;
+        };
+        body = `<div class="pp-splitgrid">
+          ${cell('HOME', avg(home), 'PPG · ' + home.length + ' GMS', seasonAvg)}
+          ${cell('AWAY', avg(away), 'PPG · ' + away.length + ' GMS', seasonAvg)}
+          ${cell('LAST 4', avg(l4), 'PPG · CLOSING FORM', seasonAvg)}
+          ${cell('VS TOUGH DVP', avg(tough), 'PPG · TOP-13 DEFENSES · ' + tough.length + ' GMS', seasonAvg)}
+          ${cell('VS SOFT DVP', avg(easy), 'PPG · BOTTOM-13 · ' + easy.length + ' GMS', seasonAvg)}
+          <div class="pp-split"><div class="k">BOOM / BUST</div><div class="v">${boom} / ${bust}</div><div class="d">OF ${wks.length} GAMES (${bT}+ / &lt;${dT})</div></div>
+        </div>
+        <div class="pp-note">All splits computed live from the ${esc(PLR.season)} game log (opponents via ESPN, DvP via Vault FPA model).</div>`;
+      }
+      return `<div class="pp-card">
+        <div class="pp-ch"><div><div class="pp-ck">${esc(PLR.season)} SITUATIONAL</div><div class="pp-ct">Splits</div></div></div>
+        ${body}
+      </div>`;
+    },
+    status() {
+      const r = PLR.row;
+      const inj = r && r.injury;
+      const statusHtml = `<div class="pp-card">
+        <div class="pp-ch"><div><div class="pp-ck">INJURY REPORT · NFLVERSE</div><div class="pp-ct">Current Status</div></div>
+          <span class="pp-pill"><span class="d${inj ? (String(inj).toLowerCase().includes('out') || String(inj).toLowerCase().includes('ir') ? ' out' : ' warn') : ''}"></span>${inj ? esc(inj) : 'Healthy'}</span></div>
+        <div class="pp-note" style="font-size:12px;margin-top:0">${inj
+          ? `Listed as <b>${esc(inj)}</b>${r.injuryDes ? ' — ' + esc(r.injuryDes) : ''} on the latest nflverse injury report.`
+          : 'No designation on the latest nflverse injury report. Off-season reports are sparse — this fills in weekly once camp opens.'}</div>
+      </div>`;
+      return `<div class="pp-grid">
+        <div class="pp-col">${statusHtml}</div>
+        <div class="pp-col">${durabilityCardHtml()}</div>
+      </div>`;
+    },
+  };
+  const TABS = [['overview', 'Overview'], ['gamelogs', 'Game Logs'], ['advanced', 'Advanced'], ['betting', 'Betting'], ['splits', 'Splits'], ['status', 'Status']];
+
+  /* ── render ── */
+  function heroHtml() {
+    const r = PLR.row;
+    if (!r) return `<div class="pp-hero"><div class="pp-loading"><span class="pp-spin">⟳</span> Loading ${esc(PLR.season)} player data…</div></div>`;
+    const col = POS_COLOR[r.pos] || 'var(--muted)';
+    const adp = PLR.adp && PLR.adp[D.normName(r.name)];
+    const fin = posRank(PLR.rows, r);
+    const age = (adp && adp.age) || D.ageFor(r.name);
+    const exp = adp && adp.years_of_experience;
+    const inj = r.injury;
+    const ini = (r.name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    return `<div class="pp-hero">
+      <div class="pp-shot" style="background:linear-gradient(135deg,${col},var(--s2))"><div class="in">${r.headshot ? `<img src="${esc(r.headshot)}" alt="" onerror="this.remove()">` : ''}${esc(ini)}</div></div>
+      <div class="pp-id">
+        <div class="pp-name">${esc(r.name)}</div>
+        <div class="pp-meta">
+          <span class="pp-pos" style="color:${col}">${esc(r.pos)}</span>
+          <span class="pp-pill"><span class="d${inj ? (String(inj).toLowerCase().includes('out') ? ' out' : ' warn') : ''}"></span>${inj ? esc(inj) : 'Active'}</span>
+          <span class="pp-pill">${esc(r.team || '—')}</span>
+          ${age ? `<span class="pp-pill">Age ${Number(age).toFixed(0)}</span>` : ''}
+          ${exp != null ? `<span class="pp-pill mono">EXP ${exp} YRS</span>` : ''}
+        </div>
+      </div>
+      <div class="pp-hright">
+        <div class="pp-hs"><div class="v gold">${fin ? esc(r.pos + fin) : '—'}</div><div class="l">${esc(PLR.season)} Finish</div></div>
+        <div class="pp-hs"><div class="v sky">${adp && adp.adp != null ? fmt(adp.adp) : '—'}</div><div class="l">PPR ADP</div></div>
+        <div class="pp-hs"><div class="v">${fmt(r.fppg)}</div><div class="l">FP / G</div></div>
+      </div>
+    </div>`;
+  }
+
+  function kpisHtml() {
+    const r = PLR.row;
+    if (!r) return '';
+    const defs = KPI_DEFS[r.pos] || KPI_DEFS.WR;
+    return `<div class="pp-kpis">${defs.map(dd => {
+      const [key, label, color, dec] = dd;
+      const info = pct(PLR.rows, r, key);
+      const suf = PCT_SUFFIX[key] || '';
+      const sub = info ? `<b>${info.p}th</b> pctile ${esc(r.pos)}` : '&nbsp;';
+      return `<div class="pp-kpi ${color}"><div class="v">${fmt(r[key], dec)}${suf}</div><div class="l">${esc(label)}</div><div class="s">${sub}</div></div>`;
+    }).join('')}</div>`;
+  }
+
+  function acHtml() {
+    if (!PLR.acOpen || !PLR.idx) return '';
+    const q = PLR.search.trim().toLowerCase();
+    let pool = PLR.idx;
+    if (q) pool = pool.filter(p => p.name.toLowerCase().includes(q) || (p.team || '').toLowerCase().includes(q));
+    pool = pool.slice(0, 8);
+    if (!pool.length) return '<div class="pp-ac show"><div class="pp-note" style="padding:8px 10px;margin:0">No players found</div></div>';
+    return `<div class="pp-ac show">${pool.map(p => `
+      <button class="pp-ac-item" data-pp-pick="${esc(p.name)}">
+        <span class="pp-ac-av">${p.headshot ? `<img src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>
+        <span class="pp-ac-name">${esc(p.name)}</span>
+        <span class="pp-ac-meta">${esc(p.pos)} · ${esc(p.team || '—')} · ${fmt(p.fpts, 0)} FP</span>
+      </button>`).join('')}</div>`;
+  }
+
+  function ppRender() {
+    const mount = document.getElementById('pp-mount');
+    if (!mount) return;
+    mount.innerHTML = `
+      <div class="pp-top">
+        <div class="pp-crumb">RESEARCH HUB <span style="opacity:.5">▸</span> <b>PLAYER PROFILE</b></div>
+        <span class="pp-live">LIVE · NFLVERSE + PROPS FEED</span>
+        <div class="pp-searchwrap">
+          <label class="pp-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pp-search-input" placeholder="Search any player…" autocomplete="off" spellcheck="false" value="${esc(PLR.search)}"></label>
+          <div id="pp-ac-host">${acHtml()}</div>
+        </div>
+        <div class="pp-seg">${PLR.seasonsSeg.map(y => `<button data-pp-season="${y}" class="${PLR.season === y ? 'on' : ''}">${y}</button>`).join('')}</div>
+      </div>
+      ${heroHtml()}
+      ${kpisHtml()}
+      <div class="pp-tabs">${TABS.map(t => `<button data-pp-tab="${t[0]}" class="${PLR.tab === t[0] ? 'on' : ''}">${t[1]}</button>`).join('')}</div>
+      <div id="pp-body">${PLR.row ? BODY[PLR.tab]() : ''}</div>
+      <div class="pp-note" style="margin-top:16px">Stats via <b>nflverse</b> · schedule via ESPN · ADP via FantasyCalc feed · props via Vault betting feed (hourly cron). Weekly props lead the betting view; season-long markets tuck away once live weekly lines exist.</div>`;
+    ppChart();
+  }
+  function soft() { if (PLR.booted && document.getElementById('pp-mount')) ppRender(); }
+  function ppRenderBody() {
+    const body = document.getElementById('pp-body');
+    if (!body) { ppRender(); return; }
+    document.querySelectorAll('#page-playerprofile [data-pp-tab]').forEach(b => b.classList.toggle('on', b.dataset.ppTab === PLR.tab));
+    body.innerHTML = PLR.row ? BODY[PLR.tab]() : '';
+    ppChart();
+  }
+
+  function ppChart() {
+    const svg = document.getElementById('pp-wkchart');
+    if (!svg || !PLR.log) return;
+    const wksAll = PLR.log.weeks.filter(w => w.pts != null);
+    if (!wksAll.length) return;
+    const pts = wksAll.map(w => w.pts), wkNums = wksAll.map(w => w.wk);
+    const avg = PLR.row ? PLR.row.fppg : null;
+    const [bT, dT] = boomBust(PLR.log.pos);
+    const W = 720, H = 240, padL = 34, padB = 24, padT = 14;
+    const max = Math.max(30, Math.ceil(Math.max.apply(null, pts) / 10) * 10 + 4);
+    const cw = (W - padL - 8) / pts.length;
+    let s = '';
+    for (let v = 0; v <= max - 4; v += 10) {
+      const y = padT + (H - padT - padB) * (1 - v / max);
+      s += `<line x1="${padL}" y1="${y}" x2="${W - 4}" y2="${y}" stroke="rgba(123,170,240,.09)" stroke-width="1"/>`;
+      s += `<text x="${padL - 8}" y="${y + 3.5}" fill="var(--muted)" font-family="JetBrains Mono" font-size="9" text-anchor="end">${v}</text>`;
+    }
+    pts.forEach((p, i) => {
+      const bh = Math.max(1.5, (H - padT - padB) * (Math.max(0, p) / max));
+      const x = padL + i * cw + cw * 0.16, y = H - padB - bh, bw = cw * 0.68;
+      const fill = p >= bT ? 'url(#ppgBoom)' : p < dT ? 'rgba(226,58,78,.7)' : 'url(#ppgBase)';
+      s += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="3.5" fill="${fill}"/>`;
+      s += `<text x="${x + bw / 2}" y="${H - 8}" fill="var(--muted)" font-family="JetBrains Mono" font-size="8.5" text-anchor="middle">${wkNums[i]}</text>`;
+      if (p >= Math.max(bT + 8, max * 0.62)) s += `<text x="${x + bw / 2}" y="${y - 5}" fill="#3DCC7A" font-family="JetBrains Mono" font-size="9" font-weight="700" text-anchor="middle">${p}</text>`;
+    });
+    if (avg != null) {
+      const ay = padT + (H - padT - padB) * (1 - avg / max);
+      s += `<line x1="${padL}" y1="${ay}" x2="${W - 4}" y2="${ay}" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"/>`;
+    }
+    svg.innerHTML = `<defs>
+      <linearGradient id="ppgBase" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7bd0ff"/><stop offset="1" stop-color="#2f63c4"/></linearGradient>
+      <linearGradient id="ppgBoom" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fe09a"/><stop offset="1" stop-color="#1e8a52"/></linearGradient>
+    </defs>` + s;
+  }
+
+  /* ── orchestration ── */
+  function setPlayer(name) {
+    PLR.name = name; PLR.token++;
+    PLR.log = null; PLR.logErr = false; PLR.logKey = '';
+    PLR.career = null; PLR.careerFor = null;
+    PLR.search = ''; PLR.acOpen = false;
+    seasonOpen = false;
+    try { localStorage.setItem('vault.pp.player', name); } catch (e) {}
+    refreshRow();
+    ppRender();
+    loadLog(); loadCareer();
+  }
+  function setSeason(y) {
+    if (PLR.season === y) return;
+    PLR.season = y; PLR.token++;
+    PLR.log = null; PLR.logErr = false; PLR.logKey = '';
+    PLR.rows = null; PLR.row = null;
+    ppRender();
+    rowsFor(y).then(rows => { PLR.rows = rows; refreshRow(rows); ppRender(); loadLog(); });
+  }
+  function refreshRow(rows) {
+    rows = rows || PLR.rows;
+    if (!rows || !PLR.name) return;
+    const nn = D.normName(PLR.name);
+    PLR.row = rows.find(r => D.normName(r.name) === nn) || null;
+  }
+
+  function ppBoot() {
+    if (PLR.booted) return; PLR.booted = true;
+    const applyMeta = () => {
+      const cur = (D.meta && D.meta.current) || 2025;
+      const ys = (D.ARCHIVE_YEARS && D.ARCHIVE_YEARS.length ? D.ARCHIVE_YEARS.slice() : [cur, cur - 1, cur - 2]).map(String).slice(0, 3);
+      PLR.seasonsSeg = ys;
+      if (!ys.includes(PLR.season)) PLR.season = ys[0];
+    };
+    try { D.fetchMeta().then(() => { applyMeta(); soft(); }).catch(() => {}); } catch (e) {}
+    applyMeta();
+    ppRender(); // skeleton while everything loads
+    Promise.all([rowsFor(PLR.season), D.playerIndex(Number(PLR.season)).catch(() => []), loadAdp()]).then(res => {
+      const rows = res[0], idx = res[1];
+      PLR.rows = rows;
+      PLR.idx = idx && idx.length ? idx : rows.slice().sort((a, b) => (b.fpts || 0) - (a.fpts || 0)).map(r => ({ name: r.name, pos: r.pos, team: r.team, headshot: r.headshot, fpts: r.fpts }));
+      // default player: saved pick if still present, else top scorer
+      if (!PLR.name || !PLR.idx.some(p => p.name === PLR.name)) PLR.name = PLR.idx[0] && PLR.idx[0].name;
+      refreshRow(rows);
+      ppRender();
+      loadLog(); loadCareer();
+    }).catch(() => {
+      const m = document.getElementById('pp-mount');
+      if (m) m.innerHTML = '<div class="pp-loading">Couldn’t load the nflverse feed. Check connection and revisit.</div>';
+    });
+    loadBet().then(() => soft());
+  }
+
+  /* ── events ── */
+  document.addEventListener('click', e => {
+    const page = e.target.closest('#page-playerprofile');
+    if (!page) { if (PLR.acOpen) { PLR.acOpen = false; const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = ''; } return; }
+    const t = e.target.closest('[data-pp-tab]');
+    if (t) { PLR.tab = t.dataset.ppTab; ppRenderBody(); return; }
+    const pick = e.target.closest('[data-pp-pick]');
+    if (pick) { setPlayer(pick.dataset.ppPick); return; }
+    const ssn = e.target.closest('[data-pp-season]');
+    if (ssn) { setSeason(ssn.dataset.ppSeason); return; }
+    const st = e.target.closest('[data-pp-seasontoggle]');
+    if (st) { seasonOpen = !seasonOpen; ppRenderBody(); return; }
+    if (PLR.acOpen && !e.target.closest('.pp-searchwrap')) { PLR.acOpen = false; const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = ''; }
+  });
+  document.addEventListener('input', e => {
+    if (e.target.id === 'pp-search-input') {
+      PLR.search = e.target.value; PLR.acOpen = true;
+      const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = acHtml();
+    }
+  });
+  document.addEventListener('focusin', e => {
+    if (e.target.id === 'pp-search-input') {
+      PLR.acOpen = true;
+      const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = acHtml();
+    }
+  });
+
+  /* ── injection + nav (unchanged pattern) ── */
+  function injectPage() {
+    if (document.getElementById('page-playerprofile')) return;
+    const anchor = document.getElementById('page-advstats') || document.getElementById('page-research') || document.querySelector('.page');
+    if (!anchor) return;
+    const p = document.createElement('div'); p.className = 'page'; p.id = 'page-playerprofile'; p.style.overflowY = 'auto';
+    p.innerHTML = '<div class="pp-wrap"><div id="pp-mount"></div></div>';
+    anchor.parentNode.appendChild(p);
+  }
+  function addNav() {
+    const menu = document.getElementById('rh-mt-menu');
+    if (menu && !menu.querySelector('[data-go="playerprofile"]')) {
+      menu.insertAdjacentHTML('beforeend',
+        '<button class="rh-mt-item" data-go="playerprofile"><span class="ic">◈</span><span><b>Player Profile</b><small>Career · advanced · betting</small></span><span class="rh-newtag">NEW</span></button>');
+    }
+    const after = document.getElementById('sl-gamelogs') || document.getElementById('sl-research');
+    if (after && !document.getElementById('sl-playerprofile')) {
+      const b = document.createElement('button'); b.id = 'sl-playerprofile'; b.className = 'sidebar-link';
+      b.setAttribute('onclick', "showPage('playerprofile')");
+      b.innerHTML = '<span style="font-size:17px">◈</span><span>Player Profile</span>';
+      after.parentNode.insertBefore(b, after.nextSibling);
+    }
+  }
+  function hookShowPage() {
+    if (typeof window.showPage !== 'function') return false;
+    if (window.__ppShowPageHooked) return true; window.__ppShowPageHooked = true;
+    const prev = window.showPage;
+    window.showPage = function (p) {
+      prev.apply(this, arguments);
+      if (p === 'playerprofile') {
+        document.getElementById('page-playerprofile')?.classList.add('on');
+        document.getElementById('nb-research')?.classList.add('on');
+        document.getElementById('tb-research')?.classList.add('on');
+        document.querySelectorAll('#rh-mt-menu .rh-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'playerprofile'));
+        ppBoot();
+      }
+    };
+    return true;
+  }
+  function boot() {
+    if (!window.RHData) return;
+    ppStyles(); injectPage(); addNav();
+    let tries = 0;
+    const t = setInterval(() => {
+      addNav();
+      if ((hookShowPage() && document.getElementById('rh-mt-menu')) || ++tries > 60) clearInterval(t);
+    }, 100);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
 <!-- ════ Landing: live node-mesh + telemetry clock (Vault palette) ════ -->
 <script>
 (function(){
