@@ -9311,14 +9311,56 @@ const PLAYER_IDS = {
 };
 
 function getPlayerHeadshotUrl(name) {
-  
+
   const pid = PLAYER_IDS[name];
   if (pid) return `https://sleepercdn.com/content/nfl/players/thumb/${pid}.jpg`;
-  
+
   const sp = sleeperPlayerMap[normName(name)];
   if (sp?.player_id) return `https://sleepercdn.com/content/nfl/players/thumb/${sp.player_id}.jpg`;
   return null;
 }
+
+/* ── High-res headshots ─────────────────────────────────────────────
+   nflverse_stats.json (already shipped by the data pipeline) carries
+   NFL.com Cloudinary originals (~3400px) per player. We request a
+   face-centered square crop at 2× display size via URL transform —
+   far sharper than Sleeper's 350px torso thumbs. Until that file
+   loads, callers get the Sleeper thumb; the first call warms the
+   fetch in the background, then swaps rendered imgs in place. */
+window._vhMap = null;
+function _vhBuild() {
+  if (window._vhMap || !window.nflverseLoaded) return;
+  const cache = window._nflverseCache || {};
+  const season = (typeof window.vaultNflSeason === 'function') ? window.vaultNflSeason() : null;
+  const stats = (season && cache[season] && cache[season].stats) || (Object.values(cache)[0] || {}).stats;
+  if (!stats) return;
+  const m = {};
+  for (const n in stats) { const h = stats[n] && stats[n].headshot; if (h) m[normName(n)] = h; }
+  window._vhMap = m;
+}
+function vaultHeadshot(name, sid, px) {
+  px = Math.round(px || 48);
+  if (!window._vhWarmed && typeof initNflverse === 'function') {
+    window._vhWarmed = true;
+    initNflverse().then(() => { _vhBuild(); _vhUpgradeImgs(); }).catch(() => {});
+  }
+  try {
+    _vhBuild();
+    const h = window._vhMap && name ? window._vhMap[normName(name)] : null;
+    if (h) return h.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_' + (px * 2) + ',h_' + (px * 2) + ',c_thumb,g_face/');
+  } catch (e) {}
+  sid = String(sid || '');
+  return /^\d+$/.test(sid) ? `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg` : '';
+}
+/* Retro-swap imgs rendered before the map was ready (tagged data-vh-n). */
+function _vhUpgradeImgs() {
+  if (!window._vhMap) return;
+  document.querySelectorAll('img[data-vh-n]').forEach(img => {
+    const u = vaultHeadshot(img.dataset.vhN, img.dataset.vhSid || '', +img.dataset.vhPx || 48);
+    if (u && u.indexOf('static.www.nfl.com') >= 0 && img.src !== u) { img.style.display = ''; img.src = u; }
+  });
+}
+window.vaultHeadshot = vaultHeadshot; window._vhUpgradeImgs = _vhUpgradeImgs;
 
 let communityADP = {}; 
 
@@ -20444,14 +20486,16 @@ function pickYear(year) {
   const srcFmt = (p, val, k = state.fmt) => val == null ? null : r1(k === 'lg' ? val * (p.lgK || 1) : k === 'ppr' ? val : k === 'half' ? val - p.rec / 2 : val - p.rec);
   const confColor = c => c >= 60 ? 'var(--rb)' : c >= 42 ? 'var(--te)' : c >= 28 ? '#ff9a4d' : 'var(--accent2)';
   // Player headshot: live metas carry the numeric Sleeper pid in .id; offline
-  // fallback ids are slugs, so those resolve by name via the global helper.
-  const avShot = p => {
-    if (/^\d+$/.test(String(p.id || ''))) return `https://sleepercdn.com/content/nfl/players/thumb/${p.id}.jpg`;
+  // fallback ids are slugs, so those resolve by name via the global helpers.
+  const avShot = (p, s = 40) => {
+    const sid = /^\d+$/.test(String(p.id || '')) ? String(p.id) : '';
+    try { const u = (typeof vaultHeadshot === 'function') ? vaultHeadshot(p.name, sid, s) : ''; if (u) return u; } catch (e) {}
     try { return (typeof getPlayerHeadshotUrl === 'function' && getPlayerHeadshotUrl(p.name)) || ''; } catch (e) { return ''; }
   };
   const av = (p, s = 40) => {
-    const shot = avShot(p);
-    return `<div class="lc-av" style="width:${s}px;height:${s}px;background:${POSB[p.pos]};border:1.5px solid color-mix(in srgb,${POSC[p.pos]} 40%,transparent);color:${POSC[p.pos]};font-size:${s * 0.34}px">${initials(p.name)}${shot ? `<img src="${shot}" loading="lazy" alt="" onerror="this.remove()">` : ''}</div>`;
+    const shot = avShot(p, s);
+    const sid = /^\d+$/.test(String(p.id || '')) ? String(p.id) : '';
+    return `<div class="lc-av" style="width:${s}px;height:${s}px;background:${POSB[p.pos]};border:1.5px solid color-mix(in srgb,${POSC[p.pos]} 40%,transparent);color:${POSC[p.pos]};font-size:${s * 0.34}px">${initials(p.name)}${shot ? `<img src="${shot}" data-vh-n="${p.name}" data-vh-sid="${sid}" data-vh-px="${s}" loading="lazy" alt="" onerror="this.remove()">` : ''}</div>`;
   };
   const posTag = p => `<span class="lc-mono" style="color:${POSC[p.pos]}">${p.pos}</span> · ${p.team}`;
   const statusPill = p => !p.status ? '' : `<span class="lc-pill" style="background:rgba(255,179,71,.18);color:#ffb347">${p.status.toUpperCase()}</span>`;
@@ -20649,7 +20693,7 @@ function pickYear(year) {
   function mlRow(id, slotLab, edge) {
     const p = getPlayer(id);
     if (id === '0' || !id) return `<div class="lc-mlrow" style="cursor:default"><span class="lc-mlslot" style="color:var(--accent2)">${slotLab}</span><div class="lc-av" style="width:38px;height:38px;background:var(--s2);border:1.5px dashed var(--border3);color:var(--muted);font-size:13px">—</div><div style="min-width:0"><div style="font-size:13.5px;font-weight:700;color:var(--accent2)">Empty slot</div><div class="lc-mono" style="font-size:9.5px;color:var(--muted)">set a starter on Sleeper</div></div><div></div><div></div><span class="lc-mlverdict" style="background:rgba(226,58,78,.14);color:var(--accent2)">⚠ FIX</span></div>`;
-    if (!p) return `<div class="lc-mlrow" style="cursor:default;opacity:.6"><span class="lc-mlslot">${slotLab}</span><div class="lc-av" style="width:38px;height:38px;background:var(--s2);border:1.5px solid var(--border);color:var(--muted);font-size:12px">${initials(pidName(id))}${(() => { const sh = avShot({ id, name: pidName(id) }); return sh ? `<img src="${sh}" loading="lazy" alt="" onerror="this.remove()">` : ''; })()}</div><div style="min-width:0"><div style="font-size:13.5px;font-weight:700">${pidName(id)}</div><div class="lc-mono" style="font-size:9.5px;color:var(--muted)">${slotLab === 'K' || slotLab === 'DEF' ? 'not covered by skill-position projections' : 'no projection this week'}</div></div><div></div><div class="lc-mono" style="text-align:right;color:var(--muted)">—</div><div></div></div>`;
+    if (!p) return `<div class="lc-mlrow" style="cursor:default;opacity:.6"><span class="lc-mlslot">${slotLab}</span><div class="lc-av" style="width:38px;height:38px;background:var(--s2);border:1.5px solid var(--border);color:var(--muted);font-size:12px">${initials(pidName(id))}${(() => { const sh = avShot({ id, name: pidName(id) }, 38); return sh ? `<img src="${sh}" data-vh-n="${pidName(id)}" data-vh-sid="${id}" data-vh-px="38" loading="lazy" alt="" onerror="this.remove()">` : ''; })()}</div><div style="min-width:0"><div style="font-size:13.5px;font-weight:700">${pidName(id)}</div><div class="lc-mono" style="font-size:9.5px;color:var(--muted)">${slotLab === 'K' || slotLab === 'DEF' ? 'not covered by skill-position projections' : 'no projection this week'}</div></div><div></div><div class="lc-mono" style="text-align:right;color:var(--muted)">—</div><div></div></div>`;
     const flagged = edge && edge.starter.id === p.id;
     const inCmp = state.sel.includes(p.id);
     return `
@@ -24230,7 +24274,7 @@ function _buildRedraftView(d){
   var movers = (d.roster||[]).map(function(p){ return {name:p.name,pos:p.pos,team:p.team,sid:p.sleeperId,tr:_rdvTrend(p.name)}; }).filter(function(p){return p.tr!==0;});
   var up=movers.slice().sort(function(a,b){return b.tr-a.tr;}).slice(0,2);
   var dn=movers.slice().sort(function(a,b){return a.tr-b.tr;}).slice(0,2);
-  function mvRow(p){ var c=p.tr>=0?'var(--rr)':'var(--rlose)'; var ph=_rdvHeadshot(p.sid);
+  function mvRow(p){ var c=p.tr>=0?'var(--rr)':'var(--rlose)'; var ph=vaultHeadshot(p.name, p.sid, 32);
     return '<div class="rdv-mv"><span class="a" style="background:'+(posC[p.pos]||'#7d8aa0')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+p.pos+'\'">':p.pos)+'</span><span class="nm">'+_rdvSurname(p.name)+'<span>'+(p.team||'')+'</span></span><span class="d" style="color:'+c+'">'+(p.tr>=0?'+':'')+p.tr+'</span></div>';
   }
   var moversHtml = (up.length||dn.length)
@@ -24553,9 +24597,9 @@ window._gcMatchupHTML=function(d){
   var n=rows.length||9;
   var wpMe=d.wpMe, wpOp=100-wpMe;
   function av(p){ if(!p) return '';
-    var pc=POS[p.pos]||'#7d8aa0', ph=_rdvHeadshot(p.sid);
+    var pc=POS[p.pos]||'#7d8aa0', ph=vaultHeadshot(p.name, p.sid, 46);
     return '<div class="vtr-pav" style="--ring:'+pc+'"><span class="ini">'+_rdvInitials(p.name)+'</span>'
-      + (ph?'<img src="'+ph+'" loading="lazy" onerror="this.style.display=\'none\'">':'')
+      + (ph?'<img src="'+ph+'" data-vh-n="'+p.name+'" data-vh-sid="'+(p.sid||'')+'" data-vh-px="46" loading="lazy" onerror="this.style.display=\'none\'">':'')
       + '</div>'; }
   function info(p){ return _vtrInfo(p,live); }
   function sc(p){ return _vtrSc(p,live); }
@@ -24638,8 +24682,8 @@ window._gcMatchupHTML=function(d){
   var benchMod='';
   if(rl.bench && rl.bench.length){
     benchMod='<div class="rmod rmod-fx rmod-bench"><div class="rmh"><span class="t">Bench watch</span><span class="tag">TOP PROJ</span></div><div class="rbench">'
-      + rl.bench.slice(0,3).map(function(b){ var col=POS[b.pos]||'#7d8aa0', bph=_rdvHeadshot(b.sid);
-          return '<div class="rbp">'+(bph?'<span class="pav" style="--ring:'+col+'"><img src="'+bph+'" loading="lazy" onerror="this.parentNode.style.display=\'none\'"></span>':'')+'<span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
+      + rl.bench.slice(0,3).map(function(b){ var col=POS[b.pos]||'#7d8aa0', bph=vaultHeadshot(b.name, b.sid, 26);
+          return '<div class="rbp">'+(bph?'<span class="pav" style="--ring:'+col+'"><img src="'+bph+'" data-vh-n="'+b.name+'" data-vh-sid="'+(b.sid||'')+'" data-vh-px="26" loading="lazy" onerror="this.parentNode.style.display=\'none\'"></span>':'')+'<span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
         }).join('')
       + '</div>'+(rl.optimal?'<div class="rbench-note">Nothing here out-projects a starter at its position.</div>':'')+'</div>';
   }
@@ -24674,7 +24718,7 @@ async function _ovRenderRedraftWaiver(){
     var benchSorted=(ctx.roster||[]).map(function(p){return {name:p.name,rd:_rdvVal(p.name)};}).sort(function(a,b){return a.rd-b.rd;});
     var maxRd=Math.max.apply(null,[1].concat(avail.map(function(p){return p.rd||0;})));
     var rows=avail.map(function(p,i){
-      var ph=_rdvHeadshot(p.sid); var col=_RDV_POSC[p.pos]||'var(--muted)';
+      var ph=vaultHeadshot(p.name, p.sid, 34); var col=_RDV_POSC[p.pos]||'var(--muted)';
       var bidV=faabLeft?Math.max(i<3?1:0,Math.min(faabLeft,Math.round((p.rd/maxRd)*faabLeft*0.42))):0;
       var dropName=(benchSorted[i]&&benchSorted[i].rd<p.rd)?_rdvSurname(benchSorted[i].name):'';
       var trC=p.tr>0?'up':p.tr<0?'dn':'flat';
