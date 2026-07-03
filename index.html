@@ -1508,9 +1508,11 @@ header{
 .cbf{height:4px;border-radius:2px}
 .fc-loading{padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:12px}
 .fc-error{padding:16px;color:var(--qb);font-family:var(--font-mono);font-size:11px;background:var(--s2);border-radius:8px}
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(calc(100% + 20px))) translateY(20px);background:var(--s1);border:1.5px solid var(--border2);color:var(--text);padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;transition:transform 380ms ease,opacity 380ms ease;z-index:999;pointer-events:none;white-space:nowrap;font-family:var(--font-mono);box-shadow:0 4px 20px #00000055;display:flex;align-items:center;gap:10px;max-width:90vw}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
-.toast.hiding{opacity:0;transform:translateX(-50%) translateY(8px) scale(0.97);transition:transform 200ms ease-in,opacity 200ms ease-in}
+.toast-stack{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;max-width:90vw}
+.toast{position:relative;background:var(--s1);border:1.5px solid var(--border2);color:var(--text);padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;animation:toast-in 350ms ease;pointer-events:auto;white-space:nowrap;font-family:var(--font-mono);box-shadow:0 4px 20px #00000055;display:flex;align-items:center;gap:10px;max-width:90vw;transition:transform 250ms ease-in,opacity 250ms ease-in}
+@keyframes toast-in{from{opacity:0;transform:translateY(16px) scale(.97)}}
+.toast.hiding{opacity:0;transform:translateY(8px) scale(0.97)}
+@media(prefers-reduced-motion:reduce){.toast{animation:none}}
 .toast-undo{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;font-family:var(--font-mono);cursor:pointer;flex-shrink:0;touch-action:manipulation}
 .toast-undo:active{opacity:.7}
 .rankings-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0}
@@ -2090,7 +2092,7 @@ header {
 .tab-btn.on .tab-label { color:var(--accent)!important; }
 
 /* ── Toast ── */
-#toast {
+#toast, .toast {
   background:rgba(18,33,49,0.95)!important;
   border:1px solid rgba(255,255,255,0.12)!important;
   backdrop-filter:var(--blur-sm)!important;
@@ -3336,7 +3338,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast-stack" id="toast-stack"></div>
 <div class="swipe-hint" id="swipe-hint"></div>
 <div class="onboard-dim" id="onboard-dim" style="display:none" onclick="skipOnboarding()"></div>
 <div class="onboard-overlay" id="onboard-overlay" style="display:none"></div>
@@ -6648,7 +6650,7 @@ async function lpConfirm() {
   localStorage.setItem(SK+'-selected-leagues', JSON.stringify(ids));
   // Show loading immediately so the picker doesn't flicker back
   const el = document.getElementById('ov-content');
-  if (el) el.innerHTML = `<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:20px">⟳</div>&nbsp; Loading your team...</div>`;
+  if (el) el.innerHTML = skelRows(5);
   // Populate header dropdown with selected leagues before navigating
   populateHeaderLeague();
   await switchGlobalLeague(_bestLeagueId(ids) || ids[0]);
@@ -9707,20 +9709,47 @@ function closeNote(){
   _noteTarget=null;
 }
 
-let _toastTimer=null;
-function toast(msg, undoFn=null){
-  const t=document.getElementById('toast');
-  if(!t) return;
-  clearTimeout(_toastTimer);
-  t.innerHTML=`<span>${msg}</span>${undoFn?`<button class="toast-undo" id="toast-undo-btn">UNDO</button>`:''}`;
-  if(undoFn){
-    setTimeout(()=>{
-      const btn=document.getElementById('toast-undo-btn');
-      if(btn) btn.onclick=()=>{ undoFn(); t.classList.remove('show'); };
-    },0);
+// Shape-matched loading skeletons (see .skel styles). Widths vary per row so
+// the placeholder reads as content, not stripes.
+function skelRows(n=6, opts={}){
+  const av = opts.avatar !== false;
+  const pill = opts.pill !== false;
+  let rows = '';
+  for (let i=0; i<n; i++){
+    rows += `<div class="skel-row">${av?'<div class="skel skel-av"></div>':''}
+      <div class="skel-lines">
+        <div class="skel skel-line" style="width:${55+((i*17)%30)}%"></div>
+        <div class="skel skel-line thin" style="width:${28+((i*23)%26)}%"></div>
+      </div>${pill?'<div class="skel skel-pill"></div>':''}</div>`;
   }
-  t.classList.add('show');
-  _toastTimer=setTimeout(()=>t.classList.remove('show'), undoFn?5000:2500);
+  return `<div class="skel-wrap">${rows}</div>`;
+}
+function skelCards(n=3){
+  return `<div class="skel-cards">${Array.from({length:n},()=>'<div class="skel skel-card"></div>').join('')}</div>`;
+}
+
+function _toastDismiss(el){
+  if (!el || el._dismissed) return;
+  el._dismissed = true;
+  clearTimeout(el._timer);
+  el.classList.add('hiding');
+  setTimeout(()=>el.remove(), 260);
+}
+function toast(msg, undoFn=null){
+  const stack=document.getElementById('toast-stack');
+  if(!stack) return;
+  // keep at most 3 visible: retire the oldest early
+  const live=[...stack.children].filter(c=>!c._dismissed);
+  for(let i=0;i<=live.length-3;i++) _toastDismiss(live[i]);
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML=`<span>${msg}</span>${undoFn?`<button class="toast-undo">UNDO</button>`:''}`;
+  if(undoFn){
+    const btn=t.querySelector('.toast-undo');
+    if(btn) btn.onclick=()=>{ undoFn(); _toastDismiss(t); };
+  }
+  stack.appendChild(t);
+  t._timer=setTimeout(()=>_toastDismiss(t), undoFn?5000:2500);
 }
 function _rebuildADPLookup(){
   
@@ -10539,7 +10568,7 @@ async function renderOverview() {
   const hasContext = ovLeagueId || draftRoster.length > 0;
   if (!hasContext) { _ovRendering = false; showLeaguePicker(el); return; }
 
-  el.innerHTML = `<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:20px">⟳</div>&nbsp; Loading your team...</div>`;
+  el.innerHTML = skelRows(5);
 
   let roster = [], teamName = '', leagueName = '', powerRank = null, totalTeams = 0;
   let allTeamVals = [];
@@ -11549,7 +11578,7 @@ async function vaultRostersUsers(leagueId){
 
 async function renderEspnTeamPicker(el, leagueId){
   const lg = myTeamsData.find(l=>l.league_id===leagueId);
-  el.innerHTML = '<div class="fc-loading">Loading ESPN teams…</div>';
+  el.innerHTML = skelRows(4, {pill:false});
   const data = await loadEspnLeagueRaw(leagueId, ['mTeam']);
   const teams = (data && data.teams) || [];
   if (!teams.length){ el.innerHTML = '<div class="fc-loading">No teams found for this ESPN league.</div>'; return; }
@@ -12899,7 +12928,7 @@ async function renderTransactions() {
     </div>`;
     return;
   }
-  el.innerHTML = `<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:24px">⟳</div><br>Loading transactions...</div>`;
+  el.innerHTML = skelRows(6);
 
   try {
     const ctx = await getLeagueContext();
@@ -13086,7 +13115,7 @@ function filterTx(f) {
 async function renderStandings() {
   const el = document.getElementById('power-rankings');
   if (!el) return;
-  el.innerHTML = `<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:24px">⟳</div><br>Loading standings...</div>`;
+  el.innerHTML = skelRows(8);
 
   try {
     const ctx = await getLeagueContext();
@@ -13289,7 +13318,7 @@ async function fetchFantasyCalc() {
   const statusEl = document.getElementById('fc-status');
   const prEl = document.getElementById('power-rankings');
   if (statusEl) statusEl.textContent = '⟳ Loading FantasyCalc values...';
-  if (prEl) prEl.innerHTML = '<div class="fc-loading">⟳ Fetching FantasyCalc dynasty values...</div>';
+  if (prEl) prEl.innerHTML = skelRows(4);
 
   try {
     
@@ -13529,7 +13558,7 @@ async function fetchRosterAudit() {
   const statusEl = document.getElementById('fc-status');
   const prEl = document.getElementById('power-rankings');
   if (statusEl) statusEl.textContent = '⟳ Loading RosterAudit values...';
-  if (prEl) prEl.innerHTML = '<div class="fc-loading">⟳ Fetching RosterAudit dynasty values...</div>';
+  if (prEl) prEl.innerHTML = skelRows(4);
 
   try {
     
@@ -13753,7 +13782,7 @@ function renderTeams() {
   
   if (teamsLeagueId) {
     const _cachedLg = (_txLeagueId === teamsLeagueId && _rosterCache && _usersCache);
-    if (!_cachedLg) prEl.innerHTML = `<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:20px">⟳</div><br>Loading league data...</div>`;
+    if (!_cachedLg) prEl.innerHTML = skelRows(4);
     renderTeamsFromLeague(teamsLeagueId);
     return;
   }
@@ -13768,7 +13797,7 @@ async function renderTeamsFromLeague(leagueId) {
   try {
     
     if (!sleeperPlayersLoaded) {
-      prEl.innerHTML = '<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:20px">⟳</div> Loading player data...</div>';
+      prEl.innerHTML = skelRows(6);
       await fetchSleeperPlayers();
     }
     const [rosters, users] = await vaultRostersUsers(leagueId);
@@ -14578,7 +14607,7 @@ async function loadMyTeams() {
   localStorage.setItem(SK+'-username', username);
 
   const res = document.getElementById('myteams-results');
-  if (res) res.innerHTML = '<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:20px">⟳</div> Loading your leagues from Sleeper...</div>';
+  if (res) res.innerHTML = skelCards(3);
 
   try {
     
@@ -14721,7 +14750,7 @@ async function viewLeagueRoster(leagueId, leagueName, season) {
 
   detail.style.display = 'block';
   title.innerHTML = `<em style="color:var(--accent2);font-style:normal">${leagueName}</em> · Your Roster`;
-  rosterEl.innerHTML = '<div class="fc-loading"><div style="display:inline-block;animation:spin 1s linear infinite;font-size:20px">⟳</div> Loading roster and values...</div>';
+  rosterEl.innerHTML = skelRows(8);
   detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   try {
@@ -29990,6 +30019,55 @@ else { _ssInjectPage();_ssInjectNav(); }
 @media(prefers-reduced-motion:reduce){
   #page-draft #sbar.pa-clock::after{ animation:none; opacity:.4; }
   #page-draft #sbar.pa-clock .suggest-chips{ animation:none; }
+}
+</style>
+<style id="micro-interactions">
+/* ════ MICRO-INTERACTIONS · press feedback ════
+   Every tappable control acknowledges the press with a 3% scale-down.
+   transform-only (no layout), 80ms in; elements whose base transition
+   covers transform ease back out, the rest release instantly. */
+.sbtn:active, .fbtn:active, .dv-abtn:active, .tsel-btn:active, .draft-item:active,
+.sug-btn:active, .res-act:active, .ov-jump-btn:active, .proto-btn:active,
+.switcher:active, .tab-btn:active, .ab:active, .hgbtn:active, .rchip:active,
+.toast-undo:active, .glassnav button:active{
+  transform:scale(.97);
+  transition-duration:80ms;
+}
+@media(prefers-reduced-motion:reduce){
+  .sbtn:active, .fbtn:active, .dv-abtn:active, .tsel-btn:active, .draft-item:active,
+  .sug-btn:active, .res-act:active, .ov-jump-btn:active, .proto-btn:active,
+  .switcher:active, .tab-btn:active, .ab:active, .hgbtn:active, .rchip:active,
+  .toast-undo:active, .glassnav button:active{ transform:none; }
+}
+
+/* ════ MICRO-INTERACTIONS · skeleton loading ════
+   Shape-matched shimmer placeholders instead of spinner glyphs. */
+.skel{ background:color-mix(in srgb, var(--text) 9%, transparent); border-radius:6px; animation:shimmer 1.4s ease-in-out infinite; }
+.skel-wrap{ padding:14px 4px; display:flex; flex-direction:column; gap:14px; }
+.skel-row{ display:flex; align-items:center; gap:12px; }
+.skel-av{ width:34px; height:34px; border-radius:50%; flex-shrink:0; }
+.skel-lines{ flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.skel-line{ height:11px; }
+.skel-line.thin{ height:8px; opacity:.7; }
+.skel-pill{ width:52px; height:20px; border-radius:999px; flex-shrink:0; }
+.skel-card{ height:74px; border-radius:12px; }
+.skel-cards{ padding:14px 4px; display:flex; flex-direction:column; gap:10px; }
+@media(prefers-reduced-motion:reduce){ .skel{ animation:none; opacity:.45; } }
+
+/* ════ MICRO-INTERACTIONS · modal entrances ════
+   Pure CSS: display:none elements don't animate, so these run exactly when
+   each overlay opens. Backdrop fades 150ms, panel rises 200ms ease-out,
+   bottom sheets slide like iOS (Vaul curve). Exits stay instant. */
+.modal-bg:not(.gone), #note-modal, #ps-modal, #portfolio-league-picker{ animation:vmodal-bg-in 150ms ease; }
+.modal-bg:not(.gone) .modal, #ps-modal #ps-sheet, #portfolio-league-picker > div{ animation:vmodal-in 200ms ease-out; }
+#note-modal > div{ animation:vsheet-in 240ms cubic-bezier(0.32,0.72,0,1); }
+@keyframes vmodal-bg-in{ from{ opacity:0; } }
+@keyframes vmodal-in{ from{ opacity:0; transform:translateY(20px); } }
+@keyframes vsheet-in{ from{ transform:translateY(100%); } }
+@media(prefers-reduced-motion:reduce){
+  .modal-bg:not(.gone), #note-modal, #ps-modal, #portfolio-league-picker,
+  .modal-bg:not(.gone) .modal, #ps-modal #ps-sheet, #portfolio-league-picker > div,
+  #note-modal > div{ animation:none; }
 }
 </style>
 </body>
