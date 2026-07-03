@@ -58,7 +58,7 @@
   const round = (n, d = 2) => { const f = Math.pow(10, d); return Math.round(n * f) / f; };
   const half = n => Math.round(n * 2) / 2;
   const normName = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/[^a-z]/g, '');
-  const headshotFor = id => id ? 'https://sleepercdn.com/content/nfl/players/thumb/' + id + '.jpg' : '';
+  const headshotFor = (id, name) => (window.vaultHeadshot && name) ? window.vaultHeadshot(name, id, 48) : (id ? 'https://sleepercdn.com/content/nfl/players/thumb/' + id + '.jpg' : '');
   const americanFromProb = p => p == null ? null : (p >= 0.5 ? -Math.round((p / (1 - p)) * 100) : Math.round((1 - p) / p * 100));
 
   /* deterministic pseudo-random from a string seed (stable across renders) */
@@ -207,7 +207,7 @@
       players.push({
         id: id || null, name: ident.name, team: ident.team || null,
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
-        rank: ident.rank ?? null, headshot: headshotFor(id), season, weekly,
+        rank: ident.rank ?? null, headshot: headshotFor(id, ident.name), season, weekly,
       });
     }
 

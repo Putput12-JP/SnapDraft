@@ -6331,7 +6331,7 @@ function _psRenderHeader() {  const hdr = document.getElementById('ps-header');
   const { name, pos, team, sleeperId } = _psPlayer;
   const posC = {QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'}[pos]||'var(--muted)';
   const posBG = {QB:'rgba(255,102,128,0.12)',RB:'rgba(61,204,122,0.12)',WR:'rgba(123,208,255,0.12)',TE:'rgba(245,200,66,0.12)'}[pos]||'rgba(144,144,151,0.12)';
-  const avatarUrl = sleeperId ? `https://sleepercdn.com/content/nfl/players/thumb/${sleeperId}.jpg` : '';
+  const avatarUrl = vaultHeadshot(name, sleeperId, 60);
   const val = _psData?.val;
   const page = _psData?.page;
   const dynastyVal = getPlayerValue(name) || val?.val_sf || 0;
@@ -7017,7 +7017,7 @@ function _resRenderLeaderboard(players) {  const body = document.getElementById(
     const posCol = posColors[pos]||'var(--muted)';
     const posBg = posBgs[pos]||'rgba(255,255,255,0.06)';
     const initials = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const photoUrl = sid ? `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg` : '';
+    const photoUrl = vaultHeadshot(p.name, sid, 36);
     const trendColor = trend > 0 ? '#3DCC7A' : trend < 0 ? '#ff6680' : 'var(--muted)';
     const trendStr = trend > 0 ? `▲ +${trend}` : trend < 0 ? `▼ ${trend}` : '—';
     // Value bar width relative to #1
@@ -7198,7 +7198,7 @@ async function _resApplyOppFilter(opp) {
     const rows = results.slice(0,50).map(p => {
       const pc = posColors[p.pos]||'var(--muted)';
       const sid = (window.PLAYERS||[]).find(x=>norm(x.name)===norm(p.name))?.sleeperId || '';
-      const thumb = sid ? `<img src="https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid ${pc};flex-shrink:0" onerror="this.style.display='none'">` : '';
+      const thumb = (u => u ? `<img src="${u}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid ${pc};flex-shrink:0" onerror="this.style.display='none'">` : '')(vaultHeadshot(p.name, sid, 36));
       const wkDetail = p.weeks.map(w=>`Wk${w.wk}: ${(w.pts||0).toFixed(1)}`).join(' · ');
       return `<div onclick="researchSelectPlayer('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team}')" 
         style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 100ms" 
@@ -7399,7 +7399,7 @@ function _resRenderHero(name, sid, pos, team, val, stats) {
   const _mob=document.getElementById('res-open-modal-btn');
   if(_mob){_mob.style.display='inline-flex';}
   if (avatarEl && sid) {
-    avatarEl.src = `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg`;
+    avatarEl.src = vaultHeadshot(name, sid, 72);
     avatarEl.style.display = '';
   }
 
@@ -9311,13 +9311,8 @@ const PLAYER_IDS = {
 };
 
 function getPlayerHeadshotUrl(name) {
-
-  const pid = PLAYER_IDS[name];
-  if (pid) return `https://sleepercdn.com/content/nfl/players/thumb/${pid}.jpg`;
-
-  const sp = sleeperPlayerMap[normName(name)];
-  if (sp?.player_id) return `https://sleepercdn.com/content/nfl/players/thumb/${sp.player_id}.jpg`;
-  return null;
+  const sid = PLAYER_IDS[name] || sleeperPlayerMap[normName(name)]?.player_id || '';
+  return vaultHeadshot(name, sid, 48) || null;
 }
 
 /* ── High-res headshots ─────────────────────────────────────────────
@@ -10952,7 +10947,7 @@ async function renderOverview() {
   const _posC = {QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'};
   const _photoFor = (p) => {
     const sid = p.sleeperId || sleeperPlayerMap[normName(p.name||'')]?.player_id || '';
-    return sid ? `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg` : '';
+    return vaultHeadshot(p.name, sid, 48);
   };
   const _ageFor = (p) => { const a = getFCValue(p.name)?.age; return a ? Math.round(a*10)/10 : null; };
   const _surname = (nm) => { const parts=(nm||'').split(' '); return parts.length>1?parts.slice(1).join(' '):nm; };
@@ -11315,7 +11310,7 @@ async function renderOverview() {
         const posBg = {QB:'rgba(255,102,128,0.12)',RB:'rgba(61,204,122,0.12)',WR:'rgba(123,208,255,0.12)',TE:'rgba(245,200,66,0.12)',K:'rgba(209,158,255,0.12)',DEF:'rgba(255,209,102,0.12)'}[pos]||'rgba(255,255,255,0.06)';
         const initials = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
         const sid = p.sleeperId || sleeperPlayerMap[normName(p.name)]?.player_id || '';
-        const photoUrl = sid ? `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg` : '';
+        const photoUrl = vaultHeadshot(p.name, sid, 44);
         const byeWk = p.byeWeek || '—';
         const status = p.injury_status || p.status || 'Active';
         const isHealthy = !status || status === 'Active' || status === 'active';
@@ -13744,7 +13739,7 @@ function renderMovers() {
   const renderMoverList = (players, color, icon) => players.map(p => {
     const teamColor = COLORS[p.teamIdx % COLORS.length];
     const sid = p.sleeperId || sleeperPlayerMap[normName(p.name)]?.player_id || '';
-    const photoUrl = sid ? `https://sleepercdn.com/content/nfl/players/thumb/${sid}.jpg` : '';
+    const photoUrl = vaultHeadshot(p.name, sid, 34);
     const posCol = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[p.pos]||'var(--muted)';
     const posBg = {QB:'rgba(255,102,128,0.15)',RB:'rgba(61,204,122,0.15)',WR:'rgba(123,208,255,0.15)',TE:'rgba(245,200,66,0.15)'}[p.pos]||'rgba(255,255,255,0.08)';
     return `<div onclick="showPage('research');setTimeout(()=>researchSelectPlayer('${p.name.replace(/'/g,"\'").replace(/"/g,'\"')}','${sid}','${p.pos}','${p.teamName}'),300)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 100ms" onmouseover="this.style.background='rgba(190,198,224,0.04)'" onmouseout="this.style.background=''">
@@ -21761,7 +21756,10 @@ function pickYear(year) {
   function avatar(p, cls) {
     const col = POS_COLOR[p.pos] || 'var(--muted)';
     const ini = `<span class="rh-ini" style="color:${col}">${esc(initials(p.name))}</span>`;
-    const img = p.headshot ? `<img src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+    // nflverse rows carry the full ~3400px NFL.com original; ask the CDN for a
+    // face-cropped 128px square instead of shipping megapixels per row.
+    const hs = p.headshot ? p.headshot.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_128,h_128,c_thumb,g_face/') : '';
+    const img = hs ? `<img src="${esc(hs)}" alt="" loading="lazy" onerror="this.remove()">` : '';
     return `<span class="${cls}" style="border-color:${col}55">${ini}${img}</span>`;
   }
 
@@ -24379,7 +24377,7 @@ async function _ovRenderRedraftMatchup(){
         var col=_RDV_POSC[base]||'#7d8aa0';
         gcRows.push({slotLabel:_rdvSlotLabel(slot), base:base, me:a, op:b});
         function cell(p,side){ if(!p) return '<div class="rdv-side '+side+'"><div class="rdv-pav">—</div><div class="rdv-pinfo"><div class="rdv-pn">Empty</div><div class="rdv-pmeta">—</div></div><div class="rdv-pproj">—</div></div>';
-          var ph=_rdvHeadshot(p.sid); var prj=p.pts!=null?p.pts.toFixed(1):'—'; var winc=( side==='me'?ap>=bp:bp>=ap)&&p.pts!=null?'win':'';
+          var ph=vaultHeadshot(p.name, p.sid, 40); var prj=p.pts!=null?p.pts.toFixed(1):'—'; var winc=( side==='me'?ap>=bp:bp>=ap)&&p.pts!=null?'win':'';
           var av='<div class="rdv-pav" style="border-color:'+(_RDV_POSC[p.pos]||'var(--muted)')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(p.name)+'\'">':_rdvInitials(p.name))+'</div>';
           var info='<div class="rdv-pinfo"><div class="rdv-pn">'+_rdvSurname(p.name)+'</div><div class="rdv-pmeta">'+(p.team||'FA')+(p.pos?' · '+p.pos:'')+'</div></div>';
           var pr='<div class="rdv-pproj '+winc+'">'+prj+'</div>';
@@ -24516,7 +24514,7 @@ async function _rdvEspnMatchup(ctx, lg){
     var lbl=slotLbl((a&&a.slot)||(b&&b.slot)||0); var col=_RDV_POSC[badgeBase(lbl)]||'#7d8aa0';
     gcRows.push({slotLabel:lbl, base:badgeBase(lbl), me:a, op:b});
     function cell(p,side,win){ if(!p) return '<div class="rdv-side '+side+'"><div class="rdv-pav">—</div><div class="rdv-pinfo"><div class="rdv-pn">Empty</div><div class="rdv-pmeta">—</div></div><div class="rdv-pproj">—</div></div>';
-      var ph=_rdvHeadshot(p.sid); var prj=p.pts!=null?p.pts.toFixed(1):'—';
+      var ph=vaultHeadshot(p.name, p.sid, 40); var prj=p.pts!=null?p.pts.toFixed(1):'—';
       var av='<div class="rdv-pav" style="border-color:'+(_RDV_POSC[p.pos]||'var(--muted)')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(p.name)+'\'">':_rdvInitials(p.name))+'</div>';
       var info='<div class="rdv-pinfo"><div class="rdv-pn">'+_rdvSurname(p.name)+'</div><div class="rdv-pmeta">'+(p.team||'FA')+(p.pos?' · '+p.pos:'')+(p.inj?' · <span class="q">'+p.inj.slice(0,1)+'</span>':'')+'</div></div>';
       var pr='<div class="rdv-pproj '+(win?'win':'')+'">'+prj+'</div>';
@@ -26845,7 +26843,7 @@ body .page,body .page.on{background:transparent!important}
   const round = (n, d = 2) => { const f = Math.pow(10, d); return Math.round(n * f) / f; };
   const half = n => Math.round(n * 2) / 2;
   const normName = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/[^a-z]/g, '');
-  const headshotFor = id => id ? 'https://sleepercdn.com/content/nfl/players/thumb/' + id + '.jpg' : '';
+  const headshotFor = (id, name) => (window.vaultHeadshot && name) ? vaultHeadshot(name, id, 48) : (id ? 'https://sleepercdn.com/content/nfl/players/thumb/' + id + '.jpg' : '');
   const americanFromProb = p => p == null ? null : (p >= 0.5 ? -Math.round((p / (1 - p)) * 100) : Math.round((1 - p) / p * 100));
 
   /* deterministic pseudo-random from a string seed (stable across renders) */
@@ -27008,7 +27006,7 @@ body .page,body .page.on{background:transparent!important}
       players.push({
         id: id || null, name: ident.name, team: ident.team || null,
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
-        rank: ident.rank ?? null, headshot: headshotFor(id), season, weekly,
+        rank: ident.rank ?? null, headshot: headshotFor(id, ident.name), season, weekly,
       });
     }
 
@@ -27028,7 +27026,7 @@ body .page,body .page.on{background:transparent!important}
       players.push({
         id, name: ident.name, team: ident.team || null,
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
-        rank: null, headshot: headshotFor(id), season: null, weekly: wk,
+        rank: null, headshot: headshotFor(id, ident.name), season: null, weekly: wk,
       });
     }
 
@@ -27973,8 +27971,9 @@ const POS_C = {QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842',PICK:'#b48cff
 function _mvAvatar(p, size=32) {
   const cls = size === 32 ? 'adp-mv-avatar' : 'adp-pl-avatar';
   const fbCls = size === 32 ? 'adp-mv-avatar-fb' : 'adp-pl-avatar-fb';
-  if (p.sleeperId) {
-    return `<img class="${cls}" src="https://sleepercdn.com/content/nfl/players/thumb/${p.sleeperId}.jpg"
+  const u = (typeof vaultHeadshot === 'function') ? vaultHeadshot(p.name, p.sleeperId || '', size) : (p.sleeperId ? `https://sleepercdn.com/content/nfl/players/thumb/${p.sleeperId}.jpg` : '');
+  if (u) {
+    return `<img class="${cls}" src="${u}"
       onerror="this.outerHTML='<div class=\\'${fbCls}\\'>${(p.pos||'?')}</div>'" loading="lazy" alt="">`;
   }
   return `<div class="${fbCls}">${(p.pos||'?')}</div>`;
