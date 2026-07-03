@@ -6176,7 +6176,8 @@ let PLAYERS = [];
 let RLABELS = ['RosterAudit Dynasty'];
 let TEAMS = [];
 let COLORS = ['#7ba8f5','#5bc5ff','#3de8a0','#ff7096','#ffd166','#d19eff','#60d3e8','#8899ff','#4de8b0','#ff9f5b','#ff9ac1','#94aab8'];
-let PICK_SLOTS = [];   
+let PICK_SLOTS = [];
+let PICK_ORDER = [];   // origin team idx per overall pick, filled by buildSlots
 let NUM_TEAMS = 12;
 let NUM_ROUNDS = 25;
 
@@ -8585,12 +8586,20 @@ async function syncSleeper() {
     Object.entries(s2r).forEach(([slot,rid])=>{rosterToIdx[rid]=parseInt(slot)-1;});
 
     
-    const rosterPositions = draft.settings?.roster_positions || [];
-    const isSuperflex = rosterPositions.includes('SUPER_FLEX') || rosterPositions.includes('QB') > 1;
-    const isDynasty = (draft.settings?.rounds||0) >= 15;
-    
+    // Sleeper draft objects carry lineup slots as settings.slots_* counts
+    // (roster_positions only exists on the league object)
+    const _ds = draft.settings || {};
+    const rosterPositions = [].concat(
+      Array(_ds.slots_qb|0).fill('QB'), Array(_ds.slots_rb|0).fill('RB'),
+      Array(_ds.slots_wr|0).fill('WR'), Array(_ds.slots_te|0).fill('TE'),
+      Array(_ds.slots_flex|0).fill('FLEX'), Array(_ds.slots_super_flex|0).fill('SUPER_FLEX'),
+      Array(_ds.slots_wrrb_flex|0).fill('WRRB_FLEX'), Array(_ds.slots_rec_flex|0).fill('REC_FLEX'));
+    const isSuperflex = rosterPositions.includes('SUPER_FLEX') || (_ds.slots_qb|0) > 1;
+    const isDynasty = (_ds.rounds||0) >= 15;
+
     window._draftIsSuperflex = isSuperflex;
     window._draftIsDynasty = isDynasty;
+    window._draftRosterPositions = rosterPositions;
 
     
     if (draft.league_id) {
@@ -8611,6 +8620,29 @@ async function syncSleeper() {
         for(let i=0;i<NUM_TEAMS;i++) if(!newTeams[i]) newTeams[i]=`Slot ${i+1}`;
         TEAMS=newTeams;
         localStorage.setItem(SK+'-teams',JSON.stringify(TEAMS));
+        // auto-detect the connected user's team so the Pick Assistant works
+        // without the manual "which team are you" step. myTeamsUserId is only
+        // populated once My Teams loads, so fall back to resolving the saved
+        // username once (cached on window, including failed lookups).
+        if (myTeam===null){
+          let uid = (typeof myTeamsUserId!=='undefined' && myTeamsUserId) || window._paUserId || null;
+          if (!uid && window._paUserId!==false){
+            const un = localStorage.getItem(SK+'-username');
+            if (un){
+              const u = await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(un)}`).then(r=>r.ok?r.json():null).catch(()=>null);
+              uid = (u && u.user_id) || null;
+              window._paUserId = uid || false;
+            }
+          }
+          if (uid && dOrder[uid]!==undefined){
+            const slot = parseInt(dOrder[uid])-1;
+            if (slot>=0 && slot<NUM_TEAMS){
+              myTeam = slot;
+              save(); try{ updateTeamPill(); }catch(e){}
+              if (typeof toast==='function') toast(`✦ Drafting as ${TEAMS[myTeam]}`);
+            }
+          }
+        }
       } catch(e){}
     }
 
@@ -8783,6 +8815,12 @@ async function syncEspnDraft(){
     NUM_ROUNDS = rosterSize || Math.max(1, ...(picks.map(p=>p.roundId||1)), Math.ceil(picks.length/Math.max(NUM_TEAMS,1)));
     window._draftIsSuperflex = (slotCounts[7]|0)>0 || (slotCounts[0]|0)>1;
     window._draftIsDynasty = false;
+    // Mirror Sleeper's roster_positions shape so the Pick Assistant can score
+    // need against actual lineup slots (ESPN slot ids: 0 QB, 2 RB, 4 WR, 6 TE, 7 OP, 23 FLEX)
+    window._draftRosterPositions = [].concat(
+      Array((slotCounts[0]|0)).fill('QB'), Array((slotCounts[2]|0)).fill('RB'),
+      Array((slotCounts[4]|0)).fill('WR'), Array((slotCounts[6]|0)).fill('TE'),
+      Array((slotCounts[7]|0)).fill('SUPER_FLEX'), Array((slotCounts[23]|0)).fill('FLEX'));
     const dtype = String(data.settings?.draftSettings?.type||'SNAKE').toUpperCase().includes('AUCTION') ? 'linear' : 'snake';
     // team names + draft-slot order (round-1 picks are authoritative; else pickOrder; else team order)
     const nameByTeam = {}; teams.forEach(t => nameByTeam[t.id] = espnTeamName(t));
@@ -8885,14 +8923,15 @@ document.addEventListener('visibilitychange',()=>{
 // ════════════════════════════════════
 function buildSlots(teams,rounds,type,revRound){
   PICK_SLOTS=Array.from({length:teams},()=>[]);
+  PICK_ORDER=[];
   slotOwner={};
   for(let r=1;r<=rounds;r++){
     let rev=(type==='snake'&&r%2===0)||(revRound>0&&r===revRound);
     const order=rev?Array.from({length:teams},(_,i)=>teams-1-i):Array.from({length:teams},(_,i)=>i);
     order.forEach((tidx,pos)=>{
       PICK_SLOTS[tidx].push(`${r}.${pos+1}`);
-      
-      slotOwner[`${r}-${tidx}`]=tidx; 
+      PICK_ORDER.push(tidx);
+      slotOwner[`${r}-${tidx}`]=tidx;
     });
   }
 }
@@ -9321,44 +9360,247 @@ function getRankByMode(p, mode) {
   return p.r0 || 999;
 }
 
-function getSuggestions() {
-  if (myTeam === null) return [];
-  const myR = getMyRoster();
-  const nextSlot = PICK_SLOTS[myTeam]?.[myR.length];
-  if (!nextSlot) return [];
-  const [rnd, pos] = nextSlot.split('.').map(Number);
-  const overallPick = (rnd - 1) * NUM_TEAMS + pos;
+// ════════════════════════════════════
+// ── PICK ASSISTANT ENGINE ──
+// Scores available players with four signals — survival odds to your next pick,
+// positional tier cliffs, lineup-settings-aware roster need, and value vs your
+// slot — and surfaces the dominant signal as a human-readable reason.
+// ════════════════════════════════════
 
-  const available = PLAYERS.filter(p => {
-    const nn = normName(p.name);
-    const mo = manualOverrides[p.name] || _normOverrideCache[nn];
-    const ds = draftState[p.name] || _normDraftCache[nn];
-    if (ds !== undefined || mo === 'gone') return false;
-    // Respect the Draft Vault "Hide Picks" toggle, picks are noise when user disabled them
-    if (window._hidePicks && p.pos === 'PICK') return false;
-    return true;
+function paCurrentPickNo(){
+  if (window._activeDraft && window._activeDraft.picksCount) return window._activeDraft.picksCount + 1;
+  return Object.keys(draftState).length + 1;
+}
+
+function paPickOwner(k){
+  const orig = PICK_ORDER[k-1];
+  if (orig === undefined) return null;
+  const r = Math.floor((k-1)/NUM_TEAMS) + 1;
+  // slotOwner carries traded picks; falls back to the origin slot
+  return slotOwner[`${r}-${orig}`] ?? orig;
+}
+
+function paMyUpcomingPicks(count){
+  if (myTeam === null || !PICK_ORDER.length) return [];
+  const cur = paCurrentPickNo();
+  const out = [];
+  for (let k = cur; k <= PICK_ORDER.length && out.length < (count||2); k++){
+    if (paPickOwner(k) === myTeam) out.push(k);
+  }
+  return out;
+}
+
+// Abramowitz-Stegun normal CDF approximation, good to ~1e-7
+function paNormCdf(z){
+  const t = 1/(1+0.2316419*Math.abs(z));
+  const d = 0.3989423*Math.exp(-z*z/2);
+  const p = d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return z > 0 ? 1-p : p;
+}
+
+function paIsAvail(p){
+  const nn = normName(p.name);
+  if (draftState[p.name] !== undefined || _normDraftCache[nn] !== undefined) return false;
+  return (manualOverrides[p.name] || _normOverrideCache[nn]) !== 'gone';
+}
+
+// Per-position tiers on the active rank mode. Adaptive gap: tight clusters up
+// top (6 ranks) widen with rank so late-round noise doesn't fragment tiers.
+let _paTiersCache = null, _paTiersKey = '';
+function paPosTiers(){
+  const key = suggestMode + ':' + PLAYERS.length + ':' + (RLABELS.join('|'));
+  if (_paTiersCache && _paTiersKey === key) return _paTiersCache;
+  const by = {};
+  ['QB','RB','WR','TE'].forEach(pos=>{
+    const list = PLAYERS.filter(p=>p.pos===pos && getRankByMode(p,suggestMode)<900)
+      .sort((a,b)=>getRankByMode(a,suggestMode)-getRankByMode(b,suggestMode));
+    const tiers=[]; let cur=[];
+    for (let i=0;i<list.length;i++){
+      cur.push(list[i]);
+      const r = getRankByMode(list[i],suggestMode);
+      const nr = list[i+1] ? getRankByMode(list[i+1],suggestMode) : Infinity;
+      if (nr - r > Math.max(6, r*0.12) || i === list.length-1){ tiers.push(cur); cur=[]; }
+    }
+    by[pos] = tiers;
+  });
+  _paTiersCache = by; _paTiersKey = key;
+  return by;
+}
+
+// Starter requirements from the league's actual lineup slots (stashed off the
+// draft payload); falls back to a standard lineup when unconnected.
+function paStarterReqs(){
+  const rp = window._draftRosterPositions || [];
+  const req = {QB:0,RB:0,WR:0,TE:0,FLEX:0,SFLEX:0};
+  rp.forEach(s=>{
+    if (s==='QB') req.QB++; else if (s==='RB') req.RB++;
+    else if (s==='WR') req.WR++; else if (s==='TE') req.TE++;
+    else if (s==='FLEX' || s==='REC_FLEX' || s==='WRRB_FLEX') req.FLEX++;
+    else if (s==='SUPER_FLEX') req.SFLEX++;
+  });
+  if (!rp.length) Object.assign(req, {QB:1,RB:2,WR:2,TE:1,FLEX:1,SFLEX:window._draftIsSuperflex?1:0});
+  return req;
+}
+
+// 0..1 need per position: 1 = open starter slot, fractional = flex/superflex depth
+function paMyNeeds(){
+  const req = paStarterReqs();
+  const have = {QB:0,RB:0,WR:0,TE:0};
+  getMyRoster().forEach(p=>{ if (have[p.pos]!==undefined) have[p.pos]++; });
+  const need = {};
+  ['QB','RB','WR','TE'].forEach(pos=>{
+    let n = (req[pos]-have[pos]) > 0 ? 1 : 0;
+    if (!n && pos==='QB' && req.SFLEX>0 && have.QB < req.QB+req.SFLEX) n = 0.8;
+    if (!n && pos!=='QB' && req.FLEX>0){
+      const flexFill = Math.max(0,have.RB-req.RB)+Math.max(0,have.WR-req.WR)+Math.max(0,have.TE-req.TE);
+      if (flexFill < req.FLEX) n = 0.5;
+    }
+    need[pos] = n;
+  });
+  return need;
+}
+
+// How many opponents picking in [fromPick, toPick) have a hole at each position —
+// they're the ones most likely to take the player you're waiting on.
+function paOppNeedCounts(fromPick, toPick){
+  const cnt = {QB:0,RB:0,WR:0,TE:0};
+  if (!PICK_ORDER.length) return cnt;
+  const rosters = {};
+  for (let k=fromPick; k<toPick; k++){
+    const o = paPickOwner(k);
+    if (o === null || o === myTeam) continue;
+    if (!rosters[o]){
+      const c = {QB:0,RB:0,WR:0,TE:0};
+      getRoster(o).forEach(p=>{ if (c[p.pos]!==undefined) c[p.pos]++; });
+      rosters[o] = c;
+    }
+    const c = rosters[o];
+    if (c.QB===0 || (window._draftIsSuperflex && c.QB<2)) cnt.QB++;
+    if (c.RB<2) cnt.RB++;
+    if (c.WR<3) cnt.WR++;
+    if (c.TE===0) cnt.TE++;
+  }
+  return cnt;
+}
+
+// P(player is still on the board at pick `toPick`), conditioned on him being
+// available right now. Market position ~ Normal(mu, sigma): mu blends market ADP
+// with the active rankings, sigma scales with depth (ADP files are mean-only).
+function paSurvival(p, toPick, oppNeeds, runs){
+  const cur = paCurrentPickNo();
+  if (toPick <= cur) return 1;
+  const rank = getRankByMode(p, suggestMode);
+  const adp = (ADP_LOOKUP[p.name] && ADP_LOOKUP[p.name].adp) || getCommunityADP(p.name) || null;
+  const mu = adp ? (rank < 900 ? 0.7*adp + 0.3*rank : adp) : rank;
+  const sigma = Math.max(3, mu*0.16);
+  const goneBy = x => paNormCdf((x + 0.5 - mu)/sigma);
+  const availNow = 1 - goneBy(cur - 1);
+  // market says he should be long gone → treat the room as about to correct
+  if (availNow <= 0.001) return 0.05;
+  let s = (1 - goneBy(toPick - 1)) / availNow;
+  const needers = (oppNeeds && oppNeeds[p.pos]) || 0;
+  if (needers) s *= Math.pow(p.pos==='QB'||p.pos==='TE' ? 0.94 : 0.965, needers);
+  const run = (runs||[]).find(r=>r.pos===p.pos);
+  if (run) s *= run.level==='hot' ? 0.72 : 0.85;
+  return Math.max(0.02, Math.min(0.98, s));
+}
+
+function paSlotLabel(k){
+  if (!k || !NUM_TEAMS) return '';
+  return (Math.floor((k-1)/NUM_TEAMS)+1) + '.' + (((k-1)%NUM_TEAMS)+1);
+}
+
+function paGetPickAssist(){
+  if (myTeam === null) return null;
+  const mine = paMyUpcomingPicks(2);
+  if (!mine.length) return null;
+  const cur = paCurrentPickNo();
+  const myPick = mine[0];
+  const onClock = myPick <= cur;
+  // deciding now → the question is what survives to the pick AFTER this one
+  const horizon = onClock ? (mine[1] || myPick + NUM_TEAMS) : myPick;
+  const needs = paMyNeeds();
+  const tiers = paPosTiers();
+  const runs = detectRuns();
+  const oppNeeds = paOppNeedCounts(cur, horizon);
+  const horizonSlot = paSlotLabel(horizon);
+
+  const avail = PLAYERS.filter(p => paIsAvail(p) && !(window._hidePicks && p.pos==='PICK'))
+    .sort((a,b)=>getRankByMode(a,suggestMode)-getRankByMode(b,suggestMode))
+    .slice(0, 40);
+
+  const sugs = avail.map(p=>{
+    const rank = getRankByMode(p, suggestMode);
+    const valueScore = rank - myPick;   // legacy sign: negative = discount
+    const value = -valueScore;          // positive = falling to me
+    const surv = p.pos==='PICK' ? 1 : paSurvival(p, horizon, oppNeeds, runs);
+    const goneProb = 1 - surv;
+
+    let tierNum=0, leftInTier=0, cliffDrop=0, tierDepleted=false;
+    const tlist = tiers[p.pos] || [];
+    for (let t=0; t<tlist.length; t++){
+      if (tlist[t].some(x=>x.name===p.name)){
+        tierNum = t+1;
+        leftInTier = tlist[t].filter(paIsAvail).length;
+        // urgency comes from the room eating the tier, not from a tier being naturally small
+        tierDepleted = leftInTier < tlist[t].length;
+        const nextUp = (tlist[t+1]||[]).find(paIsAvail);
+        cliffDrop = nextUp ? getRankByMode(nextUp,suggestMode)-rank : 30;
+        break;
+      }
+    }
+
+    const need = needs[p.pos] || 0;
+
+    let score = Math.max(-25, Math.min(25, value));
+    score += goneProb * 18;
+    if (tierDepleted && leftInTier===1 && tierNum<=5) score += 14;
+    else if (tierDepleted && leftInTier===2 && tierNum<=5) score += 6;
+    score += need * 14;
+    if (tierDepleted && cliffDrop>=12 && leftInTier<=2) score += Math.min(10, cliffDrop*0.5);
+    if (rank > myPick + 14) score -= (rank - myPick - 14);   // reaches sink
+
+    const gonePct = Math.round(goneProb*100);
+    let reason, tag, tagKind;
+    if (tierDepleted && leftInTier===1 && tierNum<=5 && cliffDrop>=8){
+      reason = `Last Tier-${tierNum} ${p.pos} — next ${p.pos} ~${cliffDrop} ranks later`;
+      tag = 'Cliff'; tagKind = 'urgent';
+    } else if (value >= 20 && goneProb >= 0.5){
+      reason = `Falling — ranked #${rank} at pick ${myPick}`;
+      tag = 'Steal'; tagKind = 'value';
+    } else if (goneProb >= 0.65){
+      reason = `Won't make it back to ${horizonSlot || 'your next pick'}`;
+      tag = 'Now or never'; tagKind = 'urgent';
+    } else if (value >= 8){
+      reason = `Falling — ranked #${rank} at pick ${myPick}`;
+      tag = 'Value'; tagKind = 'value';
+    } else if (need >= 1){
+      reason = `Fills your open ${p.pos} starter slot`;
+      tag = 'Need'; tagKind = 'need';
+    } else if (goneProb <= 0.35 && value < 4){
+      reason = `Likely still there at ${horizonSlot || 'your next turn'}`;
+      tag = 'Can wait'; tagKind = 'calm';
+    } else {
+      reason = `Best available at #${rank}`;
+      tag = 'Fair'; tagKind = 'calm';
+    }
+
+    return {p, rank, valueScore, isNeed: need>=1, score, surv, goneProb, reason, tag, tagKind, tierNum, leftInTier, cliffDrop};
   });
 
-  const sorted = [...available].sort((a, b) => getRankByMode(a, suggestMode) - getRankByMode(b, suggestMode));
+  sugs.sort((a,b)=>b.score-a.score);
+  return {
+    onClock,
+    picksAway: Math.max(0, myPick-cur),
+    myPick, nextMyPick: mine[1]||null, horizon, horizonSlot,
+    suggestions: sugs.slice(0,3),
+    all: sugs,
+  };
+}
 
-  const qbs = myR.filter(p=>p.pos==='QB').length;
-  const rbs = myR.filter(p=>p.pos==='RB').length;
-  const wrs = myR.filter(p=>p.pos==='WR').length;
-  const tes = myR.filter(p=>p.pos==='TE').length;
-  const needs = [];
-  if (qbs === 0) needs.push('QB');
-  if (rbs < 3) needs.push('RB');
-  if (wrs < 4) needs.push('WR');
-  if (tes === 0) needs.push('TE');
-
-  return sorted.slice(0, 30).map(p => {
-    const rank = getRankByMode(p, suggestMode);
-    const valueScore = rank - overallPick;
-    const isNeed = needs.includes(p.pos);
-    return { p, rank, valueScore, isNeed };
-  })
-  .sort((a, b) => ((a.isNeed?-25:0)+a.valueScore) - ((b.isNeed?-25:0)+b.valueScore))
-  .slice(0, 4);
+function getSuggestions() {
+  const pa = paGetPickAssist();
+  return pa ? pa.suggestions : [];
 }
 
 function setSuggestMode(mode) {
@@ -9371,10 +9613,19 @@ function renderSuggestions() {
   const bar = document.getElementById('sbar');
   const chips = document.getElementById('schips');
   const modes = document.getElementById('sug-modes');
-  if (myTeam === null) { bar.style.display = 'none'; return; }
+  if (!bar || !chips) return;
+  // class-based hide: the Command Strip sets display:flex!important on this bar,
+  // so an inline display:none would lose the cascade
+  const pa = myTeam === null ? null : paGetPickAssist();
+  bar.classList.toggle('pa-hidden', !pa || !pa.suggestions.length);
+  if (!pa || !pa.suggestions.length) { bar.classList.remove('pa-clock','pa-soon'); return; }
   bar.style.display = 'block';
 
-  
+  const clock = pa.onClock;
+  const soon = !clock && pa.picksAway <= 2;
+  bar.classList.toggle('pa-clock', clock);
+  bar.classList.toggle('pa-soon', soon);
+
   const modeOpts = [
     { key:'r0', label: RLABELS[0]||'Rank 1' },
     ...(RLABELS[1] ? [{key:'r1', label:RLABELS[1]}] : []),
@@ -9384,23 +9635,56 @@ function renderSuggestions() {
     `<button class="sug-btn${suggestMode===m.key?' on':''}" data-mode="${m.key}" onclick="setSuggestMode('${m.key}')">${m.label}</button>`
   ).join('');
 
-  const sugs = getSuggestions();
+  const titleEl = bar.querySelector('.suggest-title > span');
+  const slotNow = paSlotLabel(pa.myPick);
+  if (titleEl) titleEl.textContent = clock
+    ? `On the clock${slotNow ? ` · ${slotNow}` : ''}`
+    : soon
+      ? `Your pick in ${pa.picksAway}${slotNow ? ` · ${slotNow}` : ''}`
+      : (pa.picksAway > 0 ? `Suggested · pick in ${pa.picksAway}` : 'Suggested');
+
   const pc = pos => ({QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[pos]||'var(--text)');
-  chips.innerHTML = sugs.length ? sugs.map(({p, rank, valueScore, isNeed}) => {
-    const isValue = valueScore < -12, isReach = valueScore > 12;
-    const tagTxt = isNeed ? 'Need' : isValue ? 'Value' : isReach ? 'Reach' : 'Fair';
-    const tagC = isNeed ? 'var(--sky)' : isValue ? 'var(--rb)' : isReach ? 'var(--qb)' : 'var(--muted)';
+  const tagColors = {urgent:'var(--qb)', value:'var(--rb)', need:'var(--sky)', calm:'var(--muted)'};
+  chips.innerHTML = pa.suggestions.map(({p, rank, reason, tag, tagKind, goneProb}) => {
     const sn = p.name.replace(/'/g,"\\'");
     const pcol = pc(p.pos);
-    return `<div class="schip" onclick="markMine('${sn}')">
+    const tagC = tagColors[tagKind] || 'var(--muted)';
+    const gonePct = Math.round(goneProb*100);
+    const goneCls = gonePct >= 65 ? 'pa-hot' : gonePct >= 35 ? 'pa-warm' : 'pa-cool';
+    return `<div class="schip pa-card" onclick="markMine('${sn}')">
       <span class="spos" style="background:${pcol}26;color:${pcol}">${p.pos}</span>
       <div class="schip-main">
-        <div class="sname">${p.name}</div>
-        <div class="sreason">#${rank}</div>
+        <div class="sname">${p.name} <span class="pa-rank">#${rank}</span></div>
+        <div class="sreason">${reason}</div>
       </div>
-      <span class="stag" style="background:${tagC}22;color:${tagC}">${tagTxt}</span>
+      <div class="pa-right">
+        ${p.pos!=='PICK' ? `<span class="pa-gone ${goneCls}">${gonePct}%<em>gone</em></span>` : ''}
+        <span class="stag" style="background:${tagC}22;color:${tagC}">${tag}</span>
+      </div>
     </div>`;
-  }).join('') : '<span style="color:var(--muted);font-size:12px;font-family:var(--font-mono)">No suggestions</span>';
+  }).join('');
+
+  chips.style.opacity = '';
+  paCheckWatchAlerts(pa);
+}
+
+// Toast when a starred player probably won't survive to my pick. One alert per
+// player per pick of mine, so a 2s poll loop can't spam.
+const _paAlerted = new Set();
+function paCheckWatchAlerts(pa){
+  if (!pa || typeof watchlist === 'undefined' || !watchlist.size || !sleeperDraftId) return;
+  if (pa.onClock) return; // they're already staring at the board
+  const oppNeeds = null, runs = detectRuns();
+  watchlist.forEach(name=>{
+    const p = findPlayer(name);
+    if (!p || !paIsAvail(p)) return;
+    const gone = 1 - paSurvival(p, pa.myPick, oppNeeds, runs);
+    const key = name + '@' + pa.myPick;
+    if (gone >= 0.7 && !_paAlerted.has(key)){
+      _paAlerted.add(key);
+      toast(`⚠ ${name} — ${Math.round(gone*100)}% gone before your pick${pa.horizonSlot?` (${pa.horizonSlot})`:''}`);
+    }
+  });
 }
 
 // ════════════════════════════════════
@@ -29649,5 +29933,64 @@ else { _ssInjectPage();_ssInjectNav(); }
 })();
 </script>
 
+<style id="pick-assistant">
+/* ════ PICK ASSISTANT · suggest bar states (ambient / soon / on-the-clock) ════
+   Late in the cascade on purpose: overrides the Command Strip chip styling and
+   the mobile hide rule when the user's pick is imminent. */
+
+/* 3 wider cards instead of 4 — the reason line needs the room */
+#page-draft .suggest-chips{ grid-template-columns:repeat(3,1fr)!important; }
+@media(max-width:860px){ #page-draft .suggest-chips{ grid-template-columns:1fr!important; } }
+
+/* card anatomy shared by all modes */
+#page-draft .schip{ transition:border-color 150ms ease, background 150ms ease, transform 120ms ease; }
+#page-draft .schip:active{ transform:scale(.98); transition-duration:80ms; }
+#page-draft .schip .pa-rank{ font-family:var(--font-mono); font-size:10px; font-weight:600; color:var(--muted); margin-left:2px; }
+#page-draft .schip .sreason{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#page-draft .pa-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+#page-draft .pa-gone{ font-family:var(--font-mono); font-size:11px; font-weight:700; line-height:1; display:flex; align-items:baseline; gap:3px; }
+#page-draft .pa-gone em{ font-style:normal; font-size:8px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.65; }
+#page-draft .pa-gone.pa-hot{ color:var(--qb); }
+#page-draft .pa-gone.pa-warm{ color:var(--te); }
+#page-draft .pa-gone.pa-cool{ color:var(--rb); }
+
+/* SOON · pick within 2: bar visible everywhere, quiet accent cue */
+#page-draft #sbar.pa-soon, #page-draft #sbar.pa-clock{ display:flex!important; }
+#page-draft #sbar.pa-hidden, #sbar.pa-hidden{ display:none!important; }
+#page-draft #sbar.pa-soon .suggest-title > span{ color:var(--accent); font-weight:700; }
+
+/* ON THE CLOCK · full-width panel, title above 3 large cards, pulsing ring */
+#page-draft #sbar.pa-clock{
+  flex-direction:column!important; align-items:stretch!important; gap:8px!important;
+  position:relative; border-radius:12px; padding:12px!important; margin-top:8px;
+  background:var(--s1)!important;
+}
+#page-draft #sbar.pa-clock::after{
+  content:''; position:absolute; inset:0; border-radius:12px; pointer-events:none;
+  box-shadow:0 0 0 1.5px var(--accent), 0 0 20px -4px var(--accent);
+  opacity:.5; animation:pa-pulse 1.9s ease-in-out infinite;
+}
+@keyframes pa-pulse{ 0%,100%{opacity:.22} 50%{opacity:.65} }
+#page-draft #sbar.pa-clock .suggest-title > span{
+  color:var(--accent); font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+}
+/* one-shot rise when the panel escalates to clock mode; going quiet again is instant */
+#page-draft #sbar.pa-clock .suggest-chips{ animation:pa-rise 180ms ease-out; }
+@keyframes pa-rise{ from{ opacity:0; transform:translateY(6px); } }
+#page-draft #sbar.pa-clock .schip{ padding:13px 14px!important; }
+#page-draft #sbar.pa-clock .schip .sname{ font-size:14px; }
+#page-draft #sbar.pa-clock .schip .sreason{ font-size:11px; white-space:normal; }
+#page-draft #sbar.pa-clock .pa-gone{ font-size:14px; }
+
+/* mobile: ambient stays hidden (pre-existing rule), imminent modes come back */
+@media(max-width:700px){
+  #page-draft #sbar.pa-soon, #page-draft #sbar.pa-clock{ display:flex!important; flex-direction:column!important; align-items:stretch!important; gap:8px!important; }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #page-draft #sbar.pa-clock::after{ animation:none; opacity:.4; }
+  #page-draft #sbar.pa-clock .suggest-chips{ animation:none; }
+}
+</style>
 </body>
 </html>
