@@ -20443,7 +20443,16 @@ function pickYear(year) {
   const lowOf = (p, k = state.fmt) => p.fmtLow[k], highOf = (p, k = state.fmt) => p.fmtHigh[k];
   const srcFmt = (p, val, k = state.fmt) => val == null ? null : r1(k === 'lg' ? val * (p.lgK || 1) : k === 'ppr' ? val : k === 'half' ? val - p.rec / 2 : val - p.rec);
   const confColor = c => c >= 60 ? 'var(--rb)' : c >= 42 ? 'var(--te)' : c >= 28 ? '#ff9a4d' : 'var(--accent2)';
-  const av = (p, s = 40) => `<div class="lc-av" style="width:${s}px;height:${s}px;background:${POSB[p.pos]};border:1.5px solid color-mix(in srgb,${POSC[p.pos]} 40%,transparent);color:${POSC[p.pos]};font-size:${s * 0.34}px">${initials(p.name)}</div>`;
+  // Player headshot: live metas carry the numeric Sleeper pid in .id; offline
+  // fallback ids are slugs, so those resolve by name via the global helper.
+  const avShot = p => {
+    if (/^\d+$/.test(String(p.id || ''))) return `https://sleepercdn.com/content/nfl/players/thumb/${p.id}.jpg`;
+    try { return (typeof getPlayerHeadshotUrl === 'function' && getPlayerHeadshotUrl(p.name)) || ''; } catch (e) { return ''; }
+  };
+  const av = (p, s = 40) => {
+    const shot = avShot(p);
+    return `<div class="lc-av" style="width:${s}px;height:${s}px;background:${POSB[p.pos]};border:1.5px solid color-mix(in srgb,${POSC[p.pos]} 40%,transparent);color:${POSC[p.pos]};font-size:${s * 0.34}px">${initials(p.name)}${shot ? `<img src="${shot}" loading="lazy" alt="" onerror="this.remove()">` : ''}</div>`;
+  };
   const posTag = p => `<span class="lc-mono" style="color:${POSC[p.pos]}">${p.pos}</span> · ${p.team}`;
   const statusPill = p => !p.status ? '' : `<span class="lc-pill" style="background:rgba(255,179,71,.18);color:#ffb347">${p.status.toUpperCase()}</span>`;
   const matchupPill = p => `<span class="lc-pill" style="background:color-mix(in srgb,${p.mu.color} 14%,transparent);color:${p.mu.color}">◈ ${p.mu.short}</span>`;
@@ -20640,7 +20649,7 @@ function pickYear(year) {
   function mlRow(id, slotLab, edge) {
     const p = getPlayer(id);
     if (id === '0' || !id) return `<div class="lc-mlrow" style="cursor:default"><span class="lc-mlslot" style="color:var(--accent2)">${slotLab}</span><div class="lc-av" style="width:38px;height:38px;background:var(--s2);border:1.5px dashed var(--border3);color:var(--muted);font-size:13px">—</div><div style="min-width:0"><div style="font-size:13.5px;font-weight:700;color:var(--accent2)">Empty slot</div><div class="lc-mono" style="font-size:9.5px;color:var(--muted)">set a starter on Sleeper</div></div><div></div><div></div><span class="lc-mlverdict" style="background:rgba(226,58,78,.14);color:var(--accent2)">⚠ FIX</span></div>`;
-    if (!p) return `<div class="lc-mlrow" style="cursor:default;opacity:.6"><span class="lc-mlslot">${slotLab}</span><div class="lc-av" style="width:38px;height:38px;background:var(--s2);border:1.5px solid var(--border);color:var(--muted);font-size:12px">${initials(pidName(id))}</div><div style="min-width:0"><div style="font-size:13.5px;font-weight:700">${pidName(id)}</div><div class="lc-mono" style="font-size:9.5px;color:var(--muted)">${slotLab === 'K' || slotLab === 'DEF' ? 'not covered by skill-position projections' : 'no projection this week'}</div></div><div></div><div class="lc-mono" style="text-align:right;color:var(--muted)">—</div><div></div></div>`;
+    if (!p) return `<div class="lc-mlrow" style="cursor:default;opacity:.6"><span class="lc-mlslot">${slotLab}</span><div class="lc-av" style="width:38px;height:38px;background:var(--s2);border:1.5px solid var(--border);color:var(--muted);font-size:12px">${initials(pidName(id))}${(() => { const sh = avShot({ id, name: pidName(id) }); return sh ? `<img src="${sh}" loading="lazy" alt="" onerror="this.remove()">` : ''; })()}</div><div style="min-width:0"><div style="font-size:13.5px;font-weight:700">${pidName(id)}</div><div class="lc-mono" style="font-size:9.5px;color:var(--muted)">${slotLab === 'K' || slotLab === 'DEF' ? 'not covered by skill-position projections' : 'no projection this week'}</div></div><div></div><div class="lc-mono" style="text-align:right;color:var(--muted)">—</div><div></div></div>`;
     const flagged = edge && edge.starter.id === p.id;
     const inCmp = state.sel.includes(p.id);
     return `
@@ -20761,7 +20770,8 @@ function pickYear(year) {
     #page-lineup .lc-mono{font-family:var(--font-mono)}
     #page-lineup .lc-lab{font-family:var(--font-mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
     #page-lineup .lc-pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:4px 9px;border-radius:7px}
-    #page-lineup .lc-av{border-radius:26%;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-family:var(--font-sans)}
+    #page-lineup .lc-av{border-radius:26%;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-family:var(--font-sans);position:relative;overflow:hidden}
+    #page-lineup .lc-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
     #page-lineup .lc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
     #page-lineup .lc-title{font-size:clamp(28px,3.4vw,40px);font-weight:800;letter-spacing:-.035em;line-height:1}
     #page-lineup .lc-rule{width:42px;height:3px;background:var(--accent);border-radius:2px;margin:11px 0 9px}
@@ -23953,6 +23963,14 @@ function pickYear(year) {
 .vtr-cell.info .vtr-dot{color:var(--muted);opacity:.7}
 .vtr-cell.info .gl{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);opacity:.85;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
 .vtr-cell.info .gl .live{color:var(--you2);opacity:1;font-weight:700}
+.vtr-cell.info .vtr-pwrap{display:flex;align-items:center;gap:11px;min-width:0}
+.vtr-cell.info.opp .vtr-pwrap{flex-direction:row-reverse}
+.vtr-cell.info .vtr-ptxt{min-width:0;flex:1}
+.vtr-pav{width:46px;height:46px;border-radius:50%;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--ring,#7d8aa0) 45%,transparent)}
+.vtr-pav .ini{font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--text2)}
+.vtr-pav img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
+.rbp .pav{width:26px;height:26px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;background:var(--s3);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ring,#7d8aa0) 50%,transparent)}
+.rbp .pav img{width:100%;height:100%;object-fit:cover;object-position:top center}
 .vtr-cell.sc{display:flex;flex-direction:column;align-items:center;min-width:54px}
 .vtr-cell.sc .act{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--text2);line-height:1;font-feature-settings:"tnum";letter-spacing:-.01em}
 .vtr-cell.sc .act.is-live{color:var(--accent2)}
@@ -23969,6 +23987,8 @@ function pickYear(year) {
   .vtr-ytp-out{padding:10px 14px 4px;gap:10px}
   .vtr-secbar{padding:11px 13px 9px}
   .vtr-row{column-gap:10px;padding:14px 14px}
+  .vtr-pav{width:38px;height:38px}
+  .vtr-cell.info .vtr-pwrap{gap:8px}
   .vtr-cell.info .nm{font-size:16px}
   .vtr-cell.info .pm,.vtr-cell.info .vtr-pchip,.vtr-cell.info .vtr-pteam{font-size:10.5px}
   .vtr-cell.info .gl{font-size:10px;margin-top:5px}
@@ -23991,6 +24011,7 @@ function pickYear(year) {
   .vtr-ytp-out{padding:10px 13px 4px;gap:8px}
   /* Starter rows — tighten for narrow phones (5-col grid stays intact) */
   .vtr-row{column-gap:5px;padding:12px 8px}
+  .vtr-pav{display:none}
   .vtr-cell.info .nm{font-size:13.5px}
   .vtr-cell.info .pm{font-size:10px;margin-top:4px;gap:4px}
   .vtr-cell.info .vtr-pchip,.vtr-cell.info .vtr-pteam{font-size:10px}
@@ -24531,11 +24552,10 @@ window._gcMatchupHTML=function(d){
   var wins=rows.filter(function(r){ return (r.me&&r.me.pts!=null?r.me.pts:0) > (r.op&&r.op.pts!=null?r.op.pts:0); }).length;
   var n=rows.length||9;
   var wpMe=d.wpMe, wpOp=100-wpMe;
-  function av(p){ if(!p) return '<div class="vtr-av" style="--ring:var(--muted)"><span class="vtr-ini">—</span></div>';
-    var pc=POS[p.pos]||'#7d8aa0', ph=_gcHeadshot(p.sid), lg=tlogo(p.team);
-    return '<div class="vtr-av" style="--ring:'+pc+'"><span class="vtr-ini">'+_rdvInitials(p.name)+'</span>'
+  function av(p){ if(!p) return '';
+    var pc=POS[p.pos]||'#7d8aa0', ph=_rdvHeadshot(p.sid);
+    return '<div class="vtr-pav" style="--ring:'+pc+'"><span class="ini">'+_rdvInitials(p.name)+'</span>'
       + (ph?'<img src="'+ph+'" loading="lazy" onerror="this.style.display=\'none\'">':'')
-      + (lg?'<span class="vtr-tb"><img src="'+lg+'" onerror="this.parentNode.style.display=\'none\'"></span>':'')
       + '</div>'; }
   function info(p){ return _vtrInfo(p,live); }
   function sc(p){ return _vtrSc(p,live); }
@@ -24551,11 +24571,11 @@ window._gcMatchupHTML=function(d){
     var lean=hasOpp?(ap>bp?'lean-me':(bp>ap?'lean-opp':'')):'';
     var col=POS[r.base]||'#7d8aa0';
     return '<div class="vtr-row '+lean+'">'
-      + '<div class="vtr-cell info me">'+_vtrInfo(r.me,live)+'</div>'
+      + '<div class="vtr-cell info me"><div class="vtr-pwrap">'+av(r.me)+'<div class="vtr-ptxt">'+_vtrInfo(r.me,live)+'</div></div></div>'
       + '<div class="vtr-cell sc me">'+_vtrSc(r.me,live)+'</div>'
       + '<div class="vtr-badge" style="background:'+col+';color:#0c0f15">'+(r.slotLabel||'')+'</div>'
       + '<div class="vtr-cell sc opp">'+_vtrSc(r.op,live)+'</div>'
-      + '<div class="vtr-cell info opp">'+_vtrInfo(r.op,live)+'</div>'
+      + '<div class="vtr-cell info opp"><div class="vtr-pwrap">'+av(r.op)+'<div class="vtr-ptxt">'+_vtrInfo(r.op,live)+'</div></div></div>'
       + '</div>';
   }).join('');
   function crest(t){ return '<div class="vtr-avt"><span class="vtr-tini">'+_rdvInitials(t.name||'?')+'</span>'+(t.avatar?'<img src="'+t.avatar+'" onerror="this.style.display=\'none\'">':'')+'</div>'; }
@@ -24618,8 +24638,8 @@ window._gcMatchupHTML=function(d){
   var benchMod='';
   if(rl.bench && rl.bench.length){
     benchMod='<div class="rmod rmod-fx rmod-bench"><div class="rmh"><span class="t">Bench watch</span><span class="tag">TOP PROJ</span></div><div class="rbench">'
-      + rl.bench.slice(0,3).map(function(b){ var col=POS[b.pos]||'#7d8aa0';
-          return '<div class="rbp"><span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
+      + rl.bench.slice(0,3).map(function(b){ var col=POS[b.pos]||'#7d8aa0', bph=_rdvHeadshot(b.sid);
+          return '<div class="rbp">'+(bph?'<span class="pav" style="--ring:'+col+'"><img src="'+bph+'" loading="lazy" onerror="this.parentNode.style.display=\'none\'"></span>':'')+'<span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
         }).join('')
       + '</div>'+(rl.optimal?'<div class="rbench-note">Nothing here out-projects a starter at its position.</div>':'')+'</div>';
   }
