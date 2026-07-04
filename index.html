@@ -9358,23 +9358,79 @@ function _vhUpgradeImgs() {
 window.vaultHeadshot = vaultHeadshot; window._vhUpgradeImgs = _vhUpgradeImgs;
 
 /* ── Universal player-profile popout ────────────────────────────────
-   Any player element on any page opens the ps-modal profile (X /
-   backdrop / Esc close and return you to where you were). Resolves
-   missing sid / pos / team by name so callers can pass what they have. */
+   Any player element on any page opens the full Research Hub Player
+   Profile page (#page-playerprofile) inside a large modal — X /
+   backdrop / Esc return you to where you were. The page element is
+   MOVED into the modal and restored on close so its own styles,
+   delegated events and nav path keep working. Falls back to the
+   compact ps-modal for kickers or if the profile module is absent. */
+function _ppxEnsureShell() {
+  let m = document.getElementById('ppx-modal');
+  if (m) return m;
+  const st = document.createElement('style');
+  st.id = 'ppx-styles';
+  st.textContent = `
+    #ppx-modal{display:none;position:fixed;inset:0;z-index:12000;background:rgba(3,6,11,.82);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);align-items:flex-start;justify-content:center;padding:2.5vh 14px;opacity:0;transition:opacity .16s ease}
+    #ppx-modal.show{opacity:1}
+    #ppx-sheet{position:relative;width:min(1300px,97vw);max-height:95vh;overflow-y:auto;overscroll-behavior:contain;background:var(--bg,#07090f);border:1px solid var(--border2,rgba(255,255,255,.12));border-radius:18px;box-shadow:0 48px 140px rgba(0,0,0,.75);transform:translateY(10px) scale(.985);transition:transform .18s ease}
+    #ppx-modal.show #ppx-sheet{transform:translateY(0) scale(1)}
+    #ppx-close{position:sticky;top:12px;z-index:40;float:right;margin:12px 14px -46px 0;width:34px;height:34px;border-radius:10px;border:1px solid var(--border2,rgba(255,255,255,.14));background:var(--s2,rgba(20,26,38,.92));color:var(--text2,#c8d2e4);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    #ppx-close:hover{color:#fff;border-color:var(--border3,rgba(255,255,255,.3))}
+    #ppx-sheet #page-playerprofile.ppx-in{display:block!important;position:static!important;width:100%!important;height:auto!important;max-height:none!important;overflow:visible!important}
+    #ppx-sheet #page-playerprofile.ppx-in .pp-wrap{padding-top:18px;padding-bottom:44px}
+    @media(max-width:640px){#ppx-modal{padding:0}#ppx-sheet{width:100vw;max-height:100vh;border-radius:0;border:none}}
+  `;
+  document.head.appendChild(st);
+  m = document.createElement('div');
+  m.id = 'ppx-modal';
+  m.innerHTML = '<div id="ppx-sheet"><button id="ppx-close" title="Close" aria-label="Close player profile" onclick="closePlayerProfile()">✕</button><div id="ppx-body"></div></div>';
+  m.addEventListener('click', e => { if (e.target === m) closePlayerProfile(); });
+  document.body.appendChild(m);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePlayerProfile(); });
+  return m;
+}
 function openPlayerProfile(name, sid, pos, team) {
   try {
     name = String(name || '').trim();
     if (!name) return;
     const norm = normName(name);
-    const sp = sleeperPlayerMap[norm];
     const pl = (window.PLAYERS || []).find(p => p.name === name || normName(p.name) === norm);
     pos = pos || pl?.pos || '';
     team = team || pl?.team || getFCValue?.(name)?.team || '';
     if (pos === 'DEF') return; // team defenses have no player profile
-    openPlayerStats(norm, name, pos, team);
-  } catch (e) { try { openPlayerStats('', name, pos || '', team || ''); } catch (_) {} }
+    const page = document.getElementById('page-playerprofile');
+    // Kickers aren't covered by the nflverse skill-position feed → compact modal
+    if (!page || pos === 'K' || typeof window._ppOpenTo !== 'function') {
+      openPlayerStats(norm, name, pos, team);
+      return;
+    }
+    const m = _ppxEnsureShell();
+    if (!page._ppxHome) page._ppxHome = { parent: page.parentNode, next: page.nextSibling };
+    document.getElementById('ppx-body').appendChild(page);
+    page.classList.add('ppx-in');
+    m.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => requestAnimationFrame(() => m.classList.add('show')));
+    document.getElementById('ppx-sheet').scrollTop = 0;
+    window._ppOpenTo(name);
+  } catch (e) { try { openPlayerStats(normName(name), name, pos || '', team || ''); } catch (_) {} }
+}
+function closePlayerProfile() {
+  const m = document.getElementById('ppx-modal');
+  if (!m || m.style.display === 'none' || !m.style.display) return;
+  m.classList.remove('show');
+  setTimeout(() => {
+    m.style.display = 'none';
+    document.body.style.overflow = '';
+    const page = document.getElementById('page-playerprofile');
+    if (page && page._ppxHome) {
+      page.classList.remove('ppx-in');
+      try { page._ppxHome.parent.insertBefore(page, page._ppxHome.next); } catch (e) { document.body.appendChild(page); }
+    }
+  }, 170);
 }
 window.openPlayerProfile = openPlayerProfile;
+window.closePlayerProfile = closePlayerProfile;
 /* Escape a name for use inside an inline onclick single-quoted arg */
 function ppArg(name) { return String(name || '').replace(/\\/g, '').replace(/'/g, "\\'").replace(/"/g, ''); }
 window.ppArg = ppArg;
@@ -22985,8 +23041,8 @@ function pickYear(year) {
     ${S} .pp-seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
     ${S} .pp-hero{display:flex;align-items:center;gap:20px;padding:20px 22px;background:var(--s1);border:1px solid var(--border2);border-radius:16px;margin-bottom:14px;flex-wrap:wrap}
     ${S} .pp-shot{width:88px;height:88px;border-radius:50%;padding:3px;flex-shrink:0;background:linear-gradient(135deg,var(--s4),var(--s2))}
-    ${S} .pp-shot .in{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--muted)}
-    ${S} .pp-shot img{width:100%;height:100%;object-fit:cover}
+    ${S} .pp-shot .in{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--muted)}
+    ${S} .pp-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
     ${S} .pp-id{flex:1;min-width:220px}
     ${S} .pp-name{font-size:30px;font-weight:900;letter-spacing:-.04em;line-height:1;font-family:var(--font-sans);color:var(--text)}
     ${S} .pp-meta{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
@@ -23380,6 +23436,10 @@ function pickYear(year) {
   const TABS = [['overview', 'Overview'], ['gamelogs', 'Game Logs'], ['advanced', 'Advanced'], ['betting', 'Betting'], ['splits', 'Splits'], ['status', 'Status']];
 
   /* ── render ── */
+  /* nflverse headshots are ~3400px originals — request a face-cropped square
+     at 2× display size from the NFL CDN instead of shipping megapixels. */
+  function ppShot(u, px) { return u ? String(u).replace('/f_auto,q_auto/', '/f_auto,q_auto,w_' + (px * 2) + ',h_' + (px * 2) + ',c_thumb,g_face/') : ''; }
+
   function heroHtml() {
     const r = PLR.row;
     if (!r) return `<div class="pp-hero"><div class="pp-loading"><span class="pp-spin">⟳</span> Loading ${esc(PLR.season)} player data…</div></div>`;
@@ -23391,7 +23451,7 @@ function pickYear(year) {
     const inj = r.injury;
     const ini = (r.name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     return `<div class="pp-hero">
-      <div class="pp-shot" style="background:linear-gradient(135deg,${col},var(--s2))"><div class="in">${r.headshot ? `<img src="${esc(r.headshot)}" alt="" onerror="this.remove()">` : ''}${esc(ini)}</div></div>
+      <div class="pp-shot" style="background:linear-gradient(135deg,${col},var(--s2))"><div class="in">${r.headshot ? `<img src="${esc(ppShot(r.headshot, 96))}" alt="" onerror="this.remove()">` : ''}${esc(ini)}</div></div>
       <div class="pp-id">
         <div class="pp-name">${esc(r.name)}</div>
         <div class="pp-meta">
@@ -23432,7 +23492,7 @@ function pickYear(year) {
     if (!pool.length) return '<div class="pp-ac show"><div class="pp-note" style="padding:8px 10px;margin:0">No players found</div></div>';
     return `<div class="pp-ac show">${pool.map(p => `
       <button class="pp-ac-item" data-pp-pick="${esc(p.name)}">
-        <span class="pp-ac-av">${p.headshot ? `<img src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>
+        <span class="pp-ac-av">${p.headshot ? `<img src="${esc(ppShot(p.headshot, 30))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>
         <span class="pp-ac-name">${esc(p.name)}</span>
         <span class="pp-ac-meta">${esc(p.pos)} · ${esc(p.team || '—')} · ${fmt(p.fpts, 0)} FP</span>
       </button>`).join('')}</div>`;
@@ -23544,7 +23604,13 @@ function pickYear(year) {
       const rows = res[0], idx = res[1];
       PLR.rows = rows;
       PLR.idx = idx && idx.length ? idx : rows.slice().sort((a, b) => (b.fpts || 0) - (a.fpts || 0)).map(r => ({ name: r.name, pos: r.pos, team: r.team, headshot: r.headshot, fpts: r.fpts }));
-      // default player: saved pick if still present, else top scorer
+      // default player: saved pick if still present (normName match tolerates
+      // Sleeper vs nflverse spelling drift), else top scorer
+      if (PLR.name && !PLR.idx.some(p => p.name === PLR.name)) {
+        const nn = D.normName(PLR.name);
+        const hit = PLR.idx.find(p => D.normName(p.name) === nn);
+        if (hit) PLR.name = hit.name;
+      }
       if (!PLR.name || !PLR.idx.some(p => p.name === PLR.name)) PLR.name = PLR.idx[0] && PLR.idx[0].name;
       refreshRow(rows);
       ppRender();
@@ -23556,7 +23622,20 @@ function pickYear(year) {
     loadBet().then(() => soft());
   }
 
-  /* ── events ── */
+  /* Popout entry: boot the page and select a player by (possibly Sleeper-
+     spelled) name. Exposed for the site-wide player-click popout. */
+  window._ppOpenTo = function (name) {
+    ppBoot();
+    if (name) {
+      if (PLR.idx && PLR.idx.length) {
+        const nn = D.normName(name);
+        const hit = PLR.idx.find(p => D.normName(p.name) === nn);
+        setPlayer(hit ? hit.name : name);
+      } else {
+        setPlayer(name); // boot's completion re-resolves via normName
+      }
+    } else if (PLR.booted) { soft(); }
+  };
   document.addEventListener('click', e => {
     const page = e.target.closest('#page-playerprofile');
     if (!page) { if (PLR.acOpen) { PLR.acOpen = false; const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = ''; } return; }
