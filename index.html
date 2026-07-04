@@ -6331,7 +6331,7 @@ function _psRenderHeader() {  const hdr = document.getElementById('ps-header');
   const { name, pos, team, sleeperId } = _psPlayer;
   const posC = {QB:'#ff6680',RB:'#3DCC7A',WR:'#7bd0ff',TE:'#f5c842'}[pos]||'var(--muted)';
   const posBG = {QB:'rgba(255,102,128,0.12)',RB:'rgba(61,204,122,0.12)',WR:'rgba(123,208,255,0.12)',TE:'rgba(245,200,66,0.12)'}[pos]||'rgba(144,144,151,0.12)';
-  const avatarUrl = vaultHeadshot(name, sleeperId, 60);
+  const avatarUrl = vaultHeadshot(name, sleeperId, 64);
   const val = _psData?.val;
   const page = _psData?.page;
   const dynastyVal = getPlayerValue(name) || val?.val_sf || 0;
@@ -6369,9 +6369,9 @@ function _psRenderHeader() {  const hdr = document.getElementById('ps-header');
   hdr.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:14px;padding-bottom:16px">
       <div style="position:relative;flex-shrink:0">
-        <img src="${avatarUrl}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-          style="width:64px;height:64px;border-radius:4px;border:2px solid ${posC};object-fit:cover;object-position:top;display:block">
-        <div style="display:none;width:64px;height:64px;border-radius:4px;border:2px solid ${posC};background:${posBG};align-items:center;justify-content:center;font-family:var(--font-mono);font-size:18px;font-weight:700;color:${posC}">
+        ${avatarUrl ? `<img src="${avatarUrl}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+          style="width:64px;height:64px;border-radius:4px;border:2px solid ${posC};object-fit:cover;object-position:top;display:block">` : ''}
+        <div style="display:${avatarUrl ? 'none' : 'flex'};width:64px;height:64px;border-radius:4px;border:2px solid ${posC};background:${posBG};align-items:center;justify-content:center;font-family:var(--font-mono);font-size:18px;font-weight:700;color:${posC}">
           ${name.split(' ').map(w=>w[0]).join('').substring(0,2)}
         </div>
       </div>
@@ -7024,7 +7024,7 @@ function _resRenderLeaderboard(players) {  const body = document.getElementById(
     const barWidth = Math.round((val / maxVal) * 100);
 
     return `<div class="res-lb-row ${isRedraft?'has6':'has7'}" style="display:grid;grid-template-columns:${gridTpl};gap:0;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 100ms;cursor:pointer"
-      onclick="researchSelectPlayer('${p.name.replace(/'/g,"\\'")}','${sid}','${pos}','${p.team||''}')"
+      onclick="openPlayerProfile('${ppArg(p.name)}','${sid}','${pos}','${p.team||''}')"
       onmouseover="this.style.background='rgba(190,198,224,0.04)'" onmouseout="this.style.background=''">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="position:relative;width:36px;height:36px;flex-shrink:0">
@@ -7200,8 +7200,8 @@ async function _resApplyOppFilter(opp) {
       const sid = (window.PLAYERS||[]).find(x=>norm(x.name)===norm(p.name))?.sleeperId || '';
       const thumb = (u => u ? `<img src="${u}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid ${pc};flex-shrink:0" onerror="this.style.display='none'">` : '')(vaultHeadshot(p.name, sid, 36));
       const wkDetail = p.weeks.map(w=>`Wk${w.wk}: ${(w.pts||0).toFixed(1)}`).join(' · ');
-      return `<div onclick="researchSelectPlayer('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team}')" 
-        style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 100ms" 
+      return `<div onclick="openPlayerProfile('${ppArg(p.name)}','','${p.pos}','${p.team}')"
+        style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 100ms"
         onmouseover="this.style.background='rgba(190,198,224,0.05)'" onmouseout="this.style.background=''">
         ${thumb}
         <div style="flex:1;min-width:0">
@@ -9356,6 +9356,28 @@ function _vhUpgradeImgs() {
   });
 }
 window.vaultHeadshot = vaultHeadshot; window._vhUpgradeImgs = _vhUpgradeImgs;
+
+/* ── Universal player-profile popout ────────────────────────────────
+   Any player element on any page opens the ps-modal profile (X /
+   backdrop / Esc close and return you to where you were). Resolves
+   missing sid / pos / team by name so callers can pass what they have. */
+function openPlayerProfile(name, sid, pos, team) {
+  try {
+    name = String(name || '').trim();
+    if (!name) return;
+    const norm = normName(name);
+    const sp = sleeperPlayerMap[norm];
+    const pl = (window.PLAYERS || []).find(p => p.name === name || normName(p.name) === norm);
+    pos = pos || pl?.pos || '';
+    team = team || pl?.team || getFCValue?.(name)?.team || '';
+    if (pos === 'DEF') return; // team defenses have no player profile
+    openPlayerStats(norm, name, pos, team);
+  } catch (e) { try { openPlayerStats('', name, pos || '', team || ''); } catch (_) {} }
+}
+window.openPlayerProfile = openPlayerProfile;
+/* Escape a name for use inside an inline onclick single-quoted arg */
+function ppArg(name) { return String(name || '').replace(/\\/g, '').replace(/'/g, "\\'").replace(/"/g, ''); }
+window.ppArg = ppArg;
 
 let communityADP = {}; 
 
@@ -13742,7 +13764,7 @@ function renderMovers() {
     const photoUrl = vaultHeadshot(p.name, sid, 34);
     const posCol = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[p.pos]||'var(--muted)';
     const posBg = {QB:'rgba(255,102,128,0.15)',RB:'rgba(61,204,122,0.15)',WR:'rgba(123,208,255,0.15)',TE:'rgba(245,200,66,0.15)'}[p.pos]||'rgba(255,255,255,0.08)';
-    return `<div onclick="showPage('research');setTimeout(()=>researchSelectPlayer('${p.name.replace(/'/g,"\'").replace(/"/g,'\"')}','${sid}','${p.pos}','${p.teamName}'),300)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 100ms" onmouseover="this.style.background='rgba(190,198,224,0.04)'" onmouseout="this.style.background=''">
+    return `<div onclick="openPlayerProfile('${ppArg(p.name)}','${sid}','${p.pos}','')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 100ms" onmouseover="this.style.background='rgba(190,198,224,0.04)'" onmouseout="this.style.background=''">
       <div style="position:relative;width:34px;height:34px;flex-shrink:0">
         ${photoUrl ? `<img src="${photoUrl}" style="width:34px;height:34px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);background:${posBg}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
         <div style="width:34px;height:34px;border-radius:8px;background:${posBg};display:${photoUrl?'none':'flex'};align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${posCol}">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
@@ -20563,9 +20585,9 @@ function pickYear(year) {
       return `
       <div class="lc-card${isBest ? ' best' : ''}">
         <div style="display:flex;align-items:flex-start;gap:12px">
-          ${av(p, 46)}
+          <span title="Open player profile" onclick="openPlayerProfile('${ppArg(p.name)}','${/^\d+$/.test(String(p.id||''))?p.id:''}','${p.pos||''}','${p.team||''}')" style="cursor:pointer;display:contents">${av(p, 46)}</span>
           <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:7px"><span style="font-size:16px;font-weight:800;letter-spacing:-.02em">${p.name}</span>${statusPill(p)}</div>
+            <div style="display:flex;align-items:center;gap:7px"><span style="font-size:16px;font-weight:800;letter-spacing:-.02em;cursor:pointer" onclick="openPlayerProfile('${ppArg(p.name)}','${/^\d+$/.test(String(p.id||''))?p.id:''}','${p.pos||''}','${p.team||''}')">${p.name}</span>${statusPill(p)}</div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px">${posTag(p)} · ${p.ha} ${p.opp}${p.day ? ' · ' + p.day : ''}${p.time ? ' ' + p.time : ''}</div>
           </div>
           <button class="lc-cardx" data-rm="${p.id}">×</button>
@@ -20694,7 +20716,7 @@ function pickYear(year) {
     return `
     <div class="lc-mlrow${flagged ? ' flag' : ''}" data-mladd="${p.id}" title="${inCmp ? 'In compare tray' : 'Click to add to compare'}">
       <span class="lc-mlslot" style="color:${POSC[p.pos] || 'var(--muted)'}">${slotLab}</span>
-      ${av(p, 38)}
+      <span title="Open player profile" onclick="event.stopPropagation();openPlayerProfile('${ppArg(p.name)}','${/^\d+$/.test(String(p.id||''))?p.id:''}','${p.pos||''}','${p.team||''}')" style="cursor:pointer;display:contents">${av(p, 38)}</span>
       <div style="min-width:0">
         <div style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:13.5px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</span>${statusPill(p)}</div>
         <div class="lc-mono" style="font-size:9.5px;color:var(--muted)">${p.pos} · ${p.team} · ${p.ha} ${p.opp}</div>
@@ -21896,7 +21918,7 @@ function pickYear(year) {
         return `<td class="rh-td num${c.group === 'eff' ? ' grp-eff' : ''}${on ? ' on' : ''}"${style}><span class="rh-val">${esc(c.fmt(v))}</span></td>`;
       }).join('');
       const inj = row.injury ? `<span class="rh-inj rh-inj-${injClass(row.injury)}" title="${esc((row.injuryDes ? row.injuryDes + ' · ' : '') + row.injury)}">${esc(injShort(row.injury))}</span>` : '';
-      return `<tr class="rh-tr"><td class="rh-td rh-sticky rh-td-player"><div class="rh-pl"><span class="rh-rank">${ri + 1}</span>${avatar(row, 'rh-av')}<span class="rh-pl-id"><span class="rh-pl-name">${esc(row.name)}${inj}</span><span class="rh-pl-meta"><span class="rh-pos" style="color:${POS_COLOR[row.pos]};border-color:${POS_COLOR[row.pos]}40;background:${POS_COLOR[row.pos]}14">${esc(row.pos)}</span><span class="rh-team">${esc(row.team)}</span></span></span></div></td>${cells}</tr>`;
+      return `<tr class="rh-tr"><td class="rh-td rh-sticky rh-td-player"><div class="rh-pl" style="cursor:pointer" onclick="openPlayerProfile('${ppArg(row.name)}','','${row.pos||''}','${row.team||''}')"><span class="rh-rank">${ri + 1}</span>${avatar(row, 'rh-av')}<span class="rh-pl-id"><span class="rh-pl-name">${esc(row.name)}${inj}</span><span class="rh-pl-meta"><span class="rh-pos" style="color:${POS_COLOR[row.pos]};border-color:${POS_COLOR[row.pos]}40;background:${POS_COLOR[row.pos]}14">${esc(row.pos)}</span><span class="rh-team">${esc(row.team)}</span></span></span></div></td>${cells}</tr>`;
     }).join('') : `<tr><td class="rh-empty" colspan="${cols.length + 1}">No players match these filters.</td></tr>`;
     const colgroup = `<colgroup><col style="width:268px">${cols.map(c => `<col style="width:${c.w}px">`).join('')}</colgroup>`;
     return `<div class="rh-tablewrap"><table class="rh-table">${colgroup}<thead>${groupRow}${colRow}</thead><tbody>${body}</tbody></table></div>`;
@@ -24273,7 +24295,8 @@ function _buildRedraftView(d){
   var up=movers.slice().sort(function(a,b){return b.tr-a.tr;}).slice(0,2);
   var dn=movers.slice().sort(function(a,b){return a.tr-b.tr;}).slice(0,2);
   function mvRow(p){ var c=p.tr>=0?'var(--rr)':'var(--rlose)'; var ph=vaultHeadshot(p.name, p.sid, 32);
-    return '<div class="rdv-mv"><span class="a" style="background:'+(posC[p.pos]||'#7d8aa0')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+p.pos+'\'">':p.pos)+'</span><span class="nm">'+_rdvSurname(p.name)+'<span>'+(p.team||'')+'</span></span><span class="d" style="color:'+c+'">'+(p.tr>=0?'+':'')+p.tr+'</span></div>';
+    var clk=(p.pos!=='DEF'&&p.name)?' style="cursor:pointer" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')"':'';
+    return '<div class="rdv-mv"'+clk+'><span class="a" style="background:'+(posC[p.pos]||'#7d8aa0')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+p.pos+'\'">':p.pos)+'</span><span class="nm">'+_rdvSurname(p.name)+'<span>'+(p.team||'')+'</span></span><span class="d" style="color:'+c+'">'+(p.tr>=0?'+':'')+p.tr+'</span></div>';
   }
   var moversHtml = (up.length||dn.length)
     ? '<div class="rdv-two" style="gap:0 22px"><div><div class="rdv-st" style="margin-bottom:5px"><div class="k" style="color:var(--rr)">▲ Trending up</div></div>'+(up.map(mvRow).join('')||'<div class="rdv-pmeta">—</div>')+'</div><div><div class="rdv-st" style="margin-bottom:5px"><div class="k" style="color:var(--rlose)">▼ Trending down</div></div>'+(dn.map(mvRow).join('')||'<div class="rdv-pmeta">—</div>')+'</div></div>'
@@ -24381,7 +24404,8 @@ async function _ovRenderRedraftMatchup(){
           var av='<div class="rdv-pav" style="border-color:'+(_RDV_POSC[p.pos]||'var(--muted)')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(p.name)+'\'">':_rdvInitials(p.name))+'</div>';
           var info='<div class="rdv-pinfo"><div class="rdv-pn">'+_rdvSurname(p.name)+'</div><div class="rdv-pmeta">'+(p.team||'FA')+(p.pos?' · '+p.pos:'')+'</div></div>';
           var pr='<div class="rdv-pproj '+winc+'">'+prj+'</div>';
-          return '<div class="rdv-side '+side+'">'+(side==='me'?av+info+pr:pr+info+av)+'</div>';
+          var clk=(p.pos!=='DEF'&&p.name&&p.name!=='—')?' style="cursor:pointer" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')"':'';
+          return '<div class="rdv-side '+side+'"'+clk+'>'+(side==='me'?av+info+pr:pr+info+av)+'</div>';
         }
         rowsHtml+='<div class="rdv-row '+lead+'">'+cell(a,'me')+'<div class="rdv-badge" style="background:'+col+'">'+_rdvSlotLabel(slot)+'</div>'+cell(b,'opp')+'</div>';
       }
@@ -24518,7 +24542,8 @@ async function _rdvEspnMatchup(ctx, lg){
       var av='<div class="rdv-pav" style="border-color:'+(_RDV_POSC[p.pos]||'var(--muted)')+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(p.name)+'\'">':_rdvInitials(p.name))+'</div>';
       var info='<div class="rdv-pinfo"><div class="rdv-pn">'+_rdvSurname(p.name)+'</div><div class="rdv-pmeta">'+(p.team||'FA')+(p.pos?' · '+p.pos:'')+(p.inj?' · <span class="q">'+p.inj.slice(0,1)+'</span>':'')+'</div></div>';
       var pr='<div class="rdv-pproj '+(win?'win':'')+'">'+prj+'</div>';
-      return '<div class="rdv-side '+side+'">'+(side==='me'?av+info+pr:pr+info+av)+'</div>'; }
+      var clk=(p.pos!=='DEF'&&p.name&&p.name!=='—')?' style="cursor:pointer" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')"':'';
+      return '<div class="rdv-side '+side+'"'+clk+'>'+(side==='me'?av+info+pr:pr+info+av)+'</div>'; }
     rowsHtml+='<div class="rdv-row '+lead+'">'+cell(a,'me',ap>=bp)+'<div class="rdv-badge" style="background:'+col+'">'+lbl+'</div>'+cell(b,'opp',bp>=ap)+'</div>';
   }
   var meInfo=teams[isHome?mine.home.teamId:mine.away.teamId]||{name:ctx.teamName||'My Team',rec:ctx.rec||''};
@@ -24599,6 +24624,8 @@ window._gcMatchupHTML=function(d){
     return '<div class="vtr-pav" style="--ring:'+pc+'"><span class="ini">'+_rdvInitials(p.name)+'</span>'
       + (ph?'<img src="'+ph+'" data-vh-n="'+p.name+'" data-vh-sid="'+(p.sid||'')+'" data-vh-px="46" loading="lazy" onerror="this.style.display=\'none\'">':'')
       + '</div>'; }
+  function pclk(p){ if(!p||!p.name||p.name==='—'||p.pos==='DEF') return '';
+    return ' role="button" style="cursor:pointer" onclick="event.stopPropagation();openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')"'; }
   function info(p){ return _vtrInfo(p,live); }
   function sc(p){ return _vtrSc(p,live); }
   function _vtrInfo(p,live){ if(!p) return '<div class="nm">Empty</div><div class="pm">—</div>';
@@ -24613,11 +24640,11 @@ window._gcMatchupHTML=function(d){
     var lean=hasOpp?(ap>bp?'lean-me':(bp>ap?'lean-opp':'')):'';
     var col=POS[r.base]||'#7d8aa0';
     return '<div class="vtr-row '+lean+'">'
-      + '<div class="vtr-cell info me"><div class="vtr-pwrap">'+av(r.me)+'<div class="vtr-ptxt">'+_vtrInfo(r.me,live)+'</div></div></div>'
+      + '<div class="vtr-cell info me"><div class="vtr-pwrap"'+pclk(r.me)+'>'+av(r.me)+'<div class="vtr-ptxt">'+_vtrInfo(r.me,live)+'</div></div></div>'
       + '<div class="vtr-cell sc me">'+_vtrSc(r.me,live)+'</div>'
       + '<div class="vtr-badge" style="background:'+col+';color:#0c0f15">'+(r.slotLabel||'')+'</div>'
       + '<div class="vtr-cell sc opp">'+_vtrSc(r.op,live)+'</div>'
-      + '<div class="vtr-cell info opp"><div class="vtr-pwrap">'+av(r.op)+'<div class="vtr-ptxt">'+_vtrInfo(r.op,live)+'</div></div></div>'
+      + '<div class="vtr-cell info opp"><div class="vtr-pwrap"'+pclk(r.op)+'>'+av(r.op)+'<div class="vtr-ptxt">'+_vtrInfo(r.op,live)+'</div></div></div>'
       + '</div>';
   }).join('');
   function crest(t){ return '<div class="vtr-avt"><span class="vtr-tini">'+_rdvInitials(t.name||'?')+'</span>'+(t.avatar?'<img src="'+t.avatar+'" onerror="this.style.display=\'none\'">':'')+'</div>'; }
@@ -24673,7 +24700,7 @@ window._gcMatchupHTML=function(d){
   var swMod=sw.length?('<div class="rmod rmod-fx rmod-swings"><div class="rmh"><span class="t">Biggest swings</span><span class="tag">Δ '+(live?'NOW':'PROJ')+'</span></div>'
     + sw.map(function(s){ var up=s.d>=0,col=POS[s.base]||'#7d8aa0';
         return '<div class="rswing"><span class="pos" style="background:'+col+'">'+(s.base==='FLEX'?'FLX':s.base==='SUPER_FLEX'?'SF':s.base)+'</span>'
-          + '<div class="vs"><span class="me">'+abbr(s.me.name)+'</span> <span class="sep">vs</span> <span class="op">'+abbr(s.op.name)+'</span></div>'
+          + '<div class="vs"><span class="me"'+pclk(s.me)+'>'+abbr(s.me.name)+'</span> <span class="sep">vs</span> <span class="op"'+pclk(s.op)+'>'+abbr(s.op.name)+'</span></div>'
           + '<span class="d '+(up?'vtr-up':'vtr-dn')+'">'+(up?'+':'−')+Math.abs(s.d).toFixed(1)+'</span></div>';
       }).join('')+'</div>'):'';
   // bench watch
@@ -24681,7 +24708,7 @@ window._gcMatchupHTML=function(d){
   if(rl.bench && rl.bench.length){
     benchMod='<div class="rmod rmod-fx rmod-bench"><div class="rmh"><span class="t">Bench watch</span><span class="tag">TOP PROJ</span></div><div class="rbench">'
       + rl.bench.slice(0,3).map(function(b){ var col=POS[b.pos]||'#7d8aa0', bph=vaultHeadshot(b.name, b.sid, 26);
-          return '<div class="rbp">'+(bph?'<span class="pav" style="--ring:'+col+'"><img src="'+bph+'" data-vh-n="'+b.name+'" data-vh-sid="'+(b.sid||'')+'" data-vh-px="26" loading="lazy" onerror="this.parentNode.style.display=\'none\'"></span>':'')+'<span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
+          return '<div class="rbp"'+pclk(b)+'>'+(bph?'<span class="pav" style="--ring:'+col+'"><img src="'+bph+'" data-vh-n="'+b.name+'" data-vh-sid="'+(b.sid||'')+'" data-vh-px="26" loading="lazy" onerror="this.parentNode.style.display=\'none\'"></span>':'')+'<span class="pos" style="background:'+col+'">'+b.pos+'</span><span class="nm">'+abbr(b.name)+'</span><span class="tm">'+(b.team||'')+'</span><span class="pr">'+(b.pts!=null?b.pts.toFixed(2):'—')+'</span></div>';
         }).join('')
       + '</div>'+(rl.optimal?'<div class="rbench-note">Nothing here out-projects a starter at its position.</div>':'')+'</div>';
   }
@@ -24721,7 +24748,7 @@ async function _ovRenderRedraftWaiver(){
       var dropName=(benchSorted[i]&&benchSorted[i].rd<p.rd)?_rdvSurname(benchSorted[i].name):'';
       var trC=p.tr>0?'up':p.tr<0?'dn':'flat';
       return '<tr>'
-        + '<td class="player"><div class="pcell"><div class="pav" style="border-color:'+col+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(p.name)+'\'">':_rdvInitials(p.name))+'</div><div><div class="pn2">'+p.name+'</div><div class="pteam">'+(p.team||'FA')+'</div></div></div></td>'
+        + '<td class="player"><div class="pcell" style="cursor:pointer" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')"><div class="pav" style="border-color:'+col+'">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(p.name)+'\'">':_rdvInitials(p.name))+'</div><div><div class="pn2">'+p.name+'</div><div class="pteam">'+(p.team||'FA')+'</div></div></div></td>'
         + '<td><span class="rdv-pill" style="background:'+col+'">'+p.pos+'</span></td>'
         + '<td class="trend '+trC+'">'+(p.tr>0?'+':'')+(p.tr||0)+'</td>'
         + '<td class="proj">'+(p.pr!=null?p.pr.toFixed(1):'—')+'</td>'
@@ -26149,7 +26176,7 @@ body .page,body .page.on{background:transparent!important}
     const row = (p)=>{
       const sid = sidOf(p.name), c = teamColor(p.teamIdx);
       const safe = p.name.replace(/'/g,"\\'");
-      return `<div class="lh-mv-row" onclick="try{showPage('research');setTimeout(()=>researchSelectPlayer('${safe}','${sid}','${p.pos}','${esc(p.teamName)}'),250)}catch(e){}">
+      return `<div class="lh-mv-row" onclick="try{openPlayerProfile('${safe}','${sid}','${p.pos}','')}catch(e){}">
         ${posPill(p.pos)}
         <div class="lh-mv-id"><div class="lh-mv-name">${esc(p.name)}</div><div class="lh-mv-owner">${esc(p.teamName)}</div></div>
         <div class="lh-mv-vals"><div class="lh-mv-val">${fmt(p.val)}</div><div class="lh-mv-tr">${deltaHtml(p.trend)}</div></div>
@@ -27988,7 +28015,7 @@ function _adpRenderMovers(players) {
   function mvRow(p, i, isRiser) {
     const delta = Math.abs(p.trend30Day).toFixed(1);
     const posC = POS_C[p.pos]||'var(--muted)';
-    return `<div class="adp-mv-row">
+    return `<div class="adp-mv-row" style="cursor:pointer" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')">
       <span class="adp-mv-num">${i+1}</span>
       ${_mvAvatar(p, 32)}
       <div class="adp-mv-info">
@@ -28037,7 +28064,7 @@ function _adpRenderTable(players) {
     return `<tr>
       <td class="adp-rk">${i+1}</td>
       <td>
-        <div class="adp-player-cell">
+        <div class="adp-player-cell"${p.pos!=='PICK'&&p.pos!=='DEF'?` style="cursor:pointer" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')"`:''}>
           ${_mvAvatar(p, 36)}
           <div class="adp-pl-info">
             <div class="adp-pl-name">${p.name}</div>
