@@ -11036,7 +11036,7 @@ async function renderOverview() {
   const _stripHtml = _starters.length ? _starters.map(p => {
     const ph = _photoFor(p);
     const c = _posC[p.pos]||'var(--muted)';
-    return `<div class="mth-strip-item" onclick="openPlayerStats('${p.sleeperId||''}','${(p.name||'').replace(/'/g,"\\'")}','${p.pos}','${p.team||''}')">
+    return `<div class="mth-strip-item" onclick="openPlayerProfile('${(p.name||'').replace(/'/g,"\\'")}','${p.sleeperId||''}','${p.pos}','${p.team||''}')">
       <div class="mth-strip-slot" style="color:${c}">${p.slotLabel||p.pos}</div>
       <div class="mth-strip-photo" style="border-color:${c}33">${ph?`<img src="${ph}" onerror="this.style.display='none';this.parentNode.textContent='${(p.name||'?').slice(0,1)}'">`:`${(p.name||'?').slice(0,1)}`}</div>
       <div class="mth-strip-name">${_surname(p.name)}</div>
@@ -11051,7 +11051,7 @@ async function renderOverview() {
     const c = _posC[pos];
     const rows = players.map(p => {
       const ph = _photoFor(p); const age = _ageFor(p);
-      return `<div class="mth-pg-row" onclick="openPlayerStats('${p.sleeperId||''}','${(p.name||'').replace(/'/g,"\\'")}','${p.pos}','${p.team||''}')">
+      return `<div class="mth-pg-row" onclick="openPlayerProfile('${(p.name||'').replace(/'/g,"\\'")}','${p.sleeperId||''}','${p.pos}','${p.team||''}')">
         <div class="mth-pg-photo">${ph?`<img src="${ph}" onerror="this.style.display='none'">`:''}</div>
         <div class="mth-pg-info">
           <div class="mth-pg-name">${p.name}</div>
@@ -11408,7 +11408,7 @@ async function renderOverview() {
         const slotPill = isStarterRow
           ? `<span style="padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;font-family:var(--font-mono);background:${posBg};color:${posCol};border:1px solid ${posCol}33;letter-spacing:0.04em;min-width:38px;text-align:center;display:inline-block">${slotLabel}</span>`
           : `<span style="padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;font-family:var(--font-mono);background:rgba(255,255,255,0.04);color:#5c6b8a;border:1px solid rgba(255,255,255,0.08);letter-spacing:0.04em;min-width:38px;text-align:center;display:inline-block">BN</span>`;
-        return `<div style="display:grid;grid-template-columns:90px 1fr 100px 170px 120px;padding:18px 32px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 100ms ease;cursor:pointer" onclick="openPlayerStats('${sn}','${p.name.replace(/'/g,"\\'")}','${p.pos}','${p.team||''}')" onmouseover="this.style.background='rgba(190,198,224,0.07)'" onmouseout="this.style.background=''" title="View ${p.name.replace(/'/g,"\\'")} game log">
+        return `<div style="display:grid;grid-template-columns:90px 1fr 100px 170px 120px;padding:18px 32px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 100ms ease;cursor:pointer" onclick="openPlayerProfile('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team||''}')" onmouseover="this.style.background='rgba(190,198,224,0.07)'" onmouseout="this.style.background=''" title="View ${p.name.replace(/'/g,"\\'")} profile">
           <div style="display:flex;align-items:center">${slotPill}</div>
           <div style="display:flex;align-items:center;gap:14px">
             ${photoUrl ? `<img src="${photoUrl}" alt="${p.name}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,0.10);flex-shrink:0;background:${posBg}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
@@ -11732,7 +11732,7 @@ async function renderOverviewRoster(el) {
           <span style="font-size:11px;font-weight:700;color:${pc};font-family:Space Mono,monospace">${pos} · ${players.length}</span>
           <span style="font-size:11px;font-family:Space Mono,monospace;color:var(--muted)">${total.toLocaleString()}</span>
         </div>
-        ${players.map(p=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        ${players.map(p=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openPlayerProfile('${(p.name||'').replace(/'/g,"\\'")}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')">
           <div>
             <div style="font-size:13px;font-weight:600">${p.name}</div>
             <div style="font-size:10px;color:var(--muted);font-family:Space Mono,monospace">${p.team||'FA'}</div>
@@ -12214,7 +12214,7 @@ function renderList(){
     const _statusCell = isDrafted ? statusHtml : (vbadgeHtml || '<span style="color:var(--dim)">—</span>');
     const desktopRow = `<tr class="prow ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
       <td class="rnum" style="text-align:right;padding-right:10px">${rank}</td>
-      <td class="td-player" onclick="openPlayerStats('${sn}','${p.name.replace(/'/g,"\\'")}','${p.pos}','${p.team}')" style="cursor:pointer" title="View player stats">
+      <td class="td-player" onclick="openPlayerProfile('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team}')" style="cursor:pointer" title="View player profile">
         <div class="dvrow-player">
           ${hs.replace('pimg-wrap','dv-rowav pimg-wrap')}
           <span class="dvrow-txt">
@@ -12238,7 +12238,7 @@ function renderList(){
     const mobileRow = `<div class="prow-mobile ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
       <div class="pm-rank">${rank}</div>
       ${hs.replace('pimg-wrap','pm-photo pimg-wrap')}
-      <div class="pm-info" onclick="openPlayerStats('${sn}',this.dataset.n,'${p.pos}','${p.team}')" data-n="${p.name.replace(/"/g,'&quot;')}" style="cursor:pointer;flex:1">
+      <div class="pm-info" onclick="openPlayerProfile(this.dataset.n,'','${p.pos}','${p.team}')" data-n="${p.name.replace(/"/g,'&quot;')}" style="cursor:pointer;flex:1">
         <div class="pm-name">${p.name}</div>
         <div class="pm-meta">
           <span class="pm-team">${p.team}</span>
