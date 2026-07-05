@@ -134,11 +134,12 @@ async function srcSleeper(season, week) {
 async function srcESPN(season, week, resolver) {
   try {
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leaguedefaults/3?view=kona_player_info`;
+    // NOTE: filterStatsForExternalIds / filterStatsForSourceIds collapse the
+    // stats payload so the weekly appliedTotal disappears (returns 0 players).
+    // Keep only the split-type filter; select the right season+week below.
     const filter = {
       players: {
         limit: 1500,
-        filterStatsForExternalIds: { value: [Number(season)] },
-        filterStatsForSourceIds: { value: [1] },
         filterStatsForSplitTypeIds: { value: [1] },
         sortPercOwned: { sortPriority: 1, sortAsc: false },
       },
@@ -151,8 +152,9 @@ async function srcESPN(season, week, resolver) {
       const team = ESPN_TEAM[info.proTeamId] || '';
       const id = rid(resolver, name, team);
       if (!id) continue;
-      // find the weekly projection stat entry (statSourceId 1 = projections)
-      const wk = (info.stats || []).find(s => s.statSourceId === 1 && s.scoringPeriodId === week);
+      // weekly projection = statSourceId 1, for THIS season + week (seasonId
+      // guards against last year's same-week actuals sharing scoringPeriodId).
+      const wk = (info.stats || []).find(s => s.statSourceId === 1 && s.scoringPeriodId === week && s.seasonId === Number(season));
       const pts = wk?.appliedTotal;
       if (pts != null) out[id] = round(pts);
     }
