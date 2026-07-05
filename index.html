@@ -3658,7 +3658,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
           <div id="vp-panel-sleeper">
           <!-- Resume session (shown for returning users) -->
           <div id="resume-btn" style="display:none;margin-bottom:14px">
-            <button onclick="resumeSession()" class="resume-big-btn">⚡ Resume Last Session</button>
+            <button onclick="resumeSession()" class="resume-big-btn"><span data-reicon="bolt" data-rsize="15"></span> Resume Last Session</button>
             <div class="setup-or">or connect a different account</div>
           </div>
 
@@ -3696,7 +3696,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
           <!-- ═══ ESPN PANEL ═══ -->
           <div id="vp-panel-espn" style="display:none">
             <div class="vp-espn-note">
-              <span class="ic">🔗</span>
+              <span class="ic"><span data-reicon="link" data-rsize="16"></span></span>
               <p><b>Connect with your ESPN League ID.</b> Find it in your league's web URL, <code>…/league?leagueId=<b>XXXXXX</b></code>. Paste it below and we'll pull that league in.</p>
             </div>
             <!-- League ID input row -->
@@ -3888,7 +3888,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       <!-- Custom CSV upload -->
       <div class="rk-option" id="custom-rk-option">
         <div class="rk-option-left" style="flex:1">
-          <div class="rk-badge" style="background:#5bc5ff20;color:var(--wr)">📋 CUSTOM</div>
+          <div class="rk-badge" style="background:#5bc5ff20;color:var(--wr)"><span data-reicon="clipboard" data-rsize="12"></span> CUSTOM</div>
           <div class="rk-name">Upload Your Own CSV</div>
           <div class="rk-meta">Import rankings from FantasyPros, KTC, your own sheet, or any source</div>
         </div>
@@ -3993,7 +3993,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     </div>
     <div class="dcp-choices">
       <button class="dcp-choice" onclick="chooseViewCompleted()">
-        <span class="dcp-choice-icon">✅</span>
+        <span class="dcp-choice-icon"><span data-reicon="check" data-rsize="20"></span></span>
         <span class="dcp-choice-txt">
           <span class="dcp-choice-title">Reconnect to the draft</span>
           <span class="dcp-choice-sub" id="dcp-view-sub">Review the final board &amp; your roster</span>
@@ -4001,7 +4001,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
         <span class="dcp-choice-go">→</span>
       </button>
       <button class="dcp-choice" onclick="chooseBrowseRankings()">
-        <span class="dcp-choice-icon">📊</span>
+        <span class="dcp-choice-icon"><span data-reicon="chart" data-rsize="20"></span></span>
         <span class="dcp-choice-txt">
           <span class="dcp-choice-title">Browse rankings</span>
           <span class="dcp-choice-sub">Explore live player values &amp; prep your next draft</span>
@@ -4009,7 +4009,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
         <span class="dcp-choice-go">→</span>
       </button>
       <button class="dcp-choice" onclick="chooseConnectDifferent()">
-        <span class="dcp-choice-icon">🔗</span>
+        <span class="dcp-choice-icon"><span data-reicon="link" data-rsize="20"></span></span>
         <span class="dcp-choice-txt">
           <span class="dcp-choice-title">Connect a different draft</span>
           <span class="dcp-choice-sub">Pick an upcoming/live draft, or link a Sleeper or ESPN draft</span>
@@ -4193,7 +4193,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button class="theme-toggle gn-ic" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
 
     <!-- settings (the app injects its gear icon into #settings-btn) -->
-    <button class="gn-ic" id="settings-btn" onclick="openConnect()" title="Settings">⚙</button>
+    <button class="gn-ic" id="settings-btn" onclick="openConnect()" title="Settings"><span data-reicon="settings" data-rsize="16"></span></button>
 
     <!-- glass Connect CTA, Variant 2 (opens the Sleeper connect / setup overlay) -->
     <button class="gn-cta" id="gn-connect-cta" onclick="openConnect()" title="Connect a league">
@@ -4347,16 +4347,16 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     </div>
     <div style="padding:8px 12px 16px;display:flex;flex-direction:column;gap:4px">
       <button onclick="closeMoreSheet();showPage('teams')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px">
-        <span style="font-size:20px">📊</span><span style="font-weight:600">League</span>
+        <span data-reicon="chart" data-rsize="19"></span><span style="font-weight:600">League</span>
       </button>
       <button onclick="closeMoreSheet();showPage('trade')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px">
-        <span style="font-size:20px">🔄</span><span style="font-weight:600">Trade Calculator</span>
+        <span data-reicon="refresh" data-rsize="19"></span><span style="font-weight:600">Trade Calculator</span>
       </button>
       <button onclick="closeMoreSheet();showPage('myrankings')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left">
-        <span style="font-size:20px">🏆</span><span style="font-weight:600">My Rankings</span>
+        <span data-reicon="star" data-rsize="19"></span><span style="font-weight:600">My Rankings</span>
       </button>
       <button onclick="closeMoreSheet();showPage('draft')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px">
-        <span style="font-size:20px">🎯</span><span style="font-weight:600">Draft Vault</span>
+        <span data-reicon="target" data-rsize="19"></span><span style="font-weight:600">Draft Vault</span>
       </button>
       <div style="height:1px;background:var(--border);margin:8px 12px"></div>
       <button onclick="closeMoreSheet()" style="display:flex;align-items:center;justify-content:center;padding:14px 16px;background:transparent;border:none;color:var(--muted);font-family:var(--font-mono);font-size:12px;cursor:pointer;min-height:52px">Cancel</button>
@@ -4405,25 +4405,25 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
   <!-- Nav links -->
   <nav style="flex:1;padding:8px 8px">
     <button onclick="showPage('overview')" id="sl-overview" class="sidebar-link active">
-      <span style="font-size:17px">🏠</span><span>My Team</span>
+      <span data-reicon="home" data-rsize="17"></span><span>My Team</span>
     </button>
     <button onclick="showPage('draft')" id="sl-visual" class="sidebar-link" style="display:none">
-      <span style="font-size:17px">📋</span><span>Draft Room</span>
+      <span data-reicon="clipboard" data-rsize="17"></span><span>Draft Room</span>
     </button>
     <button onclick="showPage('draft')" id="sl-draft" class="sidebar-link">
-      <span style="font-size:17px">📊</span><span>Draft Vault</span>
+      <span data-reicon="target" data-rsize="17"></span><span>Draft Vault</span>
     </button>
     <button onclick="showPage('teams')" id="sl-teams" class="sidebar-link">
-      <span style="font-size:17px">🏆</span><span>League</span>
+      <span data-reicon="chart" data-rsize="17"></span><span>League</span>
     </button>
     <button onclick="showPage('trade')" id="sl-trade" class="sidebar-link">
-      <span style="font-size:17px">⇌</span><span>Trade Calc</span>
+      <span data-reicon="refresh" data-rsize="17"></span><span>Trade Calc</span>
     </button>
     <button onclick="showPage('research')" id="sl-research" class="sidebar-link">
-      <span style="font-size:17px">🔬</span><span>Research Hub</span>
+      <span data-reicon="flask" data-rsize="17"></span><span>Research Hub</span>
     </button>
     <button onclick="showPage('myrankings')" id="sl-myrankings" class="sidebar-link">
-      <span style="font-size:17px">✦</span><span>My Rankings</span>
+      <span data-reicon="star" data-rsize="17"></span><span>My Rankings</span>
     </button>
     <button onclick="showPage('myteams')" id="sl-myteams" class="sidebar-link">
       <span style="font-size:17px">⇌</span><span>Sleeper Sync</span>
@@ -4485,11 +4485,11 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     <div id="ov-extra" style="display:none;margin-top:24px">
       <div style="display:flex;gap:14px;flex-wrap:wrap">
         <div style="flex:1;min-width:280px;background:var(--s1);border:1px solid var(--border2);border-radius:12px;padding:18px">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:12px">🎯 Best Available</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:12px"><span data-reicon="target" data-rsize="13"></span> Best Available</div>
           <div id="ov-waiver-list"><div style="color:var(--muted);font-size:12px">Loading...</div></div>
         </div>
         <div style="flex:1;min-width:280px;background:var(--s1);border:1px solid var(--border2);border-radius:12px;padding:18px">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:12px">💡 Trade Signals</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);margin-bottom:12px"><span data-reicon="bulb" data-rsize="13"></span> Trade Signals</div>
           <div id="ov-signals-list"><div style="color:var(--muted);font-size:12px">Loading...</div></div>
         </div>
       </div>
@@ -4508,7 +4508,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button onclick="openPortfolioLeaguePicker()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:var(--accent);border:1px solid var(--accent);color:#fff;font-size:12px;cursor:pointer;font-family:var(--font-mono);letter-spacing:.05em">
-          📁 Manage Leagues
+          <span data-reicon="folder" data-rsize="15"></span>Manage Leagues
         </button>
         <button onclick="renderPortfolio()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font-mono)">
           ↻ Refresh
@@ -4585,7 +4585,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
 
     <!-- biggest movers -->
     <div class="adp-movers">
-      <div class="adp-movers-head">📈 Biggest movers · past 30 days</div>
+      <div class="adp-movers-head"><span data-reicon="trendup" data-rsize="14"></span><span style="margin-left:6px">Biggest movers · past 30 days</span></div>
       <div class="adp-movers-cols">
         <div>
           <div class="adp-mv-label risers">RISERS</div>
@@ -4846,7 +4846,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
         ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" 
         ondragleave="this.style.borderColor='var(--border2)'"
         ondrop="event.preventDefault();this.style.borderColor='var(--border2)';handleImportDrop(event)">
-        <div style="font-size:20px;margin-bottom:4px">📋</div>
+        <div style="font-size:20px;margin-bottom:4px"><span data-reicon="clipboard" data-rsize="20"></span></div>
         <div style="font-size:12px;color:var(--text2);font-weight:600">Drop CSV or click to browse</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px">CSV needs: Player Name, and a Rank column</div>
         <input type="file" id="import-file-input" accept=".csv" style="display:none" onchange="handleImportFile(this.files[0])">
@@ -4946,7 +4946,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
   <div class="ld-page">
     <!-- Content moved to #page-draft. Auto-redirect if user lands here. -->
     <div style="padding:40px 20px;text-align:center;color:var(--muted);font-family:var(--font-sans)">
-      <div style="font-size:24px;margin-bottom:12px">🎯</div>
+      <div style="font-size:24px;margin-bottom:12px"><span data-reicon="target" data-rsize="22"></span></div>
       <div style="font-size:14px;margin-bottom:16px">The Draft Board now lives inside the Draft Vault.</div>
       <button onclick="showPage('draft')" style="padding:10px 18px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer">Open Draft Vault</button>
     </div>
@@ -5206,8 +5206,8 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       </div>
       <div class="tc-head-right">
         <div class="tc-seg tc-mode-tabs" id="tc-mode-tabs">
-          <button data-mode="quick" onclick="TC.setMode('quick')"><span>⚖</span>Quick Calc</button>
-          <button data-mode="league" class="on" onclick="TC.setMode('league')"><span>🏆</span>My League</button>
+          <button data-mode="quick" onclick="TC.setMode('quick')"><span data-reicon="calculator" data-rsize="15"></span>Quick Calc</button>
+          <button data-mode="league" class="on" onclick="TC.setMode('league')"><span data-reicon="chart" data-rsize="15"></span>My League</button>
         </div>
         <div class="tc-vmode" id="tc-vmode-top"></div>
       </div>
@@ -5384,7 +5384,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
         <p style="font-size:13px;color:var(--muted);line-height:1.6;margin:0">Finalize your draft board in the Vault and push results directly to Sleeper.</p>
       </div>
       <div style="background:var(--s2);border-radius:16px;padding:28px;border:1px solid rgba(144,144,151,0.12);transition:border-color 150ms;cursor:default" onmouseover="this.style.borderColor='rgba(190,198,224,0.3)'" onmouseout="this.style.borderColor='rgba(144,144,151,0.12)'">
-        <div style="font-size:28px;margin-bottom:16px">📊</div>
+        <div style="font-size:28px;margin-bottom:16px"><span data-reicon="chart" data-rsize="24"></span></div>
         <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-sans);margin-bottom:8px">Vault Optimizer</div>
         <p style="font-size:13px;color:var(--muted);line-height:1.6;margin:0">Inject Sleeper's real-time ADP into analytical models for superior decisions.</p>
       </div>
@@ -5949,7 +5949,7 @@ window._psRenderGameLogs = async function(year, targetEl) {
 
     if (!seasonRows.length) {
       body.innerHTML = mkYrSw('Career') + `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-family:var(--font-mono);font-size:12px">
-        <div style="font-size:28px;margin-bottom:12px">📋</div>
+        <div style="font-size:28px;margin-bottom:12px"><span data-reicon="clipboard" data-rsize="24"></span></div>
         <div style="color:#dce1fb;font-weight:600;margin-bottom:6px">No career data found</div>
         <div>This player has not been seen in any nflverse season from 1999 onward.</div></div>`;
       return;
@@ -6057,7 +6057,7 @@ window._psRenderGameLogs = async function(year, targetEl) {
       ? `${yr} season data is not yet available. The nflverse pipeline will populate this once the season starts.`
       : `No data found for ${name} in the ${yr} nflverse dataset. This player may not have played that season.`;
     body.innerHTML = mkYrSw(yr) + `<div style="text-align:center;padding:40px 20px;color:var(--muted);font-family:var(--font-mono);font-size:12px">
-      <div style="font-size:28px;margin-bottom:12px">📅</div>
+      <div style="font-size:28px;margin-bottom:12px"><span data-reicon="calendar" data-rsize="24"></span></div>
       <div style="color:#dce1fb;font-weight:600;margin-bottom:6px">No ${yr} data</div>
       <div>${msg}</div></div>`;
     return;
@@ -6495,7 +6495,7 @@ function _psRenderTab(tab) {
   } else if (tab === 'stats') {
     if (!seasons.length) {
       body.innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted)">
-        <div style="font-size:24px;margin-bottom:12px">📊</div>
+        <div style="font-size:24px;margin-bottom:12px"><span data-reicon="chart" data-rsize="22"></span></div>
         <div style="font-weight:600;color:var(--text);margin-bottom:8px">No stats found for ${name}</div>
         <p style="font-size:13px;line-height:1.6">This player may be a rookie or practice squad player.<br>RosterAudit stats populate once the season begins.</p>
         <p style="font-size:11px;color:var(--muted);margin-top:8px">Try the Dynasty Value tab to see their current market value and trend.</p>
@@ -6561,7 +6561,7 @@ function showLeaguePicker(el) {
 function showLeaguePickerStep1(el, prefill='') {
   el.innerHTML = `
     <div class="lp-wrap">
-      <div class="lp-icon">🔗</div>
+      <div class="lp-icon"><span data-reicon="link" data-rsize="18"></span></div>
       <div class="lp-title">Connect Your Sleeper Account</div>
       <div class="lp-sub">Enter your Sleeper username to load your leagues</div>
       <div class="lp-input-row">
@@ -6620,7 +6620,7 @@ function showLeaguePickerStep2(el) {
           return `<label class="lp-league-row">
             <input type="checkbox" name="lp-league" value="${l.league_id}" class="lp-radio" ${active?'checked':''}>
             <div class="lp-league-info">
-              <div class="lp-league-name">${active?'🟢 ':''}${l.name||'Unnamed League'}</div>
+              <div class="lp-league-name">${active?reIcon('dot',{size:8,color:'var(--rb)'})+' ':''}${l.name||'Unnamed League'}</div>
               <div class="lp-league-meta">${teams} teams · ${scoring}${isSF?' · SF':''}${isDyn?' · Dynasty':''} · ${l.season}</div>
             </div>
             <div class="lp-league-check">✓</div>
@@ -7340,7 +7340,7 @@ async function researchSelectPlayer(name, sleeperId, pos, team) {
     const altSid = sleeperPlayerMap[normName(name)]?.player_id || '';
     if (!altSid) {
       document.getElementById('res-tab-content').innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">
-        <div style="font-size:24px;margin-bottom:12px">🔍</div>
+        <div style="font-size:24px;margin-bottom:12px"><span data-reicon="search" data-rsize="22"></span></div>
         <div style="font-weight:600;color:var(--text);margin-bottom:8px">Player ID not found</div>
         <p style="font-size:13px;line-height:1.6">Connect Sleeper to enable full player lookup.</p>
       </div>`;
@@ -7832,7 +7832,7 @@ function renderDraftItems(drafts) {
     const safeName = name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     return `<div class="draft-item${isLive?' live-draft':''}" id="di-${d.draft_id}"
       onclick="selectDraftAndAdvance('${d.draft_id}','${safeName}','${typeTags.join('+')}')">
-      <div class="di-icon">${isLive?'🟢':isComplete?'✅':'🏈'}</div>
+      <div class="di-icon">${isLive?reIcon('dot',{size:14,color:'var(--rb)'}):isComplete?reIcon('check',{size:16,color:'var(--rb)'}):'🏈'}</div>
       <div class="di-info">
         <div class="di-name">${name}</div>
         <div class="di-meta">${teams} teams · ${rounds} rounds · ${typeTags.map(t=>`<span class="dtype-tag">${t}</span>`).join('')}</div>
@@ -9850,6 +9850,82 @@ function _toastDismiss(el){
   el.classList.add('hiding');
   setTimeout(()=>el.remove(), 260);
 }
+/* ── Reicon inline icon set (MIT · reicon.dev · Outline weight, 24×24 grid, currentColor).
+   Paths copied locally so nothing depends on an external CDN — stays offline-safe under sw.js. ── */
+const REICON_PATHS={
+  check:'<path d="M21.5303 5.46967C21.8232 5.76256 21.8232 6.23744 21.5303 6.53033L9.53033 18.5303C9.23744 18.8232 8.76256 18.8232 8.46967 18.5303L2.46967 12.5303C2.17678 12.2374 2.17678 11.7626 2.46967 11.4697C2.76256 11.1768 3.23744 11.1768 3.53033 11.4697L9 16.9393L20.4697 5.46967C20.7626 5.17678 21.2374 5.17678 21.5303 5.46967Z" fill="currentColor"/>',
+  x:'<path d="M18.4697 19.5303C18.7626 19.8232 19.2374 19.8232 19.5303 19.5303C19.8232 19.2374 19.8232 18.7626 19.5303 18.4697L13.0607 12L19.5303 5.53033C19.8232 5.23744 19.8232 4.76256 19.5303 4.46967C19.2374 4.17678 18.7626 4.17678 18.4697 4.46967L12 10.9393L5.53033 4.46967C5.23744 4.17678 4.76256 4.17678 4.46967 4.46967C4.17678 4.76256 4.17678 5.23744 4.46967 5.53033L10.9393 12L4.46967 18.4697C4.17678 18.7626 4.17678 19.2374 4.46967 19.5303C4.76256 19.8232 5.23744 19.8232 5.53033 19.5303L12 13.0607L18.4697 19.5303Z" fill="currentColor"/>',
+  alert:'<path d="M12 7.25C12.4142 7.25 12.75 7.58579 12.75 8V13C12.75 13.4142 12.4142 13.75 12 13.75C11.5858 13.75 11.25 13.4142 11.25 13V8C11.25 7.58579 11.5858 7.25 12 7.25Z" fill="currentColor"/><path d="M12 17C12.5523 17 13 16.5523 13 16C13 15.4477 12.5523 15 12 15C11.4477 15 11 15.4477 11 16C11 16.5523 11.4477 17 12 17Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M8.2944 4.47643C9.36631 3.11493 10.5018 2.25 12 2.25C13.4981 2.25 14.6336 3.11493 15.7056 4.47643C16.7598 5.81544 17.8769 7.79622 19.3063 10.3305L19.7418 11.1027C20.9234 13.1976 21.8566 14.8523 22.3468 16.1804C22.8478 17.5376 22.9668 18.7699 22.209 19.8569C21.4736 20.9118 20.2466 21.3434 18.6991 21.5471C17.1576 21.75 15.0845 21.75 12.4248 21.75H11.5752C8.91552 21.75 6.84239 21.75 5.30082 21.5471C3.75331 21.3434 2.52637 20.9118 1.79099 19.8569C1.03318 18.7699 1.15218 17.5376 1.65314 16.1804C2.14334 14.8523 3.07658 13.1977 4.25818 11.1027L4.69361 10.3307C6.123 7.79629 7.24019 5.81547 8.2944 4.47643ZM9.47297 5.40432C8.49896 6.64148 7.43704 8.51988 5.96495 11.1299L5.60129 11.7747C4.37507 13.9488 3.50368 15.4986 3.06034 16.6998C2.6227 17.8855 2.68338 18.5141 3.02148 18.9991C3.38202 19.5163 4.05873 19.8706 5.49659 20.0599C6.92858 20.2484 8.9026 20.25 11.6363 20.25H12.3636C15.0974 20.25 17.0714 20.2484 18.5034 20.0599C19.9412 19.8706 20.6179 19.5163 20.9785 18.9991C21.3166 18.5141 21.3773 17.8855 20.9396 16.6998C20.4963 15.4986 19.6249 13.9488 18.3987 11.7747L18.035 11.1299C16.5629 8.51987 15.501 6.64148 14.527 5.40431C13.562 4.17865 12.8126 3.75 12 3.75C11.1874 3.75 10.4379 4.17865 9.47297 5.40432Z" fill="currentColor"/>',
+  grid:'<path d="M5 10H7C9 10 10 9 10 7V5C10 3 9 2 7 2H5C3 2 2 3 2 5V7C2 9 3 10 5 10Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 10H19C21 10 22 9 22 7V5C22 3 21 2 19 2H17C15 2 14 3 14 5V7C14 9 15 10 17 10Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 22H19C21 22 22 21 22 19V17C22 15 21 14 19 14H17C15 14 14 15 14 17V19C14 21 15 22 17 22Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 22H7C9 22 10 21 10 19V17C10 15 9 14 7 14H5C3 14 2 15 2 17V19C2 21 3 22 5 22Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>',
+  bolt:'<path fill-rule="evenodd" clip-rule="evenodd" d="M20.5279 10.3736C20.1572 9.73163 19.4779 9.5206 18.8294 9.42992C18.1757 9.33852 17.3008 9.33855 16.2426 9.33858L16.1824 9.33858C15.5523 9.33858 15.1403 9.33237 14.8402 9.29064C14.5688 9.2529 14.4825 9.19704 14.4456 9.16446C14.4187 9.13635 14.3706 9.07063 14.3379 8.83366C14.2993 8.55425 14.2976 8.1711 14.2976 7.55704V7.18255C14.2977 5.59503 14.2977 4.32329 14.1755 3.4166C14.0608 2.56554 13.7882 1.60969 12.844 1.32035C11.9164 1.03608 11.1384 1.64564 10.5337 2.27405C9.88942 2.9435 9.12413 3.97895 8.16596 5.27538L5.02896 9.51969C4.41863 10.3454 3.90984 11.0337 3.60669 11.6029C3.3028 12.1735 3.08164 12.8509 3.41872 13.5268L3.41989 13.5293L3.42344 13.5365L3.42748 13.5445L3.43146 13.5522L3.4358 13.5603L3.44023 13.5685L3.44441 13.576L3.44884 13.5838L3.45289 13.5907L3.45438 13.5931C3.82188 14.2296 4.49825 14.4524 5.1526 14.5523C5.82693 14.6553 6.72671 14.6619 7.81795 14.6619C8.45456 14.6619 8.86048 14.6633 9.1586 14.7013C9.42195 14.7349 9.50071 14.7867 9.53447 14.8165C9.56438 14.8478 9.61682 14.9207 9.6538 15.1663C9.69612 15.4473 9.70276 15.8364 9.70275 16.4435L9.70274 16.8178C9.7027 18.4053 9.70266 19.6771 9.82483 20.5838C9.9395 21.4349 10.2121 22.3907 11.1563 22.6801C12.0839 22.9644 12.8619 22.3548 13.4667 21.7264C14.1109 21.0569 14.8762 20.0215 15.8344 18.725L18.9338 14.5317C19.5646 13.6783 20.0834 12.9652 20.3893 12.3718C20.6887 11.7911 20.8976 11.1097 20.5636 10.44L20.5624 10.4376L20.5589 10.4303L20.5548 10.4223L20.5508 10.4146L20.5465 10.4064L20.542 10.3982L20.5378 10.3907L20.5334 10.3829L20.5293 10.3759L20.5279 10.3736ZM11.6145 3.31416C11.0465 3.90435 10.3387 4.85927 9.335 6.21733L6.27286 10.3604C5.61517 11.2502 5.17513 11.849 4.93062 12.3081C4.81161 12.5315 4.76693 12.6725 4.75421 12.7578C4.74635 12.8105 4.75115 12.8343 4.75742 12.8496C4.78161 12.8852 4.88663 12.9943 5.379 13.0695C5.9169 13.1516 6.69032 13.1619 7.81795 13.1619L7.86392 13.1619C8.44106 13.1618 8.94393 13.1618 9.3483 13.2134C9.78148 13.2686 10.2118 13.3942 10.568 13.7293L10.5739 13.7348L10.5796 13.7404C10.9296 14.0839 11.0719 14.5099 11.1371 14.9429C11.1994 15.3568 11.2028 15.8658 11.2028 16.4435L11.2027 16.753C11.2027 18.42 11.2044 19.5894 11.3114 20.3835C11.3647 20.7789 11.4363 21.0108 11.505 21.1404C11.5564 21.2374 11.586 21.2438 11.5943 21.2456L11.5958 21.2459L11.5973 21.2464C11.6078 21.25 11.6446 21.2628 11.7583 21.2056C11.9003 21.1341 12.1032 20.98 12.3858 20.6863C12.9538 20.0961 13.6616 19.1412 14.6654 17.7831L17.7275 13.6401C18.3815 12.7553 18.8172 12.1478 19.0561 11.6845C19.2608 11.2873 19.2385 11.1528 19.2249 11.1171C19.2024 11.0843 19.1016 10.9826 18.6217 10.9155C18.0846 10.8404 17.3161 10.8386 16.1824 10.8386C15.5796 10.8386 15.0567 10.8352 14.6336 10.7763C14.1968 10.7156 13.7655 10.5841 13.4123 10.252L13.4065 10.2465L13.4008 10.2409C13.0476 9.89419 12.9114 9.46874 12.852 9.03887C12.7975 8.64454 12.7976 8.15622 12.7976 7.60538L12.7976 7.24733C12.7976 5.58044 12.7959 4.41099 12.6889 3.61692C12.6356 3.22153 12.564 2.98959 12.4954 2.86008C12.4439 2.76301 12.4143 2.75666 12.406 2.75487L12.4045 2.75451L12.403 2.75401C12.3925 2.7504 12.3557 2.73767 12.242 2.79487C12.1 2.86633 11.8972 3.02042 11.6145 3.31416Z" fill="currentColor"/>',
+  swap:'<path d="M20.5 14.99L15.49 20.01" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 14.99H20.5" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.00999L8.51 3.98999" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.5 9.01001H3.5" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>',
+  building:'<path fill-rule="evenodd" clip-rule="evenodd" d="M14.948 1.25H17.052C17.9505 1.24997 18.6997 1.24995 19.2945 1.32991C19.9223 1.41432 20.4891 1.59999 20.9445 2.05546C21.4 2.51093 21.5857 3.07773 21.6701 3.70552C21.7501 4.30031 21.75 5.04953 21.75 5.94801V21.25H22C22.4142 21.25 22.75 21.5858 22.75 22C22.75 22.4142 22.4142 22.75 22 22.75H2C1.58579 22.75 1.25 22.4142 1.25 22C1.25 21.5858 1.58579 21.25 2 21.25H2.25L2.25 8.948C2.24997 8.04952 2.24994 7.3003 2.32991 6.70552C2.41432 6.07773 2.59999 5.51093 3.05546 5.05546C3.51093 4.59999 4.07773 4.41432 4.70552 4.32991C5.3003 4.24995 6.04952 4.24997 6.948 4.25L10.278 4.25C10.3294 3.37583 10.4906 2.62032 11.0555 2.05546C11.5109 1.59999 12.0777 1.41432 12.7055 1.32991C13.3003 1.24995 14.0495 1.24997 14.948 1.25ZM11.0068 5.75C11.0055 5.75 11.0043 5.75 11.003 5.75C11.002 5.75 11.001 5.75 11 5.75H7C6.03599 5.75 5.38843 5.7516 4.90539 5.81654C4.44393 5.87858 4.24643 5.9858 4.11612 6.11612C3.9858 6.24644 3.87858 6.44393 3.81654 6.90539C3.75159 7.38843 3.75 8.03599 3.75 9V21.25H8.25V19C8.25 18.5858 8.58579 18.25 9 18.25C9.41421 18.25 9.75 18.5858 9.75 19V21.25H14.25V9C14.25 8.03599 14.2484 7.38843 14.1835 6.90539C14.1214 6.44393 14.0142 6.24644 13.8839 6.11612C13.7536 5.9858 13.5561 5.87858 13.0946 5.81654C12.6127 5.75175 11.9671 5.75001 11.0068 5.75ZM15.75 21.25L15.75 8.94801C15.75 8.04953 15.7501 7.30031 15.6701 6.70552C15.5857 6.07773 15.4 5.51093 14.9445 5.05546C14.4891 4.59999 13.9223 4.41432 13.2945 4.32991C12.8691 4.27273 12.3648 4.25645 11.7834 4.25183C11.8335 3.55219 11.9436 3.28863 12.1161 3.11612C12.2464 2.9858 12.4439 2.87858 12.9054 2.81654C13.3884 2.7516 14.036 2.75 15 2.75H17C17.964 2.75 18.6116 2.7516 19.0946 2.81654C19.5561 2.87858 19.7536 2.9858 19.8839 3.11612C20.0142 3.24644 20.1214 3.44393 20.1835 3.90539C20.2484 4.38843 20.25 5.03599 20.25 6V21.25H15.75ZM5.25 8C5.25 7.58579 5.58579 7.25 6 7.25H12C12.4142 7.25 12.75 7.58579 12.75 8C12.75 8.41422 12.4142 8.75 12 8.75H6C5.58579 8.75 5.25 8.41422 5.25 8ZM5.25 11C5.25 10.5858 5.58579 10.25 6 10.25H12C12.4142 10.25 12.75 10.5858 12.75 11C12.75 11.4142 12.4142 11.75 12 11.75H6C5.58579 11.75 5.25 11.4142 5.25 11ZM5.25 14C5.25 13.5858 5.58579 13.25 6 13.25H12C12.4142 13.25 12.75 13.5858 12.75 14C12.75 14.4142 12.4142 14.75 12 14.75H6C5.58579 14.75 5.25 14.4142 5.25 14Z" fill="currentColor"/>',
+  home:'<path d="M9 17.25C8.58579 17.25 8.25 17.5858 8.25 18C8.25 18.4142 8.58579 18.75 9 18.75H15C15.4142 18.75 15.75 18.4142 15.75 18C15.75 17.5858 15.4142 17.25 15 17.25H9Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C11.2919 1.25 10.6485 1.45282 9.95055 1.79224C9.27585 2.12035 8.49642 2.60409 7.52286 3.20832L5.45628 4.4909C4.53509 5.06261 3.79744 5.5204 3.2289 5.95581C2.64015 6.40669 2.18795 6.86589 1.86131 7.46263C1.53535 8.05812 1.38857 8.69174 1.31819 9.4407C1.24999 10.1665 1.24999 11.0541 1.25 12.1672V13.7799C1.24999 15.6837 1.24998 17.1866 1.4027 18.3616C1.55937 19.567 1.88856 20.5401 2.63236 21.3094C3.37958 22.0824 4.33046 22.4277 5.50761 22.5914C6.64849 22.75 8.10556 22.75 9.94185 22.75H14.0581C15.8944 22.75 17.3515 22.75 18.4924 22.5914C19.6695 22.4277 20.6204 22.0824 21.3676 21.3094C22.1114 20.5401 22.4406 19.567 22.5973 18.3616C22.75 17.1866 22.75 15.6838 22.75 13.7799V12.1672C22.75 11.0541 22.75 10.1665 22.6818 9.4407C22.6114 8.69174 22.4646 8.05812 22.1387 7.46263C21.8121 6.86589 21.3599 6.40669 20.7711 5.95581C20.2026 5.5204 19.4649 5.06262 18.5437 4.49091L16.4771 3.20831C15.5036 2.60409 14.7241 2.12034 14.0494 1.79224C13.3515 1.45282 12.7081 1.25 12 1.25ZM8.27953 4.50412C9.29529 3.87371 10.0095 3.43153 10.6065 3.1412C11.1882 2.85833 11.6002 2.75 12 2.75C12.3998 2.75 12.8118 2.85833 13.3935 3.14119C13.9905 3.43153 14.7047 3.87371 15.7205 4.50412L17.7205 5.74537C18.6813 6.34169 19.3559 6.76135 19.8591 7.1467C20.3487 7.52164 20.6303 7.83106 20.8229 8.18285C21.0162 8.53589 21.129 8.94865 21.1884 9.58104C21.2492 10.2286 21.25 11.0458 21.25 12.2039V13.725C21.25 15.6959 21.2485 17.1012 21.1098 18.1683C20.9736 19.2163 20.717 19.8244 20.2892 20.2669C19.8649 20.7058 19.2871 20.9664 18.2858 21.1057C17.2602 21.2483 15.9075 21.25 14 21.25H10C8.09247 21.25 6.73983 21.2483 5.71422 21.1057C4.71286 20.9664 4.13514 20.7058 3.71079 20.2669C3.28301 19.8244 3.02642 19.2163 2.89019 18.1683C2.75149 17.1012 2.75 15.6959 2.75 13.725V12.2039C2.75 11.0458 2.75076 10.2286 2.81161 9.58104C2.87103 8.94865 2.98385 8.53589 3.17709 8.18285C3.36965 7.83106 3.65133 7.52164 4.14092 7.1467C4.6441 6.76135 5.31869 6.34169 6.27953 5.74537L8.27953 4.50412Z" fill="currentColor"/>',
+  clipboard:'<path fill-rule="evenodd" clip-rule="evenodd" d="M7.2626 3.26045C7.38219 2.13044 8.33828 1.25 9.5 1.25H14.5C15.6617 1.25 16.6178 2.13044 16.7374 3.26045C17.5005 3.27599 18.1603 3.31546 18.7236 3.41895C19.4816 3.55818 20.1267 3.82342 20.6517 4.34835C21.2536 4.95027 21.5125 5.70814 21.6335 6.60825C21.75 7.47522 21.75 8.57754 21.75 9.94513V16.0549C21.75 17.4225 21.75 18.5248 21.6335 19.3918C21.5125 20.2919 21.2536 21.0497 20.6517 21.6517C20.0497 22.2536 19.2919 22.5125 18.3918 22.6335C17.5248 22.75 16.4225 22.75 15.0549 22.75H8.94513C7.57754 22.75 6.47522 22.75 5.60825 22.6335C4.70814 22.5125 3.95027 22.2536 3.34835 21.6517C2.74643 21.0497 2.48754 20.2919 2.36652 19.3918C2.24996 18.5248 2.24998 17.4225 2.25 16.0549V9.94513C2.24998 8.57754 2.24996 7.47522 2.36652 6.60825C2.48754 5.70814 2.74643 4.95027 3.34835 4.34835C3.87328 3.82342 4.51835 3.55818 5.27635 3.41895C5.83973 3.31546 6.49952 3.27599 7.2626 3.26045ZM7.26496 4.76087C6.54678 4.7762 5.99336 4.81234 5.54735 4.89426C4.98054 4.99838 4.65246 5.16556 4.40901 5.40901C4.13225 5.68577 3.9518 6.07435 3.85315 6.80812C3.75159 7.56347 3.75 8.56458 3.75 10V16C3.75 17.4354 3.75159 18.4365 3.85315 19.1919C3.9518 19.9257 4.13225 20.3142 4.40901 20.591C4.68577 20.8678 5.07435 21.0482 5.80812 21.1469C6.56347 21.2484 7.56458 21.25 9 21.25H15C16.4354 21.25 17.4365 21.2484 18.1919 21.1469C18.9257 21.0482 19.3142 20.8678 19.591 20.591C19.8678 20.3142 20.0482 19.9257 20.1469 19.1919C20.2484 18.4365 20.25 17.4354 20.25 16V10C20.25 8.56458 20.2484 7.56347 20.1469 6.80812C20.0482 6.07434 19.8678 5.68577 19.591 5.40901C19.3475 5.16556 19.0195 4.99838 18.4527 4.89426C18.0066 4.81234 17.4532 4.7762 16.735 4.76087C16.6058 5.88062 15.6544 6.75 14.5 6.75H9.5C8.34559 6.75 7.39424 5.88062 7.26496 4.76087ZM9.5 2.75C9.08579 2.75 8.75 3.08579 8.75 3.5V4.5C8.75 4.91421 9.08579 5.25 9.5 5.25H14.5C14.9142 5.25 15.25 4.91421 15.25 4.5V3.5C15.25 3.08579 14.9142 2.75 14.5 2.75H9.5ZM6.25 10.5C6.25 10.0858 6.58579 9.75 7 9.75H17C17.4142 9.75 17.75 10.0858 17.75 10.5C17.75 10.9142 17.4142 11.25 17 11.25H7C6.58579 11.25 6.25 10.9142 6.25 10.5ZM7.25 14C7.25 13.5858 7.58579 13.25 8 13.25H16C16.4142 13.25 16.75 13.5858 16.75 14C16.75 14.4142 16.4142 14.75 16 14.75H8C7.58579 14.75 7.25 14.4142 7.25 14ZM8.25 17.5C8.25 17.0858 8.58579 16.75 9 16.75H15C15.4142 16.75 15.75 17.0858 15.75 17.5C15.75 17.9142 15.4142 18.25 15 18.25H9C8.58579 18.25 8.25 17.9142 8.25 17.5Z" fill="currentColor"/>',
+  chart:'<path d="M2 1.25C2.41421 1.25 2.75 1.58579 2.75 2V18.5C2.75 20.0188 3.98122 21.25 5.5 21.25H22C22.4142 21.25 22.75 21.5858 22.75 22C22.75 22.4142 22.4142 22.75 22 22.75H5.5C3.15279 22.75 1.25 20.8472 1.25 18.5V2C1.25 1.58579 1.58579 1.25 2 1.25Z" fill="currentColor"/> <path d="M7.25001 17L7.25 13C7.25 12.5858 7.58579 12.25 8 12.25C8.41421 12.25 8.75 12.5858 8.75 13L8.75001 17C8.75001 17.4142 8.41422 17.75 8.00001 17.75C7.58579 17.75 7.25001 17.4142 7.25001 17Z" fill="currentColor"/> <path d="M11.25 7L11.25 17C11.25 17.4142 11.5858 17.75 12 17.75C12.4142 17.75 12.75 17.4142 12.75 17L12.75 7C12.75 6.58579 12.4142 6.25 12 6.25C11.5858 6.25 11.25 6.58579 11.25 7Z" fill="currentColor"/> <path d="M15.25 17L15.25 11C15.25 10.5858 15.5858 10.25 16 10.25C16.4142 10.25 16.75 10.5858 16.75 11L16.75 17C16.75 17.4142 16.4142 17.75 16 17.75C15.5858 17.75 15.25 17.4142 15.25 17Z" fill="currentColor"/> <path d="M19.25 17C19.25 17.4142 19.5858 17.75 20 17.75C20.4142 17.75 20.75 17.4142 20.75 17V4C20.75 3.58579 20.4142 3.25 20 3.25C19.5858 3.25 19.25 3.58579 19.25 4V17Z" fill="currentColor"/>',
+  flask:'<path fill-rule="evenodd" clip-rule="evenodd" d="M15.75 8.7889V2.75H16.5C16.9142 2.75 17.25 2.41421 17.25 2C17.25 1.58579 16.9142 1.25 16.5 1.25H7.5C7.08579 1.25 6.75 1.58579 6.75 2C6.75 2.41421 7.08579 2.75 7.5 2.75H8.25V8.7889C8.25 9.26487 8.24732 9.41283 8.22284 9.55016C8.19874 9.68539 8.1588 9.81731 8.10384 9.9432C8.04803 10.071 7.96819 10.1956 7.70416 10.5917L2.76271 18.0038C2.4284 18.5053 2.25 19.0945 2.25 19.6972C2.25 21.3832 3.61677 22.75 5.30278 22.75H18.6972C20.3832 22.75 21.75 21.3832 21.75 19.6972C21.75 19.0945 21.5716 18.5053 21.2373 18.0038L16.2958 10.5917C16.0318 10.1956 15.952 10.071 15.8962 9.9432C15.8412 9.81731 15.8013 9.68539 15.7772 9.55016C15.7527 9.41283 15.75 9.26487 15.75 8.7889ZM9.75 2.75L9.75001 8.84715C9.75013 9.24126 9.75021 9.52926 9.69957 9.81339C9.6548 10.0645 9.58062 10.3095 9.47856 10.5433C9.3631 10.8078 9.20327 11.0474 8.98457 11.3753L7.73472 13.25H16.2653L15.0154 11.3753C14.7967 11.0474 14.6369 10.8078 14.5214 10.5433C14.4194 10.3095 14.3452 10.0645 14.3004 9.81339C14.2498 9.52926 14.2499 9.24126 14.25 8.84716L14.25 2.75H9.75ZM17.2653 14.75H6.73472L4.01079 18.8359C3.84074 19.091 3.75 19.3907 3.75 19.6972C3.75 20.5548 4.4452 21.25 5.30278 21.25H18.6972C19.5548 21.25 20.25 20.5548 20.25 19.6972C20.25 19.3907 20.1593 19.091 19.9892 18.8359L17.2653 14.75Z" fill="currentColor"/>',
+  target:'<path d="M9.25 12C9.25 11.5858 9.58579 11.25 10 11.25H11.25V10C11.25 9.58579 11.5858 9.25 12 9.25C12.4142 9.25 12.75 9.58579 12.75 10V11.25H14C14.4142 11.25 14.75 11.5858 14.75 12C14.75 12.4142 14.4142 12.75 14 12.75H12.75V14C12.75 14.4142 12.4142 14.75 12 14.75C11.5858 14.75 11.25 14.4142 11.25 14V12.75H10C9.58579 12.75 9.25 12.4142 9.25 12Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM11.25 2.77997C6.7395 3.14188 3.14188 6.7395 2.77997 11.25H5C5.41421 11.25 5.75 11.5858 5.75 12C5.75 12.4142 5.41421 12.75 5 12.75H2.77997C3.14188 17.2605 6.7395 20.8581 11.25 21.22V19C11.25 18.5858 11.5858 18.25 12 18.25C12.4142 18.25 12.75 18.5858 12.75 19V21.22C17.2605 20.8581 20.8581 17.2605 21.22 12.75H19C18.5858 12.75 18.25 12.4142 18.25 12C18.25 11.5858 18.5858 11.25 19 11.25H21.22C20.8581 6.7395 17.2605 3.14188 12.75 2.77997V5C12.75 5.41421 12.4142 5.75 12 5.75C11.5858 5.75 11.25 5.41421 11.25 5V2.77997Z" fill="currentColor"/>',
+  refresh:'<g transform="scale(1.33333)"><path d="M8.5 12.75L10.75 15L8.5 17.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></path> <path d="M4.655 4.505C3.4774 5.6413 2.75 7.2359 2.75 9C2.75 12.452 5.55 15.25 9 15.25C9.6 15.25 10.17 15.166 10.72 15.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></path> <path d="M9.5 5.25L7.25 3L9.5 0.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></path> <path d="M13.3444 13.4937C14.5146 12.3575 15.25 10.7634 15.25 9C15.25 5.548 12.45 2.75 9.00002 2.75C8.42002 2.75 7.86002 2.82895 7.33002 2.97595" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></g>',
+  bulb:'<path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.75C8.27208 2.75 5.25 5.77208 5.25 9.5C5.25 11.4985 6.11758 13.2934 7.49907 14.5304L7.50342 14.5343C8.06008 15.0328 8.48295 15.4114 8.78527 15.6886C9.06989 15.9495 9.29537 16.1628 9.41353 16.3086L9.42636 16.3244C9.64763 16.5974 9.84045 16.8353 9.9676 17.1199C10.0948 17.4044 10.1434 17.7067 10.1992 18.0537L10.2024 18.0738C10.231 18.2517 10.2425 18.4701 10.247 18.75H13.753C13.7575 18.4701 13.769 18.2517 13.7976 18.0738L13.8008 18.0537C13.8566 17.7067 13.9052 17.4044 14.0324 17.1199C14.1596 16.8353 14.3524 16.5974 14.5736 16.3244L14.5865 16.3086C14.7046 16.1628 14.9301 15.9495 15.2147 15.6886C15.5171 15.4114 15.94 15.0327 16.4966 14.5343L16.5009 14.5304C17.8824 13.2934 18.75 11.4985 18.75 9.5C18.75 5.77208 15.7279 2.75 12 2.75ZM13.7436 20.25H10.2564C10.2597 20.3542 10.2646 20.4453 10.2721 20.5273C10.2925 20.7524 10.3269 20.8341 10.3505 20.875C10.4163 20.989 10.511 21.0837 10.625 21.1495C10.6659 21.1731 10.7476 21.2075 10.9727 21.2279C11.2082 21.2493 11.5189 21.25 12 21.25C12.4811 21.25 12.7918 21.2493 13.0273 21.2279C13.2524 21.2075 13.3341 21.1731 13.375 21.1495C13.489 21.0837 13.5837 20.989 13.6495 20.875C13.6731 20.8341 13.7075 20.7524 13.7279 20.5273C13.7354 20.4453 13.7403 20.3542 13.7436 20.25ZM3.75 9.5C3.75 4.94365 7.44365 1.25 12 1.25C16.5563 1.25 20.25 4.94365 20.25 9.5C20.25 11.9428 19.1874 14.1384 17.5016 15.6479C16.9397 16.151 16.5234 16.5238 16.2284 16.7942C16.0809 16.9295 15.9681 17.0351 15.8849 17.1162C15.8434 17.1566 15.8117 17.1886 15.788 17.2134C15.7763 17.2256 15.7675 17.2352 15.7611 17.2423C15.7546 17.2496 15.7518 17.253 15.7519 17.2529C15.4917 17.574 15.4354 17.6568 15.4019 17.7319C15.3683 17.8069 15.3442 17.9041 15.2786 18.3121C15.2527 18.4732 15.25 18.7491 15.25 19.5V19.5322C15.25 19.972 15.25 20.3514 15.2218 20.6627C15.192 20.9918 15.1259 21.3178 14.9486 21.625C14.7511 21.967 14.467 22.2511 14.125 22.4486C13.8178 22.6259 13.4918 22.692 13.1627 22.7218C12.8514 22.75 12.472 22.75 12.0322 22.75H11.9678C11.528 22.75 11.1486 22.75 10.8374 22.7218C10.5082 22.692 10.1822 22.6259 9.875 22.4486C9.53296 22.2511 9.24892 21.967 9.05144 21.625C8.87407 21.3178 8.80802 20.9918 8.77818 20.6627C8.74997 20.3514 8.74998 19.972 8.75 19.5322L8.75 19.5C8.75 18.7491 8.74735 18.4732 8.72144 18.3121C8.6558 17.9041 8.63166 17.8069 8.59812 17.7319C8.56459 17.6568 8.50828 17.574 8.24812 17.2529C8.24792 17.2527 8.24514 17.2493 8.23888 17.2423C8.23249 17.2352 8.22369 17.2256 8.21199 17.2134C8.18835 17.1886 8.15661 17.1566 8.11513 17.1162C8.03189 17.0351 7.91912 16.9295 7.77161 16.7942C7.4766 16.5238 7.06034 16.151 6.49845 15.6479C4.81263 14.1384 3.75 11.9428 3.75 9.5ZM9.89202 13.3508C10.2506 13.1434 10.7094 13.2659 10.9168 13.6245C11.134 14 11.5383 14.25 12 14.25C12.4617 14.25 12.866 14 13.0832 13.6245C13.2906 13.2659 13.7494 13.1434 14.108 13.3508C14.4665 13.5582 14.589 14.017 14.3816 14.3755C14.0284 14.9862 13.4454 15.4496 12.75 15.6464V17C12.75 17.4142 12.4142 17.75 12 17.75C11.5858 17.75 11.25 17.4142 11.25 17V15.6464C10.5546 15.4496 9.97163 14.9862 9.61836 14.3755C9.41095 14.017 9.53347 13.5582 9.89202 13.3508Z" fill="currentColor"/>',
+  search:'<path fill-rule="evenodd" clip-rule="evenodd" d="M11.5 2.75C6.66751 2.75 2.75 6.66751 2.75 11.5C2.75 16.3325 6.66751 20.25 11.5 20.25C16.3325 20.25 20.25 16.3325 20.25 11.5C20.25 6.66751 16.3325 2.75 11.5 2.75ZM1.25 11.5C1.25 5.83908 5.83908 1.25 11.5 1.25C17.1609 1.25 21.75 5.83908 21.75 11.5C21.75 14.0605 20.8111 16.4017 19.2589 18.1982L22.5303 21.4697C22.8232 21.7626 22.8232 22.2374 22.5303 22.5303C22.2374 22.8232 21.7626 22.8232 21.4697 22.5303L18.1982 19.2589C16.4017 20.8111 14.0605 21.75 11.5 21.75C5.83908 21.75 1.25 17.1609 1.25 11.5Z" fill="currentColor"/>',
+  settings:'<path fill-rule="evenodd" clip-rule="evenodd" d="M12 8.25C9.92893 8.25 8.25 9.92893 8.25 12C8.25 14.0711 9.92893 15.75 12 15.75C14.0711 15.75 15.75 14.0711 15.75 12C15.75 9.92893 14.0711 8.25 12 8.25ZM9.75 12C9.75 10.7574 10.7574 9.75 12 9.75C13.2426 9.75 14.25 10.7574 14.25 12C14.25 13.2426 13.2426 14.25 12 14.25C10.7574 14.25 9.75 13.2426 9.75 12Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C11.2954 1.25 10.6519 1.44359 9.94858 1.77037C9.26808 2.08656 8.48039 2.55304 7.49457 3.13685L6.74148 3.58283C5.75533 4.16682 4.96771 4.63324 4.36076 5.07944C3.73315 5.54083 3.25177 6.01311 2.90334 6.63212C2.55548 7.25014 2.39841 7.91095 2.32306 8.69506C2.24999 9.45539 2.24999 10.3865 2.25 11.556V12.444C2.24999 13.6135 2.24999 14.5446 2.32306 15.3049C2.39841 16.0891 2.55548 16.7499 2.90334 17.3679C3.25177 17.9869 3.73315 18.4592 4.36076 18.9206C4.96771 19.3668 5.75533 19.8332 6.74148 20.4172L7.4946 20.8632C8.48038 21.447 9.2681 21.9135 9.94858 22.2296C10.6519 22.5564 11.2954 22.75 12 22.75C12.7046 22.75 13.3481 22.5564 14.0514 22.2296C14.7319 21.9134 15.5196 21.447 16.5054 20.8632L17.2585 20.4172C18.2446 19.8332 19.0323 19.3668 19.6392 18.9206C20.2669 18.4592 20.7482 17.9869 21.0967 17.3679C21.4445 16.7499 21.6016 16.0891 21.6769 15.3049C21.75 14.5446 21.75 13.6135 21.75 12.4441V11.556C21.75 10.3866 21.75 9.45538 21.6769 8.69506C21.6016 7.91095 21.4445 7.25014 21.0967 6.63212C20.7482 6.01311 20.2669 5.54083 19.6392 5.07944C19.0323 4.63324 18.2447 4.16683 17.2585 3.58285L16.5054 3.13685C15.5196 2.55303 14.7319 2.08656 14.0514 1.77037C13.3481 1.44359 12.7046 1.25 12 1.25ZM8.22524 4.44744C9.25238 3.83917 9.97606 3.41161 10.5807 3.13069C11.1702 2.85676 11.5907 2.75 12 2.75C12.4093 2.75 12.8298 2.85676 13.4193 3.13069C14.0239 3.41161 14.7476 3.83917 15.7748 4.44744L16.4609 4.85379C17.4879 5.46197 18.2109 5.89115 18.7508 6.288C19.2767 6.67467 19.581 6.99746 19.7895 7.36788C19.9986 7.73929 20.1199 8.1739 20.1838 8.83855C20.2492 9.51884 20.25 10.378 20.25 11.5937V12.4063C20.25 13.622 20.2492 14.4812 20.1838 15.1614C20.1199 15.8261 19.9986 16.2607 19.7895 16.6321C19.581 17.0025 19.2767 17.3253 18.7508 17.712C18.2109 18.1089 17.4879 18.538 16.4609 19.1462L15.7748 19.5526C14.7476 20.1608 14.0239 20.5884 13.4193 20.8693C12.8298 21.1432 12.4093 21.25 12 21.25C11.5907 21.25 11.1702 21.1432 10.5807 20.8693C9.97606 20.5884 9.25238 20.1608 8.22524 19.5526L7.53909 19.1462C6.5121 18.538 5.78906 18.1089 5.24923 17.712C4.72326 17.3253 4.419 17.0025 4.2105 16.6321C4.00145 16.2607 3.88005 15.8261 3.81618 15.1614C3.7508 14.4812 3.75 13.622 3.75 12.4063V11.5937C3.75 10.378 3.7508 9.51884 3.81618 8.83855C3.88005 8.1739 4.00145 7.73929 4.2105 7.36788C4.419 6.99746 4.72326 6.67467 5.24923 6.288C5.78906 5.89115 6.5121 5.46197 7.53909 4.85379L8.22524 4.44744Z" fill="currentColor"/>',
+  moon:'<path fill-rule="evenodd" clip-rule="evenodd" d="M11.0174 2.80157C6.37072 3.29221 2.75 7.22328 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C16.7767 21.25 20.7078 17.6293 21.1984 12.9826C19.8717 14.6669 17.8126 15.75 15.5 15.75C11.4959 15.75 8.25 12.5041 8.25 8.5C8.25 6.18738 9.33315 4.1283 11.0174 2.80157ZM1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C12.7166 1.25 13.0754 1.82126 13.1368 2.27627C13.196 2.71398 13.0342 3.27065 12.531 3.57467C10.8627 4.5828 9.75 6.41182 9.75 8.5C9.75 11.6756 12.3244 14.25 15.5 14.25C17.5882 14.25 19.4172 13.1373 20.4253 11.469C20.7293 10.9658 21.286 10.804 21.7237 10.8632C22.1787 10.9246 22.75 11.2834 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12Z" fill="currentColor"/>',
+  sun:'<path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C12.4142 1.25 12.75 1.58579 12.75 2V3C12.75 3.41421 12.4142 3.75 12 3.75C11.5858 3.75 11.25 3.41421 11.25 3V2C11.25 1.58579 11.5858 1.25 12 1.25ZM4.39861 4.39861C4.6915 4.10572 5.16638 4.10572 5.45927 4.39861L5.85211 4.79145C6.145 5.08434 6.145 5.55921 5.85211 5.85211C5.55921 6.145 5.08434 6.145 4.79145 5.85211L4.39861 5.45927C4.10572 5.16638 4.10572 4.6915 4.39861 4.39861ZM19.6011 4.39887C19.894 4.69176 19.894 5.16664 19.6011 5.45953L19.2083 5.85237C18.9154 6.14526 18.4405 6.14526 18.1476 5.85237C17.8547 5.55947 17.8547 5.0846 18.1476 4.79171L18.5405 4.39887C18.8334 4.10598 19.3082 4.10598 19.6011 4.39887ZM12 6.75C9.1005 6.75 6.75 9.1005 6.75 12C6.75 14.8995 9.1005 17.25 12 17.25C14.8995 17.25 17.25 14.8995 17.25 12C17.25 9.1005 14.8995 6.75 12 6.75ZM5.25 12C5.25 8.27208 8.27208 5.25 12 5.25C15.7279 5.25 18.75 8.27208 18.75 12C18.75 15.7279 15.7279 18.75 12 18.75C8.27208 18.75 5.25 15.7279 5.25 12ZM1.25 12C1.25 11.5858 1.58579 11.25 2 11.25H3C3.41421 11.25 3.75 11.5858 3.75 12C3.75 12.4142 3.41421 12.75 3 12.75H2C1.58579 12.75 1.25 12.4142 1.25 12ZM20.25 12C20.25 11.5858 20.5858 11.25 21 11.25H22C22.4142 11.25 22.75 11.5858 22.75 12C22.75 12.4142 22.4142 12.75 22 12.75H21C20.5858 12.75 20.25 12.4142 20.25 12ZM18.1476 18.1476C18.4405 17.8547 18.9154 17.8547 19.2083 18.1476L19.6011 18.5405C19.894 18.8334 19.894 19.3082 19.6011 19.6011C19.3082 19.894 18.8334 19.894 18.5405 19.6011L18.1476 19.2083C17.8547 18.9154 17.8547 18.4405 18.1476 18.1476ZM5.85211 18.1479C6.145 18.4408 6.145 18.9157 5.85211 19.2086L5.45927 19.6014C5.16638 19.8943 4.6915 19.8943 4.39861 19.6014C4.10572 19.3085 4.10572 18.8336 4.39861 18.5407L4.79145 18.1479C5.08434 17.855 5.55921 17.855 5.85211 18.1479ZM12 20.25C12.4142 20.25 12.75 20.5858 12.75 21V22C12.75 22.4142 12.4142 22.75 12 22.75C11.5858 22.75 11.25 22.4142 11.25 22V21C11.25 20.5858 11.5858 20.25 12 20.25Z" fill="currentColor"/>',
+  trendup:'<path d="M13.75 10C13.75 10.4142 14.0858 10.75 14.5 10.75H15.1893L13.1768 12.7626C13.0791 12.8602 12.9209 12.8602 12.8232 12.7626L11.2374 11.1768C10.554 10.4934 9.44598 10.4934 8.76256 11.1768L6.46967 13.4697C6.17678 13.7626 6.17678 14.2374 6.46967 14.5303C6.76256 14.8232 7.23744 14.8232 7.53033 14.5303L9.82322 12.2374C9.92085 12.1398 10.0791 12.1398 10.1768 12.2374L11.7626 13.8232C12.446 14.5066 13.554 14.5066 14.2374 13.8232L16.25 11.8107V12.5C16.25 12.9142 16.5858 13.25 17 13.25C17.4142 13.25 17.75 12.9142 17.75 12.5V10C17.75 9.58579 17.4142 9.25 17 9.25H14.5C14.0858 9.25 13.75 9.58579 13.75 10Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M11.9426 1.25C9.63423 1.24999 7.82519 1.24998 6.41371 1.43975C4.96897 1.63399 3.82895 2.03933 2.93414 2.93414C2.03933 3.82895 1.63399 4.96897 1.43975 6.41371C1.24998 7.82519 1.24999 9.63423 1.25 11.9426V12.0574C1.24999 14.3658 1.24998 16.1748 1.43975 17.5863C1.63399 19.031 2.03933 20.1711 2.93414 21.0659C3.82895 21.9607 4.96897 22.366 6.41371 22.5603C7.82519 22.75 9.63423 22.75 11.9426 22.75H12.0574C14.3658 22.75 16.1748 22.75 17.5863 22.5603C19.031 22.366 20.1711 21.9607 21.0659 21.0659C21.9607 20.1711 22.366 19.031 22.5603 17.5863C22.75 16.1748 22.75 14.3658 22.75 12.0574V11.9426C22.75 9.63423 22.75 7.82519 22.5603 6.41371C22.366 4.96897 21.9607 3.82895 21.0659 2.93414C20.1711 2.03933 19.031 1.63399 17.5863 1.43975C16.1748 1.24998 14.3658 1.24999 12.0574 1.25H11.9426ZM3.9948 3.9948C4.56445 3.42514 5.33517 3.09825 6.61358 2.92637C7.91356 2.75159 9.62178 2.75 12 2.75C14.3782 2.75 16.0864 2.75159 17.3864 2.92637C18.6648 3.09825 19.4355 3.42514 20.0052 3.9948C20.5749 4.56445 20.9018 5.33517 21.0736 6.61358C21.2484 7.91356 21.25 9.62178 21.25 12C21.25 14.3782 21.2484 16.0864 21.0736 17.3864C20.9018 18.6648 20.5749 19.4355 20.0052 20.0052C19.4355 20.5749 18.6648 20.9018 17.3864 21.0736C16.0864 21.2484 14.3782 21.25 12 21.25C9.62178 21.25 7.91356 21.2484 6.61358 21.0736C5.33517 20.9018 4.56445 20.5749 3.9948 20.0052C3.42514 19.4355 3.09825 18.6648 2.92637 17.3864C2.75159 16.0864 2.75 14.3782 2.75 12C2.75 9.62178 2.75159 7.91356 2.92637 6.61358C3.09825 5.33517 3.42514 4.56445 3.9948 3.9948Z" fill="currentColor"/>',
+  trenddown:'<path d="M7.53033 9.46967C7.23744 9.17678 6.76256 9.17678 6.46967 9.46967C6.17678 9.76256 6.17678 10.2374 6.46967 10.5303L8.76256 12.8232C9.44598 13.5066 10.554 13.5066 11.2374 12.8232L12.8232 11.2374C12.9209 11.1398 13.0791 11.1398 13.1768 11.2374L15.1893 13.25H14.5C14.0858 13.25 13.75 13.5858 13.75 14C13.75 14.4142 14.0858 14.75 14.5 14.75H17C17.4142 14.75 17.75 14.4142 17.75 14V11.5C17.75 11.0858 17.4142 10.75 17 10.75C16.5858 10.75 16.25 11.0858 16.25 11.5V12.1893L14.2374 10.1768C13.554 9.49336 12.446 9.49336 11.7626 10.1768L10.1768 11.7626C10.0791 11.8602 9.92085 11.8602 9.82322 11.7626L7.53033 9.46967Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M11.9426 1.25C9.63423 1.24999 7.82519 1.24998 6.41371 1.43975C4.96897 1.63399 3.82895 2.03933 2.93414 2.93414C2.03933 3.82895 1.63399 4.96897 1.43975 6.41371C1.24998 7.82519 1.24999 9.63423 1.25 11.9426V12.0574C1.24999 14.3658 1.24998 16.1748 1.43975 17.5863C1.63399 19.031 2.03933 20.1711 2.93414 21.0659C3.82895 21.9607 4.96897 22.366 6.41371 22.5603C7.82519 22.75 9.63423 22.75 11.9426 22.75H12.0574C14.3658 22.75 16.1748 22.75 17.5863 22.5603C19.031 22.366 20.1711 21.9607 21.0659 21.0659C21.9607 20.1711 22.366 19.031 22.5603 17.5863C22.75 16.1748 22.75 14.3658 22.75 12.0574V11.9426C22.75 9.63423 22.75 7.82519 22.5603 6.41371C22.366 4.96897 21.9607 3.82895 21.0659 2.93414C20.1711 2.03933 19.031 1.63399 17.5863 1.43975C16.1748 1.24998 14.3658 1.24999 12.0574 1.25H11.9426ZM3.9948 3.9948C4.56445 3.42514 5.33517 3.09825 6.61358 2.92637C7.91356 2.75159 9.62178 2.75 12 2.75C14.3782 2.75 16.0864 2.75159 17.3864 2.92637C18.6648 3.09825 19.4355 3.42514 20.0052 3.9948C20.5749 4.56445 20.9018 5.33517 21.0736 6.61358C21.2484 7.91356 21.25 9.62178 21.25 12C21.25 14.3782 21.2484 16.0864 21.0736 17.3864C20.9018 18.6648 20.5749 19.4355 20.0052 20.0052C19.4355 20.5749 18.6648 20.9018 17.3864 21.0736C16.0864 21.2484 14.3782 21.25 12 21.25C9.62178 21.25 7.91356 21.2484 6.61358 21.0736C5.33517 20.9018 4.56445 20.5749 3.9948 20.0052C3.42514 19.4355 3.09825 18.6648 2.92637 17.3864C2.75159 16.0864 2.75 14.3782 2.75 12C2.75 9.62178 2.75159 7.91356 2.92637 6.61358C3.09825 5.33517 3.42514 4.56445 3.9948 3.9948Z" fill="currentColor"/>',
+  calculator:'<path fill-rule="evenodd" clip-rule="evenodd" d="M11.9375 1.25H12.0625C14.1308 1.24998 15.7678 1.24997 17.0485 1.44129C18.3725 1.63907 19.4223 2.05481 20.2395 2.96274C21.0464 3.85936 21.4066 4.99222 21.5798 6.42355C21.75 7.83014 21.75 9.63498 21.75 11.9478V12.0522C21.75 14.365 21.75 16.1699 21.5798 17.5765C21.4066 19.0078 21.0464 20.1406 20.2395 21.0373C19.4223 21.9452 18.3725 22.3609 17.0485 22.5587C15.7678 22.75 14.1308 22.75 12.0625 22.75H11.9375C9.8692 22.75 8.23221 22.75 6.95147 22.5587C5.62747 22.3609 4.57769 21.9452 3.76055 21.0373C2.95359 20.1406 2.59338 19.0078 2.42018 17.5765C2.24998 16.1699 2.24999 14.365 2.25 12.0522V11.9478C2.24999 9.63499 2.24998 7.83014 2.42018 6.42355C2.59338 4.99222 2.95359 3.85936 3.76055 2.96274C4.57769 2.05481 5.62747 1.63907 6.95147 1.44129C8.23221 1.24997 9.86922 1.24998 11.9375 1.25ZM7.17309 2.92483C6.04626 3.09316 5.37637 3.40965 4.87549 3.96619C4.36443 4.53404 4.06563 5.31193 3.90932 6.60374C3.7513 7.90972 3.75 9.62385 3.75 12C3.75 14.3762 3.7513 16.0903 3.90932 17.3963C4.06563 18.6881 4.36443 19.466 4.87549 20.0338C5.37637 20.5903 6.04626 20.9068 7.17309 21.0752C8.33029 21.248 9.8552 21.25 12 21.25C14.1448 21.25 15.6697 21.248 16.8269 21.0752C17.9537 20.9068 18.6236 20.5903 19.1245 20.0338C19.6356 19.466 19.9344 18.6881 20.0907 17.3963C20.2487 16.0903 20.25 14.3762 20.25 12C20.25 9.62385 20.2487 7.90972 20.0907 6.60374C19.9344 5.31193 19.6356 4.53404 19.1245 3.96619C18.6236 3.40965 17.9537 3.09316 16.8269 2.92483C15.6697 2.75196 14.1448 2.75 12 2.75C9.8552 2.75 8.33029 2.75196 7.17309 2.92483ZM8.91612 5.24994C8.9438 5.24997 8.97176 5.25 9 5.25H15C15.0282 5.25 15.0562 5.24997 15.0839 5.24994C15.4647 5.24954 15.7932 5.24919 16.0823 5.32667C16.8588 5.53472 17.4653 6.1412 17.6733 6.91766C17.7508 7.2068 17.7505 7.53533 17.7501 7.91612C17.75 7.9438 17.75 7.97176 17.75 8C17.75 8.02824 17.75 8.0562 17.7501 8.08389C17.7505 8.46468 17.7508 8.7932 17.6733 9.08234C17.4653 9.8588 16.8588 10.4653 16.0823 10.6733C15.7932 10.7508 15.4647 10.7505 15.0839 10.7501C15.0562 10.75 15.0282 10.75 15 10.75H9C8.97176 10.75 8.9438 10.75 8.91612 10.7501C8.53533 10.7505 8.2068 10.7508 7.91766 10.6733C7.1412 10.4653 6.53472 9.8588 6.32667 9.08234C6.24919 8.7932 6.24954 8.46468 6.24994 8.08389C6.24997 8.0562 6.25 8.02824 6.25 8C6.25 7.97176 6.24997 7.9438 6.24994 7.91612C6.24954 7.53533 6.24919 7.2068 6.32667 6.91766C6.53472 6.1412 7.1412 5.53472 7.91766 5.32667C8.2068 5.24919 8.53533 5.24954 8.91612 5.24994ZM9 6.75C8.48673 6.75 8.37722 6.75644 8.30589 6.77556C8.04707 6.84491 7.84491 7.04707 7.77556 7.30589C7.75644 7.37722 7.75 7.48673 7.75 8C7.75 8.51327 7.75644 8.62278 7.77556 8.69412C7.84491 8.95293 8.04707 9.1551 8.30589 9.22445C8.37722 9.24356 8.48673 9.25 9 9.25H15C15.5133 9.25 15.6228 9.24356 15.6941 9.22445C15.9529 9.1551 16.1551 8.95293 16.2244 8.69412C16.2436 8.62278 16.25 8.51327 16.25 8C16.25 7.48673 16.2436 7.37722 16.2244 7.30589C16.1551 7.04707 15.9529 6.84491 15.6941 6.77556C15.6228 6.75644 15.5133 6.75 15 6.75H9Z" fill="currentColor"/><path d="M9 13C9 13.5523 8.55229 14 8 14C7.44772 14 7 13.5523 7 13C7 12.4477 7.44772 12 8 12C8.55229 12 9 12.4477 9 13Z" fill="currentColor"/><path d="M9 17C9 17.5523 8.55229 18 8 18C7.44772 18 7 17.5523 7 17C7 16.4477 7.44772 16 8 16C8.55229 16 9 16.4477 9 17Z" fill="currentColor"/><path d="M13 13C13 13.5523 12.5523 14 12 14C11.4477 14 11 13.5523 11 13C11 12.4477 11.4477 12 12 12C12.5523 12 13 12.4477 13 13Z" fill="currentColor"/><path d="M13 17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17C11 16.4477 11.4477 16 12 16C12.5523 16 13 16.4477 13 17Z" fill="currentColor"/><path d="M17 13C17 13.5523 16.5523 14 16 14C15.4477 14 15 13.5523 15 13C15 12.4477 15.4477 12 16 12C16.5523 12 17 12.4477 17 13Z" fill="currentColor"/><path d="M17 17C17 17.5523 16.5523 18 16 18C15.4477 18 15 17.5523 15 17C15 16.4477 15.4477 16 16 16C16.5523 16 17 16.4477 17 17Z" fill="currentColor"/>',
+  send:'<path fill-rule="evenodd" clip-rule="evenodd" d="M22.5615 5.64099C23.4636 3.04509 20.9861 0.522263 18.3803 1.44085L3.44476 6.70576C0.578346 7.71619 0.500509 11.7624 3.32388 12.8849L3.3397 12.891L8.29288 14.7318C8.75501 14.9178 9.12031 15.2916 9.2978 15.764L11.222 20.6243C12.3084 23.4996 16.3744 23.4454 17.3839 20.5402L22.5615 5.64099ZM18.8789 2.85553C20.2743 2.36365 21.643 3.71458 21.1447 5.14861L15.9671 20.0478C15.4171 21.6302 13.2126 21.6573 12.6238 20.0902L10.6996 15.2299C10.6224 15.0256 10.5257 14.8311 10.4119 14.6487L14.0303 11.0303C14.3232 10.7374 14.3232 10.2626 14.0303 9.96967C13.7374 9.67678 13.2626 9.67678 12.9697 9.96967L9.34872 13.5906C9.18799 13.4915 9.01788 13.4058 8.83985 13.335L8.82404 13.3289L3.87079 11.4881C2.34161 10.8732 2.38813 8.6687 3.94344 8.12043L18.8789 2.85553Z" fill="currentColor"/>',
+  link:'<path d="M15.7285 3.88396C17.1629 2.44407 19.2609 2.41383 20.4224 3.57981C21.586 4.74798 21.5547 6.85922 20.1194 8.30009L17.6956 10.7333C17.4033 11.0268 17.4042 11.5017 17.6976 11.794C17.9911 12.0863 18.466 12.0854 18.7583 11.7919L21.1821 9.35869C23.0934 7.43998 23.3334 4.37665 21.4851 2.5212C19.6346 0.663551 16.5781 0.905664 14.6658 2.82536L9.81817 7.69182C7.90688 9.61053 7.66692 12.6739 9.51519 14.5293C9.80751 14.8228 10.2824 14.8237 10.5758 14.5314C10.8693 14.2391 10.8702 13.7642 10.5779 13.4707C9.41425 12.3026 9.44559 10.1913 10.8809 8.75042L15.7285 3.88396Z" fill="currentColor"/><path d="M14.4851 9.47074C14.1928 9.17728 13.7179 9.17636 13.4244 9.46868C13.131 9.76101 13.1301 10.2359 13.4224 10.5293C14.586 11.6975 14.5547 13.8087 13.1194 15.2496L8.27178 20.1161C6.83745 21.556 4.73937 21.5863 3.57791 20.4203C2.41424 19.2521 2.44559 17.1408 3.88089 15.6999L6.30473 13.2667C6.59706 12.9732 6.59614 12.4984 6.30268 12.206C6.00922 11.9137 5.53434 11.9146 5.24202 12.2081L2.81818 14.6413C0.906876 16.5601 0.666916 19.6234 2.51519 21.4789C4.36567 23.3365 7.42221 23.0944 9.33449 21.1747L14.1821 16.3082C16.0934 14.3895 16.3334 11.3262 14.4851 9.47074Z" fill="currentColor"/>',
+  folder:'<path fill-rule="evenodd" clip-rule="evenodd" d="M6.85929 1.25001C6.88904 1.25001 6.91919 1.25002 6.94976 1.25002L6.98675 1.25001C7.33818 1.24999 7.56433 1.24998 7.78542 1.27065C8.7367 1.35961 9.63905 1.73337 10.3746 2.34313C10.5456 2.48485 10.7055 2.64477 10.954 2.89329L11.5303 3.46969C12.3761 4.3154 12.7012 4.6311 13.0768 4.84005C13.2948 4.96134 13.526 5.05713 13.766 5.12552C14.1793 5.24333 14.6324 5.25002 15.8284 5.25002L16.253 5.25002C17.526 5.25 18.5521 5.24998 19.364 5.35206C20.2054 5.45784 20.9204 5.68358 21.5077 6.21185C21.6061 6.30032 21.6997 6.39394 21.7882 6.49231C22.3165 7.07965 22.5422 7.79459 22.648 8.63601C22.75 9.4479 22.75 10.4741 22.75 11.747V14.0564C22.75 15.8942 22.75 17.3498 22.5969 18.489C22.4393 19.6615 22.1071 20.6104 21.3588 21.3588C20.6104 22.1071 19.6615 22.4393 18.489 22.5969C17.3498 22.75 15.8942 22.75 14.0564 22.75H9.94361C8.10584 22.75 6.65021 22.75 5.51099 22.5969C4.33857 22.4393 3.38962 22.1071 2.64126 21.3588C1.8929 20.6104 1.56078 19.6615 1.40315 18.489C1.24999 17.3498 1.25 15.8942 1.25002 14.0564L1.25002 6.94976C1.25002 6.91919 1.25001 6.88904 1.25001 6.85929C1.2499 6.06338 1.24982 5.55685 1.33237 5.11935C1.6949 3.19788 3.19788 1.6949 5.11935 1.33237C5.55685 1.24982 6.06338 1.2499 6.85929 1.25001ZM6.94976 2.75002C6.03312 2.75002 5.67873 2.75329 5.39746 2.80636C4.08277 3.05441 3.05441 4.08277 2.80636 5.39746C2.75329 5.67873 2.75002 6.03312 2.75002 6.94976V14C2.75002 15.9068 2.75161 17.2615 2.88978 18.2892C3.02504 19.2953 3.27871 19.8749 3.70192 20.2981C4.12513 20.7213 4.70478 20.975 5.71087 21.1103C6.73853 21.2484 8.0932 21.25 10 21.25H14C15.9068 21.25 17.2615 21.2484 18.2892 21.1103C19.2953 20.975 19.8749 20.7213 20.2981 20.2981C20.7213 19.8749 20.975 19.2953 21.1103 18.2892C21.2484 17.2615 21.25 15.9068 21.25 14V11.7979C21.25 10.4621 21.2486 9.5305 21.1597 8.82312C21.0731 8.13448 20.9141 7.76356 20.6729 7.49539C20.6198 7.43637 20.5637 7.3802 20.5046 7.32712C20.2365 7.08592 19.8656 6.92692 19.1769 6.84034C18.4695 6.75141 17.538 6.75002 16.2021 6.75002H15.8284C15.7912 6.75002 15.7545 6.75002 15.7182 6.75003C14.6702 6.75025 13.9944 6.75038 13.3548 6.56806C13.0041 6.46811 12.6661 6.32811 12.3475 6.15083C11.7663 5.82747 11.2885 5.3495 10.5476 4.60833C10.522 4.58265 10.496 4.55666 10.4697 4.53035L9.91943 3.98009C9.63616 3.69682 9.52778 3.58951 9.41731 3.49793C8.91403 3.08073 8.29664 2.825 7.64576 2.76413C7.50289 2.75077 7.35038 2.75002 6.94976 2.75002ZM12.25 10C12.25 9.5858 12.5858 9.25002 13 9.25002H18C18.4142 9.25002 18.75 9.5858 18.75 10C18.75 10.4142 18.4142 10.75 18 10.75H13C12.5858 10.75 12.25 10.4142 12.25 10Z" fill="currentColor"/>',
+  lock:'<path fill-rule="evenodd" clip-rule="evenodd" d="M5.25 9.30277V8C5.25 4.27208 8.27208 1.25 12 1.25C15.7279 1.25 18.75 4.27208 18.75 8V9.30277C18.9768 9.31872 19.1906 9.33948 19.3918 9.36652C20.2919 9.48754 21.0497 9.74643 21.6517 10.3483C22.2536 10.9503 22.5125 11.7081 22.6335 12.6082C22.75 13.4752 22.75 14.5775 22.75 15.9451V16.0549C22.75 17.4225 22.75 18.5248 22.6335 19.3918C22.5125 20.2919 22.2536 21.0497 21.6517 21.6516C21.0497 22.2536 20.2919 22.5125 19.3918 22.6335C18.5248 22.75 17.4225 22.75 16.0549 22.75H7.94513C6.57754 22.75 5.47522 22.75 4.60825 22.6335C3.70814 22.5125 2.95027 22.2536 2.34835 21.6516C1.74643 21.0497 1.48754 20.2919 1.36652 19.3918C1.24996 18.5248 1.24998 17.4225 1.25 16.0549V15.9451C1.24998 14.5775 1.24996 13.4752 1.36652 12.6082C1.48754 11.7081 1.74643 10.9503 2.34835 10.3483C2.95027 9.74643 3.70814 9.48754 4.60825 9.36652C4.80938 9.33948 5.02317 9.31872 5.25 9.30277ZM6.75 8C6.75 5.10051 9.10051 2.75 12 2.75C14.8995 2.75 17.25 5.10051 17.25 8V9.25344C16.8765 9.24999 16.4784 9.24999 16.0549 9.25H7.94513C7.52161 9.24999 7.12353 9.24999 6.75 9.25344V8ZM3.40901 11.409C3.68577 11.1322 4.07435 10.9518 4.80812 10.8531C5.56347 10.7516 6.56459 10.75 8 10.75H16C17.4354 10.75 18.4365 10.7516 19.1919 10.8531C19.9257 10.9518 20.3142 11.1322 20.591 11.409C20.8678 11.6858 21.0482 12.0743 21.1469 12.8081C21.2484 13.5635 21.25 14.5646 21.25 16C21.25 17.4354 21.2484 18.4365 21.1469 19.1919C21.0482 19.9257 20.8678 20.3142 20.591 20.591C20.3142 20.8678 19.9257 21.0482 19.1919 21.1469C18.4365 21.2484 17.4354 21.25 16 21.25H8C6.56459 21.25 5.56347 21.2484 4.80812 21.1469C4.07435 21.0482 3.68577 20.8678 3.40901 20.591C3.13225 20.3142 2.9518 19.9257 2.85315 19.1919C2.75159 18.4365 2.75 17.4354 2.75 16C2.75 14.5646 2.75159 13.5635 2.85315 12.8081C2.9518 12.0743 3.13225 11.6858 3.40901 11.409Z" fill="currentColor"/>',
+  star:'<path fill-rule="evenodd" clip-rule="evenodd" d="M11.292 3.30809C10.8982 3.82224 10.4538 4.61551 9.80827 5.77355L9.48057 6.36141C9.46082 6.39684 9.44132 6.43194 9.42201 6.4667C9.12127 7.0079 8.86745 7.46469 8.45844 7.77518C8.04503 8.08901 7.54106 8.20227 6.95535 8.3339C6.91771 8.34235 6.87973 8.35089 6.84141 8.35956L6.20506 8.50354C4.94974 8.78757 4.09576 8.98299 3.51082 9.21351C2.94002 9.43845 2.81953 9.62275 2.77361 9.77044C2.72514 9.9263 2.7237 10.1647 3.06494 10.7068C3.41129 11.257 3.99558 11.9432 4.85011 12.9425L5.28393 13.4498C5.30914 13.4793 5.33413 13.5084 5.35886 13.5373C5.76188 14.0074 6.09791 14.3993 6.25205 14.895C6.40526 15.3877 6.35448 15.9054 6.29291 16.5331C6.28913 16.5716 6.28532 16.6105 6.2815 16.6499L6.21591 17.3267C6.08682 18.6589 5.99978 19.5762 6.02922 20.2369C6.05859 20.8965 6.1979 21.0788 6.30865 21.1628C6.40716 21.2376 6.58925 21.3204 7.18248 21.1504C7.78535 20.9777 8.58659 20.6111 9.76202 20.0699L10.3578 19.7956C10.3945 19.7787 10.4309 19.7619 10.4669 19.7452C11.0117 19.4934 11.4843 19.2748 12 19.2748C12.5157 19.2748 12.9883 19.4934 13.5331 19.7452C13.5692 19.7619 13.6055 19.7787 13.6422 19.7956L14.238 20.0699C15.4134 20.6111 16.2147 20.9777 16.8176 21.1504C17.4108 21.3204 17.5929 21.2376 17.6914 21.1628C17.8021 21.0788 17.9414 20.8965 17.9708 20.2369C18.0002 19.5762 17.9132 18.6589 17.7841 17.3267L17.7185 16.6499C17.7147 16.6105 17.7109 16.5716 17.7071 16.5331C17.6456 15.9054 17.5948 15.3877 17.748 14.895C17.9021 14.3993 18.2382 14.0074 18.6412 13.5372C18.6659 13.5084 18.6909 13.4793 18.7161 13.4498L19.1499 12.9425C20.0044 11.9432 20.5887 11.257 20.9351 10.7068C21.2763 10.1647 21.2749 9.9263 21.2264 9.77044C21.1805 9.62275 21.06 9.43845 20.4892 9.21351C19.9043 8.98299 19.0503 8.78757 17.795 8.50354L17.1586 8.35956C17.1203 8.35089 17.0823 8.34235 17.0447 8.33389C16.459 8.20227 15.955 8.08901 15.5416 7.77518C15.1326 7.46469 14.8788 7.0079 14.578 6.4667C14.5587 6.43194 14.5392 6.39684 14.5195 6.36141L14.1918 5.77355C13.5462 4.61551 13.1018 3.82224 12.7081 3.30809C12.3147 2.79443 12.1138 2.75 12 2.75C11.8863 2.75 11.6853 2.79443 11.292 3.30809ZM10.1011 2.3961C10.5777 1.77363 11.1669 1.25 12 1.25C12.8331 1.25 13.4223 1.77363 13.899 2.3961C14.3674 3.00773 14.864 3.89876 15.471 4.98776L15.8296 5.63106C16.2222 6.33523 16.3226 6.48482 16.4486 6.58044C16.5698 6.67247 16.7262 6.7238 17.4896 6.89654L18.1897 7.05492C19.3653 7.32088 20.3338 7.53999 21.0392 7.81796C21.7714 8.10651 22.4121 8.5318 22.6588 9.32502C22.9029 10.1101 22.6285 10.8323 22.2045 11.5059C21.7925 12.1604 21.1344 12.9298 20.3306 13.8698L19.8561 14.4247C19.3391 15.0292 19.2311 15.1772 19.1803 15.3404C19.1286 15.5069 19.1334 15.6992 19.2115 16.5052L19.2831 17.2433C19.4048 18.4994 19.5041 19.5236 19.4693 20.3037C19.434 21.0977 19.2536 21.8601 18.5984 22.3576C17.9308 22.8643 17.1542 22.8072 16.4044 22.5924C15.6774 22.3841 14.7711 21.9667 13.6705 21.46L13.0149 21.1581C12.2975 20.8278 12.1439 20.7748 12 20.7748C11.8561 20.7748 11.7025 20.8278 10.9852 21.1581L10.3295 21.46C9.22898 21.9667 8.32265 22.3841 7.59565 22.5924C6.84587 22.8072 6.0692 22.8643 5.40168 22.3576C4.7464 21.8601 4.56607 21.0977 4.5307 20.3037C4.49595 19.5236 4.59523 18.4993 4.71697 17.2433L4.7885 16.5052C4.8666 15.6992 4.87147 15.5069 4.81971 15.3404C4.76894 15.1772 4.66094 15.0292 4.14393 14.4247L3.66945 13.8698C2.8656 12.9299 2.20753 12.1604 1.79553 11.5059C1.37149 10.8323 1.09714 10.1101 1.34127 9.32502C1.58794 8.5318 2.22867 8.10651 2.96086 7.81796C3.66622 7.53999 4.63474 7.32088 5.81038 7.05492L5.87404 7.04052L6.51039 6.89654C7.27382 6.72381 7.43023 6.67247 7.55148 6.58044C7.67743 6.48482 7.77785 6.33523 8.17039 5.63106L8.52899 4.98775C9.13601 3.89876 9.63268 3.00773 10.1011 2.3961Z" fill="currentColor"/>',
+  starfill:'<path d="M9.15316 5.40838C10.4198 3.13613 11.0531 2 12 2C12.9469 2 13.5802 3.13612 14.8468 5.40837L15.1745 5.99623C15.5345 6.64193 15.7144 6.96479 15.9951 7.17781C16.2757 7.39083 16.6251 7.4699 17.3241 7.62805L17.9605 7.77203C20.4201 8.32856 21.65 8.60682 21.9426 9.54773C22.2352 10.4886 21.3968 11.4691 19.7199 13.4299L19.2861 13.9372C18.8096 14.4944 18.5713 14.773 18.4641 15.1177C18.357 15.4624 18.393 15.8341 18.465 16.5776L18.5306 17.2544C18.7841 19.8706 18.9109 21.1787 18.1449 21.7602C17.3788 22.3417 16.2273 21.8115 13.9243 20.7512L13.3285 20.4768C12.6741 20.1755 12.3469 20.0248 12 20.0248C11.6531 20.0248 11.3259 20.1755 10.6715 20.4768L10.0757 20.7512C7.77268 21.8115 6.62118 22.3417 5.85515 21.7602C5.08912 21.1787 5.21588 19.8706 5.4694 17.2544L5.53498 16.5776C5.60703 15.8341 5.64305 15.4624 5.53586 15.1177C5.42868 14.773 5.19043 14.4944 4.71392 13.9372L4.2801 13.4299C2.60325 11.4691 1.76482 10.4886 2.05742 9.54773C2.35002 8.60682 3.57986 8.32856 6.03954 7.77203L6.67589 7.62805C7.37485 7.4699 7.72433 7.39083 8.00494 7.17781C8.28555 6.96479 8.46553 6.64194 8.82547 5.99623L9.15316 5.40838Z" fill="currentColor"/>',
+  calendar:'<path d="M17 14C17.5523 14 18 13.5523 18 13C18 12.4477 17.5523 12 17 12C16.4477 12 16 12.4477 16 13C16 13.5523 16.4477 14 17 14Z" fill="currentColor"/><path d="M17 18C17.5523 18 18 17.5523 18 17C18 16.4477 17.5523 16 17 16C16.4477 16 16 16.4477 16 17C16 17.5523 16.4477 18 17 18Z" fill="currentColor"/><path d="M13 13C13 13.5523 12.5523 14 12 14C11.4477 14 11 13.5523 11 13C11 12.4477 11.4477 12 12 12C12.5523 12 13 12.4477 13 13Z" fill="currentColor"/><path d="M13 17C13 17.5523 12.5523 18 12 18C11.4477 18 11 17.5523 11 17C11 16.4477 11.4477 16 12 16C12.5523 16 13 16.4477 13 17Z" fill="currentColor"/><path d="M7 14C7.55229 14 8 13.5523 8 13C8 12.4477 7.55229 12 7 12C6.44772 12 6 12.4477 6 13C6 13.5523 6.44772 14 7 14Z" fill="currentColor"/><path d="M7 18C7.55229 18 8 17.5523 8 17C8 16.4477 7.55229 16 7 16C6.44772 16 6 16.4477 6 17C6 17.5523 6.44772 18 7 18Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M7 1.75C7.41421 1.75 7.75 2.08579 7.75 2.5V3.26272C8.412 3.24999 9.14133 3.24999 9.94346 3.25H14.0564C14.8586 3.24999 15.588 3.24999 16.25 3.26272V2.5C16.25 2.08579 16.5858 1.75 17 1.75C17.4142 1.75 17.75 2.08579 17.75 2.5V3.32709C18.0099 3.34691 18.2561 3.37182 18.489 3.40313C19.6614 3.56076 20.6104 3.89288 21.3588 4.64124C22.1071 5.38961 22.4392 6.33855 22.5969 7.51098C22.75 8.65018 22.75 10.1058 22.75 11.9435V14.0564C22.75 15.8941 22.75 17.3498 22.5969 18.489C22.4392 19.6614 22.1071 20.6104 21.3588 21.3588C20.6104 22.1071 19.6614 22.4392 18.489 22.5969C17.3498 22.75 15.8942 22.75 14.0565 22.75H9.94359C8.10585 22.75 6.65018 22.75 5.51098 22.5969C4.33856 22.4392 3.38961 22.1071 2.64124 21.3588C1.89288 20.6104 1.56076 19.6614 1.40314 18.489C1.24997 17.3498 1.24998 15.8942 1.25 14.0564V11.9436C1.24998 10.1058 1.24997 8.65019 1.40314 7.51098C1.56076 6.33855 1.89288 5.38961 2.64124 4.64124C3.38961 3.89288 4.33856 3.56076 5.51098 3.40313C5.7439 3.37182 5.99006 3.34691 6.25 3.32709V2.5C6.25 2.08579 6.58579 1.75 7 1.75ZM5.71085 4.88976C4.70476 5.02502 4.12511 5.27869 3.7019 5.7019C3.27869 6.12511 3.02502 6.70476 2.88976 7.71085C2.86685 7.88123 2.8477 8.06061 2.83168 8.25H21.1683C21.1523 8.06061 21.1331 7.88124 21.1102 7.71085C20.975 6.70476 20.7213 6.12511 20.2981 5.7019C19.8749 5.27869 19.2952 5.02502 18.2892 4.88976C17.2615 4.75159 15.9068 4.75 14 4.75H10C8.09318 4.75 6.73851 4.75159 5.71085 4.88976ZM2.75 12C2.75 11.146 2.75032 10.4027 2.76309 9.75H21.2369C21.2497 10.4027 21.25 11.146 21.25 12V14C21.25 15.9068 21.2484 17.2615 21.1102 18.2892C20.975 19.2952 20.7213 19.8749 20.2981 20.2981C19.8749 20.7213 19.2952 20.975 18.2892 21.1102C17.2615 21.2484 15.9068 21.25 14 21.25H10C8.09318 21.25 6.73851 21.2484 5.71085 21.1102C4.70476 20.975 4.12511 20.7213 3.7019 20.2981C3.27869 19.8749 3.02502 19.2952 2.88976 18.2892C2.75159 17.2615 2.75 15.9068 2.75 14V12Z" fill="currentColor"/>',
+  user:'<path fill-rule="evenodd" clip-rule="evenodd" d="M12.0001 1.25C9.37678 1.25 7.25013 3.37665 7.25013 6C7.25013 8.62335 9.37678 10.75 12.0001 10.75C14.6235 10.75 16.7501 8.62335 16.7501 6C16.7501 3.37665 14.6235 1.25 12.0001 1.25ZM8.75013 6C8.75013 4.20507 10.2052 2.75 12.0001 2.75C13.7951 2.75 15.2501 4.20507 15.2501 6C15.2501 7.79493 13.7951 9.25 12.0001 9.25C10.2052 9.25 8.75013 7.79493 8.75013 6Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.0001 12.25C9.68658 12.25 7.55506 12.7759 5.97558 13.6643C4.41962 14.5396 3.25013 15.8661 3.25013 17.5L3.25007 17.602C3.24894 18.7638 3.24752 20.222 4.52655 21.2635C5.15602 21.7761 6.03661 22.1406 7.22634 22.3815C8.4194 22.6229 9.97436 22.75 12.0001 22.75C14.0259 22.75 15.5809 22.6229 16.7739 22.3815C17.9637 22.1406 18.8443 21.7761 19.4737 21.2635C20.7527 20.222 20.7513 18.7638 20.7502 17.602L20.7501 17.5C20.7501 15.8661 19.5807 14.5396 18.0247 13.6643C16.4452 12.7759 14.3137 12.25 12.0001 12.25ZM4.75013 17.5C4.75013 16.6487 5.37151 15.7251 6.71098 14.9717C8.02693 14.2315 9.89541 13.75 12.0001 13.75C14.1049 13.75 15.9733 14.2315 17.2893 14.9717C18.6288 15.7251 19.2501 16.6487 19.2501 17.5C19.2501 18.8078 19.2098 19.544 18.5265 20.1004C18.156 20.4022 17.5366 20.6967 16.4763 20.9113C15.4194 21.1252 13.9744 21.25 12.0001 21.25C10.0259 21.25 8.58087 21.1252 7.52393 20.9113C6.46366 20.6967 5.84425 20.4022 5.47372 20.1004C4.79045 19.544 4.75013 18.8078 4.75013 17.5Z" fill="currentColor"/>',
+  fire:'<path fill-rule="evenodd" clip-rule="evenodd" d="M12.4803 2.76059C13.2315 2.30898 14.208 2.28697 15.0418 2.88997C17.7027 4.81436 20.75 8.2447 20.75 13.1111C20.75 16.9175 19.1146 19.3652 17.0325 20.835C15.7533 21.738 14.3232 22.2609 13.0331 22.5258C12.5577 22.6872 12.1 22.75 11.7333 22.75C11.6306 22.75 11.521 22.746 11.4058 22.7374C11.242 22.746 11.0843 22.75 10.9333 22.75C9.47245 22.75 7.31363 22.2658 5.50409 20.806C3.6625 19.3203 2.25 16.8771 2.25 13.1111C2.25 10.0344 3.87536 7.9652 5.40507 6.79826C6.04192 6.31244 6.80509 6.30435 7.40898 6.63407C7.99302 6.95295 8.40231 7.56762 8.47627 8.28958L8.5621 9.12741C8.59508 9.44943 8.75974 9.71671 8.93177 9.84683C9.0125 9.90789 9.07802 9.92706 9.12163 9.93034C9.15843 9.93311 9.21562 9.92815 9.30063 9.8729C9.95369 9.44849 10.4496 8.68506 10.7833 7.78664C11.1138 6.89653 11.25 5.96663 11.25 5.33336V5.00973C11.25 4.03696 11.7444 3.20294 12.4803 2.76059ZM12.6314 21.0766C12.2057 21.1595 11.7992 21.2101 11.4272 21.2338C10.9433 21.1848 10.3335 21.0197 9.82415 20.6704C9.23942 20.2694 8.75 19.6065 8.75 18.4445C8.75 17.0422 9.61756 15.9772 10.5398 15.295C10.5423 15.3051 10.5441 15.3178 10.5441 15.3334V15.3443C10.5441 15.572 10.5441 15.9166 10.587 16.275C10.6296 16.6315 10.7214 17.0698 10.9474 17.4553C11.1049 17.724 11.3471 17.9513 11.6758 18.0481C11.9989 18.1433 12.3068 18.0833 12.5468 17.97C13.0028 17.7545 13.3288 17.3047 13.4657 16.8303C13.8778 17.1659 14.25 17.6907 14.25 18.4445C14.25 19.648 13.8025 20.3145 13.3124 20.6986C13.0975 20.867 12.8624 20.99 12.6314 21.0766ZM15.5176 20.0225C15.7384 19.8964 15.9557 19.759 16.1675 19.6095C17.8631 18.4126 19.25 16.4159 19.25 13.1111C19.25 8.92389 16.6279 5.88822 14.1627 4.10543C13.838 3.8706 13.5133 3.88975 13.2531 4.04619C12.9775 4.21188 12.75 4.5528 12.75 5.00973V5.33336C12.75 6.14196 12.5831 7.24891 12.1894 8.30886C11.7988 9.3605 11.1494 10.4604 10.118 11.1306C9.38388 11.6077 8.59212 11.4706 8.02694 11.0432C7.49344 10.6397 7.14144 9.97856 7.0699 9.28027L6.98408 8.44244C6.95826 8.19039 6.82167 8.02241 6.69016 7.95061C6.5785 7.88965 6.45645 7.88284 6.31484 7.99087C5.04758 8.9576 3.75 10.6247 3.75 13.1111C3.75 16.4562 4.98195 18.4575 6.44591 19.6385C6.84345 19.9592 7.263 20.2233 7.68701 20.4381C7.41384 19.8888 7.25 19.2282 7.25 18.4445C7.25 16.341 8.57017 14.8717 9.69806 14.0521C10.2109 13.6795 10.8273 13.6907 11.2979 13.9755C11.7522 14.2504 12.0441 14.7589 12.0441 15.3334C12.0441 15.5682 12.0448 15.8335 12.0763 16.0969C12.0815 16.14 12.0873 16.1814 12.0938 16.221C12.254 15.8525 12.5484 15.5666 12.897 15.4155C13.3152 15.2342 13.847 15.2379 14.2912 15.5719C14.9907 16.098 15.75 17.0424 15.75 18.4445C15.75 19.0383 15.666 19.5627 15.5176 20.0225Z" fill="currentColor"/>',
+  injury:'<path fill-rule="evenodd" clip-rule="evenodd" d="M10.948 1.25H13.052C13.9505 1.24997 14.6997 1.24995 15.2945 1.32991C15.9223 1.41432 16.4891 1.59999 16.9445 2.05546C17.4 2.51093 17.5857 3.07773 17.6701 3.70552C17.6928 3.87459 17.7091 4.05613 17.7207 4.25003C18.3101 4.25037 18.8084 4.25421 19.219 4.29599C19.6925 4.34415 20.1318 4.44886 20.5278 4.71346C20.8281 4.9141 21.0859 5.17191 21.2865 5.47218C21.5511 5.86818 21.6559 6.30755 21.704 6.78102C21.75 7.23336 21.75 7.79209 21.75 8.46168V21.25H22C22.4142 21.25 22.75 21.5858 22.75 22C22.75 22.4142 22.4142 22.75 22 22.75H2C1.58579 22.75 1.25 22.4142 1.25 22C1.25 21.5858 1.58579 21.25 2 21.25H2.25L2.25 8.46166C2.24998 7.79208 2.24997 7.23335 2.29598 6.78102C2.34415 6.30755 2.44886 5.86818 2.71346 5.47218C2.91409 5.17191 3.17191 4.9141 3.47218 4.71346C3.86818 4.44886 4.30755 4.34415 4.78102 4.29599C5.19165 4.25421 5.68995 4.25037 6.27927 4.25003C6.29091 4.05613 6.30718 3.87459 6.32991 3.70552C6.41432 3.07773 6.59999 2.51093 7.05546 2.05546C7.51093 1.59999 8.07773 1.41432 8.70552 1.32991C9.3003 1.24995 10.0495 1.24997 10.948 1.25ZM6.25003 5.75011C5.66742 5.75075 5.25586 5.75542 4.93283 5.78828C4.57796 5.82438 4.41399 5.8882 4.30554 5.96067C4.16905 6.05186 4.05186 6.16905 3.96066 6.30554C3.8882 6.41399 3.82438 6.57796 3.78828 6.93283C3.75091 7.30023 3.75 7.78216 3.75 8.5V21.25H6.25V14.75H5.5C5.08579 14.75 4.75 14.4142 4.75 14C4.75 13.5858 5.08579 13.25 5.5 13.25H6.25V11.75H5.5C5.08579 11.75 4.75 11.4142 4.75 11C4.75 10.5858 5.08579 10.25 5.5 10.25H6.25V8.75H5.5C5.08579 8.75 4.75 8.41422 4.75 8C4.75 7.58579 5.08579 7.25 5.5 7.25H6.25L6.25 5.94801C6.25 5.88122 6.24999 5.81525 6.25003 5.75011ZM7.75 21.25H11.25V19C11.25 18.5858 11.5858 18.25 12 18.25C12.4142 18.25 12.75 18.5858 12.75 19V21.25H16.25V6C16.25 5.03599 16.2484 4.38843 16.1835 3.90539C16.1214 3.44393 16.0142 3.24644 15.8839 3.11612C15.7536 2.9858 15.5561 2.87858 15.0946 2.81654C14.6116 2.7516 13.964 2.75 13 2.75H11C10.036 2.75 9.38843 2.7516 8.90539 2.81654C8.44393 2.87858 8.24643 2.9858 8.11612 3.11612C7.9858 3.24644 7.87858 3.44393 7.81654 3.90539C7.75159 4.38843 7.75 5.03599 7.75 6V21.25ZM17.75 8.75H18.5C18.9142 8.75 19.25 8.41422 19.25 8C19.25 7.58579 18.9142 7.25 18.5 7.25H17.75L17.75 5.94801C17.75 5.88122 17.75 5.81525 17.75 5.75011C18.3326 5.75075 18.7441 5.75542 19.0672 5.78828C19.422 5.82438 19.586 5.8882 19.6945 5.96067C19.8309 6.05186 19.9481 6.16905 20.0393 6.30554C20.1118 6.41399 20.1756 6.57796 20.2117 6.93283C20.2491 7.30023 20.25 7.78216 20.25 8.5V21.25H17.75V14.75H18.5C18.9142 14.75 19.25 14.4142 19.25 14C19.25 13.5858 18.9142 13.25 18.5 13.25H17.75V11.75H18.5C18.9142 11.75 19.25 11.4142 19.25 11C19.25 10.5858 18.9142 10.25 18.5 10.25H17.75V8.75ZM12 4.25C12.4142 4.25 12.75 4.58579 12.75 5V6.25H14C14.4142 6.25 14.75 6.58579 14.75 7C14.75 7.41422 14.4142 7.75 14 7.75H12.75V9C12.75 9.41422 12.4142 9.75 12 9.75C11.5858 9.75 11.25 9.41422 11.25 9V7.75H10C9.58579 7.75 9.25 7.41422 9.25 7C9.25 6.58579 9.58579 6.25 10 6.25H11.25V5C11.25 4.58579 11.5858 4.25 12 4.25ZM9.25 12C9.25 11.5858 9.58579 11.25 10 11.25H14C14.4142 11.25 14.75 11.5858 14.75 12C14.75 12.4142 14.4142 12.75 14 12.75H10C9.58579 12.75 9.25 12.4142 9.25 12ZM9.25 15C9.25 14.5858 9.58579 14.25 10 14.25H14C14.4142 14.25 14.75 14.5858 14.75 15C14.75 15.4142 14.4142 15.75 14 15.75H10C9.58579 15.75 9.25 15.4142 9.25 15Z" fill="currentColor"/>',
+  trash:'<path fill-rule="evenodd" clip-rule="evenodd" d="M15.0924 1.25H8.90788C7.33861 1.24998 6.08032 1.24996 5.10577 1.38767C4.09802 1.53007 3.25979 1.83575 2.64218 2.55292C2.02457 3.27008 1.84661 4.14438 1.85528 5.1621C1.86366 6.1463 2.05033 7.39066 2.28314 8.94256L3.49937 17.0508C3.67587 18.2275 3.81878 19.1804 4.02849 19.9262C4.24683 20.7027 4.56045 21.3453 5.13662 21.8415C5.71279 22.3377 6.39485 22.5525 7.19513 22.6533C7.96377 22.75 8.92732 22.75 10.1173 22.75H13.883C15.073 22.75 16.0365 22.75 16.8052 22.6533C17.6054 22.5525 18.2875 22.3377 18.8637 21.8415C19.4398 21.3453 19.7535 20.7027 19.9718 19.9262C20.1815 19.1805 20.3244 18.2276 20.5009 17.0509L21.7172 8.94253C21.95 7.39065 22.1366 6.14629 22.145 5.1621C22.1537 4.14438 21.9757 3.27008 21.3581 2.55292C20.7405 1.83575 19.9023 1.53007 18.8945 1.38767C17.92 1.24996 16.6617 1.24998 15.0924 1.25ZM3.77879 3.53175C4.05882 3.20658 4.47927 2.9911 5.31565 2.87292C6.17295 2.75177 7.32479 2.75 8.96727 2.75H15.033C16.6755 2.75 17.8273 2.75177 18.6846 2.87292C19.521 2.9911 19.9415 3.20658 20.2215 3.53175C20.5015 3.85692 20.6523 4.30468 20.6451 5.14933C20.6448 5.18248 20.6443 5.21604 20.6435 5.25H20.5005C20.5003 5.25 20.5007 5.25 20.5005 5.25H7.00045C7.00025 5.25 7.00065 5.25 7.00045 5.25H3.35678C3.35603 5.21603 3.35551 5.18248 3.35522 5.14933C3.34803 4.30468 3.49876 3.85692 3.77879 3.53175ZM5.18949 6.75H3.48546C3.53687 7.15852 3.60161 7.61096 3.67631 8.1155L3.75015 8.18934L5.18949 6.75ZM4.05013 10.6106L4.6686 14.7338L6.37599 12.9365L4.05013 10.6106ZM5.15659 17.9593C5.17275 18.0594 5.18872 18.1563 5.20463 18.25H5.39887L5.15659 17.9593ZM6.99527 19.75C6.99879 19.75 7.00232 19.75 7.00584 19.75H13.9972C13.9991 19.75 14.0009 19.75 14.0027 19.75H18.4577C18.299 20.2287 18.1176 20.5044 17.8848 20.7049C17.6171 20.9355 17.261 21.0841 16.6178 21.165C15.9538 21.2486 15.0849 21.25 13.833 21.25H10.1673C8.91538 21.25 8.04651 21.2486 7.38247 21.165C6.73934 21.0841 6.38321 20.9355 6.11546 20.7049C5.88266 20.5044 5.70127 20.2287 5.54256 19.75H6.99527ZM15.7131 18.25H18.1895L16.9018 16.9623L15.7131 18.25ZM19.0007 16.9399C19.0087 16.8869 19.0168 16.8332 19.0249 16.7788L19.404 14.2515L17.92 15.8592L19.0007 16.9399ZM19.856 11.2381L20.2249 8.77879C20.3197 8.14673 20.4033 7.5881 20.4704 7.09045L18.16 9.40079L19.856 11.2381ZM18.6895 6.75H15.7131L17.1418 8.2977L18.6895 6.75ZM12.2532 6.75H8.81081L10.5761 8.51531L12.2532 6.75ZM11.6895 18.25H9.31081L10.5002 17.0607L11.6895 18.25ZM7.40946 11.8486L4.81081 9.25L7.00015 7.06066L9.54266 9.60317L7.40946 11.8486ZM8.47047 12.9097L10.6037 10.6642L12.6895 12.75L10.5002 14.9393L8.47047 12.9097ZM11.5608 16L13.7502 13.8107L15.8403 15.9008L13.7385 18.1777L11.5608 16ZM14.8108 12.75L16.8585 14.7977L18.9795 12.5L17.0985 10.4623L14.8108 12.75ZM13.7502 11.6893L16.0803 9.35921L13.9923 7.09721L11.6371 9.57632L13.7502 11.6893ZM7.437 13.9975L9.43949 16L7.27782 18.1617L5.50363 16.0326L7.437 13.9975Z" fill="currentColor"/>',
+  pencil:'<path d="M11 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22H15C20 22 22 20 22 15V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.04 3.02001L8.16 10.9C7.86 11.2 7.56 11.79 7.5 12.22L7.07 15.23C6.91 16.32 7.68 17.08 8.77 16.93L11.78 16.5C12.2 16.44 12.79 16.14 13.1 15.84L20.98 7.96001C22.34 6.60001 22.98 5.02001 20.98 3.02001C18.98 1.02001 17.4 1.66001 16.04 3.02001Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.91 4.1499C15.58 6.5399 17.45 8.4099 19.85 9.0899" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>',
+  gauge:'<g clip-path="url(#clip0_17007_17008)"> <path d="M12 5.75C8.54822 5.75 5.75 8.54822 5.75 12C5.75 13.749 6.46742 15.3291 7.62594 16.4643C7.92179 16.7542 7.92661 17.2291 7.6367 17.5249C7.34679 17.8208 6.87194 17.8256 6.57609 17.5357C5.14152 16.1299 4.25 14.1684 4.25 12C4.25 7.71979 7.71979 4.25 12 4.25C12.3752 4.25 12.7445 4.27671 13.1062 4.32845C13.5162 4.3871 13.8011 4.76705 13.7424 5.17709C13.6838 5.58713 13.3038 5.87198 12.8938 5.81333C12.6023 5.77163 12.3039 5.75 12 5.75Z" fill="currentColor"/> <path d="M18.8229 10.2576C19.233 10.1989 19.6129 10.4838 19.6716 10.8938C19.7233 11.2555 19.75 11.6248 19.75 12C19.75 14.1684 18.8585 16.1299 17.4239 17.5357C17.1281 17.8256 16.6532 17.8208 16.3633 17.5249C16.0734 17.2291 16.0782 16.7542 16.3741 16.4643C17.5326 15.3291 18.25 13.749 18.25 12C18.25 11.6961 18.2284 11.3977 18.1867 11.1062C18.128 10.6962 18.4129 10.3162 18.8229 10.2576Z" fill="currentColor"/> <path fill-rule="evenodd" clip-rule="evenodd" d="M17.4932 7.62949L17.6393 7.39181C17.8204 7.09614 17.7752 6.71481 17.5301 6.46965C17.2849 6.22449 16.9036 6.17939 16.6079 6.36049L16.3702 6.50653C16.2189 6.59969 16.0021 6.73335 15.7403 6.89554C15.2167 7.21984 14.5119 7.65865 13.7884 8.11612C13.0656 8.57307 12.3205 9.05089 11.7175 9.45258C11.4164 9.65317 11.1463 9.8377 10.9303 9.99279C10.7304 10.1364 10.5317 10.2863 10.4089 10.4091C9.53021 11.2878 9.53021 12.7124 10.4089 13.5911C11.2876 14.4698 12.7122 14.4698 13.5909 13.5911C13.7137 13.4682 13.8636 13.2696 14.0072 13.0696C14.1623 12.8536 14.3468 12.5835 14.5474 12.2824C14.949 11.6794 15.4268 10.9342 15.8838 10.2115C16.3412 9.48789 16.78 8.78311 17.1043 8.25949C17.2664 7.9976 17.4001 7.78084 17.4932 7.62949ZM14.6159 9.40994L14.6604 9.33944L14.59 9.38397C13.8708 9.83866 13.1374 10.3091 12.5491 10.701C12.2546 10.8972 12.0009 11.0707 11.8053 11.2112C11.7074 11.2814 11.6279 11.3407 11.5669 11.3886C11.5366 11.4124 11.513 11.4317 11.4953 11.4468C11.4775 11.462 11.4695 11.4698 11.4695 11.4698C11.1767 11.7627 11.1767 12.2375 11.4695 12.5304C11.7624 12.8233 12.2373 12.8233 12.5302 12.5304C12.5302 12.5304 12.538 12.5224 12.5531 12.5047C12.5682 12.487 12.5876 12.4634 12.6114 12.433C12.6592 12.3721 12.7185 12.2926 12.7888 12.1947C12.9292 11.9991 13.1028 11.7454 13.299 11.4509C13.6908 10.8626 14.1612 10.1291 14.6159 9.40994Z" fill="currentColor"/> <path fill-rule="evenodd" clip-rule="evenodd" d="M0.25 12C0.25 5.51065 5.51065 0.25 12 0.25C18.4893 0.25 23.75 5.51065 23.75 12C23.75 18.4893 18.4893 23.75 12 23.75C5.51065 23.75 0.25 18.4893 0.25 12ZM12 1.75C6.33908 1.75 1.75 6.33908 1.75 12C1.75 17.6609 6.33908 22.25 12 22.25C17.6609 22.25 22.25 17.6609 22.25 12C22.25 6.33908 17.6609 1.75 12 1.75Z" fill="currentColor"/> </g> <defs> <clipPath id="clip0_17007_17008"> <rect width="24" height="24" fill="currentColor"/> </clipPath> </defs>',
+  shield:'<path fill-rule="evenodd" clip-rule="evenodd" d="M8.72339 2.05112C10.1673 1.55658 11.0625 1.25 12 1.25C12.9375 1.25 13.8327 1.55658 15.2766 2.05112L16.004 2.30013C17.4854 2.8072 18.6286 3.19852 19.447 3.53099C19.8592 3.69846 20.2136 3.86067 20.499 4.02641C20.7737 4.1859 21.0492 4.38484 21.2364 4.65154C21.4214 4.91516 21.5171 5.23924 21.5772 5.55122C21.6397 5.87556 21.6774 6.26464 21.7017 6.71136C21.75 7.5984 21.75 8.81361 21.75 10.3898V11.9914C21.75 18.0924 17.142 21.0175 14.4017 22.2146L14.3746 22.2264C14.0348 22.3749 13.7154 22.5144 13.3484 22.6084C12.9609 22.7076 12.5493 22.75 12 22.75C11.4507 22.75 11.0391 22.7076 10.6516 22.6084C10.2846 22.5144 9.96523 22.3749 9.62543 22.2264L9.59833 22.2146C6.85803 21.0175 2.25 18.0924 2.25 11.9914V10.3899C2.25 8.81378 2.25 7.59836 2.2983 6.71136C2.32262 6.26464 2.36031 5.87556 2.42281 5.55122C2.48293 5.23924 2.5786 4.91516 2.76363 4.65154C2.95082 4.38484 3.22634 4.1859 3.50098 4.02641C3.78637 3.86067 4.14078 3.69846 4.55303 3.53099C5.3714 3.19852 6.51462 2.8072 7.99595 2.30014L8.72339 2.05112ZM11.25 2.83792C10.7525 2.94604 10.1152 3.16015 9.08062 3.5143L8.5078 3.71037C6.99521 4.22814 5.8921 4.60605 5.11759 4.92069C4.731 5.07774 4.4509 5.20935 4.25429 5.32353C4.15722 5.3799 4.09034 5.42642 4.04567 5.46273C4.0078 5.49351 3.99336 5.51095 3.99129 5.51349C3.98936 5.51663 3.97693 5.5374 3.95943 5.58654C3.93944 5.64265 3.91729 5.72309 3.89571 5.83506C3.85204 6.06169 3.81894 6.37301 3.79608 6.79292C3.75473 7.55226 3.75048 8.58298 3.75005 9.95941L11.25 7.45943V2.83792ZM12.75 2.83792V7.45943L20.25 9.95941C20.2495 8.58298 20.2453 7.55226 20.2039 6.79292C20.1811 6.37301 20.148 6.06169 20.1043 5.83506C20.0827 5.72309 20.0606 5.64265 20.0406 5.58654C20.0231 5.53737 20.0106 5.5166 20.0087 5.51348C20.0066 5.51092 19.9922 5.49349 19.9543 5.46273C19.9097 5.42642 19.8428 5.3799 19.7457 5.32353C19.5491 5.20935 19.269 5.07774 18.8824 4.92069C18.1079 4.60605 17.0048 4.22814 15.4922 3.71037L14.9194 3.5143C13.8848 3.16015 13.2475 2.94604 12.75 2.83792ZM11.25 9.04057L3.75 11.5406V11.9914C3.75 17.1665 7.6199 19.7135 10.1988 20.84C10.5703 21.0023 10.7848 21.0941 11.0236 21.1552C11.0931 21.173 11.1672 21.1888 11.25 21.2021V9.04057ZM12.75 21.2021V9.04057L20.25 11.5406V11.9914C20.25 17.1665 16.3801 19.7135 13.8012 20.84C13.4297 21.0023 13.2152 21.0941 12.9764 21.1552C12.9069 21.173 12.8328 21.1888 12.75 21.2021Z" fill="currentColor"/>',
+  inbox:'<path fill-rule="evenodd" clip-rule="evenodd" d="M11.9426 1.25H12.0574C14.3658 1.24999 16.1748 1.24998 17.5863 1.43975C19.031 1.63399 20.1711 2.03933 21.0659 2.93414C21.9607 3.82895 22.366 4.96897 22.5603 6.41371C22.75 7.82519 22.75 9.63423 22.75 11.9426V12.0574C22.75 12.3718 22.75 12.6769 22.7495 12.9731C22.7498 12.982 22.75 12.991 22.75 13C22.75 13.0099 22.7498 13.0197 22.7494 13.0296C22.746 14.8816 22.7225 16.3793 22.5603 17.5863C22.366 19.031 21.9607 20.1711 21.0659 21.0659C20.1711 21.9607 19.031 22.366 17.5863 22.5603C16.1748 22.75 14.3658 22.75 12.0574 22.75H11.9426C9.63423 22.75 7.82519 22.75 6.41371 22.5603C4.96897 22.366 3.82895 21.9607 2.93414 21.0659C2.03933 20.1711 1.63399 19.031 1.43975 17.5863C1.27747 16.3793 1.25397 14.8816 1.25057 13.0295C1.25019 13.0197 1.25 13.0099 1.25 13C1.25 12.991 1.25016 12.982 1.25047 12.9731C1.25 12.6769 1.25 12.3718 1.25 12.0574V11.9426C1.24999 9.63423 1.24998 7.82519 1.43975 6.41371C1.63399 4.96897 2.03933 3.82895 2.93414 2.93414C3.82895 2.03933 4.96897 1.63399 6.41371 1.43975C7.82519 1.24998 9.63423 1.24999 11.9426 1.25ZM2.7535 13.75C2.76294 15.2526 2.79778 16.43 2.92637 17.3864C3.09825 18.6648 3.42514 19.4355 3.9948 20.0052C4.56445 20.5749 5.33517 20.9018 6.61358 21.0736C7.91356 21.2484 9.62177 21.25 12 21.25C14.3782 21.25 16.0864 21.2484 17.3864 21.0736C18.6648 20.9018 19.4355 20.5749 20.0052 20.0052C20.5749 19.4355 20.9018 18.6648 21.0736 17.3864C21.2022 16.43 21.2371 15.2526 21.2465 13.75H18.8397C17.8659 13.75 17.6113 13.766 17.3975 13.8644C17.1838 13.9627 17.0059 14.1456 16.3722 14.8849L15.7667 15.5913C15.7372 15.6257 15.7082 15.6597 15.6794 15.6933C15.1773 16.2803 14.7796 16.7453 14.2292 16.9984C13.6789 17.2515 13.067 17.2509 12.2945 17.2501C12.2503 17.25 12.2056 17.25 12.1603 17.25H11.8397C11.7944 17.25 11.7497 17.25 11.7055 17.2501C10.933 17.2509 10.3211 17.2515 9.77076 16.9984C9.22039 16.7453 8.82271 16.2803 8.32059 15.6933C8.29184 15.6597 8.26275 15.6257 8.23327 15.5913L7.62784 14.8849C6.9941 14.1456 6.81622 13.9627 6.60245 13.8644C6.38869 13.766 6.13407 13.75 5.16026 13.75H2.7535ZM21.25 12.25H18.8397C18.7944 12.25 18.7497 12.25 18.7055 12.2499C17.933 12.2491 17.3211 12.2485 16.7708 12.5016C16.2204 12.7547 15.8227 13.2197 15.3206 13.8067C15.2918 13.8403 15.2628 13.8743 15.2333 13.9087L14.6278 14.6151C13.9941 15.3544 13.8162 15.5373 13.6025 15.6356C13.3887 15.734 13.1341 15.75 12.1603 15.75H11.8397C10.8659 15.75 10.6113 15.734 10.3975 15.6356C10.1838 15.5373 10.0059 15.3544 9.37216 14.6151L8.76673 13.9087C8.73725 13.8743 8.70816 13.8403 8.67941 13.8067C8.17729 13.2197 7.77961 12.7547 7.22924 12.5016C6.67886 12.2485 6.06705 12.2491 5.29454 12.2499C5.25031 12.25 5.20556 12.25 5.16026 12.25H2.75001C2.75 12.1675 2.75 12.0842 2.75 12C2.75 9.62177 2.75159 7.91356 2.92637 6.61358C3.09825 5.33517 3.42514 4.56445 3.9948 3.9948C4.56445 3.42514 5.33517 3.09825 6.61358 2.92637C7.91356 2.75159 9.62177 2.75 12 2.75C14.3782 2.75 16.0864 2.75159 17.3864 2.92637C18.6648 3.09825 19.4355 3.42514 20.0052 3.9948C20.5749 4.56445 20.9018 5.33517 21.0736 6.61358C21.2484 7.91356 21.25 9.62177 21.25 12C21.25 12.0842 21.25 12.1675 21.25 12.25Z" fill="currentColor"/>',
+  trophy:'<path fill-rule="evenodd" clip-rule="evenodd" d="M4.36683 3.66031C4.27379 2.35785 5.30534 1.25 6.61111 1.25H17.3892C18.695 1.25 19.7265 2.35785 19.6335 3.66031L19.6271 3.75H20.9998C22.0195 3.75 22.8232 4.61829 22.7446 5.63493L22.4977 8.82769C22.3314 10.9779 20.5846 12.6519 18.4498 12.7458C17.3758 14.9153 15.2449 16.4522 12.7502 16.7113V18.25H13.919C14.8875 18.25 15.7473 18.8697 16.0535 19.7885L16.5407 21.25H17.0002C17.4144 21.25 17.7502 21.5858 17.7502 22C17.7502 22.4142 17.4144 22.75 17.0002 22.75H7.00015C6.58594 22.75 6.25015 22.4142 6.25015 22C6.25015 21.5858 6.58594 21.25 7.00015 21.25H7.45959L7.94675 19.7885C8.253 18.8697 9.11282 18.25 10.0813 18.25H11.2502V16.7113C8.75545 16.4522 6.62448 14.9153 5.55054 12.7458C3.41567 12.6519 1.66887 10.9779 1.50259 8.82769L1.25568 5.63493C1.17706 4.61829 1.98079 3.75 3.00047 3.75H4.37323L4.36683 3.66031ZM9.04072 21.25H14.9596L14.6305 20.2628C14.5284 19.9566 14.2418 19.75 13.919 19.75H10.0813C9.75847 19.75 9.47186 19.9566 9.36978 20.2628L9.04072 21.25ZM4.82457 10.0687C4.8508 10.4359 4.90428 10.7951 4.98296 11.1443C3.90361 10.8357 3.08868 9.883 2.99812 8.71204L2.75122 5.51928C2.73998 5.37404 2.8548 5.25 3.00047 5.25H4.48038L4.82457 10.0687ZM19.0173 11.1443C20.0967 10.8357 20.9116 9.883 21.0022 8.71204L21.2491 5.51928C21.2603 5.37404 21.1455 5.25 20.9998 5.25H19.5199L19.1757 10.0687C19.1495 10.4359 19.096 10.7951 19.0173 11.1443ZM6.61111 2.75C6.17585 2.75 5.832 3.11928 5.86301 3.55343L6.32076 9.96181C6.53359 12.9414 9.01293 15.25 12.0001 15.25C14.9874 15.25 17.4667 12.9414 17.6795 9.96181L18.1373 3.55344C18.1683 3.11928 17.8244 2.75 17.3892 2.75H6.61111Z" fill="currentColor"/>',
+  dot:'<circle cx="12" cy="12" r="6.5" fill="currentColor"/>',
+  bandage:'<path d="M9.34458 8.23084C9.03703 7.92329 8.53839 7.92329 8.23084 8.23084C7.92329 8.53839 7.92329 9.03703 8.23084 9.34458C8.53839 9.65213 9.03703 9.65213 9.34458 9.34458C9.65213 9.03703 9.65213 8.53839 9.34458 8.23084Z" fill="currentColor"/><path d="M12.1289 9.15895C11.8214 8.8514 11.3227 8.8514 11.0152 9.15895C10.7076 9.4665 10.7076 9.96514 11.0152 10.2727C11.3227 10.5802 11.8214 10.5802 12.1289 10.2727C12.4365 9.96514 12.4365 9.4665 12.1289 9.15895Z" fill="currentColor"/><path d="M15.8414 12.8714C16.1489 13.179 16.1489 13.6776 15.8414 13.9852C15.5338 14.2927 15.0352 14.2927 14.7277 13.9852C14.4201 13.6776 14.4201 13.179 14.7277 12.8714C15.0352 12.5639 15.5338 12.5639 15.8414 12.8714Z" fill="currentColor"/><path d="M16.7695 16.7695C17.0771 16.462 17.0771 15.9633 16.7695 15.6558C16.462 15.3482 15.9633 15.3482 15.6558 15.6558C15.3482 15.9633 15.3482 16.462 15.6558 16.7695C15.9633 17.0771 16.462 17.0771 16.7695 16.7695Z" fill="currentColor"/><path d="M13.057 13.057C13.3646 12.7495 13.3646 12.2509 13.057 11.9433C12.7495 11.6358 12.2509 11.6358 11.9433 11.9433C11.6358 12.2509 11.6358 12.7495 11.9433 13.057C12.2509 13.3646 12.7495 13.3646 13.057 13.057Z" fill="currentColor"/><path d="M13.9852 14.7277C14.2927 15.0352 14.2927 15.5338 13.9852 15.8414C13.6776 16.1489 13.179 16.1489 12.8714 15.8414C12.5639 15.5338 12.5639 15.0352 12.8714 14.7277C13.179 14.4201 13.6776 14.4201 13.9852 14.7277Z" fill="currentColor"/><path d="M9.15895 11.0152C9.4665 10.7076 9.96514 10.7076 10.2727 11.0152C10.5802 11.3227 10.5802 11.8214 10.2727 12.1289C9.96514 12.4365 9.4665 12.4365 9.15895 12.1289C8.8514 11.8214 8.8514 11.3227 9.15895 11.0152Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M14.3986 2.68287C16.3091 0.772375 19.4066 0.772376 21.3171 2.68287C23.2276 4.59337 23.2276 7.6909 21.3171 9.6014L18.9185 12L21.3171 14.3986C23.2276 16.3091 23.2276 19.4066 21.3171 21.3171C19.4066 23.2276 16.3091 23.2276 14.3986 21.3171L12 18.9185L9.6014 21.3171C7.6909 23.2276 4.59337 23.2276 2.68287 21.3171C0.772376 19.4066 0.772376 16.3091 2.68287 14.3986L5.08148 12L2.68287 9.6014C0.772376 7.6909 0.772375 4.59337 2.68287 2.68287C4.59337 0.772376 7.6909 0.772376 9.6014 2.68287L12 5.08148L14.3986 2.68287ZM20.2565 15.4593C21.5812 16.784 21.5812 18.9318 20.2565 20.2565C18.9318 21.5812 16.784 21.5812 15.4593 20.2565L3.74353 8.54074C2.41882 7.21603 2.41882 5.06824 3.74353 3.74353C5.06824 2.41882 7.21603 2.41882 8.54074 3.74353L20.2565 15.4593ZM20.2565 8.54074L17.8579 10.9393L13.0607 6.14214L15.4593 3.74353C16.784 2.41882 18.9318 2.41882 20.2565 3.74353C21.5812 5.06825 21.5812 7.21603 20.2565 8.54074ZM3.74353 15.4593L6.14214 13.0607L10.9393 17.8579L8.54074 20.2565C7.21603 21.5812 5.06825 21.5812 3.74353 20.2565C2.41882 18.9318 2.41882 16.784 3.74353 15.4593Z" fill="currentColor"/>'
+};
+function reIcon(name,{size=16,color,cls=''}={}){
+  const p=REICON_PATHS[name]; if(!p) return '';
+  const style=`vertical-align:middle;flex-shrink:0${color?`;color:${color}`:''}`;
+  return `<svg class="reicon${cls?' '+cls:''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="${style}" aria-hidden="true">${p}</svg>`;
+}
+// Hydrate markup: any <span data-reicon="name" data-rsize="18"> becomes an inline reicon SVG.
+// Works for static markup AND content injected later (a MutationObserver catches added nodes).
+function hydrateReicons(root){
+  root=root||document;
+  const fill=el=>{
+    const name=el.getAttribute('data-reicon');
+    const size=+el.getAttribute('data-rsize')||16;
+    if(REICON_PATHS[name]) el.innerHTML=reIcon(name,{size});
+    el.setAttribute('data-reiconed','');
+  };
+  if(root.nodeType===1 && root.matches && root.matches('[data-reicon]:not([data-reiconed])')) fill(root);
+  if(root.querySelectorAll) root.querySelectorAll('[data-reicon]:not([data-reiconed])').forEach(fill);
+}
+(function(){
+  const run=()=>hydrateReicons();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();
+  const startObs=()=>{
+    new MutationObserver(muts=>{
+      for(const m of muts) for(const n of m.addedNodes){
+        if(n.nodeType!==1) continue;
+        if((n.matches&&n.matches('[data-reicon]:not([data-reiconed])')) || (n.querySelector&&n.querySelector('[data-reicon]:not([data-reiconed])'))) hydrateReicons(n);
+      }
+    }).observe(document.body,{childList:true,subtree:true});
+  };
+  if(document.body) startObs(); else document.addEventListener('DOMContentLoaded',startObs);
+})();
+// leading status glyph → themed reicon SVG (auto-upgrades existing toast call sites)
+const _TOAST_GLYPH={'✓':['check','var(--rb)'],'✅':['check','var(--rb)'],'⚠':['alert','var(--qb)'],'✕':['x','var(--qb)'],'❌':['x','var(--qb)']};
 function toast(msg, undoFn=null){
   const stack=document.getElementById('toast-stack');
   if(!stack) return;
@@ -9858,7 +9934,14 @@ function toast(msg, undoFn=null){
   for(let i=0;i<=live.length-3;i++) _toastDismiss(live[i]);
   const t=document.createElement('div');
   t.className='toast';
-  t.innerHTML=`<span>${msg}</span>${undoFn?`<button class="toast-undo">UNDO</button>`:''}`;
+  let icon='';
+  const lead=[...String(msg)][0];
+  if(_TOAST_GLYPH[lead]){
+    const [nm,col]=_TOAST_GLYPH[lead];
+    icon=reIcon(nm,{size:15,color:col});
+    msg=String(msg).slice(lead.length).replace(/^\s+/,'');
+  }
+  t.innerHTML=`${icon}<span>${msg}</span>${undoFn?`<button class="toast-undo">UNDO</button>`:''}`;
   if(undoFn){
     const btn=t.querySelector('.toast-undo');
     if(btn) btn.onclick=()=>{ undoFn(); _toastDismiss(t); };
@@ -10013,7 +10096,7 @@ function clearImportRankings() {
   const dz = document.getElementById('import-dropzone');
   if (dz) {
     dz.style.borderColor = 'var(--border2)';
-    dz.innerHTML = '<div style="font-size:20px;margin-bottom:4px">📋</div>'
+    dz.innerHTML = '<div style="font-size:20px;margin-bottom:4px"><span data-reicon="clipboard" data-rsize="20"></span></div>'
       + '<div style="font-size:12px;color:var(--text2);font-weight:600">Drop CSV or click to browse</div>'
       + '<div style="font-size:10px;color:var(--muted);margin-top:3px">CSV needs: Player Name, and a Rank column</div>'
       + '<input type="file" id="import-file-input" accept=".csv" style="display:none" onchange="handleImportFile(this.files[0])">';
@@ -11118,7 +11201,7 @@ async function renderOverview() {
   const _contentionHtml = `<div style="background:linear-gradient(135deg,rgba(226,58,78,.10),rgba(20,30,54,.5));border:1px solid rgba(226,58,78,.25);border-radius:16px;padding:20px;margin-bottom:16px">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
       <div><div class="cc-lab">Contention Window</div><div style="font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:3px;color:var(--text)">${windowName}</div></div>
-      ${playoffOdds!=null?`<span title="${_oddsWhy}" style="font-family:var(--font-mono);font-size:11px;font-weight:700;padding:6px 12px;border-radius:9999px;background:rgba(226,58,78,.16);color:#ff5a6e;border:1px solid rgba(226,58,78,.4)">🏆 ${playoffOdds}% playoff odds</span>`:''}
+      ${playoffOdds!=null?`<span title="${_oddsWhy}" style="font-family:var(--font-mono);font-size:11px;font-weight:700;padding:6px 12px;border-radius:9999px;background:rgba(226,58,78,.16);color:#ff5a6e;border:1px solid rgba(226,58,78,.4)"><span data-reicon="trophy" data-rsize="13"></span> ${playoffOdds}% playoff odds</span>`:''}
     </div>
     <div style="font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:16px;max-width:560px">${windowSub}.${_oddsWhy?` ${_oddsWhy}.`:''}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
@@ -11242,9 +11325,9 @@ async function renderOverview() {
       <div class="mth-snapshot">
         <div class="mth-snap-title">TEAM SNAPSHOT</div>
         <div class="mth-snap-grid">
-          <div class="mth-snap-item"><span class="mth-snap-k">👤 Avg Age</span><span class="mth-snap-v">${avgAge?avgAge.toFixed(1)+' yrs':'—'}</span></div>
+          <div class="mth-snap-item"><span class="mth-snap-k"><span data-reicon="user" data-rsize="13"></span> Avg Age</span><span class="mth-snap-v">${avgAge?avgAge.toFixed(1)+' yrs':'—'}</span></div>
           <div class="mth-snap-item glowc glow-gold"><span class="mth-snap-k">↗ Dynasty Value</span><span class="mth-snap-v"><span class="vf-count" data-count="${totalVal}">${totalVal.toLocaleString()}</span> <span class="mth-snap-rank">(#${powerRank||'—'}/${totalTeams})</span></span></div>
-          <div class="mth-snap-item glowc glow-green"><span class="mth-snap-k">🏆 Win-Now Value</span><span class="mth-snap-v">${_winNowVal?`<span class="vf-count" data-count="${_winNowVal}">${_winNowVal.toLocaleString()}</span>`:'—'} <span class="mth-snap-rank">(#${_winNowRank||'—'}/${totalTeams})</span></span></div>
+          <div class="mth-snap-item glowc glow-green"><span class="mth-snap-k"><span data-reicon="trophy" data-rsize="13"></span> Win-Now Value</span><span class="mth-snap-v">${_winNowVal?`<span class="vf-count" data-count="${_winNowVal}">${_winNowVal.toLocaleString()}</span>`:'—'} <span class="mth-snap-rank">(#${_winNowRank||'—'}/${totalTeams})</span></span></div>
           <div class="mth-snap-item glowc glow-sky"><span class="mth-snap-k">⭐ Future Picks</span><span class="mth-snap-v">${_picksCount} picks</span></div>
         </div>
       </div>
@@ -11342,7 +11425,7 @@ async function renderOverview() {
     <div style="background:linear-gradient(135deg,var(--s1),var(--s3));border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
       <div style="font-size:10px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;font-family:var(--font-mono);color:#bec6e0;margin-bottom:16px">VAULT STATUS</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px">
-        <div style="width:56px;height:56px;border-radius:50%;background:rgba(204,0,60,0.18);border:1px solid rgba(204,0,60,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px">🔓</div>
+        <div style="width:56px;height:56px;border-radius:50%;background:rgba(204,0,60,0.18);border:1px solid rgba(204,0,60,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:26px"><span data-reicon="lock" data-rsize="24"></span></div>
         <div>
           <div style="font-size:26px;font-weight:800;color:var(--text);letter-spacing:-0.02em;line-height:1">SECURED</div>
           <div style="font-size:13px;color:var(--muted);margin-top:4px">Waiver Priority: #${powerRank||3}</div>
@@ -11457,7 +11540,7 @@ async function renderOverview() {
     <div style="position:relative;padding:1px;border-radius:20px;background:linear-gradient(135deg,rgba(190,198,224,0.28),transparent 60%)">
       <div style="background:var(--s3);border-radius:19px;padding:28px;height:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,0.05)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-          <span style="font-size:20px">💡</span>
+          <span style="font-size:20px"><span data-reicon="bulb" data-rsize="20"></span></span>
           <span style="font-size:9px;font-weight:700;letter-spacing:0.14em;font-family:var(--font-mono);text-transform:uppercase;color:#bec6e0">VAULT RECOMMENDATION</span>
         </div>
         <p style="font-size:14px;font-style:italic;color:var(--text2);line-height:1.8;margin:0">"${suggestedDir}"</p>
@@ -12519,7 +12602,7 @@ async function ldRescan() {
       const isLive = ['drafting','in_progress'].includes(d.status);
       const isPaused = d.status === 'paused';
       const isUpcoming = d.status === 'pre_draft';
-      const statusLabel = isLive ? '🟢 LIVE' : isPaused ? '⏸ PAUSED' : isUpcoming ? '⏳ UPCOMING' : '✓ DONE';
+      const statusLabel = isLive ? reIcon('dot',{size:8,color:'var(--rb)'})+' LIVE' : isPaused ? '⏸ PAUSED' : isUpcoming ? '⏳ UPCOMING' : '✓ DONE';
       const statusCls = isLive||isPaused ? 'ld-status-live' : isUpcoming ? 'ld-status-upcoming' : 'ld-status-done';
       const rounds = d.settings?.rounds || '?';
       const teams = d.settings?.teams || '?';
@@ -13037,7 +13120,7 @@ async function renderTransactions() {
   const _txLg = myTeamsData.find(l => l.league_id === (teamsLeagueId || window._currentLeagueId));
   if (_txLg && vpPlat(_txLg)==='espn'){
     el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted);max-width:440px;margin:0 auto">
-      <div style="font-size:30px;margin-bottom:12px">📋</div>
+      <div style="font-size:30px;margin-bottom:12px"><span data-reicon="clipboard" data-rsize="26"></span></div>
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">ESPN transaction history isn't available yet</div>
       <div style="font-size:13px;line-height:1.6">Rosters, standings, power rankings and trades all run on live ESPN data. The transaction feed needs ESPN's activity endpoint with a player-ID map, that's the next piece to wire.</div>
     </div>`;
@@ -13135,7 +13218,7 @@ async function renderTransactions() {
 
       return `<div class="tx-card" id="tx-${tx.transaction_id}">
         <div class="tx-header">
-          <span class="tx-type trade">🔄 TRADE</span>
+          <span class="tx-type trade"><span data-reicon="refresh" data-rsize="11"></span> TRADE</span>
           <span class="tx-date">${date}</span>
         </div>
         <div class="tx-sides">
@@ -13807,7 +13890,7 @@ function renderMovers() {
     .slice(0, 30);
 
   if (!withTrend.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px"><div style="font-size:28px;margin-bottom:12px">📈</div><div style="font-weight:600;color:var(--text);margin-bottom:8px">No trend data yet</div><p style="font-size:13px;line-height:1.6">Trend data loads from RosterAudit. Make sure RA values are selected.</p></div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px"><div style="font-size:28px;margin-bottom:12px"><span data-reicon="trendup" data-rsize="24"></span></div><div style="font-weight:600;color:var(--text);margin-bottom:8px">No trend data yet</div><p style="font-size:13px;line-height:1.6">Trend data loads from RosterAudit. Make sure RA values are selected.</p></div>';
     return;
   }
 
@@ -14797,7 +14880,7 @@ function renderSyncLeagues() {
       <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--font-mono)">${syncLabel}</div>
       <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;opacity:0.2;transition:opacity 150ms" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.2'">
         <button onclick="ovLeagueId='${lg.league_id}';teamsLeagueId='${lg.league_id}';renderOverview();showPage('overview')" style="background:none;border:none;cursor:pointer;font-size:16px;color:#bec6e0;transition:color 150ms" title="Sync this league" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='#bec6e0'">↺</button>
-        <button style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted);transition:color 150ms" title="Remove league" onmouseover="this.style.color='#ffb3b6'" onmouseout="this.style.color='var(--muted)'">🗑</button>
+        <button style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted);transition:color 150ms" title="Remove league" onmouseover="this.style.color='#ffb3b6'" onmouseout="this.style.color='var(--muted)'"><span data-reicon="trash" data-rsize="16"></span></button>
       </div>
     </div>`;
   }).join('');
@@ -15682,7 +15765,7 @@ function renderIntelBar() {
   
   getScarcity().forEach(({pos,available,total,pct}) => {
     const c = posColors[pos];
-    const urgency = pct > 70 ? '🔴' : pct > 50 ? '🟡' : '🟢';
+    const urgency = reIcon('dot',{size:8,color: pct > 70 ? 'var(--qb)' : pct > 50 ? 'var(--gold)' : 'var(--rb)'});
     allChips.push(`<span style="font-size:9px;font-family:var(--font-mono);padding:2px 6px;border-radius:4px;background:${c}15;color:${c};border:1px solid ${c}33;white-space:nowrap">
       ${pos} ${urgency} ${available} left
     </span>`);
@@ -16527,7 +16610,7 @@ function renderPortfolioV2(){
 
 async function renderPortfolio() {  if (!myTeamsData.length) {
     const emptyHtml = `<div class="pf-empty-state">
-      <div class="pf-empty-icon">📁</div>
+      <div class="pf-empty-icon"><span data-reicon="folder" data-rsize="30"></span></div>
       <div class="pf-empty-title">No leagues yet</div>
       <div class="pf-empty-sub">Link Sleeper once. See what every player you own is worth and exactly where your dynasty stands.</div>
       <button onclick="openPortfolioLeaguePicker()" class="pf-empty-cta">Connect Sleeper for free →</button>
@@ -16576,7 +16659,7 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
     if (kpisEl) kpisEl.innerHTML = '';
     if (leaguesEl) leaguesEl.innerHTML = `
       <div style="grid-column:1/-1;text-align:center;padding:48px 24px;color:var(--muted)">
-        <div style="font-size:32px;margin-bottom:12px">📁</div>
+        <div style="font-size:32px;margin-bottom:12px"><span data-reicon="folder" data-rsize="28"></span></div>
         <div style="font-size:14px;color:var(--text);margin-bottom:6px">No leagues selected</div>
         <div style="font-size:12px;margin-bottom:18px">Choose which leagues to track in your portfolio.</div>
         <button onclick="openPortfolioLeaguePicker()" style="padding:10px 20px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer">Manage Leagues →</button>
@@ -17224,7 +17307,7 @@ async function openYearPicker(playerName, pos) {
   // Career option at the top
   const careerHTML = `<button onclick="pickYear('Career')" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;border-radius:10px;border:1px solid ${currentActive === 'Career' ? posColor : 'var(--border2)'};background:${currentActive === 'Career' ? posColor + '22' : 'var(--s1)'};color:var(--text);font-family:var(--font-sans);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:18px;min-height:52px">
     <span style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:18px">📋</span>
+      <span style="font-size:18px"><span data-reicon="clipboard" data-rsize="18"></span></span>
       <span>
         <div style="font-weight:700">Career Totals</div>
         <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:2px">All ${seenYears.size} season${seenYears.size === 1 ? '' : 's'} aggregated</div>
@@ -20669,7 +20752,7 @@ function pickYear(year) {
     return controlBar() + `<div class="lc-cards" style="--n:${Math.min(set.length, 4)}">${cards.join('')}</div>`;
   }
   function emptyState() {
-    return `<div class="lc-card" style="padding:56px 24px;text-align:center"><div style="font-size:30px;margin-bottom:10px;opacity:.5">⚖️</div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Add players to compare</div><div style="font-size:13px;color:var(--muted);max-width:340px;margin:0 auto">Search any player above, your starters, your bench, or a waiver-wire flier, to weigh the week's call.</div></div>`;
+    return `<div class="lc-card" style="padding:56px 24px;text-align:center"><div style="font-size:30px;margin-bottom:10px;opacity:.5"><span data-reicon="swap" data-rsize="26"></span></div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Add players to compare</div><div style="font-size:13px;color:var(--muted);max-width:340px;margin:0 auto">Search any player above, your starters, your bench, or a waiver-wire flier, to weigh the week's call.</div></div>`;
   }
 
   /* ════════════════════════════════════════════════════════════
@@ -20828,13 +20911,13 @@ function pickYear(year) {
     let alerts = '';
     if (edge) alerts += `
       <div class="lc-alert warn">
-        <span style="font-size:14px;flex-shrink:0">⚠</span>
+        <span style="font-size:15px;flex-shrink:0">${reIcon('alert',{size:15,color:'#ffb347'})}</span>
         <div style="flex:1;min-width:0;font-size:12.5px;color:var(--text2);line-height:1.45"><b style="color:var(--text);display:block;font-size:13px">Bench edge at ${edge.slot}</b>${edge.bench.name} (${mlPts(edge.bench).toFixed(2)}) projects <b class="lc-mono" style="color:#ffb347">+${edge.delta.toFixed(1)}</b> over ${edge.starter.name} (${mlPts(edge.starter).toFixed(2)})</div>
         <div style="display:flex;gap:7px;flex-shrink:0"><a class="lc-mlbtn primary" href="${link}" target="_blank" rel="noopener">Swap in Sleeper ↗</a><button class="lc-mlbtn" data-mlcmp="${edge.starter.id},${edge.bench.id}">Compare</button></div>
       </div>`;
     if (qs.length) alerts += `
       <div class="lc-alert">
-        <span style="font-size:14px;flex-shrink:0">🩹</span>
+        <span style="font-size:14px;flex-shrink:0"><span data-reicon="bandage" data-rsize="14"></span></span>
         <div style="flex:1;min-width:0;font-size:12.5px;color:var(--text2);line-height:1.45"><b style="color:var(--text);display:block;font-size:13px">${qs.map(p => p.name).join(', ')} · ${qs.length > 1 ? 'injury designations' : qs[0].status}</b>In your starting lineup, check actives before kickoff and have a pivot ready.</div>
       </div>`;
     /* vs strip */
@@ -21020,9 +21103,9 @@ function pickYear(year) {
     page.innerHTML = `
       <div class="lc-page">
         <div class="lc-subnav" role="tablist" aria-label="My Team sections">
-          <button data-go="overview"><span aria-hidden="true">▦</span> Team Review</button>
-          <button class="on" data-go="lineup" aria-current="page"><span aria-hidden="true">⚡</span> Lineup Command</button>
-          <button data-go="compare"><span aria-hidden="true">⚖</span> Compare</button>
+          <button data-go="overview"><span aria-hidden="true">${reIcon('grid',{size:14})}</span> Team Review</button>
+          <button class="on" data-go="lineup" aria-current="page"><span aria-hidden="true">${reIcon('bolt',{size:14})}</span> Lineup Command</button>
+          <button data-go="compare"><span aria-hidden="true">${reIcon('swap',{size:14})}</span> Compare</button>
         </div>
         <div class="lc-head">
           <div>
@@ -21046,9 +21129,9 @@ function pickYear(year) {
       cpage.innerHTML = `
       <div class="lc-page">
         <div class="lc-subnav" role="tablist" aria-label="My Team sections">
-          <button data-go="overview"><span aria-hidden="true">▦</span> Team Review</button>
-          <button data-go="lineup"><span aria-hidden="true">⚡</span> Lineup Command</button>
-          <button class="on" data-go="compare" aria-current="page"><span aria-hidden="true">⚖</span> Compare</button>
+          <button data-go="overview"><span aria-hidden="true">${reIcon('grid',{size:14})}</span> Team Review</button>
+          <button data-go="lineup"><span aria-hidden="true">${reIcon('bolt',{size:14})}</span> Lineup Command</button>
+          <button class="on" data-go="compare" aria-current="page"><span aria-hidden="true">${reIcon('swap',{size:14})}</span> Compare</button>
         </div>
         <div class="lc-head">
           <div>
@@ -21072,10 +21155,10 @@ function pickYear(year) {
       // menu lives on <body> (the nav clips overflow), positioned on hover
       const menu = document.createElement('div'); menu.className = 'lc-mt-menu'; menu.id = 'lc-mt-menu';
       menu.innerHTML = `
-        <button class="lc-mt-item" id="lc-mt-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span class="ic">🏟️</span><span><b>Matchup</b><small>This week · head-to-head</small></span></button>
-        <button class="lc-mt-item" data-go="overview" data-dynview="dynasty"><span class="ic">▦</span><span><b>Team Review</b><small>Roster · grade · outlook</small></span></button>
-        <button class="lc-mt-item" data-go="lineup"><span class="ic">⚡</span><span><b>Lineup Command</b><small>Start/sit · projections</small></span><span class="lc-newtag">NEW</span></button>
-        <button class="lc-mt-item" data-go="compare"><span class="ic">⚖️</span><span><b>Player Comparison Tool</b><small>Side-by-side · up to 4</small></span></button>`;
+        <button class="lc-mt-item" id="lc-mt-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span class="ic">${reIcon('building',{size:17})}</span><span><b>Matchup</b><small>This week · head-to-head</small></span></button>
+        <button class="lc-mt-item" data-go="overview" data-dynview="dynasty"><span class="ic">${reIcon('grid',{size:17})}</span><span><b>Team Review</b><small>Roster · grade · outlook</small></span></button>
+        <button class="lc-mt-item" data-go="lineup"><span class="ic">${reIcon('bolt',{size:17})}</span><span><b>Lineup Command</b><small>Start/sit · projections</small></span><span class="lc-newtag">NEW</span></button>
+        <button class="lc-mt-item" data-go="compare"><span class="ic">${reIcon('swap',{size:17})}</span><span><b>Player Comparison Tool</b><small>Side-by-side · up to 4</small></span></button>`;
       document.body.appendChild(menu);
       let hideT;
       const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
@@ -21090,13 +21173,13 @@ function pickYear(year) {
     if (sl && !document.getElementById('sl-lineup')) {
       const b = document.createElement('button');
       b.id = 'sl-lineup'; b.className = 'sidebar-link'; b.setAttribute('onclick', "showPage('lineup')");
-      b.innerHTML = `<span style="font-size:17px">⚡</span><span>Lineup Command</span>`;
+      b.innerHTML = `<span>${reIcon('bolt',{size:16})}</span><span>Lineup Command</span>`;
       sl.parentNode.insertBefore(b, sl.nextSibling);
     }
     if (sl && !document.getElementById('sl-compare')) {
       const bc = document.createElement('button');
       bc.id = 'sl-compare'; bc.className = 'sidebar-link'; bc.setAttribute('onclick', "showPage('compare')");
-      bc.innerHTML = `<span style="font-size:17px">⚖️</span><span>Player Comparison</span>`;
+      bc.innerHTML = `<span>${reIcon('swap',{size:16})}</span><span>Player Comparison</span>`;
       const after = document.getElementById('sl-lineup') || sl;
       after.parentNode.insertBefore(bc, after.nextSibling);
     }
@@ -21109,13 +21192,13 @@ function pickYear(year) {
         b.className = 'lc-injected';
         b.setAttribute('onclick', "closeMoreSheet();showPage('lineup')");
         b.setAttribute('style', 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px');
-        b.innerHTML = `<span style="font-size:20px">⚡</span><span style="font-weight:600">Lineup Command</span>`;
+        b.innerHTML = `<span>${reIcon('bolt',{size:19})}</span><span style="font-weight:600">Lineup Command</span>`;
         firstBtn.parentNode.insertBefore(b, firstBtn);
         const bc = document.createElement('button');
         bc.className = 'lc-injected';
         bc.setAttribute('onclick', "closeMoreSheet();showPage('compare')");
         bc.setAttribute('style', 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px');
-        bc.innerHTML = `<span style="font-size:20px">⚖️</span><span style="font-weight:600">Player Comparison Tool</span>`;
+        bc.innerHTML = `<span>${reIcon('swap',{size:19})}</span><span style="font-weight:600">Player Comparison Tool</span>`;
         b.parentNode.insertBefore(bc, b.nextSibling);
       }
     }
@@ -21178,10 +21261,10 @@ function pickYear(year) {
     const nav = document.createElement('div');
     nav.className = 'lc-subnav';
     nav.setAttribute('role', 'tablist');
-    nav.innerHTML = '<button id="lc-sn-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span aria-hidden="true">🏟️</span> Matchup</button>' +
-      '<button class="on" data-go="overview" data-dynview="dynasty" aria-current="page"><span aria-hidden="true">▦</span> Team Review</button>' +
-      '<button data-go="lineup"><span aria-hidden="true">⚡</span> Lineup Command</button>' +
-      '<button data-go="compare"><span aria-hidden="true">⚖</span> Compare</button>';
+    nav.innerHTML = '<button id="lc-sn-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span aria-hidden="true">'+reIcon('building',{size:14})+'</span> Matchup</button>' +
+      '<button class="on" data-go="overview" data-dynview="dynasty" aria-current="page"><span aria-hidden="true">'+reIcon('grid',{size:14})+'</span> Team Review</button>' +
+      '<button data-go="lineup"><span aria-hidden="true">'+reIcon('bolt',{size:14})+'</span> Lineup Command</button>' +
+      '<button data-go="compare"><span aria-hidden="true">'+reIcon('swap',{size:14})+'</span> Compare</button>';
     host.insertBefore(nav, host.firstChild);
   }
 
@@ -22763,8 +22846,8 @@ function pickYear(year) {
       navBtn.insertAdjacentHTML('beforeend', '<span class="rh-caret">▼</span>');
       const menu = document.createElement('div'); menu.className = 'rh-mt-menu'; menu.id = 'rh-mt-menu';
       menu.innerHTML = `
-        <button class="rh-mt-item" data-go="advstats"><span class="ic">▦</span><span><b>Advanced Stats</b><small>Leaderboard · metrics · compare</small></span></button>
-        <button class="rh-mt-item" data-go="gamelogs"><span class="ic">▤</span><span><b>Game Logs</b><small>Per-game · DvP · splits</small></span></button>`;
+        <button class="rh-mt-item" data-go="advstats"><span class="ic">${reIcon('chart',{size:17})}</span><span><b>Advanced Stats</b><small>Leaderboard · metrics · compare</small></span></button>
+        <button class="rh-mt-item" data-go="gamelogs"><span class="ic">${reIcon('clipboard',{size:17})}</span><span><b>Game Logs</b><small>Per-game · DvP · splits</small></span></button>`;
       document.body.appendChild(menu);
       let hideT;
       const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
@@ -23675,7 +23758,7 @@ function pickYear(year) {
     const menu = document.getElementById('rh-mt-menu');
     if (menu && !menu.querySelector('[data-go="playerprofile"]')) {
       menu.insertAdjacentHTML('beforeend',
-        '<button class="rh-mt-item" data-go="playerprofile"><span class="ic">◈</span><span><b>Player Profile</b><small>Career · advanced · betting</small></span><span class="rh-newtag">NEW</span></button>');
+        '<button class="rh-mt-item" data-go="playerprofile"><span class="ic">'+reIcon('user',{size:17})+'</span><span><b>Player Profile</b><small>Career · advanced · betting</small></span><span class="rh-newtag">NEW</span></button>');
     }
     const after = document.getElementById('sl-gamelogs') || document.getElementById('sl-research');
     if (after && !document.getElementById('sl-playerprofile')) {
@@ -26249,7 +26332,7 @@ body .page,body .page.on{background:transparent!important}
     }
     const { risers, fallers } = moversData(teams);
     if (!risers.length && !fallers.length){
-      E.innerHTML = `<div class="lh-empty"><div class="ico">📈</div><b>No trend data yet</b>Trend data comes from FantasyCalc / RosterAudit 30-day deltas.</div>`; return;
+      E.innerHTML = `<div class="lh-empty"><div class="ico"><span data-reicon="trendup" data-rsize="26"></span></div><b>No trend data yet</b>Trend data comes from FantasyCalc / RosterAudit 30-day deltas.</div>`; return;
     }
     const upTot = risers.reduce((s,p)=>s+p.trend,0), downTot = fallers.reduce((s,p)=>s+Math.abs(p.trend),0), tot=(upTot+downTot)||1;
     const row = (p)=>{
@@ -26358,7 +26441,7 @@ body .page,body .page.on{background:transparent!important}
     const E = el(); if (!E) return;
     const lg = leagueObj();
     if (lg && vpPlat(lg)==='espn'){
-      E.innerHTML = `<div class="lh-empty"><div class="ico">📋</div><b>ESPN transaction history isn't available yet</b>Rosters, standings, power rankings and trades all run on live ESPN data. The transaction feed needs ESPN's activity endpoint with a player-ID map, that's the next piece to wire.</div>`;
+      E.innerHTML = `<div class="lh-empty"><div class="ico"><span data-reicon="clipboard" data-rsize="26"></span></div><b>ESPN transaction history isn't available yet</b>Rosters, standings, power rankings and trades all run on live ESPN data. The transaction feed needs ESPN's activity endpoint with a player-ID map, that's the next piece to wire.</div>`;
       return;
     }
     E.innerHTML = loadingHtml('Loading transactions…');
@@ -26809,7 +26892,7 @@ body .page,body .page.on{background:transparent!important}
       navBtn.insertAdjacentHTML('beforeend','<span class="lc-caret">▼</span>');
       var menu=document.createElement('div'); menu.className='lc-mt-menu'; menu.id='mo-pf-menu';
       menu.innerHTML=''
-        +'<button class="lc-mt-item" data-go="portfolio"><span class="ic">📁</span><span><b>Portfolio</b><small>All leagues · standings</small></span></button>'
+        +'<button class="lc-mt-item" data-go="portfolio"><span class="ic"><span data-reicon="folder" data-rsize="17"></span></span><span><b>Portfolio</b><small>All leagues · standings</small></span></button>'
         +'<button class="lc-mt-item" data-go="matchup-overview"><span class="ic">🏟️</span><span><b>Matchup Overview</b><small>This week · all leagues</small></span><span class="lc-newtag">NEW</span></button>';
       document.body.appendChild(menu);
       var hideT;
@@ -27998,7 +28081,7 @@ window.dvShowADP = function() {
     menu.id = 'dv-dd-menu';
     menu.innerHTML =
       '<button class="lc-mt-item active" data-go="draft"><span class="ic">🏈</span><span><b>Draft Board</b><small>Rankings · live draft sync</small></span></button>' +
-      '<button class="lc-mt-item" data-go="adp-explorer"><span class="ic">📊</span><span><b>ADP Explorer</b><small>Market data · ADP trends</small></span></button>';
+      '<button class="lc-mt-item" data-go="adp-explorer"><span class="ic"><span data-reicon="chart" data-rsize="17"></span></span><span><b>ADP Explorer</b><small>Market data · ADP trends</small></span></button>';
     document.body.appendChild(menu);
 
     var hideT;
@@ -29277,7 +29360,7 @@ async function _ssRenderSuggestions(currentWeek, playoffTeams){
 
   if(!cards.length){el.innerHTML='';return;}
 
-  el.innerHTML=`<div class="ss-section-label">💡 RECOMMENDATIONS</div>
+  el.innerHTML=`<div class="ss-section-label">${reIcon('bulb',{size:14})} RECOMMENDATIONS</div>
     <div class="ss-sug-grid">${cards.map(c=>`
       <div class="ss-sug-card${c.urgent?' urgent':c.positive?' positive':''}">
         <div class="ss-sug-top"><span class="ss-sug-icon">${c.icon}</span><span class="ss-sug-tag">${c.tag}</span></div>
@@ -29471,7 +29554,7 @@ function _ssRenderOptimizer(currentWeek){
     body=`<div class="ss-opt-headline">${headline}</div>${rows}`;
   }
 
-  el.innerHTML=`<div class="ss-section-label">🧮 LINEUP OPTIMIZER · WEEK ${currentWeek}</div>
+  el.innerHTML=`<div class="ss-section-label">${reIcon('calculator',{size:14})} LINEUP OPTIMIZER · WEEK ${currentWeek}</div>
     <div class="ss-opt-card">
       ${winRow}
       ${body}
@@ -29579,7 +29662,7 @@ function _ssRenderShareCard(){
   const arch=_ssArchetype(myRes.playoffPct,myRes.champPct,me.valRank||Math.round(nT/2),nT);
   const pwrRank=me.valRank||Math.round(nT/2);
 
-  el.innerHTML=`<div class="ss-section-label">📤 MY VAULT FORECAST</div>
+  el.innerHTML=`<div class="ss-section-label">${reIcon('send',{size:14})} MY VAULT FORECAST</div>
     <div class="ss-share-card">
       <div class="ss-share-left">
         <div class="ss-share-team">${arch.icon} ${me.name}</div>
@@ -29861,7 +29944,7 @@ function _ssRenderTradeRoom(skipCalc){
     };
     const code=_ssTnCache?.error||'noProposals';
     el.innerHTML=`${secLabel}<div class="ad-panel" style="display:flex;align-items:center;gap:12px">
-      <span style="font-size:20px">🔍</span>
+      <span style="font-size:20px"><span data-reicon="search" data-rsize="20"></span></span>
       <span style="font-size:13px;color:var(--text2)">${msgs[code]||msgs.noProposals}</span>
     </div>`;
     return;
@@ -29949,7 +30032,7 @@ function _ssRenderWaiver(){
   const picks=[...atWeak,...overall];
   if(!picks.length){el.innerHTML='';return;}
 
-  el.innerHTML=`<div class="ss-section-label">📋 WAIVER WIRE · ${weakPos} is your biggest need, best available free agents</div>
+  el.innerHTML=`<div class="ss-section-label"><span data-reicon="clipboard" data-rsize="14"></span> WAIVER WIRE · ${weakPos} is your biggest need, best available free agents</div>
     <div class="ss-waiver-grid">${picks.map(p=>{
       const trendCls=p.trend>=2?'ss-trend-up':p.trend<=-2?'ss-trend-dn':'ss-trend-flat';
       const trendIcon=p.trend>=2?'↑':p.trend<=-2?'↓':'→';
@@ -30040,7 +30123,7 @@ function _ssInjectPage(){
               <div class="eb-spec-v">${SS_N.toLocaleString()}</div>
             </div>
             <div class="eb-spec">
-              <div class="eb-spec-l"><span class="eb-spec-ic">📊</span><div><div class="eb-spec-k">Each team's scoring</div><div class="eb-spec-sub">averages + hot and cold streaks</div></div></div>
+              <div class="eb-spec-l"><span class="eb-spec-ic"><span data-reicon="chart" data-rsize="18"></span></span><div><div class="eb-spec-k">Each team's scoring</div><div class="eb-spec-sub">averages + hot and cold streaks</div></div></div>
               <div class="eb-spec-v">Live</div>
             </div>
             <div class="eb-spec">
@@ -30048,7 +30131,7 @@ function _ssInjectPage(){
               <div class="eb-spec-v">Auto</div>
             </div>
             <div class="eb-spec">
-              <div class="eb-spec-l"><span class="eb-spec-ic">🏆</span><div><div class="eb-spec-k">Playoff bracket</div><div class="eb-spec-sub">single-elim, re-seeded</div></div></div>
+              <div class="eb-spec-l"><span class="eb-spec-ic"><span data-reicon="trophy" data-rsize="18"></span></span><div><div class="eb-spec-k">Playoff bracket</div><div class="eb-spec-sub">single-elim, re-seeded</div></div></div>
               <div class="eb-spec-v">Re-seeded</div>
             </div>
           </div>
