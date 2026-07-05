@@ -19743,6 +19743,25 @@ function pickYear(year) {
     init();
     const page = document.getElementById('page-myrankings');
     if (!page) return;
+
+    // Click a player's avatar/name to open the site-wide player profile pop-out.
+    // Delegated + bound once so it survives every re-render; the .mr-player block
+    // holds no interactive controls, so a plain click here never clashes with the
+    // drag grip, nudge buttons, rank input or note button in .mr-act.
+    if (!window._mrProfileClickBound) {
+      window._mrProfileClickBound = true;
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('#page-myrankings')) return;
+        const pl = e.target.closest('.mr-player');
+        if (!pl) return;
+        const row = pl.closest('.mr-row');
+        const name = row && row.getAttribute('data-name');
+        if (!name) return;
+        const pos = row.getAttribute('data-pos') || '';
+        const team = row.getAttribute('data-team') || '';
+        if (typeof window.openPlayerProfile === 'function') window.openPlayerProfile(name, '', pos, team);
+      });
+    }
     const rows = computeBoard();
     ensureManualBreaks(rows);
     invalidate();
@@ -19910,10 +19929,10 @@ function pickYear(year) {
     const _hsUrl = (typeof getPlayerHeadshotUrl==='function' ? getPlayerHeadshotUrl(r.name) : '') || '';
     const _hsHD = _hsUrl.replace('/thumb/','/');
     const _photo = _hsHD ? `<img src="${_hsHD}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
-    return `<div class="mr-row" data-idx="${idx}" data-name="${r.name.replace(/"/g,'&quot;')}" draggable="true">
+    return `<div class="mr-row" data-idx="${idx}" data-name="${r.name.replace(/"/g,'&quot;')}" data-pos="${r.pos||''}" data-team="${r.team||''}" draggable="true">
       <span class="mr-grip" title="Drag to reorder">⠿</span>
       <div class="mr-rank"><span class="n">${r.myRank}</span><span class="st ${r.pinned?'pin':'live'}">${r.pinned?'PINNED':'● LIVE'}</span></div>
-      <div class="mr-player">
+      <div class="mr-player" style="cursor:pointer" title="View player profile">
         <div class="mr-av" style="background:${bg};color:${col}">${initials(r.name)}${_photo}</div>
         <div style="min-width:0;flex:1">
           <div class="mr-pname">${r.name}</div>
@@ -19955,9 +19974,9 @@ function pickYear(year) {
     const _hsUrl = (typeof getPlayerHeadshotUrl==='function' ? getPlayerHeadshotUrl(r.name) : '') || '';
     const _hsHD = _hsUrl.replace('/thumb/','/');
     const _photo = _hsHD ? `<img src="${_hsHD}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
-    return `<div class="mr-row mr-crow" data-idx="${idx}" data-name="${r.name.replace(/"/g,'&quot;')}">
+    return `<div class="mr-row mr-crow" data-idx="${idx}" data-name="${r.name.replace(/"/g,'&quot;')}" data-pos="${r.pos||''}" data-team="${r.team||''}">
       <div class="mr-rank"><span class="n">${r.myRank}</span></div>
-      <div class="mr-player">
+      <div class="mr-player" style="cursor:pointer" title="View player profile">
         <div class="mr-av" style="background:${bg};color:${col}">${initials(r.name)}${_photo}</div>
         <div style="min-width:0;flex:1">
           <div class="mr-pname">${r.name}</div>
