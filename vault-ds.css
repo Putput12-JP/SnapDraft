@@ -24,7 +24,7 @@
   --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
   --font-mono:'JetBrains Mono','Space Mono',monospace;
   --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
-  --shadow-card:0 24px 60px -20px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.06) inset;
+  --shadow-card:0 24px 60px -20px rgba(4,9,20,0.62),0 1px 0 rgba(255,255,255,0.06) inset;
 }
 
 [data-theme="light"] {
@@ -40,6 +40,7 @@
   --qb:#c52d3a;--rb:#0a7a4c;--wr:#1f6fb0;--te:#a76a16;
   --suggest:#1f4e87;--value:#0a7a4c;--reach:#c52d3a;--gold:#a76a16;--navy:#16233a;
   --glass-1:rgba(255,255,255,0.62);--glass-2:rgba(248,244,235,0.62);
+  --shadow-card:0 20px 48px -22px rgba(41,50,66,0.24),0 1px 0 rgba(255,255,255,0.5) inset;
 }
 
 [data-theme="onyx"] {
@@ -54,6 +55,7 @@
   --sky:#c8a043;--sky-dim:#a8842f;
   --suggest:#e7cf8c;--value:#5fe09a;--reach:#e23a4e;--gold:#e7cf8c;--navy:#0e0f13;
   --glass-1:rgba(24,25,30,0.55);--glass-2:rgba(30,32,38,0.55);
+  --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
 }
 
 
@@ -156,7 +158,7 @@
   touch-action:manipulation;
   white-space:nowrap;
   transition:opacity 150ms ease, transform 80ms ease;
-  box-shadow:0 0 20px rgba(47,99,196,0.30);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),0 8px 18px -10px rgba(4,9,20,0.7);
 }
 .v-btn:hover { opacity:.88; }
 .v-btn:active { transform:scale(.97); }
@@ -175,7 +177,7 @@
 
 .v-btn.red {
   background:linear-gradient(135deg,var(--red),var(--red2));
-  box-shadow:0 0 20px rgba(226,58,78,0.35);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),0 8px 18px -10px rgba(4,9,20,0.7);
 }
 
 .v-btn.ghost {
@@ -511,4 +513,36 @@
   font-weight:700;
   letter-spacing:.12em;
   text-transform:uppercase;
+}
+
+
+/* ── 18. FOCUS VISIBLE (a11y — keyboard nav) ────────────────────── */
+/* :where() keeps specificity 0 so component styles are never overridden;
+   only keyboard focus (not mouse click) shows the ring. */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline:2px solid var(--accent2);
+  outline-offset:2px;
+  border-radius:var(--radius-sm);
+}
+/* Elements that are already pill-shaped keep a matching radius on the ring. */
+:where(.v-btn, .v-ntab, .v-pill, .v-field, .v-tog):focus-visible {
+  outline:2px solid var(--accent2);
+  outline-offset:2px;
+  border-radius:var(--radius-pill);
+}
+/* Form controls across the app set `outline:none` at class specificity, which
+   would suppress the ring above. Restore a keyboard-only ring authoritatively.
+   :focus-visible means mouse clicks still show no ring; only keyboard focus does. */
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline:2px solid var(--accent2) !important;
+  outline-offset:2px;
+}
+@media (prefers-reduced-motion:no-preference){
+  :where(button, a, input, select, textarea, summary, [tabindex]){
+    transition:outline-color .12s ease;
+  }
+}
+/* Perpetual attention-pulse must not loop for users who opt out of motion. */
+@media (prefers-reduced-motion:reduce){
+  .v-pill.hot{ animation:none; }
 }
