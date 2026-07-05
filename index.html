@@ -5751,34 +5751,71 @@ window._psRenderGameLogs = async function(year, targetEl) {
   }
 
   function mkYrSw(active) {
-    // Compact picker: [Career] [Current Year ·NFL] [Year ▾]
-    // The "Year ▾" button opens a bottom sheet with all seasons grouped by decade.
-    // The active year shows in the button if it's not the current season or Career.
-    const cur = window.vaultNflSeason();
+    // Dropdown of every season the player has data for (+ Career totals),
+    // mirroring the Player Profile season dropdown. The full season list is
+    // filled in by prescanYearAvailability() (kicked off below); until it lands
+    // we show at least the current season so the control is never empty.
+    const cur = String(window.vaultNflSeason());
     const seenYears = window._yearAvailability[name] || new Set([cur]);
     seenYears.add(cur);
-
-    const careerBtn = mkYrBtn('Career', 'Career', active === 'Career', 'Career totals across all seasons');
-    const currentBtn = mkYrBtn(cur + '·NFL', cur, active === cur, cur + ' season');
-
-    // If active year is something other than Career or the current season, show that as the pill
-    const showActiveOther = active !== 'Career' && active !== cur;
-    const otherBtn = showActiveOther
-      ? mkYrBtn(active, active, true, `${active} season`)
-      : '';
-
-    // Open-picker button, calls the global bottom-sheet opener
-    const pickerLabel = showActiveOther ? 'Change Year ▾' : 'Pick Year ▾';
-    const pickerBtn = `<button onclick="openYearPicker('${name.replace(/'/g, "\\'")}', '${pos}')"
-      style="padding:8px 14px;border-radius:6px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all 120ms ease;flex-shrink:0;min-height:36px;display:inline-flex;align-items:center;gap:4px">${pickerLabel}</button>`;
-
-    return `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">${careerBtn}${currentBtn}${otherBtn}${pickerBtn}</div>`;
+    const years = Array.from(seenYears).map(Number).filter(n => isFinite(n)).sort((a, b) => b - a).map(String);
+    const curLabel = active === 'Career' ? 'Career' : (active === cur ? active + ' · NFL' : active);
+    // Shared year-switch call used by every menu item (matches the old buttons)
+    const sw = key => `window._resGlYear='${key}';if(window._resCurrentPlayer)window._psPlayer=window._resCurrentPlayer;window._psRenderGameLogs('${key}', window._glTargetEl || document.getElementById('ps-body'));if(window._resUpdateKPIsForYear&&'${key}'!=='Career')window._resUpdateKPIsForYear('${key}');event.stopPropagation();`;
+    const item = (label, key, on) => `<button type="button" role="option" aria-selected="${on}" class="ps-yeardd-item${on ? ' on' : ''}" onclick="${sw(key)}">${label}${on ? '<span style="margin-left:auto;font-size:11px">✓</span>' : ''}</button>`;
+    const menu = item('Career', 'Career', active === 'Career')
+      + '<div class="ps-yeardd-sep"></div>'
+      + years.map(y => item(y === cur ? y + ' · NFL' : y, y, y === active)).join('');
+    return `<div class="ps-yeardd" style="--pc:${posC}">
+      <button type="button" class="ps-yeardd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="var d=this.closest('.ps-yeardd');this.setAttribute('aria-expanded',d.classList.toggle('open'));event.stopPropagation();">
+        <span>${curLabel}</span>
+        <svg class="ps-yeardd-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="ps-yeardd-menu" role="listbox">${menu}</div>
+    </div>`;
   }
   // Store target for year-switch buttons to reference
   window._glTargetEl = body;
   // Expose the years list and posC color for the bottom sheet
   window._gameLogPos = pos;
   window._gameLogPosColor = posC;
+
+  // ── Season dropdown: styles, outside-click closer, and a one-time career
+  //    scan so the menu lists every season the player has data for. ──
+  if (!document.getElementById('ps-yeardd-styles')) {
+    const st = document.createElement('style');
+    st.id = 'ps-yeardd-styles';
+    st.textContent =
+      '.ps-yeardd{position:relative;display:inline-block;margin-bottom:14px}' +
+      '.ps-yeardd-trigger{display:inline-flex;align-items:center;gap:8px;padding:8px 12px 8px 15px;border-radius:8px;border:1px solid var(--border2);background:var(--s1);color:var(--text);font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;min-height:36px;transition:border-color 120ms ease,background 120ms ease}' +
+      '.ps-yeardd-trigger:hover{border-color:var(--pc);background:var(--s2)}' +
+      '.ps-yeardd.open .ps-yeardd-trigger{border-color:var(--pc)}' +
+      '.ps-yeardd-caret{width:14px;height:14px;color:var(--muted);transition:transform 160ms ease}' +
+      '.ps-yeardd.open .ps-yeardd-caret{transform:rotate(180deg)}' +
+      '.ps-yeardd-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;max-height:300px;overflow-y:auto;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:5px;box-shadow:0 14px 34px -10px rgba(0,0,0,.6);display:none;flex-direction:column;gap:2px;z-index:60}' +
+      '.ps-yeardd.open .ps-yeardd-menu{display:flex}' +
+      '.ps-yeardd-item{display:flex;align-items:center;gap:14px;padding:9px 12px;border:none;border-radius:6px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-align:left;white-space:nowrap;min-height:38px}' +
+      '.ps-yeardd-item:hover{background:var(--s3);color:var(--text)}' +
+      '.ps-yeardd-item.on{background:var(--pc);color:#0a0e1a}' +
+      '.ps-yeardd-sep{height:1px;background:var(--border2);margin:4px 2px}';
+    document.head.appendChild(st);
+  }
+  if (!window._psYearDdCloserBound) {
+    window._psYearDdCloserBound = true;
+    document.addEventListener('click', function (e) {
+      document.querySelectorAll('.ps-yeardd.open').forEach(function (d) {
+        if (!d.contains(e.target)) d.classList.remove('open');
+      });
+    });
+  }
+  if (!window._yearScanComplete && !window._psYearScanBound) {
+    window._psYearScanBound = true;
+    try {
+      prescanYearAvailability().then(function () {
+        if (_psPlayer) window._psRenderGameLogs(window._resGlYear || window.vaultNflSeason(), window._glTargetEl || document.getElementById('ps-body'));
+      }).catch(function () {});
+    } catch (e) {}
+  }
 
   // KPI strip
   function mkKPI(items) {
@@ -22968,6 +23005,7 @@ function pickYear(year) {
     adp: null,                    // ADP map by normName
     search: '', acOpen: false,
     seasonsSeg: ['2025', '2024', '2023'],
+    ddOpen: false,                // season dropdown open state
   };
 
   /* ── data loaders (all cached, token-guarded re-renders) ── */
@@ -23123,6 +23161,18 @@ function pickYear(year) {
     ${S} .pp-seg{display:inline-flex;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px;margin-left:auto}
     ${S} .pp-seg button{padding:6px 13px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;cursor:pointer}
     ${S} .pp-seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
+    ${S} .pp-seasondd{position:relative;margin-left:auto;flex-shrink:0}
+    ${S} .pp-dd-trigger{display:inline-flex;align-items:center;gap:8px;padding:7px 11px 7px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:border-color 120ms ease,background 120ms ease}
+    ${S} .pp-dd-trigger:hover{background:rgba(255,255,255,.09);border-color:var(--accent)}
+    ${S} .pp-dd-caret{width:14px;height:14px;color:var(--muted);transition:transform 160ms ease}
+    ${S} .pp-seasondd.open .pp-dd-caret{transform:rotate(180deg)}
+    ${S} .pp-seasondd.open .pp-dd-trigger{border-color:var(--accent);background:rgba(255,255,255,.09)}
+    ${S} .pp-dd-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:100%;max-height:280px;overflow-y:auto;background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:5px;box-shadow:0 14px 34px -10px rgba(0,0,0,.6);display:none;flex-direction:column;gap:2px;z-index:40}
+    ${S} .pp-seasondd.open .pp-dd-menu{display:flex}
+    ${S} .pp-dd-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 12px;border:none;border-radius:7px;background:transparent;color:var(--text2);font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.06em;cursor:pointer;text-align:left;white-space:nowrap}
+    ${S} .pp-dd-item:hover{background:var(--s3);color:var(--text)}
+    ${S} .pp-dd-item.on{background:var(--accent);color:#fff}
+    ${S} .pp-dd-ck{font-size:11px;opacity:.9}
     ${S} .pp-hero{display:flex;align-items:center;gap:20px;padding:20px 22px;background:var(--s1);border:1px solid var(--border2);border-radius:16px;margin-bottom:14px;flex-wrap:wrap}
     ${S} .pp-shot{width:88px;height:88px;border-radius:50%;padding:3px;flex-shrink:0;background:linear-gradient(135deg,var(--s4),var(--s2))}
     ${S} .pp-shot .in{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--muted)}
@@ -23227,6 +23277,7 @@ function pickYear(year) {
       ${S} .pp-hright{border-left:none;padding-left:0;margin-left:0;width:100%;justify-content:space-between}
       ${S} .pp-splitgrid{grid-template-columns:repeat(2,1fr)}
       ${S} .pp-seg{margin-left:0}
+      ${S} .pp-seasondd{margin-left:0}
     }
     @media(max-width:560px){
       ${S} .pp-wrap{padding:14px 14px 84px}
@@ -23582,6 +23633,29 @@ function pickYear(year) {
       </button>`).join('')}</div>`;
   }
 
+  // Full list of seasons to offer in the dropdown. Prefer the player's real
+  // career (from loadCareer's nflverse walk); fall back to the recent-year
+  // segment while that's still loading. Always include the active season.
+  function seasonList() {
+    const set = new Set();
+    if (PLR.career && PLR.careerFor === PLR.name) PLR.career.forEach(c => set.add(String(c.yr)));
+    PLR.seasonsSeg.forEach(y => set.add(String(y)));
+    if (PLR.season) set.add(String(PLR.season));
+    return Array.from(set).map(Number).filter(n => isFinite(n)).sort((a, b) => b - a).map(String);
+  }
+
+  function seasonDdHtml() {
+    const years = seasonList();
+    const items = years.map(y => `<button class="pp-dd-item${PLR.season === y ? ' on' : ''}" data-pp-season="${y}" role="option" aria-selected="${PLR.season === y}">${y}${PLR.season === y ? '<span class="pp-dd-ck">✓</span>' : ''}</button>`).join('');
+    return `<div class="pp-seasondd${PLR.ddOpen ? ' open' : ''}" id="pp-seasondd">
+      <button class="pp-dd-trigger" data-pp-ddtoggle aria-haspopup="listbox" aria-expanded="${PLR.ddOpen}">
+        <span class="pp-dd-cur">${esc(PLR.season)}</span>
+        <svg class="pp-dd-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="pp-dd-menu" role="listbox">${items}</div>
+    </div>`;
+  }
+
   function ppRender() {
     const mount = document.getElementById('pp-mount');
     if (!mount) return;
@@ -23593,7 +23667,7 @@ function pickYear(year) {
           <label class="pp-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pp-search-input" placeholder="Search any player…" autocomplete="off" spellcheck="false" value="${esc(PLR.search)}"></label>
           <div id="pp-ac-host">${acHtml()}</div>
         </div>
-        <div class="pp-seg">${PLR.seasonsSeg.map(y => `<button data-pp-season="${y}" class="${PLR.season === y ? 'on' : ''}">${y}</button>`).join('')}</div>
+        ${seasonDdHtml()}
       </div>
       ${heroHtml()}
       ${kpisHtml()}
@@ -23651,7 +23725,7 @@ function pickYear(year) {
     PLR.name = name; PLR.token++;
     PLR.log = null; PLR.logErr = false; PLR.logKey = '';
     PLR.career = null; PLR.careerFor = null;
-    PLR.search = ''; PLR.acOpen = false;
+    PLR.search = ''; PLR.acOpen = false; PLR.ddOpen = false;
     seasonOpen = false;
     try { localStorage.setItem('vault.pp.player', name); } catch (e) {}
     refreshRow();
@@ -23659,7 +23733,8 @@ function pickYear(year) {
     loadLog(); loadCareer();
   }
   function setSeason(y) {
-    if (PLR.season === y) return;
+    PLR.ddOpen = false;
+    if (PLR.season === y) { const dd = document.getElementById('pp-seasondd'); if (dd) dd.classList.remove('open'); return; }
     PLR.season = y; PLR.token++;
     PLR.log = null; PLR.logErr = false; PLR.logKey = '';
     PLR.rows = null; PLR.row = null;
@@ -23722,13 +23797,27 @@ function pickYear(year) {
   };
   document.addEventListener('click', e => {
     const page = e.target.closest('#page-playerprofile');
-    if (!page) { if (PLR.acOpen) { PLR.acOpen = false; const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = ''; } return; }
+    if (!page) {
+      if (PLR.acOpen) { PLR.acOpen = false; const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = ''; }
+      if (PLR.ddOpen) { PLR.ddOpen = false; const dd = document.getElementById('pp-seasondd'); if (dd) dd.classList.remove('open'); }
+      return;
+    }
     const t = e.target.closest('[data-pp-tab]');
     if (t) { PLR.tab = t.dataset.ppTab; ppRenderBody(); return; }
     const pick = e.target.closest('[data-pp-pick]');
     if (pick) { setPlayer(pick.dataset.ppPick); return; }
+    const ddt = e.target.closest('[data-pp-ddtoggle]');
+    if (ddt) {
+      PLR.ddOpen = !PLR.ddOpen;
+      const dd = document.getElementById('pp-seasondd');
+      if (dd) { dd.classList.toggle('open', PLR.ddOpen); ddt.setAttribute('aria-expanded', PLR.ddOpen); }
+      return;
+    }
     const ssn = e.target.closest('[data-pp-season]');
     if (ssn) { setSeason(ssn.dataset.ppSeason); return; }
+    if (PLR.ddOpen && !e.target.closest('#pp-seasondd')) {
+      PLR.ddOpen = false; const dd = document.getElementById('pp-seasondd'); if (dd) dd.classList.remove('open');
+    }
     const st = e.target.closest('[data-pp-seasontoggle]');
     if (st) { seasonOpen = !seasonOpen; ppRenderBody(); return; }
     if (PLR.acOpen && !e.target.closest('.pp-searchwrap')) { PLR.acOpen = false; const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = ''; }
