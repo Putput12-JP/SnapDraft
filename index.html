@@ -4637,28 +4637,6 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <option value="14">14 Teams</option>
           </select>
         </div>
-        <div class="adp-sel-wrap">
-          <label class="adp-sel-label">Pass TD</label>
-          <select class="adp-sel adp-sel-dim">
-            <option>4 Point</option>
-            <option>6 Point</option>
-          </select>
-        </div>
-        <div class="adp-sel-wrap">
-          <label class="adp-sel-label">TE Premium</label>
-          <select class="adp-sel adp-sel-dim">
-            <option>No</option>
-            <option>Yes (+0.5)</option>
-            <option>Yes (+1.0)</option>
-          </select>
-        </div>
-        <div class="adp-sel-wrap">
-          <label class="adp-sel-label">Best Ball</label>
-          <select class="adp-sel adp-sel-dim">
-            <option>No</option>
-            <option>Yes</option>
-          </select>
-        </div>
       </div>
     </div>
 
@@ -28164,8 +28142,6 @@ body .page,body .page.on{background:transparent!important}
 .adp-sel:hover{border-color:var(--border3)}
 .adp-sel optgroup{font-size:11px;color:var(--muted)}
 .adp-sel option{background:var(--s2);color:var(--text)}
-.adp-sel-dim{opacity:.45}
-.adp-sel-dim:hover{opacity:.7}
 
 /* table */
 .adp-table-wrap{overflow-x:auto}
@@ -28518,20 +28494,40 @@ function _adpRenderLoading() {
     '<tr><td colspan="6" class="adp-loading"><span class="adp-spin">⟳</span> Loading ADP data…</td></tr>';
 }
 
-/* ── my-rankings helpers (shared with Draft Board) ── */
+/* ── my-rankings helpers (source = the My Rankings board module) ── */
+// Map the ADP scoring format to the two My Rankings boards (dynasty | redraft).
+function _adpMyFormat() {
+  return (_adpScoring === 'halfppr' || _adpScoring === 'ppr' || _adpScoring === 'standard')
+    ? 'redraft' : 'dynasty';
+}
 function _adpHasMyRankings() {
   try {
-    return Array.isArray(window.PLAYERS) && window.PLAYERS.some(p => p && p.rMy != null && p.rMy < 9999);
-  } catch(e) { return false; }
+    // The My Rankings board is always seeded from market, so it's available as a
+    // source whenever the module has loaded (even before the user customizes it).
+    if (window.MyRankings && typeof window.MyRankings.getBoard === 'function') {
+      const rows = window.MyRankings.getBoard(_adpMyFormat());
+      if (Array.isArray(rows) && rows.length) return true;
+    }
+  } catch(e) {}
+  // legacy fallback: a CSV import that set rMy on the Draft Board players
+  try { return Array.isArray(window.PLAYERS) && window.PLAYERS.some(p => p && p.rMy != null && p.rMy < 9999); }
+  catch(e) { return false; }
 }
 function _adpMyRankMap() {
-  // normalized-name → user's rank (rMy), from the imported "My Rankings"
+  // normalized-name → your rank, from the My Rankings board (pins/reorders included)
   const map = {};
-  if (!Array.isArray(window.PLAYERS)) return map;
   const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  window.PLAYERS.forEach(p => {
-    if (p && p.rMy != null && p.rMy < 9999 && p.name) map[norm(p.name)] = p.rMy;
-  });
+  try {
+    if (window.MyRankings && typeof window.MyRankings.getBoard === 'function') {
+      const rows = window.MyRankings.getBoard(_adpMyFormat()) || [];
+      rows.forEach(r => { if (r && r.name && r.myRank != null) map[norm(r.name)] = r.myRank; });
+      if (Object.keys(map).length) return map;
+    }
+  } catch(e) {}
+  // legacy fallback: CSV rMy import on the Draft Board players
+  if (Array.isArray(window.PLAYERS)) {
+    window.PLAYERS.forEach(p => { if (p && p.rMy != null && p.rMy < 9999 && p.name) map[norm(p.name)] = p.rMy; });
+  }
   return map;
 }
 
