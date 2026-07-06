@@ -28227,15 +28227,19 @@ body .page,body .page.on{background:transparent!important}
 #dv-adp-view.board-view .adp-table-wrap{display:none}
 #dv-adp-view.board-view #adp-list-note{display:none!important}
 #dv-adp-view.board-view .adp-board-outer{display:block;animation:adp-fade .2s ease both}
+/* widen the whole ADP view in board mode so all team columns fit the screen */
+#dv-adp-view.board-view{max-width:min(1760px,96vw)}
 .adp-board-note{font-size:12px;color:var(--muted);padding:2px 2px 12px;display:none;line-height:1.5}
 .adp-board-note.show{display:block}
 .adp-board-note b{color:var(--text2);font-weight:700}
 .adp-board-wrap{overflow-x:auto;padding-bottom:10px}
-.adp-board{display:grid;gap:5px;min-width:max-content}
+/* columns stretch (1fr) to fill available width; the 76px min only kicks in
+   on genuinely narrow screens, where the wrap scrolls instead of squashing */
+.adp-board{display:grid;gap:4px;grid-template-columns:28px repeat(var(--adp-teams,12),minmax(76px,1fr))}
 .adp-bd-th{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0 6px;position:sticky;top:0}
 .adp-bd-corner{position:sticky;left:0;background:var(--bg);z-index:2}
 .adp-bd-rnd{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center;position:sticky;left:0;background:var(--bg);z-index:1}
-.adp-bd-cell{position:relative;background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--pc,var(--border2));border-radius:8px;padding:6px 8px 7px;min-height:58px;cursor:pointer;overflow:hidden;transition:background .1s,border-color .1s,opacity .12s}
+.adp-bd-cell{position:relative;background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--pc,var(--border2));border-radius:8px;padding:6px 7px 7px;min-height:58px;cursor:pointer;overflow:hidden;transition:background .1s,border-color .1s,opacity .12s}
 .adp-bd-cell:hover{background:var(--s2);border-color:var(--border3)}
 .adp-bd-cell.empty{background:transparent;border-style:dashed;border-left-color:var(--border);cursor:default}
 .adp-bd-cell.empty:hover{background:transparent;border-color:var(--border)}
@@ -28250,8 +28254,8 @@ body .page,body .page.on{background:transparent!important}
 .adp-bd-delta{font-family:var(--font-mono);font-size:9px;font-weight:800}
 .adp-bd-delta.up{color:var(--rb)}
 .adp-bd-delta.dn{color:var(--red)}
-.adp-bd-av{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s3);flex-shrink:0}
-.adp-bd-av-fb{width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--muted);flex-shrink:0}
+.adp-bd-av{width:22px;height:22px;border-radius:50%;object-fit:cover;background:var(--s3);flex-shrink:0}
+.adp-bd-av-fb{width:22px;height:22px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--muted);flex-shrink:0}
 .adp-bd-mine{position:absolute;top:0;right:0;width:0;height:0;border-top:12px solid var(--accent);border-left:12px solid transparent}
 
 /* mobile */
@@ -28594,7 +28598,7 @@ function _adpRenderBoard() {
     }
   }
 
-  board.style.gridTemplateColumns = `34px repeat(${teams}, minmax(96px,1fr))`;
+  board.style.setProperty('--adp-teams', teams);
   board.innerHTML = html;
 
   // note: history-availability + order state
