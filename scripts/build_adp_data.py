@@ -23,6 +23,7 @@ USAGE:
   python3 scripts/build_adp_data.py --format ppr --teams 12
 """
 import argparse
+import datetime
 import json
 import os
 import sys
@@ -122,6 +123,76 @@ def transform(raw, label, ffc_format_key, teams, format_key):
     }
 
 
+# ── ADP history / trend snapshotting ────────────────────────────────
+# FantasyCalc only exposes a 30-day *value* trend, not positional-ADP
+# movement over 7/30/90 days. To power the board's 7/30/90-day change view
+# we snapshot each day's ADP (overall rank) into a rolling history file and
+# diff against the most recent snapshot that is at least N days old.
+
+HISTORY_WINDOWS = (7, 30, 90)
+HISTORY_KEEP_DAYS = 120  # prune snapshots older than this
+
+
+def _player_key(p):
+    """Stable identity for a player across daily snapshots."""
+    sid = p.get('sleeperId')
+    if sid:
+        return f"s{sid}"
+    return f"n{normalize_name(p.get('name'))}"
+
+
+def annotate_trends(transformed, out_dir, basename, teams, today=None):
+    """Append today's ADP snapshot to the rolling history file and annotate
+    each player with adpDelta7 / adpDelta30 / adpDelta90 (None until enough
+    history exists). Positive = player moved UP the board (rank got smaller).
+    """
+    today = today or datetime.date.today()
+    hist_path = os.path.join(out_dir, f'adp_history_{basename}_{teams}team.json')
+
+    hist = {'snapshots': []}
+    if os.path.exists(hist_path):
+        try:
+            with open(hist_path) as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict) and isinstance(loaded.get('snapshots'), list):
+                hist = loaded
+        except (ValueError, OSError):
+            pass  # corrupt/missing history — start fresh
+
+    today_iso = today.isoformat()
+    ranks_today = {_player_key(p): p['adp'] for p in transformed['players']}
+
+    # Replace any existing snapshot for today, then prune old ones.
+    snaps = [s for s in hist['snapshots'] if s.get('date') != today_iso]
+    snaps.append({'date': today_iso, 'ranks': ranks_today})
+    cutoff = (today - datetime.timedelta(days=HISTORY_KEEP_DAYS)).isoformat()
+    snaps = [s for s in snaps if s.get('date', '') >= cutoff]
+    snaps.sort(key=lambda s: s.get('date', ''))
+    hist['snapshots'] = snaps
+
+    # For each window, find the most recent snapshot that is >= N days old.
+    past_for_window = {}
+    for n in HISTORY_WINDOWS:
+        boundary = (today - datetime.timedelta(days=n)).isoformat()
+        eligible = [s for s in snaps if s.get('date', '') <= boundary]
+        past_for_window[n] = eligible[-1]['ranks'] if eligible else None
+
+    for p in transformed['players']:
+        key = _player_key(p)
+        for n in HISTORY_WINDOWS:
+            past = past_for_window[n]
+            delta = None
+            if past is not None and key in past:
+                # positive => rank decreased => moved up the board
+                delta = round(past[key] - p['adp'], 1)
+            p[f'adpDelta{n}'] = delta
+
+    os.makedirs(out_dir, exist_ok=True)
+    with open(hist_path, 'w') as f:
+        json.dump(hist, f, separators=(',', ':'))
+    return hist_path
+
+
 def build_one(format_key, teams, out_dir):
     if format_key not in FORMATS:
         raise ValueError(f"Unknown format: {format_key}")
@@ -138,6 +209,12 @@ def build_one(format_key, teams, out_dir):
     if not transformed['players']:
         print(f"  → SKIP (empty player list)", flush=True)
         return ('skip', 0)
+
+    # Snapshot today's ADP and annotate 7/30/90-day movement.
+    try:
+        annotate_trends(transformed, out_dir, basename, teams)
+    except Exception as e:
+        print(f"  → WARN: trend snapshot failed: {e}", file=sys.stderr, flush=True)
 
     os.makedirs(out_dir, exist_ok=True)
     with open(out_path, 'w') as f:

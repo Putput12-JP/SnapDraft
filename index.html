@@ -4587,9 +4587,12 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     </div>
 
     <!-- biggest movers -->
-    <div class="adp-movers">
-      <div class="adp-movers-head"><span data-reicon="trendup" data-rsize="14"></span><span style="margin-left:6px">Biggest movers · past 30 days</span></div>
-      <div class="adp-movers-cols">
+    <div class="adp-movers" id="adp-movers">
+      <button class="adp-movers-head" type="button" onclick="adpToggleMovers()" aria-expanded="true" aria-controls="adp-movers-cols">
+        <span data-reicon="trendup" data-rsize="14"></span><span style="margin-left:6px">Biggest movers · past 30 days</span>
+        <span class="adp-movers-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="adp-movers-cols" id="adp-movers-cols">
         <div>
           <div class="adp-mv-label risers">RISERS</div>
           <div id="adp-risers"></div>
@@ -4659,8 +4662,45 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       </div>
     </div>
 
+    <!-- view / range / order controls -->
+    <div class="adp-viewbar" id="adp-viewbar">
+      <div class="adp-viewbar-left">
+        <div class="adp-seg-group">
+          <span class="adp-seg-label">View</span>
+          <div class="adp-seg" role="tablist">
+            <button class="on" data-view="list" onclick="adpSetView('list')">List</button>
+            <button data-view="board" onclick="adpSetView('board')">Box</button>
+          </div>
+        </div>
+        <div class="adp-seg-group">
+          <span class="adp-seg-label">Change</span>
+          <div class="adp-seg">
+            <button data-range="7" onclick="adpSetRange(7)">7D</button>
+            <button class="on" data-range="30" onclick="adpSetRange(30)">30D</button>
+            <button data-range="90" onclick="adpSetRange(90)">90D</button>
+          </div>
+        </div>
+      </div>
+      <div class="adp-board-controls">
+        <div class="adp-seg-group">
+          <span class="adp-seg-label">Order by</span>
+          <div class="adp-seg">
+            <button class="on" data-order="adp" onclick="adpSetOrder('adp')">Market ADP</button>
+            <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')">My Rankings</button>
+          </div>
+        </div>
+        <div class="adp-poschips" id="adp-poschips">
+          <button data-pos="QB" onclick="adpBoardPos('QB')">QB</button>
+          <button data-pos="RB" onclick="adpBoardPos('RB')">RB</button>
+          <button data-pos="WR" onclick="adpBoardPos('WR')">WR</button>
+          <button data-pos="TE" onclick="adpBoardPos('TE')">TE</button>
+        </div>
+      </div>
+    </div>
+
     <!-- draft type label + table -->
     <div class="adp-draft-type">VIEWING <b id="adp-draft-type-label">12-team · Dynasty 1QB</b></div>
+    <div class="adp-board-note" id="adp-list-note"></div>
     <div class="adp-table-wrap">
       <table class="adp-tbl">
         <thead>
@@ -4669,13 +4709,19 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <th data-sort="name" onclick="adpSetSort('name')">PLAYER ↕</th>
             <th class="r" data-sort="posrk" onclick="adpSetSort('posrk')">POSRK ↕</th>
             <th class="r sorted" data-sort="adp" onclick="adpSetSort('adp')">ADP ↕</th>
-            <th class="r" data-sort="trend" onclick="adpSetSort('trend')">30D ↕</th>
+            <th class="r" data-sort="trend" id="adp-th-change" onclick="adpSetSort('trend')">30D ↕</th>
           </tr>
         </thead>
         <tbody id="adp-tbody">
           <tr><td colspan="5" class="adp-empty">Select a format to load ADP data.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- board (Box) view -->
+    <div class="adp-board-outer" id="adp-board-outer">
+      <div class="adp-board-note" id="adp-board-note"></div>
+      <div class="adp-board-wrap"><div class="adp-board" id="adp-board"></div></div>
     </div>
   </div>
 
@@ -28076,7 +28122,12 @@ body .page,body .page.on{background:transparent!important}
 
 /* movers */
 .adp-movers{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:20px}
-.adp-movers-head{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.adp-movers-head{width:100%;appearance:none;background:transparent;border:none;text-align:left;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px;cursor:pointer;padding:0;transition:color .12s}
+.adp-movers-head:hover{color:var(--text)}
+.adp-movers-caret{margin-left:auto;font-size:11px;color:var(--muted);transition:transform .18s ease}
+.adp-movers.collapsed .adp-movers-head{margin-bottom:0}
+.adp-movers.collapsed .adp-movers-caret{transform:rotate(-90deg)}
+.adp-movers.collapsed .adp-movers-cols{display:none}
 .adp-movers-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .adp-mv-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;margin-bottom:10px}
 .adp-mv-label.risers{color:var(--rb)}
@@ -28150,8 +28201,65 @@ body .page,body .page.on{background:transparent!important}
 @keyframes adp-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 #adp-tbody tr{animation:adp-fade .18s ease both}
 
+/* ── view / range / order controls ── */
+.adp-viewbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:4px 2px 12px}
+.adp-viewbar-left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.adp-seg-group{display:flex;align-items:center;gap:8px}
+.adp-seg-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.adp-seg{display:inline-flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:3px;gap:2px}
+.adp-seg button{appearance:none;background:transparent;border:none;border-radius:var(--radius-pill);padding:5px 12px;font-family:var(--font-sans);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:color .12s,background .12s;white-space:nowrap}
+.adp-seg button:hover{color:var(--text2)}
+.adp-seg button.on{background:var(--accent);color:#fff}
+.adp-board-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.adp-poschips{display:inline-flex;gap:5px}
+.adp-poschips button{appearance:none;background:var(--s1);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--muted);cursor:pointer;transition:all .12s}
+.adp-poschips button:hover{border-color:var(--border3);color:var(--text2)}
+.adp-poschips button[data-pos="QB"].on{background:rgba(255,102,128,.15);border-color:var(--qb);color:var(--qb)}
+.adp-poschips button[data-pos="RB"].on{background:rgba(61,204,122,.15);border-color:var(--rb);color:var(--rb)}
+.adp-poschips button[data-pos="WR"].on{background:rgba(123,208,255,.15);border-color:var(--wr);color:var(--wr)}
+.adp-poschips button[data-pos="TE"].on{background:rgba(245,200,66,.15);border-color:var(--te);color:var(--te)}
+/* board-only controls hidden until Box view is active */
+.adp-board-controls{display:none}
+.adp-viewbar.board-active .adp-board-controls{display:flex}
+
+/* ── board (Box) view ── */
+.adp-board-outer{display:none}
+#dv-adp-view.board-view .adp-table-wrap{display:none}
+#dv-adp-view.board-view #adp-list-note{display:none!important}
+#dv-adp-view.board-view .adp-board-outer{display:block;animation:adp-fade .2s ease both}
+.adp-board-note{font-size:12px;color:var(--muted);padding:2px 2px 12px;display:none;line-height:1.5}
+.adp-board-note.show{display:block}
+.adp-board-note b{color:var(--text2);font-weight:700}
+.adp-board-wrap{overflow-x:auto;padding-bottom:10px}
+.adp-board{display:grid;gap:5px;min-width:max-content}
+.adp-bd-th{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0 6px;position:sticky;top:0}
+.adp-bd-corner{position:sticky;left:0;background:var(--bg);z-index:2}
+.adp-bd-rnd{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center;position:sticky;left:0;background:var(--bg);z-index:1}
+.adp-bd-cell{position:relative;background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--pc,var(--border2));border-radius:8px;padding:6px 8px 7px;min-height:58px;cursor:pointer;overflow:hidden;transition:background .1s,border-color .1s,opacity .12s}
+.adp-bd-cell:hover{background:var(--s2);border-color:var(--border3)}
+.adp-bd-cell.empty{background:transparent;border-style:dashed;border-left-color:var(--border);cursor:default}
+.adp-bd-cell.empty:hover{background:transparent;border-color:var(--border)}
+.adp-bd-cell.dim{opacity:.22}
+.adp-bd-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px}
+.adp-bd-posrk{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--pc,var(--muted))}
+.adp-bd-pick{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+.adp-bd-body{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+.adp-bd-txt{min-width:0;flex:1}
+.adp-bd-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adp-bd-meta{font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.adp-bd-delta{font-family:var(--font-mono);font-size:9px;font-weight:800}
+.adp-bd-delta.up{color:var(--rb)}
+.adp-bd-delta.dn{color:var(--red)}
+.adp-bd-av{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s3);flex-shrink:0}
+.adp-bd-av-fb{width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--muted);flex-shrink:0}
+.adp-bd-mine{position:absolute;top:0;right:0;width:0;height:0;border-top:12px solid var(--accent);border-left:12px solid transparent}
+
 /* mobile */
 @media(max-width:700px){
+  .adp-viewbar{gap:10px}
+  .adp-board-controls{gap:10px}
+  .adp-seg button{padding:5px 10px;font-size:11px}
+  .adp-bd-name{font-size:11px}
   .adp-movers-cols{grid-template-columns:1fr}
   .adp-mv-name{font-size:12px}
   .dv-subnav{padding:6px 10px 0}
@@ -28177,6 +28285,10 @@ let _adpSortDir = 1;
 let _adpSearch  = '';
 let _adpData    = [];
 let _adpCache   = {};
+let _adpView    = 'list';  // list | board
+let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
+let _adpOrder   = 'adp';   // adp | my  (board ordering)
+let _adpBoardPos= '';      // '' | QB | RB | WR | TE  (board highlight)
 
 /* ── board / ADP toggle ── */
 window.dvShowBoard = function() {
@@ -28331,11 +28443,19 @@ function _adpRenderTable(players) {
     let av, bv;
     if (_adpSort === 'adp')  { av = a.adp||999; bv = b.adp||999; }
     else if (_adpSort === 'posrk') { av = a.positionRank||999; bv = b.positionRank||999; }
-    else if (_adpSort === 'trend') { av = a.trend30Day||0; bv = b.trend30Day||0; }
+    else if (_adpSort === 'trend') { av = a['adpDelta'+_adpRange] ?? 0; bv = b['adpDelta'+_adpRange] ?? 0; }
     else if (_adpSort === 'name')  { av = a.name||''; bv = b.name||''; return _adpSortDir*(av<bv?-1:1); }
     else { av = a.adp||999; bv = b.adp||999; }
     return _adpSortDir*(av-bv);
   });
+
+  // collecting-history hint for the change column
+  const listNote = document.getElementById('adp-list-note');
+  if (listNote) {
+    const hasDelta = players.some(p => p['adpDelta'+_adpRange] != null);
+    listNote.innerHTML = hasDelta ? '' : `<b>${_adpRange}-day change is still collecting.</b> Vault snapshots market ADP daily — the ${_adpRange}D column fills in once ${_adpRange} days of history accrue.`;
+    listNote.classList.toggle('show', !hasDelta);
+  }
 
   if (!rows.length) {
     document.getElementById('adp-tbody').innerHTML = '<tr><td colspan="6" class="adp-empty">No players match your search.</td></tr>';
@@ -28344,9 +28464,9 @@ function _adpRenderTable(players) {
 
   document.getElementById('adp-tbody').innerHTML = rows.map((p, i) => {
     const posC = POS_C[p.pos]||'var(--muted)';
-    const trend = p.trend30Day || 0;
-    const trendCls = trend > 0 ? 'up' : trend < 0 ? 'dn' : 'flat';
-    const trendStr = trend > 0 ? `▲${trend.toFixed(1)}` : trend < 0 ? `▾${Math.abs(trend).toFixed(1)}` : '—';
+    const dv = p['adpDelta'+_adpRange];
+    const trendCls = (dv == null || dv === 0) ? 'flat' : dv > 0 ? 'up' : 'dn';
+    const trendStr = (dv == null || dv === 0) ? '—' : dv > 0 ? `▲${dv.toFixed(1)}` : `▾${Math.abs(dv).toFixed(1)}`;
     const age = p.age ? `${p.age}` : '';
     return `<tr>
       <td class="adp-rk">${i+1}</td>
@@ -28375,10 +28495,127 @@ function _adpRenderLoading() {
     '<tr><td colspan="6" class="adp-loading"><span class="adp-spin">⟳</span> Loading ADP data…</td></tr>';
 }
 
+/* ── my-rankings helpers (shared with Draft Board) ── */
+function _adpHasMyRankings() {
+  try {
+    return Array.isArray(window.PLAYERS) && window.PLAYERS.some(p => p && p.rMy != null && p.rMy < 9999);
+  } catch(e) { return false; }
+}
+function _adpMyRankMap() {
+  // normalized-name → user's rank (rMy), from the imported "My Rankings"
+  const map = {};
+  if (!Array.isArray(window.PLAYERS)) return map;
+  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  window.PLAYERS.forEach(p => {
+    if (p && p.rMy != null && p.rMy < 9999 && p.name) map[norm(p.name)] = p.rMy;
+  });
+  return map;
+}
+
+/* ── first-name → initial abbreviation ("Bijan Robinson" → "B. Robinson") ── */
+function _adpAbbrevName(n) {
+  const parts = String(n||'').trim().split(/\s+/);
+  if (parts.length < 2) return n;
+  return parts[0][0] + '. ' + parts.slice(1).join(' ');
+}
+
+function _bdAvatar(p) {
+  const u = (typeof vaultHeadshot === 'function') ? vaultHeadshot(p.name, p.sleeperId || '', 26)
+          : (p.sleeperId ? `https://sleepercdn.com/content/nfl/players/thumb/${p.sleeperId}.jpg` : '');
+  if (u) return `<img class="adp-bd-av" src="${u}" onerror="this.outerHTML='<div class=\\'adp-bd-av-fb\\'>${(p.pos||'?')}</div>'" loading="lazy" alt="">`;
+  return `<div class="adp-bd-av-fb">${(p.pos||'?')}</div>`;
+}
+
+/* ── render board (snake draft grid) ── */
+function _adpRenderBoard() {
+  const board = document.getElementById('adp-board');
+  const note  = document.getElementById('adp-board-note');
+  if (!board) return;
+
+  const teams = _adpTeams;
+  const norm  = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+
+  // players only (exclude rookie-pick placeholders)
+  let list = _adpData.filter(p => p.pos && p.pos !== 'PICK' && p.pos !== 'DEF');
+
+  // ordering
+  const hasMy = _adpHasMyRankings();
+  const useMy = _adpOrder === 'my' && hasMy;
+  if (useMy) {
+    const mine = _adpMyRankMap();
+    list = [...list].sort((a,b) => {
+      const ra = mine[norm(a.name)], rb = mine[norm(b.name)];
+      const va = ra != null ? ra : 100000 + (a.adp||999);
+      const vb = rb != null ? rb : 100000 + (b.adp||999);
+      return va - vb;
+    });
+  } else {
+    list = [...list].sort((a,b) => (a.adp||999) - (b.adp||999));
+  }
+
+  const mineMap = hasMy ? _adpMyRankMap() : {};
+  const rounds = Math.min(24, Math.max(1, Math.ceil(list.length / teams)));
+
+  // header row: corner + team columns
+  let html = '<div class="adp-bd-th adp-bd-corner"></div>';
+  for (let c = 0; c < teams; c++) html += `<div class="adp-bd-th">T${c+1}</div>`;
+
+  for (let r = 0; r < rounds; r++) {
+    html += `<div class="adp-bd-rnd">R${r+1}</div>`;
+    for (let c = 0; c < teams; c++) {
+      const pInRound = (r % 2 === 0) ? c : (teams - 1 - c);      // snake
+      const k = r * teams + pInRound;
+      const p = list[k];
+      const pickNo = (r % 2 === 0) ? (c + 1) : (teams - c);
+      const pick = `${r+1}.${String(pickNo).padStart(2,'0')}`;
+      if (!p) { html += `<div class="adp-bd-cell empty"></div>`; continue; }
+
+      const pc = POS_C[p.pos] || 'var(--muted)';
+      const delta = p['adpDelta' + _adpRange];
+      let deltaHtml = '';
+      if (delta != null && delta !== 0) {
+        const up = delta > 0;
+        deltaHtml = `<span class="adp-bd-delta ${up?'up':'dn'}">${up?'▲':'▾'}${Math.abs(delta)}</span>`;
+      }
+      const posrk = p.positionRank ? `${p.pos}${p.positionRank}` : (p.pos||'');
+      const dim = (_adpBoardPos && p.pos !== _adpBoardPos) ? ' dim' : '';
+      const isMine = mineMap[norm(p.name)] != null;
+      html += `<div class="adp-bd-cell${dim}" style="--pc:${pc}" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')" title="${p.name}${isMine?' · in your rankings':''}">
+        ${isMine ? '<span class="adp-bd-mine" title="In your rankings"></span>' : ''}
+        <div class="adp-bd-top"><span class="adp-bd-posrk">${posrk}</span><span class="adp-bd-pick">${pick}</span></div>
+        <div class="adp-bd-body">
+          <div class="adp-bd-txt">
+            <div class="adp-bd-name">${_adpAbbrevName(p.name)}</div>
+            <div class="adp-bd-meta"><span>${p.pos||''}${p.team?' · '+p.team:''}</span>${deltaHtml}</div>
+          </div>
+          ${_bdAvatar(p)}
+        </div>
+      </div>`;
+    }
+  }
+
+  board.style.gridTemplateColumns = `34px repeat(${teams}, minmax(96px,1fr))`;
+  board.innerHTML = html;
+
+  // note: history-availability + order state
+  if (note) {
+    const hasDelta = list.some(p => p['adpDelta' + _adpRange] != null);
+    let msg = '';
+    if (!hasDelta) {
+      msg = `<b>${_adpRange}-day change is still collecting.</b> Vault snapshots market ADP daily — ${_adpRange==7?'7-day':_adpRange+'-day'} movers appear once ${_adpRange} days of history accrue.`;
+    } else if (_adpOrder === 'my' && !hasMy) {
+      msg = `No imported rankings found — showing market ADP order. Import your rankings on the Draft Board to reorder this board.`;
+    }
+    note.innerHTML = msg;
+    note.classList.toggle('show', !!msg);
+  }
+}
+
 /* ── full render ── */
 function _adpRender() {
   if (!_adpData.length) return;
   _adpRenderMovers(_adpData);
+  _adpApplyMoversState();
   const fmtLabel = {
     dynasty:'Dynasty, 1QB', superflex:'Dynasty, Superflex',
     halfppr:'Redraft, ½ PPR', ppr:'Redraft, Full PPR',
@@ -28386,7 +28623,12 @@ function _adpRender() {
   }[_adpScoring] || _adpScoring;
   const lbl = document.getElementById('adp-draft-type-label');
   if (lbl) lbl.textContent = `${_adpTeams}-team · ${fmtLabel}`;
+  // keep the My Rankings order button in sync with whether an import exists
+  const myBtn = document.getElementById('adp-order-my');
+  if (myBtn) myBtn.style.display = _adpHasMyRankings() ? '' : 'none';
+  _adpUpdateChangeHeader();
   _adpRenderTable(_adpData);
+  if (_adpView === 'board') _adpRenderBoard();
 }
 
 /* ── select-based controls ── */
@@ -28409,6 +28651,61 @@ window.adpSearch = function(val) {
   _adpSearch = val;
   _adpRenderTable(_adpData);
 };
+
+/* ── board / list view toggle ── */
+window.adpSetView = function(v) {
+  _adpView = v;
+  const view = document.getElementById('dv-adp-view');
+  const bar  = document.getElementById('adp-viewbar');
+  if (view) view.classList.toggle('board-view', v === 'board');
+  if (bar)  bar.classList.toggle('board-active', v === 'board');
+  document.querySelectorAll('.adp-seg button[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  if (v === 'board' && _adpData.length) _adpRenderBoard();
+};
+
+window.adpSetRange = function(r) {
+  _adpRange = +r;
+  document.querySelectorAll('.adp-seg button[data-range]').forEach(b => b.classList.toggle('on', +b.dataset.range === _adpRange));
+  _adpUpdateChangeHeader();
+  if (_adpView === 'board') _adpRenderBoard();
+  else _adpRenderTable(_adpData);
+};
+
+function _adpUpdateChangeHeader() {
+  const th = document.getElementById('adp-th-change');
+  if (th) th.textContent = `${_adpRange}D ↕`;
+}
+
+window.adpSetOrder = function(o) {
+  _adpOrder = o;
+  document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === o));
+  if (_adpView === 'board') _adpRenderBoard();
+};
+
+window.adpBoardPos = function(pos) {
+  _adpBoardPos = (_adpBoardPos === pos) ? '' : pos;
+  document.querySelectorAll('.adp-poschips button[data-pos]').forEach(b => b.classList.toggle('on', b.dataset.pos === _adpBoardPos));
+  if (_adpView === 'board') _adpRenderBoard();
+};
+
+window.adpToggleMovers = function() {
+  const el = document.getElementById('adp-movers');
+  if (!el) return;
+  const collapsed = el.classList.toggle('collapsed');
+  const head = el.querySelector('.adp-movers-head');
+  if (head) head.setAttribute('aria-expanded', String(!collapsed));
+  try { localStorage.setItem('vault-adp-movers-collapsed', collapsed ? '1' : '0'); } catch(e){}
+};
+
+function _adpApplyMoversState() {
+  const el = document.getElementById('adp-movers');
+  if (!el) return;
+  let collapsed = false;
+  try { collapsed = localStorage.getItem('vault-adp-movers-collapsed') === '1'; } catch(e){}
+  el.classList.toggle('collapsed', collapsed);
+  const head = el.querySelector('.adp-movers-head');
+  if (head) head.setAttribute('aria-expanded', String(!collapsed));
+}
 
 })();
 
