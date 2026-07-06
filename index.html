@@ -4680,8 +4680,6 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <button data-range="90" onclick="adpSetRange(90)">90D</button>
           </div>
         </div>
-      </div>
-      <div class="adp-board-controls">
         <div class="adp-seg-group">
           <span class="adp-seg-label">Order by</span>
           <div class="adp-seg">
@@ -4689,6 +4687,8 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')">My Rankings</button>
           </div>
         </div>
+      </div>
+      <div class="adp-board-controls">
         <div class="adp-poschips" id="adp-poschips">
           <button data-pos="QB" onclick="adpBoardPos('QB')">QB</button>
           <button data-pos="RB" onclick="adpBoardPos('RB')">RB</button>
@@ -4699,13 +4699,13 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     </div>
 
     <!-- draft type label + table -->
-    <div class="adp-draft-type">VIEWING <b id="adp-draft-type-label">12-team · Dynasty 1QB</b></div>
+    <div class="adp-draft-type">VIEWING <b id="adp-draft-type-label">12-team · Dynasty 1QB</b><span id="adp-live-badge" class="adp-live-badge" style="display:none"><span class="adp-live-dot"></span>LIVE DRAFT · drafted players dimmed</span></div>
     <div class="adp-board-note" id="adp-list-note"></div>
     <div class="adp-table-wrap">
       <table class="adp-tbl">
         <thead>
           <tr>
-            <th class="r" data-sort="adp" onclick="adpSetSort('adp')">RK ↕</th>
+            <th class="r" data-sort="adp" id="adp-th-rk" onclick="adpSortPrimary()">RK ↕</th>
             <th data-sort="name" onclick="adpSetSort('name')">PLAYER ↕</th>
             <th class="r" data-sort="posrk" onclick="adpSetSort('posrk')">POSRK ↕</th>
             <th class="r sorted" data-sort="adp" onclick="adpSetSort('adp')">ADP ↕</th>
@@ -14509,6 +14509,8 @@ function renderAll(){
     if (pg==='page-teams') { const loaded=valueSource==='fc'?fcLoaded:raLoaded; if(!loaded){if(valueSource==='fc')fetchFantasyCalc();else fetchRosterAudit();}else renderTeams(); }
     if (pg==='page-visual') renderBoard();
     if (pg==='page-draft') { renderBoard(); renderDraftSummary(); }
+    // keep the ADP Explorer's drafted-greyout in sync with live picks
+    try { window.adpOnDraftUpdate && window.adpOnDraftUpdate(); } catch(e){}
   });
 }
 
@@ -28169,6 +28171,9 @@ body .page,body .page.on{background:transparent!important}
 .adp-table-wrap{overflow-x:auto}
 .adp-draft-type{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.05em;padding:6px 2px 10px;display:flex;align-items:center;gap:8px}
 .adp-draft-type b{color:var(--text2)}
+.adp-live-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--rb);background:rgba(61,204,122,.1);border:1px solid rgba(61,204,122,.28);border-radius:var(--radius-pill);padding:3px 9px}
+.adp-live-dot{width:6px;height:6px;border-radius:50%;background:var(--rb);box-shadow:0 0 0 0 rgba(61,204,122,.5);animation:adp-live-pulse 1.6s ease-out infinite}
+@keyframes adp-live-pulse{0%{box-shadow:0 0 0 0 rgba(61,204,122,.5)}70%{box-shadow:0 0 0 5px rgba(61,204,122,0)}100%{box-shadow:0 0 0 0 rgba(61,204,122,0)}}
 .adp-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .adp-tbl thead th{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .12s}
 .adp-tbl thead th:hover{color:var(--text)}
@@ -28244,6 +28249,12 @@ body .page,body .page.on{background:transparent!important}
 .adp-bd-cell.empty{background:transparent;border-style:dashed;border-left-color:var(--border);cursor:default}
 .adp-bd-cell.empty:hover{background:transparent;border-color:var(--border)}
 .adp-bd-cell.dim{opacity:.22}
+/* drafted = taken in the connected live draft: grey out, keep readable */
+.adp-bd-cell.drafted{background:var(--bg);border-left-color:var(--border)!important;opacity:.4;filter:grayscale(.85)}
+.adp-bd-cell.drafted:hover{background:var(--s1)}
+.adp-bd-cell.drafted .adp-bd-name{text-decoration:line-through;text-decoration-color:var(--muted)}
+.adp-tbl tbody tr.drafted td{opacity:.42;filter:grayscale(.8)}
+.adp-tbl tbody tr.drafted .adp-pl-name{text-decoration:line-through;text-decoration-color:var(--muted)}
 .adp-bd-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px}
 .adp-bd-posrk{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--pc,var(--muted))}
 .adp-bd-pick{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
@@ -28442,10 +28453,17 @@ function _adpRenderTable(players) {
   const q = _adpSearch.toLowerCase();
   let rows = q ? players.filter(p => p.name.toLowerCase().includes(q) || (p.team||'').toLowerCase().includes(q) || (p.pos||'').toLowerCase().includes(q)) : players;
 
+  // my-rank lookup (players you haven't ranked sink to the bottom, ordered by market ADP)
+  const _norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const myMap = _adpMyRankMap();
+  const myRankOf = p => { const r = myMap[_norm(p.name)]; return r != null ? r : 100000 + (p.adp||999); };
+  const draftConnected = _adpDraftConnected();
+
   // sort
   rows = [...rows].sort((a,b) => {
     let av, bv;
     if (_adpSort === 'adp')  { av = a.adp||999; bv = b.adp||999; }
+    else if (_adpSort === 'myrank') { av = myRankOf(a); bv = myRankOf(b); }
     else if (_adpSort === 'posrk') { av = a.positionRank||999; bv = b.positionRank||999; }
     else if (_adpSort === 'trend') { av = a['adpDelta'+_adpRange] ?? 0; bv = b['adpDelta'+_adpRange] ?? 0; }
     else if (_adpSort === 'name')  { av = a.name||''; bv = b.name||''; return _adpSortDir*(av<bv?-1:1); }
@@ -28472,7 +28490,8 @@ function _adpRenderTable(players) {
     const trendCls = (dv == null || dv === 0) ? 'flat' : dv > 0 ? 'up' : 'dn';
     const trendStr = (dv == null || dv === 0) ? '—' : dv > 0 ? `▲${dv.toFixed(1)}` : `▾${Math.abs(dv).toFixed(1)}`;
     const age = p.age ? `${p.age}` : '';
-    return `<tr>
+    const drafted = draftConnected && _adpIsDrafted(p);
+    return `<tr class="${drafted?'drafted':''}"${drafted?' title="Drafted"':''}>
       <td class="adp-rk">${i+1}</td>
       <td>
         <div class="adp-player-cell"${p.pos!=='PICK'&&p.pos!=='DEF'?` style="cursor:pointer" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')"`:''}>
@@ -28514,6 +28533,26 @@ function _adpMyRankMap() {
     if (p && p.rMy != null && p.rMy < 9999 && p.name) map[norm(p.name)] = p.rMy;
   });
   return map;
+}
+
+/* ── drafted? (reuse the Draft Board's live-draft state) ── */
+function _adpIsDrafted(p) {
+  if (!p || !p.name) return false;
+  try {
+    if (typeof paIsAvail === 'function') return !paIsAvail(p);
+    if (typeof draftState === 'object' && draftState) {
+      if (draftState[p.name] !== undefined) return true;
+      const nn = (typeof normName === 'function') ? normName(p.name)
+               : String(p.name).toLowerCase().replace(/[^a-z0-9]/g,'');
+      if (typeof _normDraftCache === 'object' && _normDraftCache && _normDraftCache[nn] !== undefined) return true;
+    }
+  } catch(e) {}
+  return false;
+}
+/* is any live draft currently connected? (drives the drafted-greyout affordance) */
+function _adpDraftConnected() {
+  try { return !!(window.sleeperDraftId || window.espnDraftLid || (typeof draftState==='object' && draftState && Object.keys(draftState).length)); }
+  catch(e) { return false; }
 }
 
 /* ── first-name → initial abbreviation ("Bijan Robinson" → "B. Robinson") ── */
@@ -28558,6 +28597,7 @@ function _adpRenderBoard() {
   }
 
   const mineMap = hasMy ? _adpMyRankMap() : {};
+  const draftConnected = _adpDraftConnected();
   const rounds = Math.min(24, Math.max(1, Math.ceil(list.length / teams)));
 
   // header row: corner + team columns
@@ -28583,8 +28623,9 @@ function _adpRenderBoard() {
       }
       const posrk = p.positionRank ? `${p.pos}${p.positionRank}` : (p.pos||'');
       const dim = (_adpBoardPos && p.pos !== _adpBoardPos) ? ' dim' : '';
+      const drafted = (draftConnected && _adpIsDrafted(p)) ? ' drafted' : '';
       const isMine = mineMap[norm(p.name)] != null;
-      html += `<div class="adp-bd-cell${dim}" style="--pc:${pc}" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')" title="${p.name}${isMine?' · in your rankings':''}">
+      html += `<div class="adp-bd-cell${dim}${drafted}" style="--pc:${pc}" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')" title="${p.name}${drafted?' · drafted':''}${isMine?' · in your rankings':''}">
         ${isMine ? '<span class="adp-bd-mine" title="In your rankings"></span>' : ''}
         <div class="adp-bd-top"><span class="adp-bd-posrk">${posrk}</span><span class="adp-bd-pick">${pick}</span></div>
         <div class="adp-bd-body">
@@ -28630,6 +28671,8 @@ function _adpRender() {
   // keep the My Rankings order button in sync with whether an import exists
   const myBtn = document.getElementById('adp-order-my');
   if (myBtn) myBtn.style.display = _adpHasMyRankings() ? '' : 'none';
+  const liveBadge = document.getElementById('adp-live-badge');
+  if (liveBadge) liveBadge.style.display = _adpDraftConnected() ? 'inline-flex' : 'none';
   _adpUpdateChangeHeader();
   _adpRenderTable(_adpData);
   if (_adpView === 'board') _adpRenderBoard();
@@ -28648,8 +28691,13 @@ window.adpSetSort = function(col) {
   if (_adpSort === col) { _adpSortDir *= -1; }
   else { _adpSort = col; _adpSortDir = 1; }
   document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === col));
+  const rkTh = document.getElementById('adp-th-rk');
+  if (rkTh) rkTh.classList.toggle('sorted', col === 'myrank' || col === 'adp');
   _adpRenderTable(_adpData);
 };
+
+/* RK-column click sorts by the current primary order (market ADP, or your rank) */
+window.adpSortPrimary = function() { window.adpSetSort(_adpOrder === 'my' ? 'myrank' : 'adp'); };
 
 window.adpSearch = function(val) {
   _adpSearch = val;
@@ -28683,7 +28731,26 @@ function _adpUpdateChangeHeader() {
 window.adpSetOrder = function(o) {
   _adpOrder = o;
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === o));
+  if (_adpView === 'board') { _adpRenderBoard(); return; }
+  // List view: "Order by" sets the primary sort — My Rankings ranks the board by
+  // your imported order while the ADP column still shows the market number.
+  _adpSort = (o === 'my') ? 'myrank' : 'adp';
+  _adpSortDir = 1;
+  const rkTh = document.getElementById('adp-th-rk');
+  if (rkTh) rkTh.textContent = (o === 'my') ? 'MY ↕' : 'RK ↕';
+  document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === _adpSort));
+  _adpRenderTable(_adpData);
+};
+
+/* re-render when a live-draft pick lands so drafted players grey out in real time */
+window.adpOnDraftUpdate = function() {
+  const pd = document.getElementById('page-draft');
+  if (!pd || !pd.classList.contains('adp-mode')) return;
+  if (!_adpData.length) return;
+  const liveBadge = document.getElementById('adp-live-badge');
+  if (liveBadge) liveBadge.style.display = _adpDraftConnected() ? 'inline-flex' : 'none';
   if (_adpView === 'board') _adpRenderBoard();
+  else _adpRenderTable(_adpData);
 };
 
 window.adpBoardPos = function(pos) {
