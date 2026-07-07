@@ -25645,6 +25645,26 @@ body::after{
   backdrop-filter:none;-webkit-backdrop-filter:none;
 }
 [data-theme="onyx"] #page-draft .dsc-pickblock{border-color:rgba(154,167,186,0.42)!important}
+/* ── Onyx perf: same flat-backdrop story as the card family above — these in-flow
+      glass cards (Season Sim, Trade, setup) blur a flat color for no visible gain
+      while re-compositing every scroll frame. Drop the blur; other themes keep it. ── */
+[data-theme="onyx"] .ss-my-card,[data-theme="onyx"] .ss-arch-banner,
+[data-theme="onyx"] .ss-chart-card,[data-theme="onyx"] .ss-opt-card,
+[data-theme="onyx"] .ss-dispatch,[data-theme="onyx"] .ss-trade-card,
+[data-theme="onyx"] .ss-waiver-card,[data-theme="onyx"] .ss-share-card,
+[data-theme="onyx"] .ss-tr-row,[data-theme="onyx"] .ss-briefing,
+[data-theme="onyx"] .ad-card,[data-theme="onyx"] .ad-big,
+[data-theme="onyx"] .ad-panel,[data-theme="onyx"] .ad-trade,
+[data-theme="onyx"] .o1-strip,[data-theme="onyx"] .eb-specs,
+[data-theme="onyx"] .eb-item,[data-theme="onyx"] .tc-card,
+[data-theme="onyx"] .trade-glass,[data-theme="onyx"] .connect-card,
+[data-theme="onyx"] .tc-strip,
+[data-theme="onyx"] .pf-v2-strip,[data-theme="onyx"] .dvc-seg,
+[data-theme="onyx"] .dvc-search,[data-theme="onyx"] .la-tab-content,
+[data-theme="onyx"] .power-rankings-wrap,[data-theme="onyx"] #power-rankings-wrap,
+[data-theme="onyx"] #app-main [style*="backdrop-filter"]{
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
 [data-theme="onyx"] .glassnav{background:rgba(20,21,26,0.62)!important;border-color:rgba(255,255,255,0.10)!important}
 [data-theme="onyx"] .glassnav .gn-shieldtile{background:transparent!important;border:none!important;box-shadow:none!important}
 [data-theme="onyx"] .glassnav .desktop-nav button.on,[data-theme="onyx"] .glassnav #header-nav button.on{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;color:var(--on-primary)!important}
