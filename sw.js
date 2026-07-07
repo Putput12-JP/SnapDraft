@@ -1,7 +1,7 @@
 // SnapDraft Service Worker v1
 // Caches the app shell for offline use
 
-const CACHE_NAME = 'snapdraft-v4';
+const CACHE_NAME = 'snapdraft-v5';
 const CACHE_URLS = [
   '/',
   '/index.html',
@@ -33,6 +33,18 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
 
   const url = new URL(e.request.url);
+
+  // Clean-route navigations (/teamreview, /calc, …) map to the single app
+  // shell. Go network-first (so 404.html's redirect still runs online), but
+  // fall back to the cached shell so deep links also work offline.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() =>
+        caches.match('/index.html').then(r => r || caches.match('/'))
+      )
+    );
+    return;
+  }
 
   // Always go network-first for API calls (Sleeper, FantasyCalc, etc.)
   const isAPI = url.hostname.includes('sleeper') ||
