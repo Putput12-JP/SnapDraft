@@ -189,11 +189,11 @@ header{
   -webkit-backdrop-filter:var(--blur-md);
 }
 .header-league-wrap{display:flex;align-items:center;gap:6px;flex:1;justify-content:center;min-width:0}
-.header-league-label{font-size:11px;font-weight:500;color:var(--muted);font-family:var(--font-sans);flex-shrink:0}
+.header-league-label{font-size:var(--t-label);font-weight:500;color:var(--muted);font-family:var(--font-sans);flex-shrink:0}
 .header-league-select-wrap{position:relative;flex-shrink:0}
 .header-league-select{backdrop-filter:var(--blur-sm);-webkit-backdrop-filter:var(--blur-sm);
   background:var(--s2);border:1px solid var(--border2);color:var(--text);
-  font-family:var(--font-sans);font-size:13px;font-weight:500;
+  font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:500;
   padding:7px 32px 7px 12px;border-radius:20px;outline:none;cursor:pointer;
   -webkit-appearance:none;max-width:220px;transition:border-color .15s;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7399'/%3E%3C/svg%3E");
@@ -204,7 +204,7 @@ header{
   .header-league-wrap{flex:1 1 auto;min-width:0;justify-content:flex-start}
   .header-league-select-wrap{flex:1 1 auto;min-width:0}
   .header-league-select-wrap > span{display:none}  /* hide "LEAGUE:" label on mobile */
-  .header-league-select{max-width:100%!important;width:100%;font-size:12px;padding:6px 26px 6px 10px;
+  .header-league-select{max-width:100%!important;width:100%;font-size:var(--t-secondary);padding:6px 26px 6px 10px;
     text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
   /* Free up header space so the league name fits, these are all reachable elsewhere:
      theme + watchlist live in the Settings drawer; resync lives on the Draft/Team pages. */
@@ -213,22 +213,22 @@ header{
 .user-chip{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 5px;border-radius:20px;border:1px solid var(--border2);background:var(--s2);cursor:pointer;transition:all .15s;flex-shrink:0;touch-action:manipulation}
 .user-chip:hover{border-color:var(--accent2);background:var(--s3)}
 .user-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--border3)}
-.user-initials{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center;flex-shrink:0}
-.user-dname{font-size:12px;font-weight:600;font-family:var(--font-sans);color:var(--text2);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-initials{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:var(--t-label);font-weight:700;align-items:center;justify-content:center;flex-shrink:0}
+.user-dname{font-size:var(--t-secondary);font-weight:600;font-family:var(--font-sans);color:var(--text2);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .logo{display:flex;align-items:center;gap:9px;white-space:nowrap;flex-shrink:0;text-decoration:none}
 .logo em{color:var(--violet,#a78bfa);font-style:normal}
 .hright{display:flex;gap:6px;align-items:center;margin-left:auto;flex-shrink:0}
 .hstat{text-align:center;flex-shrink:0}
-.hstat b{display:block;font-size:13px;font-weight:700;font-family:var(--font-mono)}
-.hstat small{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.hstat b{display:block;font-size:var(--t-secondary);font-weight:700;font-family:var(--font-mono)}
+.hstat small{font-size:var(--t-nano);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .next-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:10px;padding:4px 9px;border-radius:16px;font-family:var(--font-mono);white-space:nowrap;font-weight:700;flex-shrink:0}
-.hbtn{padding:6px 12px;border-radius:var(--radius-md);border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 150ms ease,color 150ms ease,transform 120ms ease;white-space:nowrap;touch-action:manipulation;min-height:32px;flex-shrink:0}
+.hbtn{padding:6px 12px;border-radius:var(--radius-md);border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:500;cursor:pointer;transition:border-color 150ms ease,color 150ms ease,transform 120ms ease;white-space:nowrap;touch-action:manipulation;min-height:32px;flex-shrink:0}
 .hbtn:active{transform:scale(.97);transition:transform 80ms ease}
 .hbtn:hover{border-color:var(--accent2);color:var(--accent3)}
 .theme-toggle{padding:5px 8px;border-radius:7px;border:1.5px solid var(--border2);background:transparent;font-size:14px;cursor:pointer;transition:all .2s;touch-action:manipulation;min-height:32px;min-width:32px;flex-shrink:0}
 .desktop-nav{display:flex;gap:0;flex-shrink:0;overflow-x:auto;scrollbar-width:none;height:52px;align-items:center}
 .desktop-nav::-webkit-scrollbar{display:none}
-.desktop-nav button{padding:0 14px;height:52px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:500;cursor:pointer;transition:color 150ms ease,border-color 150ms ease;white-space:nowrap;flex-shrink:0;letter-spacing:.01em}
+.desktop-nav button{padding:0 14px;height:52px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:500;cursor:pointer;transition:color 150ms ease,border-color 150ms ease;white-space:nowrap;flex-shrink:0;letter-spacing:.01em}
 .desktop-nav button:hover{color:var(--text)}
 .desktop-nav button.on{color:var(--text);border-bottom-color:var(--accent)}
 @media(max-width:700px){
@@ -266,8 +266,8 @@ header{
 .tab-btn.on{color:var(--accent2)}
 .tab-btn:active{transform:scale(.95);opacity:.7;transition:transform 80ms ease,opacity 80ms ease}
 .tab-icon{font-size:19px;line-height:1;display:block}
-.tab-label{font-size:8.5px;font-weight:600;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.02em;line-height:1;white-space:nowrap}
-@media(max-width:360px){.tab-icon{font-size:17px}.tab-label{font-size:7.5px}}
+.tab-label{font-size:var(--t-nano);font-weight:600;font-family:var(--font-sans);text-transform:uppercase;letter-spacing:.02em;line-height:1;white-space:nowrap}
+@media(max-width:360px){.tab-icon{font-size:17px}.tab-label{font-size:var(--t-nano)}}
 .tab-btn.on .tab-label{color:var(--accent2)}
 .page{display:none;width:100%;overflow-x:hidden;overflow-y:auto}
 .page.on{display:block;opacity:1;animation:vault-page-in 150ms ease-out forwards;transform:translateY(0)}
@@ -1751,7 +1751,7 @@ header {
 /* ── Nav tabs ── */
 .desktop-nav button {
   font-family:var(--font-sans)!important;
-  font-size:13px!important;
+  font-size:var(--t-secondary)!important;
   font-weight:500!important;
   letter-spacing:-0.01em!important;
   color:var(--muted)!important;
@@ -2375,7 +2375,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   border-radius:8px !important;
   color:var(--text) !important;
   font-family:var(--font-sans) !important;
-  font-size:13px !important;
+  font-size:var(--t-secondary) !important;
   padding:5px 10px !important;
 }
 
@@ -4032,12 +4032,12 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 [data-theme="light"] .glassnav .gn-shieldtile{border-color:rgba(20,30,45,0.12);box-shadow:0 2px 6px -2px rgba(0,0,0,0.15)}
 .glassnav .gn-shield{height:27px;width:auto;display:block;flex-shrink:0}
 .glassnav .gn-word{line-height:1.02}
-.glassnav .gn-word .t1{font-size:14px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase;color:var(--text)}
+.glassnav .gn-word .t1{font-size:var(--t-body);font-weight:800;letter-spacing:-0.01em;text-transform:uppercase;color:var(--text)}
 .glassnav .gn-word .t1 span{color:var(--accent)}
-.glassnav .gn-word .t2{font-size:8px;font-weight:600;letter-spacing:0.16em;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;margin-top:1px;text-align:center}
+.glassnav .gn-word .t2{font-size:var(--t-nano);font-weight:600;letter-spacing:0.16em;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;margin-top:1px;text-align:center}
 .glassnav .desktop-nav{display:flex;gap:3px;height:auto;align-items:center;flex:1 1 auto;justify-content:center;min-width:0;overflow-x:auto;scrollbar-width:none}
 .glassnav .desktop-nav::-webkit-scrollbar{display:none}
-.glassnav .desktop-nav button{height:auto;padding:8px 12px;border:none;border-radius:9999px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:13px;font-weight:600;letter-spacing:0;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.glassnav .desktop-nav button{height:auto;padding:8px 12px;border:none;border-radius:9999px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;letter-spacing:0;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .glassnav .desktop-nav button:hover{color:var(--text);background:rgba(255,255,255,0.06)}
 .glassnav .desktop-nav button.on{color:#fff!important;background:rgba(255,255,255,0.10)!important;border:none!important;border-radius:9999px!important}
 [data-theme="light"] .glassnav .desktop-nav button.on{color:var(--text)!important;background:rgba(20,30,45,0.08)!important}
@@ -4049,16 +4049,16 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .glassnav .gn-right{display:flex;align-items:center;gap:7px;margin-left:auto;flex-shrink:0}
 .glassnav .gn-hidden{display:none!important}
 .glassnav .gn-leaguewrap{display:flex;align-items:center;gap:7px}
-.glassnav .gn-leaguelbl{font-size:9px;font-weight:700;color:var(--muted);font-family:var(--font-mono);letter-spacing:.12em}
-.glassnav .header-league-select{background-color:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:9999px;color:var(--text2);font-size:12.5px;font-weight:600;padding:8px 28px 8px 13px;max-width:200px}
+.glassnav .gn-leaguelbl{font-size:var(--t-nano);font-weight:700;color:var(--muted);font-family:var(--font-mono);letter-spacing:.12em}
+.glassnav .header-league-select{background-color:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:9999px;color:var(--text2);font-size:var(--t-secondary);font-weight:600;padding:8px 28px 8px 13px;max-width:200px}
 .glassnav .header-league-select:hover{border-color:rgba(255,255,255,0.22)}
-.glassnav .gn-ic{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);color:var(--text2);cursor:pointer;flex-shrink:0;padding:0;font-size:15px;min-height:0;transition:all .15s}
+.glassnav .gn-ic{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);color:var(--text2);cursor:pointer;flex-shrink:0;padding:0;font-size:var(--t-body);min-height:0;transition:all .15s}
 .glassnav .gn-ic svg{width:17px;height:17px}
 .glassnav .gn-ic:hover{color:#fff;background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.18)}
 .glassnav .gn-sync{display:flex;align-items:center;gap:6px}
 .glassnav .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-.glassnav .sync-lbl{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
-.glassnav .gn-cta{position:relative;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border-radius:9999px;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:700;color:var(--text);font-family:var(--font-sans);overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 2px 6px rgba(0,0,0,0.18),inset 1px 1px 1px -0.5px rgba(255,255,255,0.4),inset -1px -1px 1px -0.5px rgba(255,255,255,0.18),inset 0 0 10px 6px rgba(255,255,255,0.06);transition:filter .2s,transform .08s}
+.glassnav .sync-lbl{font-size:var(--t-label);color:var(--muted);font-family:var(--font-mono)}
+.glassnav .gn-cta{position:relative;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border-radius:9999px;cursor:pointer;white-space:nowrap;font-size:var(--t-secondary);font-weight:700;color:var(--text);font-family:var(--font-sans);overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 2px 6px rgba(0,0,0,0.18),inset 1px 1px 1px -0.5px rgba(255,255,255,0.4),inset -1px -1px 1px -0.5px rgba(255,255,255,0.18),inset 0 0 10px 6px rgba(255,255,255,0.06);transition:filter .2s,transform .08s}
 .glassnav .gn-cta:hover{filter:brightness(1.12)}
 .glassnav .gn-cta:active{transform:scale(.97)}
 .glassnav .gn-cta .gsheen{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(160deg,rgba(255,255,255,0.22),transparent 42%)}
@@ -4067,10 +4067,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .glassnav .user-chip.gn-avatarwrap{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);overflow:hidden;padding:0;gap:0}
 .glassnav .gn-avatarwrap:hover{border-color:var(--accent2)}
 .glassnav .gn-avatarwrap .user-avatar{width:100%;height:100%;border-radius:50%;border:none}
-.glassnav .gn-avatarwrap .user-initials{width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:12px}
+.glassnav .gn-avatarwrap .user-initials{width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:var(--t-secondary)}
 .page.on{min-height:calc(100dvh - 78px)!important}
 @media(max-width:1120px){
-.glassnav .desktop-nav button{padding:8px 9px;font-size:12.5px}
+.glassnav .desktop-nav button{padding:8px 9px;font-size:var(--t-secondary)}
 .glassnav .gn-leaguelbl{display:none}
 .glassnav .header-league-select{max-width:150px}
 }
@@ -4087,7 +4087,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .glassnav{min-height:54px;padding:0 8px 0 11px;gap:6px}
 .glassnav .gn-shieldtile{width:34px;height:34px;border-radius:10px}
 .glassnav .gn-shield{height:24px}
-.glassnav .gn-word .t1{font-size:13px}
+.glassnav .gn-word .t1{font-size:var(--t-secondary)}
 .page.on{min-height:calc(100dvh - 72px)!important}
 }
 /* ── Variant-2 exact: keep the pill minimal, league · search · Connect · avatar.
@@ -19088,7 +19088,7 @@ function pickYear(year) {
   .bottom-tab-bar .tab-icon{ font-size:0 !important; display:flex !important; align-items:center; justify-content:center; height:23px; }
   .bottom-tab-bar .tab-icon svg{ width:23px !important; height:23px !important; display:block; }
   .bottom-tab-bar .tab-label{
-    font-size:9.5px !important; font-weight:600 !important; letter-spacing:.005em !important;
+    font-size:var(--t-nano) !important; font-weight:600 !important; letter-spacing:.005em !important;
     font-family:var(--font-sans) !important; text-transform:none !important; color:#7c8696 !important; line-height:1 !important;
   }
   .bottom-tab-bar .tab-btn.on, .bottom-tab-bar .tab-btn.on .tab-label{ color:var(--accent2) !important; }
@@ -19168,7 +19168,7 @@ function pickYear(year) {
   .pf-card-detail input{ font-size:16px !important; }
 }
 @media (max-width:700px) and (prefers-reduced-motion:reduce){ .page.on{ animation:none !important; } }
-@media (max-width:360px){ .bottom-tab-bar .tab-label{ font-size:9px !important; } }
+@media (max-width:360px){ .bottom-tab-bar .tab-label{ font-size:var(--t-nano) !important; } }
 </style>
 <script id="myrankings-inline">
 /* ════════════════════════════════════════════════════════════════════
@@ -25284,7 +25284,7 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .vlg-name{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
   /* slim the brand lockup so the pill gets real room */
   .glassnav .logo{margin-right:0}
-  .glassnav .logo .t1{font-size:13px;letter-spacing:0}
+  .glassnav .logo .t1{font-size:var(--t-secondary);letter-spacing:0}
   .glassnav .logo .t2{display:none}
 }
 
@@ -25310,7 +25310,7 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   /* dock, 4 destinations + raised shield */
   .bottom-tab-bar{z-index:9001!important;overflow:visible!important;display:flex!important;align-items:center!important;justify-content:space-around!important;height:62px!important;min-height:62px!important;padding:0 6px!important}
   .bottom-tab-bar .tab-btn{flex:0 1 64px!important;min-height:46px!important}
-  .bottom-tab-bar .tab-label{font-family:var(--font-mono)!important;font-size:8px!important;letter-spacing:.08em;text-transform:uppercase}
+  .bottom-tab-bar .tab-label{font-family:var(--font-sans)!important;font-size:var(--t-nano)!important;letter-spacing:.08em;text-transform:uppercase}
   .tab-fab{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 56px;width:56px;height:56px;margin-top:-26px;border-radius:50%;border:3px solid var(--accent);background:#f2f4f9;box-shadow:0 10px 26px color-mix(in srgb,var(--accent) 55%,transparent),0 0 0 3px var(--bg);cursor:pointer;padding:0}
   .tab-fab img{width:32px;height:32px;object-fit:contain;display:block}
   .tab-fab:active{transform:scale(.94)}
@@ -25851,7 +25851,7 @@ body .page,body .page.on{background:transparent!important}
 .glassnav{max-width:1460px!important;gap:6px!important}
 .glassnav .logo{flex:0 0 auto!important;z-index:3;position:relative}
 .glassnav #header-nav{flex:1 1 auto!important;min-width:0!important;justify-content:flex-start!important;overflow:hidden!important}
-.glassnav #header-nav button{padding:7px 10px!important;font-size:12.5px!important}
+.glassnav #header-nav button{padding:7px 10px!important;font-size:var(--t-secondary)!important}
 .glassnav .gn-right{flex:0 0 auto!important;z-index:3;position:relative}
 .glassnav .vlg-trigger{max-width:160px!important;min-width:0!important}
 .glassnav .header-league-select{max-width:160px!important}
@@ -25864,7 +25864,7 @@ body .page,body .page.on{background:transparent!important}
   /* expand the team/league name in the header (the general 160px cap was truncating it) */
   .glassnav .vlg-trigger{ max-width:100%!important; width:100%!important; min-width:0!important; }
   .glassnav .gn-leaguewrap{ flex:1 1 auto!important; min-width:0!important; }
-  .glassnav .vlg-name{ font-size:13px!important; }
+  .glassnav .vlg-name{ font-size:var(--t-secondary)!important; }
   /* compact the bulky/empty KPI cards so the board isn't buried */
   #page-draft .draft-summary{ gap:7px!important; margin-top:6px!important; }
   #page-draft .ds-card.dsc{ gap:7px!important; }
