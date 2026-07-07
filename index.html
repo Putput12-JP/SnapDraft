@@ -4493,23 +4493,8 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
 
   <div class="proto-page">
 
-    <!-- PAGE HEADER, Team Review -->
-    <div class="proto-page-hdr">
-      <div>
-        <h1 class="proto-h1">Team Review</h1>
-        <p class="proto-sub">A comprehensive performance audit and roster breakdown. AI-driven projections are based on your <span id="ov-season-year">current</span> league settings.</p>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div class="lr-srctoggle" id="ov-srctoggle" title="Value your team by FantasyCalc market consensus or your own My Rankings board">
-          <span class="lr-srcdot"></span>
-          <button data-src="fc" class="on" onclick="setLeagueSrc('fc')">Market</button>
-          <button data-src="my" onclick="setLeagueSrc('my')">Mine</button>
-        </div>
-        <button class="proto-btn-ghost" onclick="forceRefreshRosterData()">
-          <span style="font-size:16px">↻</span> SYNC WITH SLEEPER
-        </button>
-      </div>
-    </div>
+    <!-- Team Review is header-less: identity strip leads the page; Values dropdown + Sync
+         render inside the matchup rail via _ovcRow() (see setLeagueSrc area). -->
 
     <!-- DYNAMIC CONTENT, injected by renderOverview() -->
     <div id="ov-content" style="min-height:200px"></div>
@@ -13170,6 +13155,35 @@ function setLeagueSrc(src){
   try{ renderTeams(); }catch(e){}
   try{ if(document.getElementById('page-overview')?.classList.contains('on')) renderOverview(); }catch(e){}
 }
+
+/* ── Team Review rail controls: Values dropdown + Sync (replaces the old page header) ──
+   State is baked at render time from valueSource; setLeagueSrc re-renders the overview,
+   so the row always reflects the active source. 'rail' mode lives at the top of .vtr-rail
+   (desktop), 'mob' re-docks above the matchup card ≤980px, 'solo' is the no-opponent case. */
+function _ovcRow(mode){
+  var mine = valueSource==='my';
+  return '<div class="ovc-row ovc-row-'+mode+'">'
+    +'<div class="ovc-dd'+(mine?' mine':'')+'">'
+      +'<button class="ovc-ddbtn" onclick="_ovcToggle(this)" aria-haspopup="listbox" aria-expanded="false" title="Value your team by FantasyCalc market consensus or your own My Rankings board">'
+        +'<span class="ovc-dot"></span><span class="lbl">Values</span><b>'+(mine?'Mine':'Market')+'</b><span class="ovc-chev">&#9662;</span>'
+      +'</button>'
+      +'<div class="ovc-menu" role="listbox">'
+        +'<button class="ovc-opt'+(!mine?' on':'')+'" role="option" onclick="setLeagueSrc(\'fc\')"><b>Market</b><small>FantasyCalc consensus</small></button>'
+        +'<button class="ovc-opt'+(mine?' on':'')+'" role="option" onclick="setLeagueSrc(\'my\')"><b>Mine</b><small>My Rankings board</small></button>'
+      +'</div>'
+    +'</div>'
+    +'<button class="ovc-sync" onclick="forceRefreshRosterData()"><span style="font-size:13px">&#8635;</span> Sync</button>'
+  +'</div>';
+}
+function _ovcToggle(btn){
+  var dd=btn.parentElement, open=!dd.classList.contains('open');
+  document.querySelectorAll('.ovc-dd.open').forEach(function(d){ d.classList.remove('open'); var b=d.querySelector('.ovc-ddbtn'); if(b) b.setAttribute('aria-expanded','false'); });
+  if(open){ dd.classList.add('open'); btn.setAttribute('aria-expanded','true'); }
+}
+document.addEventListener('click', function(e){
+  if(e.target.closest('.ovc-dd')) return;
+  document.querySelectorAll('.ovc-dd.open').forEach(function(d){ d.classList.remove('open'); var b=d.querySelector('.ovc-ddbtn'); if(b) b.setAttribute('aria-expanded','false'); });
+});
 
 function setValueSource(src) {
   valueSource = src;
@@ -24502,6 +24516,32 @@ function pickYear(year) {
 .rdv-mu:has(.vtr-layout){background:none!important;border:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
 @media(max-width:980px){.vtr-layout{grid-template-columns:1fr}}
 .vtr-rail{display:flex;flex-direction:column;gap:14px}
+/* ── Team Review rail controls (Values dropdown + Sync) ── */
+.ovc-row{display:flex;gap:8px;align-items:stretch}
+.ovc-dd{position:relative;flex:1;min-width:0}
+.ovc-ddbtn{width:100%;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;cursor:pointer;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);transition:border-color 150ms ease,transform 120ms ease}
+.ovc-ddbtn:hover{border-color:var(--border3)}
+.ovc-ddbtn:active{transform:scale(.97)}
+.ovc-dot{width:6px;height:6px;border-radius:50%;background:var(--rb);flex-shrink:0}
+.ovc-dd.mine .ovc-dot{background:var(--sky,#7bd0ff)}
+.ovc-ddbtn .lbl{color:var(--muted)}
+.ovc-ddbtn b{color:var(--text);font-weight:700}
+.ovc-chev{margin-left:auto;color:var(--muted);font-size:8px;transition:transform 150ms ease}
+.ovc-dd.open .ovc-chev{transform:rotate(180deg)}
+.ovc-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:30;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:4px;box-shadow:0 12px 32px rgba(0,0,0,.45);opacity:0;transform:scale(.96) translateY(-4px);transform-origin:top center;pointer-events:none;transition:opacity 150ms ease-out,transform 150ms ease-out}
+.ovc-dd.open .ovc-menu{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
+.ovc-opt{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;background:transparent;border:none;border-radius:7px;padding:7px 10px;cursor:pointer;text-align:left;transition:background 100ms ease}
+.ovc-opt:hover{background:rgba(255,255,255,0.05)}
+.ovc-opt b{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.ovc-opt small{font-size:10px;color:var(--muted);font-family:var(--font-sans);letter-spacing:0;text-transform:none}
+.ovc-opt.on b{color:var(--accent2)}
+.ovc-sync{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:10px;padding:8px 13px;cursor:pointer;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);white-space:nowrap;transition:border-color 150ms ease,color 150ms ease,transform 120ms ease}
+.ovc-sync:hover{border-color:var(--border3);color:var(--text)}
+.ovc-sync:active{transform:scale(.97)}
+.ovc-row-mob{display:none}
+.ovc-row-solo{max-width:380px;margin-left:auto}
+@media(max-width:980px){ .ovc-row-rail{display:none} .ovc-row-mob{display:flex} .ovc-row-solo{max-width:none;margin-left:0} }
+@media (prefers-reduced-motion: reduce){ .ovc-menu,.ovc-chev,.ovc-ddbtn,.ovc-sync,.ovc-opt{transition:none} }
 .rmod{background:linear-gradient(180deg,var(--s1),var(--surface));border:1px solid var(--border2);border-radius:16px;padding:16px}
 .rmh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .rmh .t{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -25060,7 +25100,7 @@ window._gcMatchupHTML=function(d){
     + '<div class="vtr-secbar"><span class="t">Starters</span><span class="wk">'+(hasOpp?(wins+' of '+n+(live?' winning':' lean you')):'Projected')+'</span></div>'
     + '<div class="vtr-rows">'+duels+'</div>'
     + '</div>';
-  if(!hasOpp) return '<div class="vtr-layout" style="grid-template-columns:1fr;max-width:820px">'+card+'</div>';
+  if(!hasOpp) return '<div class="vtr-layout" style="grid-template-columns:1fr;max-width:820px">'+_ovcRow('solo')+card+'</div>';
 
   /* ── coaching rail (right) ── */
   var rl=d.rail||{};
@@ -25103,8 +25143,8 @@ window._gcMatchupHTML=function(d){
         }).join('')
       + '</div>'+(rl.optimal?'<div class="rbench-note">Nothing here out-projects a starter at its position.</div>':'')+'</div>';
   }
-  var rail='<div class="vtr-rail">'+wpMod+moveMod+swMod+benchMod+'</div>';
-  return '<div class="vtr-layout">'+card+rail+'</div>';
+  var rail='<div class="vtr-rail">'+_ovcRow('rail')+wpMod+moveMod+swMod+benchMod+'</div>';
+  return '<div class="vtr-layout">'+_ovcRow('mob')+card+rail+'</div>';
 };
 
 /* ── Waiver wire table: free agents ranked for your roster, FAAB-sized ── */
