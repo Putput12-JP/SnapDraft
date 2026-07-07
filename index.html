@@ -4126,7 +4126,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   </div>
 
   <style id="header-fit">
-  /* All header tabs visible, compress instead of scroll */
+  /* All header tabs visible, compress instead of scroll.
+     NOTE: the authoritative tab sizing lives in the later "HEADER FIT" block
+     (search ".glassnav #header-nav button") — it is more specific and wins
+     over the rules here. Keep the two in sync. */
   #header-nav{flex-wrap:nowrap;overflow:visible!important;flex:0 1 auto;min-width:0}
   .glassnav .desktop-nav{overflow:visible}
   .hright{flex-shrink:1;min-width:0}
@@ -25847,17 +25850,53 @@ body .page,body .page.on{background:transparent!important}
   .connect-btn:hover::after,.launch-btn:hover::after{transform:translateX(130%);transition:transform .7s ease}
 }
 
-/* ---- HEADER FIT: wider pill on big screens + compact tabs so ALL 7 fit; never overlap ---- */
+/* ---- HEADER FIT: compact tabs so all NINE header tabs (My Team … Betting,
+   incl. the JS-injected Season Sim) fit the capped pill without clipping.
+   The pill is max-width capped and centered, so on monitors WIDER than the cap
+   nothing shrinks with the viewport — the base sizing must already fit inside
+   the cap. Narrower viewports shrink the pill, so each tier is monotonically
+   MORE compact than the one above. This is the authoritative tab sizing (more
+   specific than the earlier #header-fit block, which it overrides). ---- */
 .glassnav{max-width:1460px!important;gap:6px!important}
 .glassnav .logo{flex:0 0 auto!important;z-index:3;position:relative}
-.glassnav #header-nav{flex:1 1 auto!important;min-width:0!important;justify-content:flex-start!important;overflow:hidden!important}
-.glassnav #header-nav button{padding:7px 10px!important;font-size:var(--t-secondary)!important}
+.glassnav #header-nav{flex:1 1 auto!important;min-width:0!important;justify-content:flex-start!important;overflow:hidden!important;gap:2px!important}
+/* base — governs ultrawide, where the capped pill can't compress on its own */
+.glassnav #header-nav button{padding:7px 8px!important;gap:6px!important;font-size:12.5px!important}
+.glassnav #header-nav button .vnav-ic svg{width:16px!important;height:16px!important}
 .glassnav .gn-right{flex:0 0 auto!important;z-index:3;position:relative}
-.glassnav .vlg-trigger{max-width:160px!important;min-width:0!important}
-.glassnav .header-league-select{max-width:160px!important}
+.glassnav .vlg-trigger{max-width:150px!important;min-width:0!important}
+.glassnav .header-league-select{max-width:150px!important}
+@media(max-width:1440px){
+  .glassnav #header-nav button{padding:6px 7px!important;font-size:12px!important}
+  .glassnav #header-nav button .vnav-ic svg{width:15px!important;height:15px!important}
+}
+@media(max-width:1400px){
+  /* drop the tab icons before the pill gets tight — text labels carry it */
+  .glassnav #header-nav button .vnav-ic{display:none!important}
+  .glassnav #header-nav button{padding:7px 8px!important;font-size:12px!important}
+}
 @media(max-width:1320px){ .glassnav .gn-word{display:none!important} }
 @media(max-width:1160px){ .glassnav #theme-toggle{display:none!important} }
-@media(max-width:1080px){ .glassnav .gn-search{display:none!important} .glassnav .vlg-trigger{max-width:120px!important} }
+@media(max-width:1080px){
+  .glassnav .gn-search{display:none!important}
+  .glassnav #header-nav button{padding:6px 6px!important;font-size:11.5px!important;letter-spacing:-.01em!important}
+  .glassnav .vlg-trigger{max-width:120px!important}
+  .glassnav .header-league-select{max-width:120px!important}
+}
+@media(max-width:940px){
+  .glassnav #header-nav button{padding:5px 5px!important;font-size:11px!important}
+  .glassnav .gn-leaguelbl{display:none!important}
+  .glassnav .vlg-trigger{max-width:104px!important}
+  .glassnav .header-league-select{max-width:104px!important}
+  #slbl{display:none!important}
+}
+@media(max-width:840px){
+  /* tablet / split-screen last resort: let the tab strip scroll rather than
+     hard-clip a tab (no persistent scrollbar chrome) */
+  .glassnav #header-nav{overflow-x:auto!important;scrollbar-width:none}
+  .glassnav #header-nav::-webkit-scrollbar{display:none}
+  .glassnav #header-nav button{padding:5px 5px!important;font-size:10.5px!important;letter-spacing:-.02em!important}
+}
 
 /* ════ MOBILE: expand header league name + compact Draft Vault top ════ */
 @media(max-width:700px){
