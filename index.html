@@ -997,11 +997,11 @@ header{
 .mth-profile-head{display:flex;gap:14px;align-items:center;margin-bottom:16px}
 .mth-avatar{width:60px;height:60px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--text);font-size:var(--t-h1);flex-shrink:0;overflow:hidden;border:2px solid #ffffff}
 .mth-avatar img{width:100%;height:100%;object-fit:cover}
-.mth-mgr-label{font-size:var(--t-nano);letter-spacing:.14em;color:#facc15;font-family:var(--font-mono);font-weight:700;text-transform:uppercase}
+.mth-mgr-label{font-size:var(--t-nano);letter-spacing:.14em;color:var(--gold);font-family:var(--font-mono);font-weight:700;text-transform:uppercase}
 .mth-mgr-name{font-size:var(--t-title);font-weight:800;color:var(--text);letter-spacing:-0.02em;line-height:1.1;margin:2px 0}
 .mth-league-name{font-size:var(--t-secondary);color:var(--muted)}
 .mth-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-.mth-tier-pill{font-size:var(--t-label);font-weight:700;padding:5px 12px;border-radius:8px;background:rgba(250,204,21,0.12);color:#facc15;border:1px solid rgba(250,204,21,0.3);font-family:var(--font-mono)}
+.mth-tier-pill{font-size:var(--t-label);font-weight:700;padding:5px 12px;border-radius:8px;background:color-mix(in srgb,var(--gold) 12%,transparent);color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 30%,transparent);font-family:var(--font-mono)}
 .mth-fmt-badge{font-size:var(--t-label);font-weight:600;padding:5px 10px;border-radius:8px;background:var(--s2);color:var(--text2);border:1px solid var(--border2);font-family:var(--font-mono)}
 .mth-hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;border:1px solid var(--border)}
 .mth-hero-stat{background:rgba(16,23,42,0.8);padding:14px 10px;text-align:center}
@@ -1014,7 +1014,7 @@ header{
 .mth-snap-item{display:flex;flex-direction:column;gap:2px}
 .mth-snap-k{font-size:var(--t-label);color:var(--muted)}
 .mth-snap-v{font-size:var(--t-secondary);font-weight:700;color:var(--text);font-family:var(--font-mono)}
-.mth-snap-rank{font-size:var(--t-micro);color:#facc15;font-weight:400}
+.mth-snap-rank{font-size:var(--t-micro);color:var(--gold);font-weight:400}
 .mth-lineup-str{font-size:var(--t-label);color:var(--text2);line-height:1.6;font-family:var(--font-mono)}
 .mth-ps-row{display:flex;align-items:center;gap:10px;padding:5px 0;min-width:0}
 .mth-ps-pos{font-size:var(--t-label);font-weight:700;font-family:var(--font-mono);width:34px;flex-shrink:0}
@@ -1029,7 +1029,7 @@ header{
 .mth-roster-summary{font-size:var(--t-secondary);color:var(--muted);font-family:var(--font-mono)}
 .mth-roster-summary b{color:var(--text2)}
 .mth-strip-card{background:rgba(20,30,54,0.5);border:1px solid var(--border2);border-radius:16px;padding:18px;margin-bottom:20px}
-.mth-strip-label{font-size:var(--t-nano);letter-spacing:.14em;color:#facc15;font-family:var(--font-mono);text-transform:uppercase;font-weight:700;margin-bottom:14px}
+.mth-strip-label{font-size:var(--t-nano);letter-spacing:.14em;color:var(--gold);font-family:var(--font-mono);text-transform:uppercase;font-weight:700;margin-bottom:14px}
 .mth-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:8px 6px;padding-bottom:0}
 .mth-strip-item{min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:6px 2px;border-radius:10px;transition:background 120ms ease}
 .mth-strip-item:hover{background:rgba(255,255,255,0.04)}
@@ -1057,7 +1057,7 @@ header{
 .mth-picks-card{background:rgba(20,30,54,0.5);border:1px solid var(--border2);border-radius:14px;overflow:hidden;margin-top:16px}
 .mth-picks-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .mth-picks-year{display:flex;align-items:center;gap:14px}
-.mth-picks-yr-label{font-size:var(--t-secondary);font-weight:800;color:#facc15;font-family:var(--font-mono);width:48px;flex-shrink:0}
+.mth-picks-yr-label{font-size:var(--t-secondary);font-weight:800;color:var(--gold);font-family:var(--font-mono);width:48px;flex-shrink:0}
 .mth-picks-rounds{display:flex;gap:6px;flex-wrap:wrap}
 .mth-pick-chip{font-size:var(--t-label);font-weight:700;padding:3px 10px;border-radius:6px;background:var(--s3);color:var(--text2);font-family:var(--font-mono);border:1px solid var(--border2)}
 /* ===== Command Center modules (grade ring, contention window, season outlook, SoS, movers) ===== */
@@ -1068,7 +1068,7 @@ header{
 /* ── UI Enhancers: corner-glow cards · animated bars · live chip (tasteful, low alpha) ── */
 .glowc{position:relative;overflow:hidden}
 .glowc::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit}
-.glow-gold::before{background:radial-gradient(190px 130px at 8% 0%,rgba(250,204,21,0.09),transparent 62%)}
+.glow-gold::before{background:radial-gradient(190px 130px at 8% 0%,color-mix(in srgb,var(--gold) 9%,transparent),transparent 62%)}
 .glow-green::before{background:radial-gradient(190px 130px at 100% 0%,rgba(61,204,122,0.09),transparent 62%)}
 .glow-sky::before{background:radial-gradient(190px 130px at 100% 0%,rgba(123,208,255,0.09),transparent 62%)}
 .glowc>*{position:relative}
@@ -1160,13 +1160,13 @@ header{
 .pf-v2-strip{display:block;border:1px solid var(--border2);border-radius:14px;background:linear-gradient(180deg,#161e36,#10172a);margin-bottom:32px;overflow:hidden}
 .pf-v2-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:0}
 /* Hero */
-.pf-hero{display:flex;align-items:center;gap:16px;padding:20px 22px;border-bottom:1px solid var(--border2);background:radial-gradient(130% 150% at 0% 0%, rgba(245,200,66,0.12), transparent 58%)}
+.pf-hero{display:flex;align-items:center;gap:16px;padding:20px 22px;border-bottom:1px solid var(--border2);background:radial-gradient(130% 150% at 0% 0%, color-mix(in srgb,var(--gold) 12%,transparent), transparent 58%)}
 .pf-hero-av{width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);flex-shrink:0;background:var(--s3)}
 .pf-hero-av-init{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:var(--t-h1);color:var(--text);font-family:var(--font-sans)}
 .pf-hero-copy{min-width:0;flex:1}
 .pf-hero-eyebrow{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pf-hero-headline{font-family:var(--font-sans);font-size:var(--t-body);font-weight:600;color:var(--text2);line-height:1}
-.pf-hero-headline b{font-size:30px;font-weight:800;color:#f5c842;letter-spacing:-.025em;margin-right:7px;font-variant-numeric:tabular-nums}
+.pf-hero-headline b{font-size:30px;font-weight:800;color:var(--gold);letter-spacing:-.025em;margin-right:7px;font-variant-numeric:tabular-nums}
 .pf-hero-sub{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);margin-top:8px;letter-spacing:.02em}
 .pf-v2-stat{padding:22px 22px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--border2)}
 .pf-v2-tiles .pf-v2-stat:last-child{border-right:none}
@@ -2409,8 +2409,14 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     --gold: #f5c842;
     --suggest: #7bd0ff;
   }
-  /* Onyx uses Platinum accent — win over the equal-specificity :root,.dark fallback above */
-  :root[data-theme="onyx"]{ --gold:#c9d3e0; --suggest:#c9d3e0; }
+  /* Onyx uses Steel Frost accent — inlined here so the accent travels with index.html
+     even if vault-ds.css isn't loaded; :root[data-theme] outranks vault-ds.css's [data-theme]. */
+  :root[data-theme="onyx"]{
+    --accent:#5e7c9c; --accent2:#8fb4e0; --accent3:#b9d2ec;
+    --primary:#8fb4e0; --on-primary:#0b1420;
+    --sky:#5e7c9c; --sky-dim:#43607d;
+    --gold:#8fb4e0; --suggest:#8fb4e0;
+  }
 
 /* ── Gridiron Labs design: player modal enhancements ── */
 .ps-rank-chip{background:var(--s1);border:1px solid var(--border2);padding:3px 9px;border-radius:2px;font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);letter-spacing:0.06em;display:inline-flex;align-items:center;gap:4px}
@@ -16587,7 +16593,7 @@ function renderPortfolioV2(){
       <div class="pf-v2-stat-lbl">Leagues</div>
     </div>
     <div class="pf-v2-stat">
-      <div class="pf-v2-stat-num" style="color:#facc15">${(totalValue/1000).toFixed(1)}<span style="font-size:18px;opacity:.65;font-weight:600">k</span></div>
+      <div class="pf-v2-stat-num" style="color:var(--gold)">${(totalValue/1000).toFixed(1)}<span style="font-size:18px;opacity:.65;font-weight:600">k</span></div>
       <div class="pf-v2-stat-lbl">Total Value</div>
     </div>
     <div class="pf-v2-stat">
@@ -16717,7 +16723,7 @@ function renderPortfolioV2(){
       <td class="pf-v2-td-num" style="color:${rankColor};font-weight:700">${rankStr}</td>
       <td class="pf-v2-td-num pf-v2-td-buyin">${buyInCell}</td>
       <td class="pf-v2-td-num pf-v2-td-payout">${payoutCell}</td>
-      <td class="pf-v2-td-num" style="color:#facc15;font-family:var(--font-mono)">${valStr}</td>
+      <td class="pf-v2-td-num" style="color:var(--gold);font-family:var(--font-mono)">${valStr}</td>
     </tr>${detailRow}`;
   }).join('');
 
@@ -24515,11 +24521,11 @@ function pickYear(year) {
 .rdv-ident{position:relative}
 .rdv-ident>*{position:relative;z-index:1}
 .rdv-ident::before{content:'';position:absolute;left:-26px;right:-26px;top:-20px;bottom:-20px;z-index:0;pointer-events:none;
-  background:radial-gradient(440px 150px at 90% 0%, rgba(250,204,21,.09), transparent 60%),radial-gradient(380px 170px at 2% 130%, rgba(226,58,78,.06), transparent 70%)}
+  background:radial-gradient(440px 150px at 90% 0%, color-mix(in srgb,var(--gold) 9%,transparent), transparent 60%),radial-gradient(380px 170px at 2% 130%, rgba(226,58,78,.06), transparent 70%)}
 .lh-ov-hero{position:relative;overflow:hidden}
 .lh-ov-hero>*{position:relative;z-index:1}
 .lh-ov-hero::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
-  background:radial-gradient(300px 170px at 100% 0%, rgba(250,204,21,.11), transparent 60%),radial-gradient(320px 190px at 0% 130%, rgba(226,58,78,.06), transparent 70%)}
+  background:radial-gradient(300px 170px at 100% 0%, color-mix(in srgb,var(--gold) 11%,transparent), transparent 60%),radial-gradient(320px 190px at 0% 130%, rgba(226,58,78,.06), transparent 70%)}
 .wpg{display:flex;align-items:center;gap:16px}
 .wpg .ring{width:90px;height:90px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:conic-gradient(var(--you2) 0 var(--p),rgba(240,114,138,.85) var(--p) 100%);position:relative}
 .wpg .ring::before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--s1)}
@@ -25820,7 +25826,17 @@ body::after{
 [data-theme="onyx"] .tc-send-row{ background:rgba(255,255,255,0.04)!important; }
 /* ── ONYX: lineup command + matchup overview (runtime-injected navy) ── */
 [data-theme="onyx"] #page-lineup{ --lc-card:rgba(22,23,28,0.62)!important; }
-[data-theme="onyx"] #page-lineup .lc-card.best{ border-color:rgba(154,167,186,.5)!important; box-shadow:0 0 0 1px rgba(154,167,186,.28),0 18px 40px rgba(0,0,0,.4)!important; }
+[data-theme="onyx"] #page-lineup .lc-card.best{ border-color:rgba(143,180,224,.5)!important; box-shadow:0 0 0 1px rgba(143,180,224,.30),0 0 34px -6px rgba(143,180,224,.34),0 18px 40px rgba(0,0,0,.4)!important; }
+
+/* ── ONYX (Steel Frost): hero-only steel-blue bloom on primary CTAs — kept off ordinary buttons ── */
+[data-theme="onyx"] .connect-btn,[data-theme="onyx"] .launch-btn,[data-theme="onyx"] .gn-cta{
+  box-shadow:0 0 22px -4px rgba(143,180,224,.42),0 1px 0 rgba(255,255,255,0.06) inset!important;
+}
+[data-theme="onyx"] .connect-btn:hover,[data-theme="onyx"] .launch-btn:hover,[data-theme="onyx"] .gn-cta:hover{
+  box-shadow:0 0 30px -2px rgba(143,180,224,.55),0 1px 0 rgba(255,255,255,0.08) inset!important;
+}
+/* active sub-nav pill: base theme hardcodes red — retint to steel for onyx */
+[data-theme="onyx"] .lc-subnav button.on{ background:rgba(143,180,224,.16)!important; box-shadow:inset 0 0 0 1px rgba(143,180,224,.42)!important; }
 [data-theme="onyx"] #page-lineup .lc-wpbar i{ background:linear-gradient(90deg,var(--accent),var(--accent2))!important; }
 [data-theme="onyx"] .mo-card{
   background:linear-gradient(177deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02) 24%,transparent 52%),rgba(22,23,28,0.55)!important;
