@@ -5220,6 +5220,62 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
 #tc-toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:12px 20px;border-radius:12px;font-family:var(--font-sans);font-size:13px;font-weight:600;box-shadow:0 16px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9999;max-width:340px;text-align:center}
 #tc-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ── TRADE INTELLIGENCE (v4) — verdict card, dual-truth, motion ── */
+.tc-rise{opacity:0;transform:translateY(10px);transition:opacity .3s ease-out,transform .3s ease-out}
+.tc-rise.in{opacity:1;transform:translateY(0)}
+.tc-int-word{font-family:var(--font-sans);font-weight:900;letter-spacing:-.03em;font-size:30px;line-height:1.05;text-align:center}
+.tc-int-sub{font-family:var(--font-sans);font-size:12.5px;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5}
+.tc-int-truth{background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:11px 13px;margin-top:14px}
+.tc-int-trow{display:flex;align-items:center;justify-content:space-between;padding:5px 0}
+.tc-int-trow + .tc-int-trow{border-top:1px solid var(--border)}
+.tc-int-src{display:flex;align-items:center;gap:8px;font-family:var(--font-sans);font-size:12px;font-weight:700;color:var(--text2)}
+.tc-int-src .sd{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.tc-int-src small{font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;color:var(--muted);font-weight:400;text-transform:uppercase}
+.tc-int-tval{font-family:var(--font-mono);font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.tc-int-edge{display:flex;gap:9px;align-items:flex-start;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border2)}
+.tc-int-edge .lbl{font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2,#7bd0ff);padding-top:2px;flex-shrink:0}
+.tc-int-edge .tx{font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--text2)}
+.tc-int-edge .tx b{color:var(--text)}
+.tc-int-send{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#1f8a56,#2fb972);color:#fff;font-family:var(--font-sans);font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px -8px rgba(47,185,114,.5);transition:filter .12s,transform .12s ease}
+.tc-int-send:hover{filter:brightness(1.07)}
+.tc-int-send:active{transform:scale(.97)}
+.tc-int-send svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;flex-shrink:0}
+.tc-int-alt{display:flex;gap:8px;margin-top:8px}
+.tc-int-alt button{flex:1;padding:8px;border:1px solid var(--border2);border-radius:10px;background:transparent;color:var(--text2);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:border-color .15s,color .15s}
+.tc-int-alt button:hover{border-color:var(--border3);color:var(--text)}
+.tc-int-alt button:active{transform:scale(.97)}
+.tc-int-note{font-family:var(--font-mono);font-size:8px;letter-spacing:.03em;color:var(--muted);text-align:center;margin-top:7px;line-height:1.5}
+.tc-fmt-pill{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:5px;background:var(--s3);border:1px solid var(--border2);color:var(--text2);text-transform:uppercase}
+@media(prefers-reduced-motion:reduce){ .tc-rise{transition-duration:.01ms} }
+
+/* ── TRADE ENGINES — Matchmaker · Exploit · Ideas ── */
+.tc-eng-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tc-eng-tab{display:flex;align-items:center;gap:8px;padding:9px 15px;border-radius:11px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.tc-eng-tab:hover{border-color:var(--border3);color:var(--text2)}
+.tc-eng-tab.on{background:var(--s3);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--te) 40%,transparent)}
+.tc-eng-tab:active{transform:scale(.97)}
+.tc-eng-tab .n{font-family:var(--font-mono);font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--text2)}
+.tc-eng-sub{font-family:var(--font-sans);font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.tc-eng-sub b{color:var(--text2)}
+.tc-fitchip{font-family:var(--font-mono);font-size:10px;font-weight:800;padding:4px 9px;border-radius:7px;flex-shrink:0}
+.tc-xc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px;margin-bottom:16px}
+.tc-xc{border:1px solid rgba(245,200,66,.2);border-radius:14px;padding:16px;background:linear-gradient(160deg,rgba(245,200,66,.05),var(--s2) 55%);display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+.tc-xc:hover{border-color:rgba(245,200,66,.4)}
+.tc-xc-head{display:flex;align-items:center;gap:9px}
+.tc-xc-kind{font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+.tc-xc-score{margin-left:auto;font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--rb)}
+.tc-xc-why{font-family:var(--font-sans);font-size:12px;line-height:1.55;color:var(--text2)}
+.tc-xc-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:10px;border:none;background:var(--s3);color:var(--text);font-family:var(--font-sans);font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
+.tc-xc-btn:hover{background:var(--s4)}
+.tc-xc-btn:active{transform:scale(.97)}
+.tc-press{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:10.5px}
+.tc-press th{text-align:left;padding:7px 10px;color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border2);white-space:nowrap}
+.tc-press td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap}
+.tc-press tr.me td{background:rgba(123,208,255,.05)}
+.tc-dir-up{color:var(--rb);font-weight:800}.tc-dir-mid{color:var(--te);font-weight:800}.tc-dir-dn{color:#b48cff;font-weight:800}
+.tc-idea-badge{font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;flex-shrink:0}
+@media(max-width:700px){ .tc-press{font-size:9.5px} .tc-press th,.tc-press td{padding:6px 7px} }
+
 @media(max-width:900px){
   .tc-bento{grid-template-columns:1fr}
   .tc-rosters{grid-template-columns:1fr}
@@ -18636,20 +18692,53 @@ function pickYear(year) {
         return this._live.rosters.map((r,i)=>{
           const nm = umap[r.owner_id] || ('Team '+(r.roster_id||i+1));
           const mine = r.owner_id===_lexUid();
+          const st=r.settings||{};
           return { id:String(r.roster_id), name:mine?(nm+' (You)'):nm, owner:mine?'You':nm,
             color:mine?'#4d86f0':PALETTE[(i+1)%PALETTE.length],
             logo:(nm.replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase())||('T'+(i+1)),
-            _players:(r.players||[]) };
+            _players:(r.players||[]),
+            _rec:{ w:st.wins||0, l:st.losses||0, fpts:(st.fpts||0)+((st.fpts_decimal||0)/100) } };
         });
       }
       return TEAM_META.slice();
     },
     team(id){ const ts=this.teams(); return ts.find(t=>String(t.id)===String(id)) || ts[0]; },
-    // Map a {season,round} pick to a PICK_VALUES key. Round 1 defaults to "Mid"
-    // (traded_picks carries no draft-order info), rounds 2–4 use flat labels.
-    _pickName(season, round){
-      const ord = round===1 ? '1st Mid' : round===2 ? '2nd' : round===3 ? '3rd' : round===4 ? '4th' : (round+'th');
+    // Map a {season,round} pick to a PICK_VALUES key. 1sts are tiered Early/Mid/Late
+    // from the ORIGINAL owner's projected finish (traded_picks has no draft-order
+    // info, so we project it: weakest third of the league → Early, strongest → Late).
+    _pickName(season, round, orig){
+      if(round===1) return season+' 1st '+this._projTier(orig);
+      const ord = round===2 ? '2nd' : round===3 ? '3rd' : round===4 ? '4th' : (round+'th');
       return season+' '+ord;
+    },
+    // roster_id → strength percentile (0 weakest … 1 strongest); record-aware in-season,
+    // roster-strength percentile in the offseason. Guarded against recursion via roster().
+    _strengthPct(){
+      const lid=this.isLive()?this._live.lid:'demo';
+      if(this._spCache && this._spCache.lid===lid && this._spCache.n===this.teams().length) return this._spCache.map;
+      if(this._spBusy) return null;
+      this._spBusy=true;
+      const map={};
+      try{
+        const rows=this.teams().map(t=>{
+          const re=this.roster(t.id).filter(p=>p.type!=='pick').reduce((s,p)=>s+this._wnRe(p.name),0);
+          const rec=t._rec; const gp=rec?(rec.w+rec.l):0;
+          return { id:String(t.id), re, wp: gp>0? rec.w/gp : null };
+        });
+        const byRe=rows.slice().sort((a,b)=>a.re-b.re);
+        rows.forEach(r=>{ const pct=byRe.indexOf(r)/Math.max(rows.length-1,1); r.score = r.wp==null? pct : 0.6*r.wp+0.4*pct; });
+        const bySc=rows.slice().sort((a,b)=>a.score-b.score);
+        rows.forEach(r=>{ map[r.id]=bySc.indexOf(r)/Math.max(rows.length-1,1); });
+      }catch(e){}
+      this._spBusy=false;
+      this._spCache={lid, n:this.teams().length, map};
+      return map;
+    },
+    _projTier(orig){
+      if(!this.isLive() || orig==null) return 'Mid';
+      const map=this._strengthPct(); if(!map) return 'Mid';
+      const pct=map[String(orig)]; if(pct==null) return 'Mid';
+      return pct>=2/3 ? 'Late' : pct<1/3 ? 'Early' : 'Mid'; // strong teams draft late
     },
     // Compute each roster's REAL owned future picks from Sleeper's traded_picks.
     // Seasons whose rookie draft is already complete are excluded (a completed
@@ -18661,6 +18750,7 @@ function pickYear(year) {
         const lg=(typeof myTeamsData!=='undefined'&&myTeamsData)?myTeamsData.find(l=>l.league_id===lid):null;
         const isEspn = lg && typeof vpPlat==='function' && vpPlat(lg)==='espn'; // ESPN exposes no traded-pick data
         const league = await fetch('https://api.sleeper.app/v1/league/'+lid).then(r=>r.json()).catch(()=>null);
+        try{ if(this._live) this._live.league=league; }catch(e){}
         const rounds = (league&&league.settings&&league.settings.draft_rounds) || 4;
         const curSeason = (league&&parseInt(league.season)) || new Date().getFullYear();
         // Earliest future season = first one whose draft hasn't completed yet
@@ -18679,7 +18769,7 @@ function pickYear(year) {
           const traded = await fetch('https://api.sleeper.app/v1/league/'+lid+'/traded_picks').then(r=>r.json()).catch(()=>[]);
           (traded||[]).forEach(tp=>{ const k=tp.season+'-'+tp.round+'-'+tp.roster_id; if(k in owner) owner[k]=tp.owner_id; });
         }
-        Object.keys(owner).forEach(k=>{ const p=k.split('-'); const arr=picksByRoster[String(owner[k])]; if(arr) arr.push({season:parseInt(p[0]),round:parseInt(p[1])}); });
+        Object.keys(owner).forEach(k=>{ const p=k.split('-'); const arr=picksByRoster[String(owner[k])]; if(arr) arr.push({season:parseInt(p[0]),round:parseInt(p[1]),orig:p[2]}); });
         Object.keys(picksByRoster).forEach(id=>picksByRoster[id].sort((x,y)=>x.season-y.season||x.round-y.round));
       }catch(e){ console.warn('TC _loadPicks failed:', e); }
       return picksByRoster;
@@ -18699,7 +18789,7 @@ function pickYear(year) {
         }).filter(Boolean);
         if(this._showPicks()){
           const bag=(this._live && this._live.picksByRoster && this._live.picksByRoster[String(id)])||[];
-          bag.forEach(pk=>out.push({name:this._pickName(pk.season,pk.round),pos:'PICK',type:'pick'}));
+          bag.forEach(pk=>out.push({name:this._pickName(pk.season,pk.round,pk.orig),pos:'PICK',type:'pick'}));
         }
         return out;
       }
@@ -18756,7 +18846,12 @@ function pickYear(year) {
     has(side,name){ return !!(tradeAssets[side]||[]).find(a=>a.name===name); },
 
     // ── builders ──
-    avatar(a,size){ size=size||38; const c=POS_HEX[a.pos]||'#8794a6'; const init=a.type==='pick'?'◆':(a.name.split(' ').map(w=>w[0]).slice(0,2).join('')); return `<div class="tc-avatar" style="width:${size}px;height:${size}px;border:2px solid ${c};background:${c}14;color:${c};font-size:${Math.round(size*0.34)}px">${init}</div>`; },
+    avatar(a,size){ size=size||38; const c=POS_HEX[a.pos]||'#8794a6'; const init=a.type==='pick'?'◆':(a.name.split(' ').map(w=>w[0]).slice(0,2).join(''));
+      let img='';
+      if(a.type!=='pick' && typeof vaultHeadshot==='function'){
+        try{ const u=vaultHeadshot(a.name,'',size); if(u) img=`<img src="${u}" data-vh-n="${esc(a.name)}" data-vh-px="${size}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='${init}'">`; }catch(e){}
+      }
+      return `<div class="tc-avatar" style="width:${size}px;height:${size}px;border:2px solid ${c};background:${c}14;color:${c};font-size:${Math.round(size*0.34)}px;overflow:hidden">${img||init}</div>`; },
     sendRow(side,a,color){ const v=this.val(a); return `<div class="tc-send-row" style="border:1px solid ${color}33">${this.avatar(a,38)}<div style="flex:1;min-width:0"><div class="tc-send-name">${a.name}</div><div class="tc-send-meta">${a.pos}${a.team?' · '+a.team:''}</div></div><div class="tc-send-val" style="color:${color}">${fmt(v)}</div><button class="tc-x" onclick="TC.remove('${side}','${esc(a.name)}')">✕</button></div>`; },
     vmodeSeg(){ return `<span class="lab">Value&nbsp;Set</span><div class="tc-seg sm"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>`; },
     sourceBar(){ const fmtName=this.vmode==='re'?'Redraft':'Dynasty';
@@ -18769,8 +18864,10 @@ function pickYear(year) {
       return `<div class="tc-srcbar" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 13px;background:var(--s2);border:1px solid var(--border);border-radius:11px;margin-bottom:14px">
         <span style="width:7px;height:7px;border-radius:50%;background:${dot};box-shadow:0 0 0 3px ${dotGlow};flex-shrink:0"></span>
         <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text2);letter-spacing:.02em">${srcTxt}</span>
-        ${this.mode==='quick'?`<div class="tc-seg sm" style="margin-left:auto"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>`:''}
-        <div class="tc-seg sm" style="${this.mode==='quick'?'':'margin-left:auto'}"><button class="${!mine?'on':''}" onclick="TC.setVsrc('market')">Market</button><button class="${mine?'on':''}" onclick="TC.setVsrc('mine')">Mine</button></div>
+        ${this.mode==='league'&&this.isLive()?`<span style="display:inline-flex;gap:5px;align-items:center">${this._lgFmtPills()}</span>`:''}
+        <div class="tc-seg sm" style="margin-left:auto"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>
+        ${(!this._vmodeUserSet&&this.leagueType()===this.vmode&&this.mode==='league')?'<span class="tc-fmt-pill" style="color:var(--rb);border-color:rgba(61,204,122,.35)" title="Value set auto-detected from your Sleeper league settings">auto</span>':''}
+        <div class="tc-seg sm"><button class="${!mine?'on':''}" onclick="TC.setVsrc('market')">Market</button><button class="${mine?'on':''}" onclick="TC.setVsrc('mine')">Mine</button></div>
         <button class="tc-clear-all" onclick="TC.clearAll()" ${((tradeAssets.a||[]).length+(tradeAssets.b||[]).length)?'':'disabled'} title="Remove all players & picks from both sides">✕ Clear all</button>
         <button onclick="TC.explainValues(event)" style="display:flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:7px;padding:4px 9px;color:var(--muted);font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;white-space:nowrap">ⓘ How values work</button>
       </div>`; },
@@ -18784,7 +18881,7 @@ function pickYear(year) {
         <div style="display:flex;flex-direction:column;gap:14px;font-family:var(--font-sans);font-size:13.5px;line-height:1.6;color:var(--text2)">
           <div><b style="color:var(--text)">Source.</b> Player values come from <b style="color:var(--rb)">FantasyCalc</b>'s live market consensus, derived from real trades across thousands of leagues and refreshed daily. Switch the <b style="color:var(--text)">Market / Mine</b> toggle to evaluate the trade on <b style="color:var(--sky,#7bd0ff)">your own My&nbsp;Rankings board</b> instead.</div>
           <div><b style="color:var(--text)">Dynasty vs Redraft.</b> Dynasty values weigh long-term, age-adjusted worth. Redraft values reflect win-now, single-season value, so veterans rise and rookies/picks fall.</div>
-          <div><b style="color:var(--text)">Draft picks.</b> Rookie &amp; future picks use FantasyCalc dynasty pick values. In <b style="color:var(--text)">Redraft</b> mode picks are hidden, since they hold no single-season value.</div>
+          <div><b style="color:var(--text)">Draft picks.</b> Future 1sts are tiered <b style="color:var(--text)">Early / Mid / Late</b> from the <b style="color:var(--text)">original owner's projected finish</b> — a 1st from a rebuilding team projects Early and carries more value than one from a contender. Records drive the projection in-season; roster strength in the offseason. In <b style="color:var(--text)">Redraft</b> mode picks are hidden, since they hold no single-season value.</div>
         </div></div>`;
       document.body.appendChild(m);
     },
@@ -18807,6 +18904,116 @@ function pickYear(year) {
         <div style="display:flex;justify-content:space-between;margin-top:9px"><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text)">${fmt(recvA)}</span><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text)">${fmt(recvB)}</span></div></div>`;
     },
 
+    /* ════ TRADE INTELLIGENCE (v4) — dual-truth verdict card ════ */
+    valAs(a,src){ const o=this.vsrc; this.vsrc=src; const v=this.val(a); this.vsrc=o; return v; },
+    sideTotalAs(side,src){ return (tradeAssets[side]||[]).reduce((s,a)=>s+this.valAs(a,src),0); },
+    _fmtSign(n){ return (n<0?'−':'+')+fmt(Math.abs(n)); },
+    _lgFmtPills(){ const lg=this._live&&this._live.league; if(!lg) return '';
+      const pills=[(lg.roster_positions||[]).includes('SUPER_FLEX')?'SF':'1QB'];
+      if(lg.total_rosters) pills.push(lg.total_rosters+'-team');
+      const rec=lg.scoring_settings&&lg.scoring_settings.rec;
+      if(rec===1) pills.push('PPR'); else if(rec===0.5) pills.push('0.5 PPR');
+      if(lg.scoring_settings&&lg.scoring_settings.bonus_rec_te>0) pills.push('TE+');
+      return pills.map(p=>`<span class="tc-fmt-pill">${p}</span>`).join('');
+    },
+    intelCard(tA,tB,recvA,recvB){
+      const me=this._myTeam(); const meA=me&&String(me.id)===String(tA.id), meB=me&&String(me.id)===String(tB.id);
+      const mine=meA||meB;
+      const v=this.verdict(recvA,recvB,tA.name,tB.name);
+      const focusA = mine? meA : true;
+      const mNet=(focusA?1:-1)*(this.sideTotalAs('b','market')-this.sideTotalAs('a','market'));
+      const bNet=(focusA?1:-1)*(this.sideTotalAs('b','mine')-this.sideTotalAs('a','mine'));
+      const focusName= mine? 'you' : tA.name;
+      let word,color;
+      const winnerA=recvA>=recvB;
+      if(v.pctDiff<=8){ word='Dead even'; color='var(--te)'; }
+      else if(mine){ const iWin=(meA&&winnerA)||(meB&&!winnerA);
+        word=iWin?(v.pctDiff>30?'You win big':v.pctDiff>15?'You win this':'Edge to you'):(v.pctDiff>15?'You’re overpaying':'Slight overpay');
+        color=iWin?'var(--rb)':(v.pctDiff>15?'var(--qb)':'#f87171'); }
+      else { word=(winnerA?tA.name:tB.name)+' takes it'; color=v.pctDiff>15?'var(--rb)':'#4ade80'; }
+      const pkg=Math.max(recvA,recvB,1);
+      const gap=bNet-mNet; let edge;
+      const hasAssets=((tradeAssets.a||[]).length+(tradeAssets.b||[]).length)>0;
+      if(!hasAssets) edge='Add players or picks from the rosters below — the Vault reads market vs. your board as you build.';
+      else if(Math.abs(gap)<Math.max(150,pkg*0.05)) edge='<b>Market and your board agree.</b> No hidden conviction gap in this one.';
+      else if(gap>0) edge=`Your board likes this <b>${fmt(gap)} more</b> than the market — if your rankings are right, that gap is your edge.`;
+      else edge=`The market likes this <b>${fmt(-gap)} more</b> than your board — make sure you’re not paying for consensus you don’t believe.`;
+      const lid=_lexLid();
+      const auto=(!this._vmodeUserSet && this.leagueType()===this.vmode)?' · auto':'';
+      return `<div>
+        <div class="tc-eyebrow" style="text-align:center;margin-bottom:10px;font-size:var(--t-label)!important">Verdict · ${this.vmode==='re'?'Redraft':'Dynasty'}${auto}</div>
+        <div class="tc-int-word" style="color:${color}">${word}</div>
+        <div class="tc-int-sub">${v.sub}</div>
+        <div style="margin-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px"><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${tA.color};letter-spacing:.04em">${tA.name.toUpperCase()}</span><span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.12em">FAIR</span><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${tB.color};letter-spacing:.04em">${tB.name.toUpperCase()}</span></div>
+          <div class="tc-bal-track"><div class="tc-bal-fillA" id="tc-bal-anim" data-w="${v.pctA}" style="width:50%;background:linear-gradient(90deg,${tA.color}cc,${tA.color})"></div><div class="tc-bal-fillB" style="width:${100-v.pctA}%;background:linear-gradient(90deg,${tB.color},${tB.color}cc)"></div></div>
+          <div style="position:relative;height:0"><div class="tc-bal-tick"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:9px"><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums" data-tcc="${recvA}" data-tck="ra">${fmt(recvA)}</span><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums" data-tcc="${recvB}" data-tck="rb">${fmt(recvB)}</span></div>
+        </div>
+        <div class="tc-int-truth">
+          <div class="tc-int-trow"><div class="tc-int-src"><span class="sd" style="background:var(--accent2,#7bd0ff)"></span>Market <small>FantasyCalc</small></div><div class="tc-int-tval" style="color:${mNet>=0?'var(--rb)':'var(--red2,#ff5a6e)'}" data-tcc="${mNet}" data-tck="mn" data-sign="1">${this._fmtSign(mNet)}</div></div>
+          <div class="tc-int-trow"><div class="tc-int-src"><span class="sd" style="background:var(--te)"></span>My Board <small>your rankings</small></div><div class="tc-int-tval" style="color:${bNet>=0?'var(--rb)':'var(--red2,#ff5a6e)'}" data-tcc="${bNet}" data-tck="bn" data-sign="1">${this._fmtSign(bNet)}</div></div>
+          <div class="tc-int-edge"><span class="lbl">Edge read</span><span class="tx">${edge}${hasAssets?` <span style="color:var(--muted)">(net to ${focusName})</span>`:''}</span></div>
+        </div>
+        ${hasAssets?`<button class="tc-int-send" onclick="TC.sendOnSleeper()"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>${lid?'Send trade on Sleeper':'Copy trade offer'}</button>
+        <div class="tc-int-note">${lid?'Copies the offer + opens your Sleeper trade screen.<br>Sleeper’s API can’t submit trades — this is the fastest legal path.':'Copies a formatted offer you can paste anywhere.'}</div>
+        <div class="tc-int-alt"><button onclick="TC.copyOffer()">⧉ Copy offer</button><button onclick="TC.clearAll()">✕ Clear deal</button></div>`:''}
+      </div>`;
+    },
+    tradeBlock(){
+      const tA=this.team(this.teamA), tB=this.team(this.teamB);
+      const recvA=this.sideTotal('b'), recvB=this.sideTotal('a');
+      const list=s=>(tradeAssets[s]||[]).map(a=>a.name+(a.pos&&a.pos!=='PICK'?' ('+a.pos+(a.team?' '+a.team:'')+')':'')).join(', ')||'—';
+      const v=this.verdict(recvA,recvB,tA.name,tB.name);
+      return 'VAULT TRADE OFFER — '+tA.name+' ⇄ '+tB.name+'\n'
+        +tA.name+' receives: '+list('b')+'\n'
+        +tB.name+' receives: '+list('a')+'\n'
+        +'Verdict ('+(this.vmode==='re'?'redraft':'dynasty')+' values): '+v.text+' — '+fmt(recvA)+' vs '+fmt(recvB)+'\n'
+        +'— built with Vault Trade Intelligence';
+    },
+    copyOffer(){ const b=this.tradeBlock();
+      Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(b))
+        .then(()=>this.toast('Offer copied — paste it in league chat.'))
+        .catch(()=>{ this.toast('Clipboard blocked — offer logged to console.'); console.log(b); });
+    },
+    sendOnSleeper(){
+      const b=this.tradeBlock();
+      try{ if(navigator.clipboard) navigator.clipboard.writeText(b); }catch(e){}
+      const lid=_lexLid();
+      if(lid){ window.open('https://sleeper.com/leagues/'+lid+'/team','_blank'); this.toast('Offer copied + Sleeper opened — build the trade there, drop the pitch in chat.'); }
+      else { this.toast('Offer copied — connect a league to deep-link Sleeper.'); }
+    },
+    /* count-up + bar fill after each render — interruptible, 350ms, reduced-motion aware */
+    _numPrev:{},
+    _afterRender(){
+      let rm=false; try{ rm=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+      const bar=document.getElementById('tc-bal-anim');
+      if(bar){ const w=parseFloat(bar.dataset.w)||50;
+        if(rm){ bar.style.width=w+'%'; }
+        else requestAnimationFrame(()=>requestAnimationFrame(()=>{ bar.style.width=w+'%'; }));
+      }
+      const self=this;
+      document.querySelectorAll('[data-tcc]').forEach(el=>{
+        const target=parseFloat(el.dataset.tcc)||0, key=el.dataset.tck, sign=el.dataset.sign==='1';
+        const from=(key in self._numPrev)?self._numPrev[key]:0;
+        self._numPrev[key]=target;
+        if(rm||from===target){ el.textContent=sign?self._fmtSign(target):fmt(target); return; }
+        const t0=performance.now(), D=350;
+        (function tick(now){
+          const p=Math.min(((now||performance.now())-t0)/D,1), e=1-Math.pow(1-p,3), cur=from+(target-from)*e;
+          el.textContent=sign?self._fmtSign(Math.round(cur)):fmt(cur);
+          if(p<1&&el.isConnected) requestAnimationFrame(tick);
+        })(t0);
+      });
+      if(!this._entered){ this._entered=true;
+        if(!rm){ document.querySelectorAll('#page-trade .tc-card').forEach((el,i)=>{
+          el.classList.add('tc-rise'); el.style.transitionDelay=(i*50)+'ms';
+          requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('in')));
+          setTimeout(()=>{ el.style.transitionDelay='0ms'; }, i*50+400);
+        }); }
+      }
+    },
+
     // ════ RENDER ════
     render(){
       document.querySelectorAll('#tc-mode-tabs button').forEach(b=>b.classList.toggle('on', b.dataset.mode===this.mode));
@@ -18823,6 +19030,7 @@ function pickYear(year) {
         if(lb) lb.style.display='none';
         if(qb){ qb.style.display=''; qb.innerHTML=this.renderQuick(); }
       }
+      try{ this._afterRender(); }catch(e){}
     },
 
     teamPicker(slot){
@@ -18851,11 +19059,11 @@ function pickYear(year) {
       const recvA=this.sideTotal('b'), recvB=this.sideTotal('a');
       return `<div class="tc-card tc-trade-main" style="padding:38px;margin-bottom:16px"><div class="tc-league-grid" style="display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:36px;align-items:start">
         <div><div class="tc-eyebrow" style="color:${tA.color};margin-bottom:9px">${tA.name} sends</div><div style="display:flex;flex-direction:column;gap:7px">${(tradeAssets.a||[]).length?(tradeAssets.a||[]).map(a=>this.sendRow('a',a,tA.color)).join(''):this.emptySlot(tA.color)}</div></div>
-        <div><div class="tc-eyebrow" style="margin-bottom:12px">⇄&nbsp;&nbsp;Trade Verdict · ${this.vmode==='re'?'Redraft':'Dynasty'}</div>${this.balanceBar(recvA,recvB,tA.name,tB.name,tA.color,tB.color)}</div>
+        <div>${this.intelCard(tA,tB,recvA,recvB)}</div>
         <div><div class="tc-eyebrow" style="color:${tB.color};margin-bottom:9px">${tB.name} sends</div><div style="display:flex;flex-direction:column;gap:7px">${(tradeAssets.b||[]).length?(tradeAssets.b||[]).map(a=>this.sendRow('b',a,tB.color)).join(''):this.emptySlot(tB.color)}</div></div>
       </div></div>
       <div class="tc-rosters">${this.rosterCard(tA,'a')}${this.rosterCard(tB,'b')}</div>
-      ${this.renderWinNow()}`;
+      ${this.renderEngines()}`;
     },
     rosterCard(t,side){ return `<div class="tc-card" style="padding:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="tc-logo" style="width:30px;height:30px;border-radius:8px;background:${t.color}22;border:1px solid ${t.color}66;color:${t.color};font-size:11px">${t.logo}</div><div style="flex:1;min-width:0"><div style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${t.name}</div><div class="tc-eyebrow" style="margin-top:1px">${t.owner==='You'?'Your roster':t.owner+"'s roster"} · tap to add</div></div></div>${this.rosterCols(side,t.id)}</div>`; },
     emptySlot(color){ return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:18px;border:1.5px dashed ${color}44;border-radius:12px;color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-align:center">+ ADD FROM ROSTER BELOW</div>`; },
@@ -19006,6 +19214,308 @@ function pickYear(year) {
           <div class="tc-wn-stat"><span class="tc-wn-statn" style="color:${nc}">${net>=0?'+':'−'}${fmt(Math.abs(net))}</span><span class="tc-wn-statl">net value</span></div>
           <div class="tc-wn-load">Load ›</div>
         </div>
+      </div>`;
+    },
+
+    /* ════════════ TRADE ENGINES — Matchmaker · Exploit Finder · Idea Generator ════════════
+       Built from the market-research roadmap (docs/trade-calculator-market-research.md):
+       Matchmaker = mutual-win fair trades for MY needs; Exploit = league pressure map +
+       timing-based leverage; Ideas = creative packages scored for novelty × realism.   */
+    _engState:{ tab:'match', seed:1 },
+    _engCache:null, _intelCache:null,
+    setEngTab(t){ this._engState.tab=t; this.render(); },
+    shuffleIdeas(){ this._engState.seed++; if(this._engCache) this._engCache.ideas=null; this.render(); },
+    _age(n){ const fc=(typeof getFCValue==='function')&&getFCValue(n); return (fc&&fc.age)||null; },
+    _rng(seed){ let s=seed>>>0; return ()=>{ s=(s+0x6D2B79F5)|0; let t=Math.imul(s^(s>>>15),1|s); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; },
+
+    /* per-team league intelligence: direction, needs, surplus, future lean */
+    leagueIntel(){
+      const sig=`${this.vmode}|${this.isLive()?this._live.lid:'demo'}|${this.teams().map(t=>t.id).join(',')}`;
+      if(this._intelCache&&this._intelCache.sig===sig) return this._intelCache.rows;
+      const STN=this._wnStarters(), POS=['QB','RB','WR','TE'];
+      const rows=this.teams().map(t=>{
+        const roster=this.roster(t.id);
+        const players=roster.filter(p=>p.type!=='pick'&&POS.includes(p.pos));
+        const picks=roster.filter(p=>p.type==='pick');
+        const byPos={}; let starterRe=0; const starters=new Set();
+        POS.forEach(pos=>{ const l=players.filter(p=>p.pos===pos).sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name)); byPos[pos]=l; l.slice(0,STN[pos]).forEach(p=>{ starterRe+=this._wnRe(p.name); starters.add(p.name); }); });
+        const dynTotal=players.reduce((s,p)=>s+this._wnDyn(p.name),0);
+        const pickDyn=picks.reduce((s,p)=>s+this._wnDyn(p.name),0);
+        const youthDyn=players.filter(p=>{ const a=this._age(p.name); return a&&a<=24; }).reduce((s,p)=>s+this._wnDyn(p.name),0);
+        return { id:t.id, name:t.name.replace(/ \(You\)$/,''), color:t.color, mine:(t.owner==='You'||/\(You\)/.test(t.name)), rec:t._rec||null, players, picks, byPos, starters, starterRe, dynTotal, pickDyn, youthDyn };
+      });
+      const n=Math.max(rows.length,1);
+      const avgStart=rows.reduce((s,r)=>s+r.starterRe,0)/n;
+      const posAvg={}; POS.forEach(pos=>{ posAvg[pos]=rows.reduce((s,r)=>s+(r.byPos[pos]||[]).slice(0,STN[pos]).reduce((x,p)=>x+this._wnRe(p.name),0),0)/n; });
+      // percentile-rank roster strength so direction bands always spread the league,
+      // even in the offseason when every record is 0–0
+      const byStrength=rows.slice().sort((a,b)=>a.starterRe-b.starterRe);
+      rows.forEach(r=>{ r._pct=byStrength.indexOf(r)/Math.max(rows.length-1,1); });
+      rows.forEach(r=>{
+        const gp=r.rec?(r.rec.w+r.rec.l):0;
+        const wp=gp>0? r.rec.w/gp : null;
+        const sr=0.25+0.5*r._pct; // weakest .25 → strongest .75
+        r.contend = wp==null? sr : 0.6*wp+0.4*sr;
+        r.futureShare = (r.pickDyn+r.youthDyn)/Math.max(r.dynTotal+r.pickDyn,1);
+        r.dir = r.contend>=.62?'Elite Contender':r.contend>=.53?'Contender':r.contend>=.46?'Fringe':(r.futureShare>=.42?'Full Rebuild':r.contend>=.4?'Middle':'Soft Rebuild');
+        r.dirCls = r.contend>=.53?'up':(r.contend>=.4?'mid':'dn');
+        r.wantsFuture = r.futureShare>=.35 || r.contend<.46;
+        r.needs = POS.map(pos=>{
+          const st=(r.byPos[pos]||[]).slice(0,STN[pos]);
+          const mine=st.reduce((s,p)=>s+this._wnRe(p.name),0);
+          return { pos, deficit:posAvg[pos]-mine, floor:st.length?this._wnRe(st[st.length-1].name):0, best:st[0]?st[0].name:null, bestRe:st[0]?this._wnRe(st[0].name):0 };
+        }).sort((a,b)=>b.deficit-a.deficit);
+        r.surplus = POS.map(pos=>{
+          const extra=(r.byPos[pos]||[]).slice(STN[pos]);
+          return { pos, depth:extra.length, depthDyn:extra.reduce((s,p)=>s+this._wnDyn(p.name),0), pieces:extra };
+        }).sort((a,b)=>b.depthDyn-a.depthDyn);
+      });
+      this._intelCache={sig,rows};
+      return rows;
+    },
+    _meIntel(){ const rows=this.leagueIntel(); return rows.find(r=>r.mine)||rows[0]; },
+
+    /* my tradable pool, ordered by what the PARTNER wants (future vs now) */
+    _pkgFor(me,partner,target){
+      const pool=[];
+      me.players.forEach(p=>{ if(me.starters.has(p.name))return; const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:p.pos,dyn:d,age:this._age(p.name)}); });
+      me.picks.forEach(p=>{ const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:'PICK',dyn:d}); });
+      const pref=a=> a.pos==='PICK'?(partner.wantsFuture?2:0.6):((a.age&&a.age<=24)?(partner.wantsFuture?1.6:0.8):(partner.wantsFuture?0.6:1.4));
+      const lo=target*0.82, hi=target*1.18;
+      let best=null;
+      pool.forEach(a=>{ if(a.dyn>=lo&&a.dyn<=hi){ const sc=pref(a)-Math.abs(a.dyn-target)/target; if(!best||sc>best.sc)best={pk:[a],sc}; } });
+      if(best)return best.pk;
+      for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){ const s=pool[i].dyn+pool[j].dyn; if(s>=lo&&s<=hi){ const sc=pref(pool[i])+pref(pool[j])-Math.abs(s-target)/target; if(!best||sc>best.sc)best={pk:[pool[i],pool[j]],sc}; } }
+      return best?best.pk:null;
+    },
+
+    engines(){
+      const rows=this.leagueIntel(), me=this._meIntel();
+      const sig=`${this.vmode}|${this.isLive()?this._live.lid:'demo'}|${me?me.id:''}|${rows.length}`;
+      if(!this._engCache||this._engCache.sig!==sig) this._engCache={sig,match:null,exploits:null,ideas:null,ideaSeed:0};
+      const C=this._engCache;
+      if(!C.match) C.match=this._buildMatch(rows,me);
+      if(!C.exploits) C.exploits=this._buildExploits(rows,me);
+      if(!C.ideas||C.ideaSeed!==this._engState.seed){ C.ideas=this._buildIdeas(rows,me); C.ideaSeed=this._engState.seed; }
+      return C;
+    },
+
+    /* ── MATCHMAKER: mutual-win trades for my top needs, both sides scored ── */
+    _buildMatch(rows,me){
+      if(!me) return [];
+      const STN=this._wnStarters(); const out=[];
+      me.needs.slice(0,3).forEach((nd,ni)=>{
+        rows.forEach(r=>{ if(r===me)return;
+          const list=r.byPos[nd.pos]||[];
+          const cands=list.slice(STN[nd.pos]).filter(p=>this._wnRe(p.name)>Math.max(nd.floor,1)*0.95);
+          if(list[0]&&list.length>STN[nd.pos]&&this._wnRe(list[0].name)>nd.bestRe*1.12) cands.push(list[0]);
+          cands.forEach(p=>{
+            const tDyn=this._wnDyn(p.name); if(!tDyn)return;
+            const pkg=this._pkgFor(me,r,tDyn); if(!pkg)return;
+            const sDyn=pkg.reduce((s,a)=>s+a.dyn,0);
+            const netPct=((sDyn-tDyn)/tDyn)*100; if(Math.abs(netPct)>18)return;
+            const gainFloor=this._wnRe(p.name)-nd.floor; if(gainFloor<=0)return;
+            const givesFuture=pkg.some(a=>a.pos==='PICK'||(a.age&&a.age<=24));
+            const theirNeed=r.needs[0]&&r.needs[0].pos;
+            const theirFit=(r.wantsFuture&&givesFuture)||pkg.some(a=>a.pos===theirNeed);
+            const fair=1-Math.min(Math.abs(netPct)/18,1);
+            const fit=Math.round(45*fair + 35*Math.min(gainFloor/1500,1) + 20*(theirFit?1:0));
+            out.push({ pos:nd.pos, teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir, dirCls:r.dirCls,
+              target:p.name, targetPos:p.pos, targetDyn:tDyn, send:pkg, sendDyn:Math.round(sDyn),
+              netDyn:Math.round(tDyn-sDyn), gainRe:Math.round(gainFloor), theirFit, fit });
+          });
+        });
+      });
+      const seen={}; const ded=[];
+      out.sort((a,b)=>b.fit-a.fit).forEach(i=>{ const k=i.teamId+'|'+i.target; if(seen[k])return; seen[k]=1; ded.push(i); });
+      return ded.slice(0,8);
+    },
+
+    /* ── EXPLOIT FINDER: direction-aware leverage (buy-low from faders / sell-high to contenders) ── */
+    _buildExploits(rows,me){
+      if(!me) return [];
+      const out=[]; const buying=me.contend>=.46;
+      if(buying){
+        rows.forEach(r=>{ if(r===me||r.contend>=.46)return;
+          me.needs.slice(0,2).forEach(nd=>{
+            (r.byPos[nd.pos]||[]).forEach(p=>{
+              const age=this._age(p.name)||0, re=this._wnRe(p.name), dyn=this._wnDyn(p.name);
+              if(age>=27&&dyn>0&&re>Math.max(nd.floor,1)*1.05){
+                const pkg=this._pkgFor(me,r,dyn); if(!pkg)return;
+                const score=Math.round(55*(1-r.contend)+30*Math.min((re-nd.floor)/1200,1)+15*Math.min(Math.max(age-26,0),4)/4);
+                out.push({ kind:'buy', teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir,
+                  target:p.name, targetPos:p.pos, age, send:pkg, get:[{name:p.name,pos:p.pos}], score,
+                  why:`${r.name} is a ${r.dir.toLowerCase()}${r.rec&&(r.rec.w+r.rec.l)>0?` at ${r.rec.w}–${r.rec.l}`:''}. ${p.name} (${age}y) produces now — worth more to your ${nd.pos} room than to their timeline. Pay with future currency they actually want.` });
+              }
+            });
+          });
+        });
+      } else {
+        rows.forEach(r=>{ if(r===me||r.contend<.53)return;
+          r.needs.slice(0,2).forEach(nd=>{
+            (me.byPos[nd.pos]||[]).forEach(p=>{
+              const age=this._age(p.name)||0, re=this._wnRe(p.name), myDyn=this._wnDyn(p.name);
+              if(age>=27&&myDyn>0&&re>Math.max(nd.floor,1)*1.05){
+                const fut=r.picks.map(pk=>({name:pk.name,pos:'PICK',dyn:this._wnDyn(pk.name)}))
+                  .concat(r.players.filter(x=>{ const a=this._age(x.name); return a&&a<=24&&!r.starters.has(x.name); }).map(x=>({name:x.name,pos:x.pos,dyn:this._wnDyn(x.name)})))
+                  .filter(x=>x.dyn>0).sort((a,b)=>b.dyn-a.dyn);
+                const lo=myDyn*0.82, hi=myDyn*1.18; let get=null;
+                fut.forEach(a=>{ if(!get&&a.dyn>=lo&&a.dyn<=hi)get=[a]; });
+                if(!get){ for(let i=0;i<fut.length&&!get;i++)for(let j=i+1;j<fut.length&&!get;j++){ const s=fut[i].dyn+fut[j].dyn; if(s>=lo&&s<=hi)get=[fut[i],fut[j]]; } }
+                if(!get)return;
+                const score=Math.round(55*r.contend+30*Math.min((re-nd.floor)/1200,1)+15*Math.min(Math.max(age-26,0),4)/4);
+                out.push({ kind:'sell', teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir,
+                  target:p.name, targetPos:p.pos, age, send:[{name:p.name,pos:p.pos}], get, score,
+                  why:`${r.name} is a ${r.dir.toLowerCase()} with a soft ${nd.pos} room. Your ${p.name} (${age}y) is worth more to their title window than to your rebuild — convert him to future currency at peak.` });
+              }
+            });
+          });
+        });
+      }
+      const seen={}; return out.sort((a,b)=>b.score-a.score).filter(x=>{ const k=x.teamId+'|'+x.target; if(seen[k])return false; seen[k]=1; return true; }).slice(0,3);
+    },
+
+    /* ── IDEA GENERATOR: creative package shapes, novelty × realism, reshuffleable ── */
+    _buildIdeas(rows,me){
+      if(!me) return [];
+      const rnd=this._rng((this._engState.seed*2654435761)^(this.isLive()?(parseInt(String(this._live.lid).slice(-6))||7):7));
+      const others=rows.filter(r=>r!==me); if(!others.length)return [];
+      const ideas=[]; const seenK={};
+      const myPool=(prefFuture)=>{ const pool=[]; me.players.forEach(p=>{ if(me.starters.has(p.name))return; const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:p.pos,dyn:d,age:this._age(p.name)}); }); me.picks.forEach(p=>{ const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:'PICK',dyn:d}); }); return pool.sort((a,b)=>b.dyn-a.dyn); };
+      const theirPool=(r)=>{ const pool=[]; r.players.forEach(p=>{ if(r.starters.has(p.name))return; const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:p.pos,dyn:d,age:this._age(p.name)}); }); r.picks.forEach(p=>{ const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:'PICK',dyn:d}); }); return pool.sort((a,b)=>b.dyn-a.dyn); };
+      const push=(shape,novelty,team,give,get)=>{
+        if(!give||!get||!give.length||!get.length)return;
+        const gD=give.reduce((s,a)=>s+a.dyn,0), rD=get.reduce((s,a)=>s+a.dyn,0); if(!gD||!rD)return;
+        const netPct=((rD-gD)/gD)*100; if(Math.abs(netPct)>18)return;
+        const k=team.id+'|'+give.map(a=>a.name).join(',')+'|'+get.map(a=>a.name).join(','); if(seenK[k])return; seenK[k]=1;
+        const givesFuture=give.some(a=>a.pos==='PICK'||(a.age&&a.age<=24));
+        const dirFit=(team.wantsFuture===givesFuture);
+        const realism=Math.max(5,Math.round(100-Math.abs(netPct)*2.5-(dirFit?0:18)));
+        ideas.push({ shape, novelty, teamId:team.id, teamName:team.name, teamColor:team.color, dir:team.dir,
+          give, get, netDyn:Math.round(rD-gD), realism, score:Math.round(novelty*0.4+realism*0.6) });
+      };
+      for(let attempt=0; attempt<26 && ideas.length<6; attempt++){
+        const team=others[Math.floor(rnd()*others.length)];
+        const shape=['consolidate','split','pickflip','posswap'][Math.floor(rnd()*4)];
+        const mp=myPool(team.wantsFuture), tp=theirPool(team);
+        if(shape==='consolidate'&&mp.length>=2&&tp.length){
+          const tgt=tp[Math.floor(rnd()*Math.min(tp.length,3))];
+          const lo=tgt.dyn*0.82, hi=tgt.dyn*1.18; let pk=null;
+          for(let i=0;i<mp.length&&!pk;i++)for(let j=i+1;j<mp.length&&!pk;j++){ const s=mp[i].dyn+mp[j].dyn; if(s>=lo&&s<=hi)pk=[mp[i],mp[j]]; }
+          push('2-for-1 consolidation',70,team,pk,[tgt]);
+        } else if(shape==='split'&&mp.length&&tp.length>=2){
+          const big=mp[Math.floor(rnd()*Math.min(mp.length,2))];
+          const lo=big.dyn*0.82, hi=big.dyn*1.18; let gt=null;
+          for(let i=0;i<tp.length;i++){ if(gt)break; for(let j=i+1;j<tp.length;j++){ const s=tp[i].dyn+tp[j].dyn; if(s>=lo&&s<=hi){ gt=[tp[i],tp[j]]; break; } } }
+          push('1-for-2 depth split',75,team,[big],gt);
+        } else if(shape==='pickflip'){
+          if(me.contend>=.46){ const myPicks=mp.filter(a=>a.pos==='PICK'); const prod=tp.filter(a=>a.pos!=='PICK'&&this._wnRe(a.name)>0);
+            if(myPicks.length&&prod.length){ const tgt=prod[Math.floor(rnd()*Math.min(prod.length,3))];
+              const lo=tgt.dyn*0.82, hi=tgt.dyn*1.18; let pk=null;
+              myPicks.forEach(a=>{ if(!pk&&a.dyn>=lo&&a.dyn<=hi)pk=[a]; });
+              if(!pk){ for(let i=0;i<myPicks.length&&!pk;i++)for(let j=i+1;j<myPicks.length;j++){ const s=myPicks[i].dyn+myPicks[j].dyn; if(s>=lo&&s<=hi){ pk=[myPicks[i],myPicks[j]]; break; } } }
+              push('Picks → producer',60,team,pk,[tgt]); } }
+          else { const myVets=mp.filter(a=>a.pos!=='PICK'&&a.age&&a.age>=27); const theirPicks=tp.filter(a=>a.pos==='PICK');
+            if(myVets.length&&theirPicks.length){ const v=myVets[Math.floor(rnd()*myVets.length)];
+              const lo=v.dyn*0.82, hi=v.dyn*1.18; let gt=null;
+              theirPicks.forEach(a=>{ if(!gt&&a.dyn>=lo&&a.dyn<=hi)gt=[a]; });
+              if(!gt){ for(let i=0;i<theirPicks.length;i++){ if(gt)break; for(let j=i+1;j<theirPicks.length;j++){ const s=theirPicks[i].dyn+theirPicks[j].dyn; if(s>=lo&&s<=hi){ gt=[theirPicks[i],theirPicks[j]]; break; } } } }
+              push('Producer → picks',60,team,[v],gt); } }
+        } else if(shape==='posswap'){
+          const myNeed=me.needs[0]&&me.needs[0].pos, theirNeed=team.needs[0]&&team.needs[0].pos;
+          if(myNeed&&theirNeed&&myNeed!==theirNeed){
+            const give=mp.find(a=>a.pos===theirNeed), get=tp.find(a=>a.pos===myNeed);
+            if(give&&get) push('Need-for-need swap',85,team,[give],[get]);
+          }
+        }
+      }
+      return ideas.sort((a,b)=>b.score-a.score).slice(0,6);
+    },
+
+    applyEngine(kind,idx){
+      const C=this._engCache; if(!C)return;
+      let it=null, give=null, get=null;
+      if(kind==='match'){ it=C.match[idx]; if(!it)return; give=it.send; get=[{name:it.target,pos:it.targetPos}]; }
+      else if(kind==='exploit'){ it=C.exploits[idx]; if(!it)return; give=it.send; get=it.get; }
+      else { it=C.ideas[idx]; if(!it)return; give=it.give; get=it.get; }
+      this.teamB=it.teamId;
+      const meT=this._meIntel(); if(meT) this.teamA=meT.id;
+      tradeAssets.a=give.map(a=>this._resolve(a.name, a.pos==='PICK'?'pick':'player'));
+      tradeAssets.b=get.map(a=>this._resolve(a.name, a.pos==='PICK'?'pick':'player'));
+      this.render();
+      try{ const pg=document.getElementById('page-trade'); if(pg) pg.scrollTo({top:0,behavior:'smooth'}); window.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
+    },
+
+    renderEngines(){
+      if(!this.isLive() && !this.leagueSelected() && this.teams().length<3) return '';
+      const E=this.engines(); const me=this._meIntel(); const rows=this.leagueIntel();
+      const tab=this._engState.tab;
+      const tabs=`<div class="tc-eng-tabs">
+        <button class="tc-eng-tab ${tab==='match'?'on':''}" onclick="TC.setEngTab('match')">◎ Matchmaker <span class="n">${E.match.length}</span></button>
+        <button class="tc-eng-tab ${tab==='exploit'?'on':''}" onclick="TC.setEngTab('exploit')">⊕ Exploit Finder <span class="n">${E.exploits.length}</span></button>
+        <button class="tc-eng-tab ${tab==='ideas'?'on':''}" onclick="TC.setEngTab('ideas')">✦ Idea Generator <span class="n">${E.ideas.length}</span></button>
+      </div>`;
+      let sub='', body='';
+      if(tab==='match'){
+        sub=`Fair, <b>mutual-win</b> trades built around your top needs — every package is tilted toward what the partner's timeline actually wants, capped at ±18% value.`;
+        body=`<div class="tc-wn-list">${E.match.map((m,i)=>{
+          const c=POS_HEX[m.pos]||'#8794a6', nc=m.netDyn>=0?'#3DCC7A':'#ff7a8a';
+          const fc=m.fit>=75?'#3DCC7A':m.fit>=55?'var(--te)':'var(--muted)';
+          return `<div class="tc-wn-idea" onclick="TC.applyEngine('match',${i})" style="border:1px solid var(--border);border-radius:12px;margin-bottom:8px">
+            <div class="tc-wn-idea-main">
+              <div class="tc-wn-get"><span class="tc-wn-getlbl">GET</span><span class="tc-wn-pname">${m.target}</span><span class="v-pos ${m.targetPos}" style="font-size:9px">${m.targetPos}</span><span class="tc-wn-from" style="color:${m.teamColor}">from ${m.teamName}</span><span class="tc-fmt-pill tc-dir-${m.dirCls}" style="border:none;background:transparent;padding:0 2px">${m.dir}</span></div>
+              <div class="tc-wn-give"><span class="tc-wn-givelbl">SEND</span><span class="tc-wn-sname">${m.send.map(s=>s.name).join(' + ')}</span>${m.theirFit?'<span class="tc-fmt-pill" style="color:var(--rb);border-color:rgba(61,204,122,.3)">fits their plan</span>':''}</div>
+            </div>
+            <div class="tc-wn-idea-stats">
+              <div class="tc-wn-stat"><span class="tc-wn-statn" style="color:${nc}">${m.netDyn>=0?'+':'−'}${fmt(Math.abs(m.netDyn))}</span><span class="tc-wn-statl">net dyn</span></div>
+              <div class="tc-wn-stat"><span class="tc-wn-statn" style="color:#7bd0ff">+${fmt(m.gainRe)}</span><span class="tc-wn-statl">starter gain</span></div>
+              <span class="tc-fitchip" style="background:color-mix(in srgb,${fc} 14%,transparent);color:${fc}">${m.fit} fit</span>
+              <div class="tc-wn-load">Load ›</div>
+            </div>
+          </div>`; }).join('')||'<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:14px">No mutual-win packages inside ±18% right now — try the Idea Generator.</div>'}</div>`;
+      } else if(tab==='exploit'){
+        const buying=me&&me.contend>=.46;
+        sub=`Your plan: <b style="color:var(--te)">${buying?'Contender':'Rebuilder'}</b> — ${buying?'buy proven producers off fading teams while their price is soft.':'sell aging producers to contenders at peak, stack future currency.'} Timing is the leverage.`;
+        const cards=E.exploits.map((x,i)=>{
+          const kc=x.kind==='buy'?'#3DCC7A':'#f5c842';
+          return `<div class="tc-xc">
+            <div class="tc-xc-head"><span class="tc-xc-kind" style="background:${kc}1a;color:${kc}">${x.kind==='buy'?'↘ Buy-low':'↗ Sell-high'}</span><span style="font-family:var(--font-sans);font-weight:800;font-size:14px;color:var(--text)">${x.teamName}</span><span class="tc-xc-score">${x.score}</span></div>
+            <div style="display:flex;align-items:center;gap:8px"><span class="v-pos ${x.targetPos}">${x.targetPos}</span><span style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${x.target}</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${x.age}y</span></div>
+            <div class="tc-xc-why">${x.why}</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${x.kind==='buy'?'SEND':'GET'}: ${(x.kind==='buy'?x.send:x.get).map(a=>a.name).join(' + ')}</div>
+            <button class="tc-xc-btn" onclick="TC.applyEngine('exploit',${i})">⇄ Build this offer</button>
+          </div>`; }).join('');
+        const press=`<div style="overflow-x:auto"><table class="tc-press"><thead><tr><th>Manager</th><th>Direction</th><th>Record</th><th>Top need</th><th>Future lean</th></tr></thead><tbody>
+          ${rows.slice().sort((a,b)=>b.contend-a.contend).map(r=>`<tr class="${r.mine?'me':''}"><td style="color:${r.mine?'#7bd0ff':'var(--text)'};font-weight:700">${r.name}${r.mine?' · YOU':''}</td><td class="tc-dir-${r.dirCls}">${r.dir}</td><td>${r.rec&&(r.rec.w+r.rec.l)>0?r.rec.w+'–'+r.rec.l:'—'}</td><td>${r.needs[0]?r.needs[0].pos+' ('+(r.byPos[r.needs[0].pos]||[]).length+' rostered)':'—'}</td><td>${Math.round(r.futureShare*100)}%</td></tr>`).join('')}
+        </tbody></table></div>`;
+        body=`${cards?`<div class="tc-xc-grid">${cards}</div>`:'<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:4px 0 14px">No clean exploits right now — the league pressure map below shows where timing is building.</div>'}
+        <div class="tc-eyebrow" style="margin:4px 0 10px">League pressure map</div>${press}`;
+      } else {
+        sub=`Creative packages you wouldn't have drawn up — scored for <b>novelty × realism</b>, all inside ±18%. Shuffle for a fresh batch.`;
+        body=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="tc-xc-btn" style="width:auto;padding:8px 16px" onclick="TC.shuffleIdeas()">⟳ Shuffle ideas</button></div>
+        <div class="tc-wn-list">${E.ideas.map((d,i)=>{
+          const nc=d.netDyn>=0?'#3DCC7A':'#ff7a8a', rc=d.realism>=70?'#3DCC7A':d.realism>=50?'var(--te)':'#ff7a8a';
+          return `<div class="tc-wn-idea" onclick="TC.applyEngine('ideas',${i})" style="border:1px solid var(--border);border-radius:12px;margin-bottom:8px">
+            <div class="tc-wn-idea-main">
+              <div class="tc-wn-get"><span class="tc-idea-badge" style="background:rgba(180,140,255,.14);color:#b48cff">${d.shape}</span><span class="tc-wn-from" style="color:${d.teamColor}">with ${d.teamName}</span><span class="tc-fmt-pill tc-dir-${rows.find(r=>r.id===d.teamId)?.dirCls||'mid'}" style="border:none;background:transparent;padding:0 2px">${d.dir}</span></div>
+              <div class="tc-wn-give" style="margin-top:2px"><span class="tc-wn-getlbl">GET</span><span class="tc-wn-pname" style="font-size:13px">${d.get.map(a=>a.name).join(' + ')}</span></div>
+              <div class="tc-wn-give"><span class="tc-wn-givelbl">SEND</span><span class="tc-wn-sname">${d.give.map(a=>a.name).join(' + ')}</span></div>
+            </div>
+            <div class="tc-wn-idea-stats">
+              <div class="tc-wn-stat"><span class="tc-wn-statn" style="color:${nc}">${d.netDyn>=0?'+':'−'}${fmt(Math.abs(d.netDyn))}</span><span class="tc-wn-statl">net dyn</span></div>
+              <span class="tc-fitchip" style="background:color-mix(in srgb,${rc} 14%,transparent);color:${rc}">${d.realism} realism</span>
+              <div class="tc-wn-load">Load ›</div>
+            </div>
+          </div>`; }).join('')||'<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:14px">Nothing fresh in this batch — shuffle again.</div>'}</div>`;
+      }
+      return `<div class="tc-card tc-wn-card">
+        <div class="tc-wn-header">
+          <div style="display:flex;align-items:center;gap:11px"><span class="tc-wn-h1">Trade Engines</span></div>
+          <div class="tc-wn-sub">Three engines that find the trade before you do — every idea loads straight into the calculator.</div>
+        </div>
+        ${tabs}
+        <div class="tc-eng-sub">${sub}</div>
+        ${body}
       </div>`;
     },
 
