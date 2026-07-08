@@ -19072,7 +19072,22 @@ function pickYear(year) {
     _wnState:{ val:'adj', open:null },
     _wnDyn(name){ return (typeof getTradePlayerValue==='function' ? getTradePlayerValue(name) : 0) || 0; },
     _wnRe(name){ const fc=(typeof getFCValue==='function')&&getFCValue(name); return (fc&&fc.redraftValue) || Math.round(this._wnDyn(name)*0.85); },
-    _wnStarters(){ return { QB:(this.leagueType&&this.leagueType()==='sf')?2:1, RB:2, WR:3, TE:1 }; },
+    /* starter slots per position, read from the league's real lineup. SUPER_FLEX
+       counts as a QB slot (your QB2 is a starter, not tradable depth) and FLEX
+       slots are split RB/WR so flex-dependent rooms keep their protection. */
+    _wnStarters(){
+      try{
+        const lid=_lexLid(); const md=(typeof myTeamsData!=='undefined')?myTeamsData:null;
+        const lg=md?md.find(l=>l.league_id===lid):null;
+        const rp=lg&&(lg.roster_positions||lg.rosterPositions);
+        if(Array.isArray(rp)&&rp.length){
+          const n=s=>rp.filter(x=>x===s).length;
+          const flex=n('FLEX')+n('WRRB_FLEX');
+          return { QB:Math.max(n('QB')+n('SUPER_FLEX'),1), RB:Math.max(n('RB')+Math.floor(flex/2),1), WR:Math.max(n('WR')+Math.ceil(flex/2)+n('REC_FLEX'),1), TE:Math.max(n('TE'),1) };
+        }
+      }catch(e){}
+      return { QB:1, RB:2, WR:3, TE:1 };
+    },
     _myTeam(){ const ts=this.teams(); return ts.find(t=>t.owner==='You'||/\(You\)/.test(t.name)) || this.team(this.teamA); },
     // package value: 'raw' = plain dynasty sum; 'adj' = best-asset premium + depth discount
     _pkgVal(names, mode){ const vals=names.map(n=>this._wnDyn(n)).sort((a,b)=>b-a); if(mode==='raw') return vals.reduce((s,v)=>s+v,0); return vals.reduce((s,v,i)=>s + (i===0? v*1.05 : v*0.9), 0); },
@@ -19238,7 +19253,9 @@ function pickYear(year) {
         const players=roster.filter(p=>p.type!=='pick'&&POS.includes(p.pos));
         const picks=roster.filter(p=>p.type==='pick');
         const byPos={}; let starterRe=0; const starters=new Set();
-        POS.forEach(pos=>{ const l=players.filter(p=>p.pos===pos).sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name)); byPos[pos]=l; l.slice(0,STN[pos]).forEach(p=>{ starterRe+=this._wnRe(p.name); starters.add(p.name); }); });
+        POS.forEach(pos=>{ const l=players.filter(p=>p.pos===pos).sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name)); byPos[pos]=l; l.slice(0,STN[pos]).forEach(p=>{ starterRe+=this._wnRe(p.name); starters.add(p.name); });
+          // protect by asset value too: a low-redraft/high-dynasty QB (injured, idle) is still the guy you field — never package him as filler
+          l.slice().sort((a,b)=>this._wnDyn(b.name)-this._wnDyn(a.name)).slice(0,STN[pos]).forEach(p=>starters.add(p.name)); });
         const dynTotal=players.reduce((s,p)=>s+this._wnDyn(p.name),0);
         const pickDyn=picks.reduce((s,p)=>s+this._wnDyn(p.name),0);
         const youthDyn=players.filter(p=>{ const a=this._age(p.name); return a&&a<=24; }).reduce((s,p)=>s+this._wnDyn(p.name),0);
@@ -19275,17 +19292,44 @@ function pickYear(year) {
     },
     _meIntel(){ const rows=this.leagueIntel(); return rows.find(r=>r.mine)||rows[0]; },
 
-    /* my tradable pool, ordered by what the PARTNER wants (future vs now) */
-    _pkgFor(me,partner,target){
+    /* lineup guard: simulate the post-trade room at every position the deal
+       touches (outgoing removed, incoming added) and require each room to still
+       fill its starter slots with viable bodies — never propose a trade that
+       leaves a starting slot empty or manned by a dart throw. */
+    _lineupOk(team, send, get){
+      const STN=this._wnStarters();
+      const gone=new Set((send||[]).filter(a=>a.pos&&a.pos!=='PICK').map(a=>a.name));
+      if(!gone.size) return true;
+      const inc=(get||[]).filter(a=>a.pos&&a.pos!=='PICK'&&a.pos!=='?');
+      for(const pos of ['QB','RB','WR','TE']){
+        const room=team.byPos[pos]||[];
+        if(!room.some(p=>gone.has(p.name))) continue;
+        const after=room.filter(p=>!gone.has(p.name)).map(p=>this._wnRe(p.name))
+          .concat(inc.filter(a=>a.pos===pos).map(a=>this._wnRe(a.name)));
+        if(after.filter(v=>v>=200).length<STN[pos]) return false; // ~200 re ≈ floor of a startable body on the FantasyCalc scale
+      }
+      return true;
+    },
+
+    /* my tradable pool, ordered by what the PARTNER wants (future vs now);
+       `incoming` = what I'd receive, so replacements at a position count */
+    _pkgFor(me,partner,target,incoming){
       const pool=[];
       me.players.forEach(p=>{ if(me.starters.has(p.name))return; const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:p.pos,dyn:d,age:this._age(p.name)}); });
       me.picks.forEach(p=>{ const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:'PICK',dyn:d}); });
-      const pref=a=> a.pos==='PICK'?(partner.wantsFuture?2:0.6):((a.age&&a.age<=24)?(partner.wantsFuture?1.6:0.8):(partner.wantsFuture?0.6:1.4));
+      const STN=this._wnStarters();
+      const bench=pos=>Math.max((me.byPos[pos]||[]).length-STN[pos],0);
+      const pref=a=>{
+        let s=a.pos==='PICK'?(partner.wantsFuture?2:0.6):((a.age&&a.age<=24)?(partner.wantsFuture?1.6:0.8):(partner.wantsFuture?0.6:1.4));
+        if(a.pos!=='PICK'&&bench(a.pos)<=1) s-=0.7; // thin room — prefer sending from surplus
+        return s;
+      };
+      const ok=pk=>this._lineupOk(me,pk,incoming);
       const lo=target*0.82, hi=target*1.18;
       let best=null;
-      pool.forEach(a=>{ if(a.dyn>=lo&&a.dyn<=hi){ const sc=pref(a)-Math.abs(a.dyn-target)/target; if(!best||sc>best.sc)best={pk:[a],sc}; } });
+      pool.forEach(a=>{ if(a.dyn>=lo&&a.dyn<=hi&&ok([a])){ const sc=pref(a)-Math.abs(a.dyn-target)/target; if(!best||sc>best.sc)best={pk:[a],sc}; } });
       if(best)return best.pk;
-      for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){ const s=pool[i].dyn+pool[j].dyn; if(s>=lo&&s<=hi){ const sc=pref(pool[i])+pref(pool[j])-Math.abs(s-target)/target; if(!best||sc>best.sc)best={pk:[pool[i],pool[j]],sc}; } }
+      for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){ const s=pool[i].dyn+pool[j].dyn; if(s>=lo&&s<=hi&&ok([pool[i],pool[j]])){ const sc=pref(pool[i])+pref(pool[j])-Math.abs(s-target)/target; if(!best||sc>best.sc)best={pk:[pool[i],pool[j]],sc}; } }
       return best?best.pk:null;
     },
 
@@ -19311,7 +19355,7 @@ function pickYear(year) {
           if(list[0]&&list.length>STN[nd.pos]&&this._wnRe(list[0].name)>nd.bestRe*1.12) cands.push(list[0]);
           cands.forEach(p=>{
             const tDyn=this._wnDyn(p.name); if(!tDyn)return;
-            const pkg=this._pkgFor(me,r,tDyn); if(!pkg)return;
+            const pkg=this._pkgFor(me,r,tDyn,[{name:p.name,pos:p.pos}]); if(!pkg)return;
             const sDyn=pkg.reduce((s,a)=>s+a.dyn,0);
             const netPct=((sDyn-tDyn)/tDyn)*100; if(Math.abs(netPct)>18)return;
             const gainFloor=this._wnRe(p.name)-nd.floor; if(gainFloor<=0)return;
@@ -19341,7 +19385,7 @@ function pickYear(year) {
             (r.byPos[nd.pos]||[]).forEach(p=>{
               const age=this._age(p.name)||0, re=this._wnRe(p.name), dyn=this._wnDyn(p.name);
               if(age>=27&&dyn>0&&re>Math.max(nd.floor,1)*1.05){
-                const pkg=this._pkgFor(me,r,dyn); if(!pkg)return;
+                const pkg=this._pkgFor(me,r,dyn,[{name:p.name,pos:p.pos}]); if(!pkg)return;
                 const score=Math.round(55*(1-r.contend)+30*Math.min((re-nd.floor)/1200,1)+15*Math.min(Math.max(age-26,0),4)/4);
                 out.push({ kind:'buy', teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir,
                   target:p.name, targetPos:p.pos, age, send:pkg, get:[{name:p.name,pos:p.pos}], score,
@@ -19363,6 +19407,7 @@ function pickYear(year) {
                 fut.forEach(a=>{ if(!get&&a.dyn>=lo&&a.dyn<=hi)get=[a]; });
                 if(!get){ for(let i=0;i<fut.length&&!get;i++)for(let j=i+1;j<fut.length&&!get;j++){ const s=fut[i].dyn+fut[j].dyn; if(s>=lo&&s<=hi)get=[fut[i],fut[j]]; } }
                 if(!get)return;
+                if(!this._lineupOk(me,[{name:p.name,pos:p.pos}],get))return; // even a rebuild can't zero out a starting slot
                 const score=Math.round(55*r.contend+30*Math.min((re-nd.floor)/1200,1)+15*Math.min(Math.max(age-26,0),4)/4);
                 out.push({ kind:'sell', teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir,
                   target:p.name, targetPos:p.pos, age, send:[{name:p.name,pos:p.pos}], get, score,
@@ -19385,6 +19430,7 @@ function pickYear(year) {
       const theirPool=(r)=>{ const pool=[]; r.players.forEach(p=>{ if(r.starters.has(p.name))return; const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:p.pos,dyn:d,age:this._age(p.name)}); }); r.picks.forEach(p=>{ const d=this._wnDyn(p.name); if(d>0)pool.push({name:p.name,pos:'PICK',dyn:d}); }); return pool.sort((a,b)=>b.dyn-a.dyn); };
       const push=(shape,novelty,team,give,get)=>{
         if(!give||!get||!give.length||!get.length)return;
+        if(!this._lineupOk(me,give,get))return;
         const gD=give.reduce((s,a)=>s+a.dyn,0), rD=get.reduce((s,a)=>s+a.dyn,0); if(!gD||!rD)return;
         const netPct=((rD-gD)/gD)*100; if(Math.abs(netPct)>18)return;
         const k=team.id+'|'+give.map(a=>a.name).join(',')+'|'+get.map(a=>a.name).join(','); if(seenK[k])return; seenK[k]=1;
