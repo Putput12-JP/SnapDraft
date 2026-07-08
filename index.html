@@ -496,10 +496,10 @@ header{
 .plist-thead th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;padding:5px 4px;text-align:left;border-bottom:1.5px solid var(--border2);background:var(--s1);font-family:var(--font-mono);font-weight:400;white-space:nowrap;position:sticky;top:0;z-index:6}
 .plist-thead th:first-child{text-align:right;padding-right:8px}
 @media(max-width:700px){.plist-thead{display:none}}
-.plist{padding:0 14px 110px;display:block;width:100%;overflow-x:hidden;max-width:1100px;margin:0 auto}
-/* Draft Vault page: lock every section to the same 1100px container with the same 14px side padding so summary, list, and board are visually aligned */
+.plist{padding:0 14px 110px;display:block;width:100%;overflow-x:hidden;max-width:1180px;margin:0 auto}
+/* Draft Vault page: lock every section to the same 1180px container (matches the page header .dvh) with the same 14px side padding so header, summary, list, and board all align edge-to-edge */
 #page-draft #intel-bar, #page-draft .pstrip, #page-draft .search-bar-wrap, #page-draft .suggest-bar, #page-draft .controls, #page-draft .draft-summary, #page-draft .ld-page{
-  max-width:1100px;margin-left:auto;margin-right:auto;padding-left:14px;padding-right:14px;box-sizing:border-box;
+  max-width:1180px;margin-left:auto;margin-right:auto;padding-left:14px;padding-right:14px;box-sizing:border-box;
 }
 /* .ld-page already has its own padding; keep its larger bottom padding */
 #page-draft .ld-page{padding-top:28px;padding-bottom:100px}
@@ -4800,7 +4800,14 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     </div>
     <div class="dv-grp dvg-src">
       <span class="dv-ctl-label">Source</span>
-      <div class="dvc-seg src-seg" title="Value source for the Dynasty column">
+      <!-- Dynasty value source as a compact dropdown so the whole toolbar fits one row.
+           The hidden buttons stay for JS state (on-class + FC freshness label). -->
+      <select class="dvc-src-select" id="dv-src-select" onchange="setSortMode(this.value)" title="Value source for the Dynasty column">
+        <option value="ra">RosterAudit</option>
+        <option value="fc" selected>FantasyCalc</option>
+        <option value="my">Mine</option>
+      </select>
+      <div class="dvc-seg src-seg" title="Value source for the Dynasty column" style="display:none">
         <button class="sbtn sort-mode" id="sm-ra" onclick="setSortMode('ra')" title="RosterAudit dynasty value (Elo from 500k+ Sleeper leagues)">RosterAudit</button>
         <button class="sbtn sort-mode on" id="sm-fc" onclick="setSortMode('fc')" title="FantasyCalc dynasty value (~1M user-submitted dynasty trades, refreshed live)">FantasyCalc<span id="sm-fc-age" style="font-size:8px;opacity:.55;margin-left:4px;font-weight:400"></span></button>
         <button class="sbtn sort-mode" id="sm-my" onclick="setSortMode('my')" title="Your custom board from My Rankings">Mine</button>
@@ -9762,6 +9769,83 @@ function paSlotLabel(k){
   return (Math.floor((k-1)/NUM_TEAMS)+1) + '.' + (((k-1)%NUM_TEAMS)+1);
 }
 
+// ── Player quality profile (last completed season) ──────────────────
+// Synchronous lookup keyed by normName, derived once from the nflverse
+// season cache (window._nflverseCache). Carries last-year PPG, boom/bust
+// rate (upside/risk), games played (durability) and a weekly floor/ceiling.
+// Returns null until nflverse loads; cache is invalidated on load so the
+// 2s pick-assist poll picks it up automatically.
+window._paStatCache = null;
+function _paBuildStatMap(){
+  if (window._paStatCache) return window._paStatCache;
+  const cache = window._nflverseCache || {};
+  let stats = null;
+  Object.keys(cache).sort().reverse().some(s => {
+    const st = cache[s] && cache[s].stats;
+    if (st && Object.keys(st).length){ stats = st; return true; }
+    return false;
+  });
+  if (!stats) return null; // not loaded yet — don't cache an empty map
+  const map = {};
+  for (const n in stats){
+    const e = stats[n]; if (!e) continue;
+    const ssn = e.season || {};
+    const weeks = e.weeks || [];
+    const g = ssn.games || weeks.length || 0;
+    if (!g) continue;
+    const ppg = ssn.avg_pts != null ? +ssn.avg_pts : (ssn.total_pts||0)/g;
+    let floor=null, ceiling=null;
+    const pts = weeks.map(w=>+w.pts).filter(v=>!isNaN(v)).sort((a,b)=>a-b);
+    if (pts.length >= 5){
+      const q = f => pts[Math.max(0, Math.min(pts.length-1, Math.round(f*(pts.length-1))))];
+      floor = q(0.2); ceiling = q(0.85);
+    }
+    map[normName(n)] = {
+      ppg,
+      boomPct: ssn.boom_pct != null ? +ssn.boom_pct : null,
+      bustPct: ssn.bust_pct != null ? +ssn.bust_pct : null,
+      games: g, floor, ceiling, pos: e.pos,
+    };
+  }
+  window._paStatCache = map;
+  return map;
+}
+function paStatProfile(name){
+  const m = _paBuildStatMap();
+  return (m && name) ? (m[normName(name)] || null) : null;
+}
+// PPR per-game baselines (starter-worthy → elite) used to score proven
+// production relative to positional replacement.
+const PA_PPG_BASE  = { QB:17, RB:11, WR:11, TE:8  };
+const PA_PPG_ELITE = { QB:23, RB:18, WR:17, TE:13 };
+// Fold last-year production, upside, floor and durability into a player's
+// pick-assist score. Weighted so it refines the market rank, never buries it
+// (net swing ≈ ±10). "Situational" = a proven producer is worth more at a
+// position your roster actually needs, and QB production is up-weighted in SF.
+function paQualityAdjust(p, need){
+  const out = { delta:0, prof:null, prod:0, upside:0, risk:0 };
+  if (p.pos === 'PICK') return out;
+  const prof = paStatProfile(p.name);
+  if (!prof || prof.games < 4) return out; // rookies/no-data: leave rank alone
+  out.prof = prof;
+  const base  = PA_PPG_BASE[p.pos]  || 10;
+  const elite = PA_PPG_ELITE[p.pos] || 15;
+  // proven production over replacement, clamped, amplified by roster need
+  let prod = Math.max(-6, Math.min(8, (prof.ppg - base) / (elite - base) * 6));
+  const sfQB = (window._draftIsSuperflex && p.pos === 'QB') ? 1.35 : 1;
+  prod *= (0.6 + 0.6*(need||0)) * sfQB;
+  // upside: boom-game rate
+  let upside = prof.boomPct != null ? Math.min(5, Math.max(0, prof.boomPct - 20) * 0.12) : 0;
+  // risk: bust-game rate + games missed (durability)
+  let risk = 0;
+  if (prof.bustPct != null) risk += Math.min(6, Math.max(0, prof.bustPct - 15) * 0.10);
+  risk += Math.min(5, Math.max(0, 17 - prof.games) * 0.5);
+  out.prod = prod; out.upside = upside; out.risk = risk;
+  // clamp so production refines the market rank, never overrides it
+  out.delta = Math.max(-10, Math.min(12, prod + upside - risk));
+  return out;
+}
+
 function paGetPickAssist(){
   if (myTeam === null) return null;
   const mine = paMyUpcomingPicks(2);
@@ -9811,6 +9895,9 @@ function paGetPickAssist(){
     score += need * 14;
     if (tierDepleted && cliffDrop>=12 && leftInTier<=2) score += Math.min(10, cliffDrop*0.5);
     if (rank > myPick + 14) score -= (rank - myPick - 14);   // reaches sink
+    // last-year production / upside / floor / durability, situational to my roster
+    const q = paQualityAdjust(p, need);
+    score += q.delta;
 
     const gonePct = Math.round(goneProb*100);
     let reason, tag, tagKind;
@@ -9837,7 +9924,7 @@ function paGetPickAssist(){
       tag = 'Fair'; tagKind = 'calm';
     }
 
-    return {p, rank, valueScore, isNeed: need>=1, score, surv, goneProb, reason, tag, tagKind, tierNum, leftInTier, cliffDrop};
+    return {p, rank, valueScore, isNeed: need>=1, score, surv, goneProb, reason, tag, tagKind, tierNum, leftInTier, cliffDrop, prof:q.prof};
   });
 
   sugs.sort((a,b)=>b.score-a.score);
@@ -9897,17 +9984,36 @@ function renderSuggestions() {
 
   const pc = pos => ({QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[pos]||'var(--text)');
   const tagColors = {urgent:'var(--qb)', value:'var(--rb)', need:'var(--sky)', calm:'var(--muted)'};
-  chips.innerHTML = pa.suggestions.map(({p, rank, reason, tag, tagKind, goneProb}) => {
+  chips.innerHTML = pa.suggestions.map(({p, rank, reason, tag, tagKind, goneProb, prof}) => {
     const sn = p.name.replace(/'/g,"\\'");
     const pcol = pc(p.pos);
     const tagC = tagColors[tagKind] || 'var(--muted)';
     const gonePct = Math.round(goneProb*100);
     const goneCls = gonePct >= 65 ? 'pa-hot' : gonePct >= 35 ? 'pa-warm' : 'pa-cool';
+    // player photo (NFL.com crop via nflverse, Sleeper thumb fallback)
+    const sid = p.sleeperId || (typeof sleeperPlayerMap!=='undefined' && sleeperPlayerMap[normName(p.name)]?.player_id) || '';
+    const photo = p.pos!=='PICK' ? vaultHeadshot(p.name, sid, 34) : '';
+    const initials = p.name.split(' ').map(w=>w[0]||'').join('').slice(0,2);
+    const nEsc = p.name.replace(/"/g,'&quot;');
+    const avatar = p.pos!=='PICK' ? `<div class="schip-av" style="--pc:${pcol}">
+        ${photo ? `<img src="${photo}" data-vh-n="${nEsc}" data-vh-sid="${sid}" data-vh-px="34" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span class="schip-av-fb" style="display:${photo?'none':'flex'}">${initials}</span>
+      </div>` : '';
+    // last-year production / upside / risk line
+    let statLine = '';
+    if (prof && prof.games >= 4){
+      const parts = [`<b>${prof.ppg.toFixed(1)}</b> PPG`];
+      if (prof.boomPct != null) parts.push(`<span class="ss-up">${Math.round(prof.boomPct)}%</span> boom`);
+      if (prof.bustPct != null) parts.push(`<span class="ss-dn">${Math.round(prof.bustPct)}%</span> bust`);
+      statLine = `<div class="sstat">${parts.join('<i>·</i>')}</div>`;
+    }
     return `<div class="schip pa-card" onclick="markMine('${sn}')">
+      ${avatar}
       <span class="spos" style="background:${pcol}26;color:${pcol}">${p.pos}</span>
       <div class="schip-main">
         <div class="sname">${p.name} <span class="pa-rank">#${rank}</span></div>
         <div class="sreason">${reason}</div>
+        ${statLine}
       </div>
       <div class="pa-right">
         ${p.pos!=='PICK' ? `<span class="pa-gone ${goneCls}">${gonePct}%<em>gone</em></span>` : ''}
@@ -9917,6 +10023,12 @@ function renderSuggestions() {
   }).join('');
 
   chips.style.opacity = '';
+  // If season stats aren't loaded yet, warm nflverse once and re-render so the
+  // production line + quality-adjusted scores appear without a manual refresh.
+  if (!window._paStatCache && !window._paStatPending && typeof initNflverse === 'function'){
+    window._paStatPending = true;
+    initNflverse().then(() => { window._paStatPending = false; try { renderSuggestions(); } catch(e){} }).catch(() => { window._paStatPending = false; });
+  }
   paCheckWatchAlerts(pa);
 }
 
@@ -10474,6 +10586,9 @@ function setSortMode(mode){
     const b = document.getElementById('sm-'+m);
     if (b) b.classList.toggle('on', m === mode);
   });
+  // Keep the Source dropdown in sync
+  const srcSel = document.getElementById('dv-src-select');
+  if (srcSel && srcSel.value !== mode) srcSel.value = mode;
   // Update the DYNASTY column header source label (FC / RA / MY)
   const srcEl = document.getElementById('hdr-dynasty-src');
   if (srcEl) {
@@ -13185,6 +13300,7 @@ function _syncSrcUI(src){
   document.querySelectorAll('#lr-srctoggle .lr-srcdot, #ov-srctoggle .lr-srcdot').forEach(dot=>{ dot.style.background = isMine ? 'var(--sky,#7bd0ff)' : 'var(--rb)'; });
   // Draft Vault sort-mode buttons + value pills
   ['ra','fc','my'].forEach(m=>{ document.getElementById('sm-'+m)?.classList.toggle('on', m===src); });
+  const _srcSel = document.getElementById('dv-src-select'); if (_srcSel && _srcSel.value !== src) _srcSel.value = src;
   document.getElementById('val-fc')?.classList.toggle('on', src==='fc');
   document.getElementById('val-ra')?.classList.toggle('on', src==='ra');
 }
@@ -25876,20 +25992,25 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
 #page-draft .controls.dvc .pos-seg .fbtn.TE.on{ background:var(--s4)!important; color:var(--te)!important; }
 #page-draft .controls.dvc .dvc-search{ flex:0 1 280px; min-width:180px; height:36px; border:1.5px solid var(--border2); border-radius:9px; background:var(--s2); }
 #page-draft .controls.dvc .dvc-search:focus-within{ border-color:var(--accent2); }
+/* Source dropdown, matches the segmented controls' height + surface */
+#page-draft .controls.dvc .dvc-src-select{ height:36px; padding:0 30px 0 12px; border:1.5px solid var(--border2); border-radius:10px; background:var(--s2); color:var(--text); font-family:var(--font-sans); font-size:12px; font-weight:700; letter-spacing:.02em; cursor:pointer; outline:none; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23808a9d' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; transition:border-color .15s; }
+#page-draft .controls.dvc .dvc-src-select:hover{ border-color:var(--border3); }
+#page-draft .controls.dvc .dvc-src-select:focus{ border-color:var(--accent2); }
+#page-draft .controls.dvc .dvc-src-select option{ background:var(--s2); color:var(--text); font-weight:600; }
 
 /* ── live draft summary: one hero card → grid of stat cards ── */
 #page-draft .draft-summary{ display:block!important; margin-top:14px; }
 #page-draft .ds-card.dsc{ background:transparent!important; border:none!important; border-radius:0!important; padding:0!important; display:grid!important; grid-template-columns:repeat(auto-fit,minmax(172px,1fr)); gap:12px; overflow:visible; }
 #page-draft .dsc-main{ display:contents; }
 #page-draft .dsc-sep{ display:none; }
-#page-draft .dsc-pickblock{ background:var(--s1); border:1px solid rgba(226,58,78,0.35); border-radius:12px; padding:14px 16px; position:relative; overflow:hidden; gap:5px; }
+#page-draft .dsc-pickblock{ background:var(--s1); border:1px solid rgba(226,58,78,0.35); border-radius:12px; padding:10px 14px; position:relative; overflow:hidden; gap:3px; }
 #page-draft .dsc-pickblock::before{ content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(226,58,78,0.08),transparent 60%); pointer-events:none; }
-#page-draft .dsc .ds-pick-no{ font-size:28px; }
+#page-draft .dsc .ds-pick-no{ font-size:24px; }
 #page-draft .dsc-stats{ display:contents; }
-#page-draft .dsc-stat{ background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:14px 16px; gap:7px; justify-content:center; }
-#page-draft .dsc-clockwrap{ background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-left:0; display:flex; align-items:center; gap:10px; }
+#page-draft .dsc-stat{ background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:10px 14px; gap:4px; justify-content:center; }
+#page-draft .dsc-clockwrap{ background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:9px 13px; margin-left:0; display:flex; align-items:center; gap:10px; }
 #page-draft .dsc-clock{ background:transparent; border:none; padding:0; flex:1; min-width:0; flex-wrap:wrap; }
-#page-draft .dsc-progwrap{ background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+#page-draft .dsc-progwrap{ background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:10px 14px; display:flex; align-items:center; gap:12px; }
 
 /* ── player list: rounded board card ── */
 #page-draft .plist{ padding-top:16px; }
@@ -31509,6 +31630,16 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft .schip:active{ transform:scale(.98); transition-duration:80ms; }
 #page-draft .schip .pa-rank{ font-family:var(--font-mono); font-size:10px; font-weight:600; color:var(--muted); margin-left:2px; }
 #page-draft .schip .sreason{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* player photo */
+#page-draft .schip-av{ position:relative; width:32px; height:32px; border-radius:8px; flex-shrink:0; overflow:hidden; border:1px solid var(--border); background:var(--s3); box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--pc) 45%, transparent); }
+#page-draft .schip-av img{ width:100%; height:100%; object-fit:cover; display:block; }
+#page-draft .schip-av .schip-av-fb{ position:absolute; inset:0; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--pc); background:color-mix(in srgb, var(--pc) 14%, transparent); }
+/* last-year production line */
+#page-draft .schip .sstat{ font-family:var(--font-mono); font-size:9.5px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.01em; }
+#page-draft .schip .sstat b{ color:var(--text2); font-weight:700; }
+#page-draft .schip .sstat i{ font-style:normal; opacity:.45; margin:0 4px; }
+#page-draft .schip .sstat .ss-up{ color:var(--rb); font-weight:700; }
+#page-draft .schip .sstat .ss-dn{ color:var(--qb); font-weight:700; }
 #page-draft .pa-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
 #page-draft .pa-gone{ font-family:var(--font-mono); font-size:11px; font-weight:700; line-height:1; display:flex; align-items:baseline; gap:3px; }
 #page-draft .pa-gone em{ font-style:normal; font-size:8px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.65; }
