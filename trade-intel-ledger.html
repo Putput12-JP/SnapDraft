@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault · Trade Intelligence — The Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Vault DS tokens (vapor-sky dark) inlined — file is fully self-contained ── */
+  :root{
+    --bg:#070d18;--surface:#0e1626;
+    --s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
+    --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
+    --text:#eaf2fc;--text2:#bdcce2;--muted:#7d8ca3;--dim:#1b2740;
+    --primary:#bec6e0;--on-primary:#0a1424;
+    --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+    --red:#e23a4e;--red2:#ff5a6e;
+    --sky:#4d86f0;--sky-dim:#2f63c4;
+    --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+    --suggest:#7bd0ff;--value:#3DCC7A;--reach:#e23a4e;--gold:#f5c842;--navy:#070d18;
+    --glass-1:rgba(14,22,38,0.55);--glass-2:rgba(20,30,48,0.55);
+    --font-sans:'Archivo','Hanken Grotesk',system-ui,-apple-system,sans-serif;
+    --font-mono:'JetBrains Mono','Space Mono',ui-monospace,monospace;
+    --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-pill:999px;
+    --shadow-card:0 24px 60px -20px rgba(4,9,20,0.62),0 1px 0 rgba(255,255,255,0.06) inset;
+  }
+  .v-kicker{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;padding:30px 0 70px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  .band{max-width:1180px;margin:0 auto 22px;padding:0 24px;display:flex;align-items:center;gap:12px}
+  .band .line{flex:1;height:1px;background:var(--border2)}
+
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .up{color:var(--value)}.dn{color:var(--red2)}
+
+  /* header row */
+  .hd{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:16px}
+  .hd h1{font-size:15px;font-weight:800;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+  .hd h1 .sq{width:12px;height:12px;background:var(--accent2);border-radius:2px;display:inline-block}
+  .hd h1 span{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted)}
+  .tabs{display:flex;gap:0;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+  .tabs button{padding:8px 15px;border:none;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-right:1px solid var(--border2)}
+  .tabs button:last-child{border-right:none}
+  .tabs button.on{background:var(--accent2);color:#04121f}
+
+  /* ticker strip */
+  .ticker{display:flex;align-items:stretch;border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin-bottom:2px}
+  .tk{flex:1;padding:9px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+  .tk:last-child{border-right:none}
+  .tk .l{font-family:var(--font-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .tk .v{font-family:var(--font-mono);font-size:15px;font-weight:800}
+
+  /* main grid: ledger table + verdict rail */
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:16px;align-items:start}
+
+  .ledger{border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:var(--s1)}
+  .lg-cap{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:var(--s2);border-bottom:1px solid var(--border2)}
+  .lg-cap .side{display:flex;align-items:center;gap:9px}
+  .lg-cap .side .lg-av{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:9px;font-weight:800}
+  .lg-cap .side .nm{font-weight:800;font-size:13px}
+  .lg-cap .side .st{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+  .lg-cap .tot{font-family:var(--font-mono);font-size:14px;font-weight:800}
+
+  table{width:100%;border-collapse:collapse}
+  thead th{font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:right;padding:9px 12px;border-bottom:1px solid var(--border)}
+  thead th:first-child{text-align:left}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:12px;text-align:right;font-weight:700}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  td.name{text-align:left;font-family:var(--font-sans);font-weight:800;font-size:13.5px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .posdot{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:800;flex-shrink:0}
+  .posdot.QB{background:rgba(255,102,128,.15);color:var(--qb)}
+  .posdot.RB{background:rgba(61,204,122,.15);color:var(--rb)}
+  .posdot.WR{background:rgba(123,208,255,.15);color:var(--wr)}
+  .posdot.PICK{background:rgba(147,120,224,.15);color:#b7a6e8}
+  .sig{display:inline-block;font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.05em;padding:2px 6px;border-radius:4px;margin-left:6px}
+  .sig.buy{background:rgba(95,224,154,.14);color:var(--value)}
+  .sig.sell{background:rgba(245,200,66,.14);color:var(--gold)}
+  .divrow td{background:var(--s2);padding:6px 12px;font-family:var(--font-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:1px solid var(--border2)}
+  tfoot td{padding:11px 12px;font-family:var(--font-mono);font-size:12px;font-weight:800;text-align:right;background:var(--s2);border-top:1px solid var(--border2)}
+  tfoot td:first-child{text-align:left;letter-spacing:.06em;text-transform:uppercase;font-size:9px;color:var(--muted)}
+
+  /* verdict rail */
+  .rail{border:1px solid var(--border3);border-radius:12px;background:var(--s1);overflow:hidden;position:sticky;top:18px}
+  .rail-top{padding:16px 16px 14px;border-bottom:1px solid var(--border2);background:linear-gradient(180deg,rgba(95,224,154,.06),transparent)}
+  .rl-k{font-family:var(--font-mono);font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .rl-v{font-size:28px;font-weight:900;letter-spacing:-.03em;color:var(--value);margin-top:4px;line-height:1}
+  .rl-s{font-size:11px;color:var(--text2);margin-top:5px;line-height:1.4}
+  .rl-s b{color:var(--accent2)}
+  .rail-mid{padding:14px 16px;border-bottom:1px solid var(--border2)}
+  .dtline{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:11px}
+  .dtline+.dtline{border-top:1px solid var(--border)}
+  .dtline .s{display:flex;align-items:center;gap:7px;color:var(--text2);font-weight:700}
+  .dtline .s i{width:6px;height:6px;border-radius:50%;display:inline-block}
+  .dtline .n{font-family:var(--font-mono);font-size:12px;font-weight:800}
+  .gapnote{margin-top:10px;padding:9px 11px;background:rgba(95,224,154,.08);border:1px solid rgba(95,224,154,.2);border-radius:8px;font-size:10.5px;line-height:1.4;color:var(--text2)}
+  .gapnote b{color:var(--value)}
+  .rail-delt{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border2)}
+  .rl-d{background:var(--s1);padding:11px 14px}
+  .rl-d .l{font-family:var(--font-mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .rl-d .n{font-family:var(--font-mono);font-size:17px;font-weight:800;margin-top:4px}
+  .rail-act{padding:14px 16px}
+  .send{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#1f8a56,#2fb972);color:#fff;font-family:var(--font-sans);font-size:13px;font-weight:800;cursor:pointer}
+  .send svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9}
+  .actrow{display:flex;gap:7px;margin-top:8px}
+  .act{flex:1;padding:8px;border:1px solid var(--border2);border-radius:9px;background:transparent;color:var(--text2);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+
+  /* why bar */
+  .why{margin-top:16px;border:1px solid var(--border2);border-radius:12px;background:var(--s1);padding:15px 18px;display:flex;gap:14px;align-items:flex-start}
+  .why .ic{width:28px;height:28px;border-radius:8px;background:rgba(143,180,224,.14);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .why .ic svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .why .tx{font-size:12.5px;line-height:1.6;color:var(--text2)}
+  .why .tx b{color:var(--text);font-weight:700}
+  .why .wr{color:var(--wr)}.why .rb{color:var(--rb)}.why .te{color:var(--te)}
+  @media(max-width:960px){.grid{grid-template-columns:1fr}.rail{position:static}}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <span class="v-kicker" style="color:var(--accent2)">Concept — direction B · "The Ledger"</span>
+  <span class="line"></span>
+  <span class="v-kicker" style="color:var(--muted)">data-terminal · power-user</span>
+</div>
+
+<div class="wrap">
+  <div class="hd">
+    <h1><span class="sq"></span>TRADE INTELLIGENCE <span>/ ANALYZE</span></h1>
+    <div class="tabs">
+      <button class="on">Analyze</button>
+      <button>Matchmaker</button>
+      <button>Exploit</button>
+      <button>Ideas</button>
+    </div>
+  </div>
+
+  <!-- market ticker -->
+  <div class="ticker">
+    <div class="tk"><span class="l">Valuation</span><span class="v" style="color:var(--accent2)">MARKET</span></div>
+    <div class="tk"><span class="l">Lens</span><span class="v" style="color:var(--gold)">CONTENDER</span></div>
+    <div class="tk"><span class="l">Your playoff</span><span class="v up">71%</span></div>
+    <div class="tk"><span class="l">Title odds Δ</span><span class="v up">+6.0%</span></div>
+    <div class="tk"><span class="l">Proj PPG Δ</span><span class="v up">+2.5</span></div>
+    <div class="tk"><span class="l">Fit score</span><span class="v" style="color:var(--value)">92</span></div>
+  </div>
+
+  <div class="grid">
+    <!-- LEDGER -->
+    <div class="ledger">
+      <div class="lg-cap">
+        <div class="side"><span class="lg-av" style="background:rgba(143,180,224,.15);color:var(--accent2)">PP</span><span class="nm">Putput</span><span class="st">YOU · 8–2</span></div>
+        <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;color:var(--muted)">MKT / COMM / MINE</span>
+        <div class="side"><span class="lg-av" style="background:rgba(226,58,78,.15);color:var(--red2)">HB</span><span class="nm">hunterbue4</span><span class="st">5–5</span></div>
+      </div>
+      <table>
+        <thead><tr><th>Asset</th><th>Market</th><th>Comm</th><th>Board</th><th>30d</th></tr></thead>
+        <tbody>
+          <tr class="divrow"><td colspan="5">◤ You receive</td></tr>
+          <tr>
+            <td class="name"><span class="posdot WR">WR</span>Chris Olave <span class="team mono" style="color:var(--muted);font-weight:600;font-size:10px">NO</span><span class="sig buy">BUY-LOW</span></td>
+            <td style="color:var(--wr)">4,180</td><td>3,870</td><td>4,590</td><td class="up">▲6%</td>
+          </tr>
+          <tr>
+            <td class="name"><span class="posdot RB">RB</span>Jaylen Warren <span class="mono" style="color:var(--muted);font-weight:600;font-size:10px">PIT</span></td>
+            <td style="color:var(--rb)">1,650</td><td>1,590</td><td>1,720</td><td class="up">▲2%</td>
+          </tr>
+          <tr class="divrow"><td colspan="5">◢ You give</td></tr>
+          <tr>
+            <td class="name"><span class="posdot RB">RB</span>Isiah Pacheco <span class="mono" style="color:var(--muted);font-weight:600;font-size:10px">DET</span><span class="sig sell">SELL-HIGH</span></td>
+            <td style="color:var(--rb)">2,281</td><td>2,410</td><td>2,010</td><td class="up">▲11%</td>
+          </tr>
+          <tr>
+            <td class="name"><span class="posdot PICK">P</span>2027 Round 1 (Mid)</td>
+            <td>1,720</td><td>1,600</td><td>1,720</td><td class="mono" style="color:var(--muted)">—</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr><td>Net to you</td><td class="up">+260</td><td class="up">+140</td><td class="up">+410</td><td></td></tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- VERDICT RAIL -->
+    <div class="rail">
+      <div class="rail-top">
+        <div class="rl-k">Verdict · contender lens</div>
+        <div class="rl-v">You win</div>
+        <div class="rl-s">Fills your <b>WR</b> hole, keeps your starters intact, and closes for hunterbue4's rebuild.</div>
+      </div>
+      <div class="rail-mid">
+        <div class="dtline"><span class="s"><i style="background:var(--accent2)"></i>Market</span><span class="n up">+260</span></div>
+        <div class="dtline"><span class="s"><i style="background:var(--te)"></i>Community</span><span class="n up">+140</span></div>
+        <div class="dtline"><span class="s"><i style="background:var(--muted)"></i>My Board</span><span class="n up">+410</span></div>
+        <div class="gapnote">Market prices Olave <b>8% under</b> community consensus → <b>buy-low window open</b>.</div>
+      </div>
+      <div class="rail-delt">
+        <div class="rl-d"><div class="l">Dynasty Δ</div><div class="n dn">−129</div></div>
+        <div class="rl-d"><div class="l">Redraft start Δ</div><div class="n up">+1,796</div></div>
+        <div class="rl-d"><div class="l">Proj PPG Δ</div><div class="n up">+2.5</div></div>
+        <div class="rl-d"><div class="l">Title odds Δ</div><div class="n up">+6.0%</div></div>
+      </div>
+      <div class="rail-act">
+        <button class="send"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Send to Sleeper</button>
+        <div class="actrow">
+          <button class="act">⇄ Variant</button>
+          <button class="act">⧉ Copy</button>
+          <button class="act">↗ Share</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="why">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12c1 1 1 2 1 3h6c0-1 0-2 1-3a7 7 0 0 0-4-12Z"/><path d="M9 21h6"/></svg></div>
+    <div class="tx">At <b>71% playoff odds</b> you're buying. Your board grades <b class="wr">WR</b> your softest starter (11th/12). <b class="wr">Olave</b> is down off his peak but the <b>market still values him 8% over community</b> — a clean buy-low. You spend a <b class="rb">bench RB</b> and a mid first outside your window for <b>+2.5 PPG</b> and <b class="te">+6.0% title odds</b>. hunterbue4 gets the youth-and-picks pivot — <b>both sides win</b>.</div>
+  </div>
+</div>
+</body>
+</html>

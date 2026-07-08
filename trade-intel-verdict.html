@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault · Trade Intelligence — The Verdict</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Vault DS tokens (Americana light) inlined — file is fully self-contained ── */
+  :root{
+    --bg:#f4efe4;--surface:#fffdf8;
+    --s1:#fffdf8;--s2:#f3eede;--s3:#ece5d4;--s4:#e1d8c4;--s-bright:#ffffff;
+    --border:rgba(29,40,66,0.10);--border2:rgba(29,40,66,0.17);--border3:rgba(29,40,66,0.28);
+    --text:#1d2433;--text2:#3a4658;--muted:#6e7582;--dim:#ece5d4;
+    --primary:#16233a;--on-primary:#ffffff;
+    --accent:#16233a;--accent2:#2c4063;--accent3:#4a5d80;
+    --red:#c52d3a;--red2:#d8434f;
+    --sky:#1f4e87;--sky-dim:#16395f;
+    --qb:#c52d3a;--rb:#0a7a4c;--wr:#1f6fb0;--te:#a76a16;
+    --suggest:#1f4e87;--value:#0a7a4c;--reach:#c52d3a;--gold:#a76a16;--navy:#16233a;
+    --glass-1:rgba(255,255,255,0.62);--glass-2:rgba(248,244,235,0.62);
+    --font-sans:'Archivo','Hanken Grotesk',system-ui,-apple-system,sans-serif;
+    --font-mono:'JetBrains Mono','Space Mono',ui-monospace,monospace;
+    --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-pill:999px;
+    --shadow-card:0 20px 48px -22px rgba(41,50,66,0.24),0 1px 0 rgba(255,255,255,0.5) inset;
+  }
+  .v-kicker{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;padding:32px 0 70px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 28px}
+  .band{max-width:1060px;margin:0 auto 24px;padding:0 28px;display:flex;align-items:center;gap:12px}
+  .band .line{flex:1;height:1px;background:var(--border2)}
+  .serif{font-family:'Newsreader',Georgia,serif}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .up{color:var(--value)}.dn{color:var(--reach)}
+
+  .top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+  .brand{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:9px}
+  .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--accent)}
+  .nav{display:flex;gap:2px;background:var(--s2);border:1px solid var(--border2);border-radius:11px;padding:3px}
+  .nav button{padding:8px 16px;border:none;background:transparent;border-radius:8px;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer}
+  .nav button.on{background:var(--accent);color:#fff}
+
+  /* hero verdict */
+  .hero{text-align:center;padding:14px 0 30px;border-bottom:1px solid var(--border2);margin-bottom:30px}
+  .hero .eye{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .hero .verdict{font-family:'Newsreader',Georgia,serif;font-size:76px;font-weight:500;letter-spacing:-.03em;line-height:1;margin:12px 0 8px;color:var(--value)}
+  .hero .lede{font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:400;font-style:italic;color:var(--text2);max-width:620px;margin:0 auto;line-height:1.4}
+  .hero .lede b{font-style:normal;font-weight:500;color:var(--text)}
+  .hero .meta{display:inline-flex;gap:0;margin-top:20px;border:1px solid var(--border2);border-radius:11px;overflow:hidden;background:var(--s1)}
+  .hero .meta .m{padding:11px 22px;border-right:1px solid var(--border);text-align:center}
+  .hero .meta .m:last-child{border-right:none}
+  .hero .meta .m .l{font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .hero .meta .m .v{font-family:var(--font-mono);font-size:19px;font-weight:800;margin-top:4px}
+
+  /* deal panels */
+  .deal{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:stretch;margin-bottom:26px}
+  .side{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:20px 22px}
+  .side.give{border-radius:16px}
+  .side h3{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .side h3 .who{display:flex;align-items:center;gap:9px}
+  .side h3 .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:800}
+  .side h3 .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+  .side h3 .net{font-family:var(--font-mono);font-size:15px;font-weight:800}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 0;border-top:1px solid var(--border)}
+  .row:first-of-type{border-top:none}
+  .row .pos{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:800;flex-shrink:0}
+  .row .pos.WR{background:rgba(31,111,176,.12);color:var(--wr)}
+  .row .pos.RB{background:rgba(10,122,76,.12);color:var(--rb)}
+  .row .pos.PICK{background:rgba(122,90,200,.12);color:#7a5ac8}
+  .row .nm{font-weight:800;font-size:15.5px;letter-spacing:-.01em}
+  .row .sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:7px}
+  .row .val{margin-left:auto;text-align:right}
+  .row .val .n{font-family:var(--font-mono);font-size:15px;font-weight:800}
+  .row .val .t{font-family:var(--font-mono);font-size:9px;margin-top:1px}
+  .tag{font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.04em;padding:2px 6px;border-radius:4px}
+  .tag.buy{background:rgba(10,122,76,.12);color:var(--value)}
+  .tag.sell{background:rgba(167,106,22,.14);color:var(--gold)}
+  .mid{display:flex;align-items:center;justify-content:center}
+  .mid .sw{width:44px;height:44px;border-radius:50%;background:var(--s1);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+  .mid .sw svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
+
+  /* the three truths */
+  .truths{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+  .truth{background:var(--s1);border:1px solid var(--border2);border-radius:14px;padding:16px 18px}
+  .truth .h{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+  .truth .h i{width:8px;height:8px;border-radius:50%}
+  .truth .big{font-family:var(--font-mono);font-size:26px;font-weight:800;line-height:1}
+  .truth .cap{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .truth.hl{border-color:rgba(10,122,76,.4);background:rgba(10,122,76,.04)}
+
+  .gapbar{display:flex;align-items:center;gap:12px;background:rgba(10,122,76,.06);border:1px solid rgba(10,122,76,.22);border-radius:12px;padding:13px 18px;margin-bottom:28px}
+  .gapbar .g{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--value);font-weight:800}
+  .gapbar .tx{font-size:13px;color:var(--text2)}.gapbar .tx b{color:var(--text)}
+  .gapbar .sig{margin-left:auto;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 11px;border-radius:7px;background:var(--value);color:#fff}
+
+  /* essay */
+  .essay{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:26px 30px;margin-bottom:24px}
+  .essay .h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .essay .h .ic{width:30px;height:30px;border-radius:9px;background:rgba(22,35,58,.08);color:var(--accent);display:flex;align-items:center;justify-content:center}
+  .essay .h .ic svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .essay .h .t{font-weight:800;font-size:16px;letter-spacing:-.01em}
+  .essay .h .fit{margin-left:auto;font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.06em;padding:4px 10px;border-radius:7px;background:rgba(10,122,76,.1);color:var(--value)}
+  .essay p{font-family:'Newsreader',Georgia,serif;font-size:17px;line-height:1.65;color:var(--text2)}
+  .essay p b{font-weight:500;color:var(--text)}
+  .essay .wr{color:var(--wr)}.essay .rb{color:var(--rb)}.essay .te{color:var(--gold)}
+
+  /* action bar */
+  .actbar{display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--border2);border-radius:14px;padding:14px 18px}
+  .actbar .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .actbar .sp{flex:1}
+  .actbar .send{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border:none;border-radius:11px;background:linear-gradient(135deg,#0a7a4c,#12a866);color:#fff;font-family:var(--font-sans);font-size:14px;font-weight:800;cursor:pointer}
+  .actbar .send svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9}
+  .actbar .gh{display:inline-flex;align-items:center;gap:6px;padding:12px 18px;border:1px solid var(--border2);border-radius:11px;background:transparent;color:var(--text2);font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer}
+  @media(max-width:820px){.deal{grid-template-columns:1fr}.mid{padding:8px 0}.truths{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <span class="v-kicker" style="color:var(--accent)">Concept — direction C · "The Verdict"</span>
+  <span class="line"></span>
+  <span class="v-kicker" style="color:var(--muted)">editorial · Americana light theme</span>
+</div>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="dot"></span>Vault · Trade Intelligence</div>
+    <div class="nav">
+      <button class="on">Analyze</button>
+      <button>Matchmaker</button>
+      <button>Exploit</button>
+      <button>Ideas</button>
+    </div>
+  </div>
+
+  <!-- HERO VERDICT -->
+  <div class="hero">
+    <div class="eye">The verdict · contender lens · Putput</div>
+    <div class="verdict serif">You win this one.</div>
+    <div class="lede serif">A clean buy-low that fills your <b>weakest starting spot</b> without spending anything you'll miss in your title window.</div>
+    <div class="meta">
+      <div class="m"><div class="l">Fit score</div><div class="v up">92</div></div>
+      <div class="m"><div class="l">Proj PPG</div><div class="v up">+2.5</div></div>
+      <div class="m"><div class="l">Title odds</div><div class="v up">+6.0%</div></div>
+      <div class="m"><div class="l">Closes?</div><div class="v" style="color:var(--accent)">Likely</div></div>
+    </div>
+  </div>
+
+  <!-- DEAL -->
+  <div class="deal">
+    <div class="side get">
+      <h3><span class="who"><span class="av" style="background:rgba(31,78,135,.12);color:var(--accent)">PP</span><span class="lbl" style="color:var(--accent)">You receive</span></span><span class="net up">+2,410</span></h3>
+      <div class="row">
+        <div class="pos WR">WR</div>
+        <div><div class="nm">Chris Olave <span class="tag buy">BUY-LOW</span></div><div class="sub">NO · ▲6% 30d · ↓14% vs peak</div></div>
+        <div class="val"><div class="n" style="color:var(--wr)">4,180</div><div class="t up">market</div></div>
+      </div>
+      <div class="row">
+        <div class="pos RB">RB</div>
+        <div><div class="nm">Jaylen Warren</div><div class="sub">PIT · RB27 · depth</div></div>
+        <div class="val"><div class="n" style="color:var(--rb)">1,650</div><div class="t" style="color:var(--muted)">market</div></div>
+      </div>
+    </div>
+
+    <div class="mid"><div class="sw"><svg viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg></div></div>
+
+    <div class="side give">
+      <h3><span class="who"><span class="av" style="background:rgba(197,45,58,.12);color:var(--reach)">HB</span><span class="lbl" style="color:var(--muted)">You give</span></span><span class="net dn">−2,281</span></h3>
+      <div class="row">
+        <div class="pos RB">RB</div>
+        <div><div class="nm">Isiah Pacheco <span class="tag sell">SELL-HIGH</span></div><div class="sub">DET · ▲11% 7d · bench</div></div>
+        <div class="val"><div class="n" style="color:var(--rb)">2,281</div><div class="t up">market</div></div>
+      </div>
+      <div class="row">
+        <div class="pos PICK">P</div>
+        <div><div class="nm">2027 Round 1 <span style="color:var(--muted);font-weight:600">(Mid)</span></div><div class="sub">proj 1.06 · outside your window</div></div>
+        <div class="val"><div class="n" style="color:#7a5ac8">1,720</div><div class="t" style="color:var(--muted)">market</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THREE TRUTHS -->
+  <div class="truths">
+    <div class="truth hl">
+      <div class="h"><i style="background:var(--accent)"></i>Market · real trades</div>
+      <div class="big up">You +260</div>
+      <div class="cap">Millions of real dynasty trades. What the deal is <b>actually worth today</b>.</div>
+    </div>
+    <div class="truth">
+      <div class="h"><i style="background:var(--gold)"></i>Community · votes</div>
+      <div class="big up">You +140</div>
+      <div class="cap">Crowd consensus. Slightly higher on Pacheco after his hot stretch.</div>
+    </div>
+    <div class="truth">
+      <div class="h"><i style="background:var(--muted)"></i>My board</div>
+      <div class="big up">You +410</div>
+      <div class="cap">Your own rankings. You're higher on Olave than the field.</div>
+    </div>
+  </div>
+
+  <div class="gapbar">
+    <span class="g">Consensus gap</span>
+    <span class="tx">Market prices <b>Olave 8% under</b> community — the field is fading him faster than the trade table.</span>
+    <span class="sig">Buy signal</span>
+  </div>
+
+  <!-- ESSAY -->
+  <div class="essay">
+    <div class="h">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12c1 1 1 2 1 3h6c0-1 0-2 1-3a7 7 0 0 0-4-12Z"/><path d="M9 21h6"/></svg></div>
+      <div class="t">Why this works for you</div>
+      <div class="fit">92 / 100 fit</div>
+    </div>
+    <p>You're a <b>contender at 71% playoff odds</b>, and your board grades <b class="wr">wide receiver</b> as your softest starting spot — eleventh of twelve. <b class="wr">Chris Olave</b> has slipped 14% off his peak on a hype fade, yet the <b>market still trades him 8% above community consensus</b>: the classic buy-low. You spend a <b class="rb">bench back</b> and a mid first that lands outside your window, gain <b>+2.5 points a game</b> in your starting lineup, and push your title odds <b class="te">+6.0%</b>. hunterbue4, sitting at 17% to make the playoffs, gets exactly the youth-and-picks pivot a rebuild wants — which is why this one <b>actually closes</b>.</p>
+  </div>
+
+  <!-- ACTION -->
+  <div class="actbar">
+    <span class="l">Ready to send</span>
+    <span class="sp"></span>
+    <button class="gh">↗ Share verdict card</button>
+    <button class="gh">⧉ Copy trade block</button>
+    <button class="send"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Send trade to Sleeper</button>
+  </div>
+</div>
+</body>
+</html>

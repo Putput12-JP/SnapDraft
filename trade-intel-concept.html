@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="onyx">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault · Trade Intelligence — Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&family=Newsreader:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<style>
+  /* ── Vault DS tokens (onyx) inlined — file is fully self-contained ── */
+  :root{
+    --bg:#0e0f13;--surface:#16171c;
+    --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+    --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+    --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+    --primary:#8fb4e0;--on-primary:#0b1420;
+    --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+    --red:#e23a4e;--red2:#ff5a6e;
+    --sky:#5e7c9c;--sky-dim:#43607d;
+    --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+    --suggest:#8fb4e0;--value:#5fe09a;--reach:#e23a4e;--gold:#f5c842;--navy:#0e0f13;
+    --glass-1:rgba(24,25,30,0.55);--glass-2:rgba(30,32,38,0.55);
+    --font-sans:'Archivo','Hanken Grotesk',system-ui,-apple-system,sans-serif;
+    --font-mono:'JetBrains Mono','Space Mono',ui-monospace,monospace;
+    --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-pill:999px;
+    --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
+  }
+  .v-kicker{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .v-pos{display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em}
+  .v-pos.QB{background:rgba(255,102,128,0.15);color:var(--qb)}
+  .v-pos.RB{background:rgba(61,204,122,0.15);color:var(--rb)}
+  .v-pos.WR{background:rgba(123,208,255,0.15);color:var(--wr)}
+  .v-pos.TE{background:rgba(245,200,66,0.15);color:var(--te)}
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;padding:34px 0 80px}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 26px}
+  .concept-band{max-width:1240px;margin:0 auto 26px;padding:0 26px;display:flex;align-items:center;gap:12px}
+  .concept-band .v-kicker{color:var(--accent2)}
+  .concept-band .line{flex:1;height:1px;background:var(--border2)}
+
+  /* header */
+  .ti-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:22px}
+  .ti-title{font-size:38px;font-weight:900;letter-spacing:-.03em;line-height:1}
+  .ti-accent{width:44px;height:3px;background:var(--accent2);border-radius:2px;margin:11px 0 9px}
+  .ti-sub{color:var(--muted);font-size:14px;max-width:440px;line-height:1.5}
+  .ti-head-right{display:flex;flex-direction:column;gap:11px;align-items:flex-end}
+
+  /* mode switch (finder pillars) */
+  .modeswitch{display:inline-flex;background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:13px;padding:4px;gap:3px}
+  .modeswitch button{display:flex;align-items:center;gap:8px;padding:9px 16px;border:none;background:transparent;color:var(--muted);border-radius:9px;font-family:var(--font-sans);font-size:13px;font-weight:700;letter-spacing:-.01em;cursor:pointer;transition:.15s}
+  .modeswitch button .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .modeswitch button.on{background:var(--accent);color:#fff;box-shadow:0 3px 12px -3px rgba(94,124,156,.6)}
+  .modeswitch .beta{font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.1em;padding:2px 5px;border-radius:4px;background:rgba(143,180,224,.16);color:var(--accent2)}
+
+  /* dual-truth + lens */
+  .truthbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .truth{display:inline-flex;background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
+  .truth button{padding:6px 12px;border:none;background:transparent;color:var(--muted);border-radius:7px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:.14s}
+  .truth button.on{background:var(--s3);color:var(--text);box-shadow:inset 0 0 0 1px var(--border3)}
+  .lens{display:inline-flex;background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
+  .lens button{padding:6px 13px;border:none;background:transparent;color:var(--muted);border-radius:7px;font-family:var(--font-sans);font-size:12px;font-weight:700;cursor:pointer;transition:.14s}
+  .lens button.on{background:linear-gradient(135deg,#c98a2a,#f5c842);color:#1a1206;box-shadow:0 3px 12px -4px rgba(245,200,66,.5)}
+
+  /* control strip */
+  .strip{display:flex;align-items:center;gap:14px;background:var(--glass-1);border:1px solid var(--border);border-radius:14px;padding:12px 15px;margin-bottom:18px;backdrop-filter:blur(20px)}
+  .tpick{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--border2);border-radius:11px;padding:9px 14px;min-width:236px;cursor:pointer;transition:border-color .15s}
+  .tpick:hover{border-color:var(--accent2)}
+  .tlogo{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;font-family:var(--font-mono)}
+  .tname{font-weight:800;font-size:14px;letter-spacing:-.01em}
+  .towner{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.04em;margin-top:1px}
+  .tcaret{margin-left:auto;color:var(--muted);font-size:11px}
+  .swap{width:34px;height:34px;border-radius:50%;background:var(--s3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--accent2);flex-shrink:0;cursor:pointer}
+  .swap svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .strip-spacer{flex:1}
+  .clearall{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:8px;padding:7px 12px;color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+
+  /* main bento */
+  .bento{display:grid;grid-template-columns:1fr 360px 1fr;gap:16px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:12px}
+  .colhead{display:flex;align-items:center;justify-content:space-between;padding:0 4px 2px}
+  .colhead .who{display:flex;align-items:center;gap:9px}
+  .colhead .av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;font-family:var(--font-mono)}
+  .colhead .lbl{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .colhead .sum{font-family:var(--font-mono);font-size:12px;font-weight:800}
+
+  /* asset card */
+  .asset{display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--border);border-radius:13px;padding:12px 14px;position:relative;transition:border-color .15s}
+  .asset:hover{border-color:var(--border3)}
+  .asset .face{width:44px;height:44px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;font-weight:800;letter-spacing:.02em}
+  .face.WR{background:linear-gradient(135deg,rgba(123,208,255,.22),rgba(123,208,255,.08));color:var(--wr);border:1px solid rgba(123,208,255,.25)}
+  .face.RB{background:linear-gradient(135deg,rgba(61,204,122,.22),rgba(61,204,122,.08));color:var(--rb);border:1px solid rgba(61,204,122,.25)}
+  .asset .info{min-width:0;flex:1}
+  .asset .nm{font-weight:800;font-size:15px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .asset .meta{display:flex;align-items:center;gap:7px;margin-top:3px}
+  .asset .team{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.05em}
+  .asset .vals{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+  .asset .bigval{font-family:var(--font-mono);font-size:16px;font-weight:800;line-height:1}
+  .asset .subval{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.04em}
+  .trend{display:inline-flex;align-items:center;gap:3px;font-family:var(--font-mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:5px}
+  .trend.up{background:rgba(95,224,154,.14);color:var(--value)}
+  .trend.dn{background:rgba(226,58,78,.14);color:var(--red2)}
+  .flag{position:absolute;top:-8px;left:12px;font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:.1em;padding:3px 8px;border-radius:6px;text-transform:uppercase}
+  .flag.buy{background:rgba(95,224,154,.18);color:var(--value);border:1px solid rgba(95,224,154,.3)}
+  .flag.sell{background:rgba(245,200,66,.18);color:var(--gold);border:1px solid rgba(245,200,66,.3)}
+  .pick{display:flex;align-items:center;gap:12px;background:rgba(143,180,224,.06);border:1px dashed var(--border2);border-radius:13px;padding:12px 14px}
+  .pick .pico{width:44px;height:44px;border-radius:11px;background:rgba(147,120,224,.15);color:#b7a6e8;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:9px;font-weight:800;flex-shrink:0}
+  .addbtn{display:flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px dashed var(--border2);border-radius:12px;padding:11px;color:var(--muted);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+
+  /* verdict center */
+  .verdict{background:var(--glass-2);border:1px solid var(--border2);border-radius:20px;padding:22px 20px;position:sticky;top:20px;backdrop-filter:blur(24px);box-shadow:var(--shadow-card)}
+  .vhead{text-align:center;margin-bottom:16px}
+  .vkick{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .vword{font-size:34px;font-weight:900;letter-spacing:-.03em;line-height:1;margin-top:6px;background:linear-gradient(135deg,var(--value),#8fe0b5);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .vfor{font-size:12px;color:var(--text2);margin-top:6px}
+  .vfor b{color:var(--accent2)}
+
+  .balance{margin:14px 0 18px}
+  .btrack{position:relative;height:14px;border-radius:8px;background:var(--bg);border:1px solid var(--border);overflow:hidden}
+  .bfill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#3aa06a,var(--value));border-radius:8px}
+  .btick{position:absolute;left:50%;top:-6px;bottom:-6px;width:2px;background:var(--text);opacity:.35;transform:translateX(-50%)}
+  .bends{display:flex;justify-content:space-between;margin-top:7px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.05em}
+
+  /* dual-truth readout */
+  .dt{background:var(--bg);border:1px solid var(--border);border-radius:13px;padding:12px 13px;margin-bottom:14px}
+  .dt-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0}
+  .dt-row + .dt-row{border-top:1px solid var(--border)}
+  .dt-src{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--text2)}
+  .dt-dot{width:7px;height:7px;border-radius:50%}
+  .dt-val{font-family:var(--font-mono);font-size:13px;font-weight:800}
+  .dt-gap{display:flex;align-items:center;gap:8px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border2)}
+  .dt-gap .g-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .dt-gap .g-tag{margin-left:auto;font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.06em;padding:3px 8px;border-radius:6px;background:rgba(95,224,154,.16);color:var(--value)}
+
+  /* four deltas */
+  .deltas{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px}
+  .delta{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:11px 12px}
+  .delta .dl{font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .delta .dv{font-family:var(--font-mono);font-size:19px;font-weight:800;margin-top:5px;line-height:1}
+  .pos{color:var(--value)}.neg{color:var(--red2)}
+  .sendbtn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:13px;border:none;border-radius:13px;background:linear-gradient(135deg,#1f8a56,#2fb972);color:#fff;font-family:var(--font-sans);font-size:14px;font-weight:800;letter-spacing:-.01em;cursor:pointer;box-shadow:0 8px 20px -8px rgba(47,185,114,.6)}
+  .sendbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9}
+  .altrow{display:flex;gap:8px;margin-top:9px}
+  .altbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border:1px solid var(--border2);border-radius:11px;background:transparent;color:var(--text2);font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.05em;cursor:pointer}
+
+  /* reasoning */
+  .reason{margin-top:16px;background:var(--glass-1);border:1px solid var(--border);border-radius:16px;padding:18px 20px;backdrop-filter:blur(18px)}
+  .reason-h{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+  .reason-h .sp{width:26px;height:26px;border-radius:8px;background:rgba(143,180,224,.14);color:var(--accent2);display:flex;align-items:center;justify-content:center}
+  .reason-h .sp svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .reason-h .t{font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .reason-h .g{margin-left:auto;font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.08em;padding:3px 9px;border-radius:6px;background:rgba(95,224,154,.14);color:var(--value)}
+  .reason p{font-family:var(--font-sans);font-size:13.5px;line-height:1.65;color:var(--text2)}
+  .reason p b{color:var(--text);font-weight:700}
+  .reason .qb{color:var(--qb)}.reason .rb{color:var(--rb)}.reason .wr{color:var(--wr)}.reason .te{color:var(--te)}
+
+  /* finder preview strip */
+  .finder{margin-top:34px}
+  .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+  .fcard{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:18px;position:relative;overflow:hidden}
+  .fcard .fk{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .fcard .fk .ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+  .fcard .fk .ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .fcard .fk .ft{font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .fcard .score{margin-left:auto;text-align:right}
+  .fcard .score .n{font-family:var(--font-mono);font-size:20px;font-weight:800;line-height:1}
+  .fcard .score .l{font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;color:var(--muted)}
+  .fcard p{font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:12px}
+  .fcard .tgt{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .fcard .tgt .t{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;background:var(--s3);border:1px solid var(--border2);font-size:11px;font-weight:700}
+  .fcard .fbtn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:10px;border:none;border-radius:11px;background:linear-gradient(135deg,#c98a2a,#f5c842);color:#1a1206;font-family:var(--font-sans);font-size:12px;font-weight:800;cursor:pointer}
+  .mini-need{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.05em;margin-top:3px}
+
+  @media(max-width:1000px){.bento{grid-template-columns:1fr}.verdict{position:static}.fgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="concept-band">
+  <span class="v-kicker">Concept — not shipped</span>
+  <span class="line"></span>
+  <span class="v-kicker" style="color:var(--muted)">Vault Trade Intelligence · v-next</span>
+</div>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="ti-head">
+    <div>
+      <div class="ti-title">Trade Intelligence</div>
+      <div class="ti-accent"></div>
+      <div class="ti-sub">One number lies. We show all three — market, community, and your board — then tell you why.</div>
+    </div>
+    <div class="ti-head-right">
+      <div class="modeswitch">
+        <button class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Analyze</button>
+        <button><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>Matchmaker</button>
+        <button><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>Exploit<span class="beta">BETA</span></button>
+        <button><svg class="ic" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c1 1 1 2 1 3h6c0-1 0-2 1-3a7 7 0 0 0-4-12Z"/></svg>Ideas</button>
+      </div>
+      <div class="truthbar">
+        <div class="lens">
+          <button class="on">Contender</button>
+          <button>Rebuild</button>
+        </div>
+        <div class="truth">
+          <button class="on"><span style="color:var(--accent2)">●</span> Market</button>
+          <button>Community</button>
+          <button>My Board</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROL STRIP -->
+  <div class="strip">
+    <div class="tpick">
+      <div class="tlogo" style="background:rgba(143,180,224,.15);color:var(--accent2)">PP</div>
+      <div><div class="tname">Putput</div><div class="towner">YOU · 8–2 · 71% playoff</div></div>
+      <span class="tcaret">▾</span>
+    </div>
+    <div class="swap"><svg viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg></div>
+    <div class="tpick">
+      <div class="tlogo" style="background:rgba(226,58,78,.15);color:var(--red2)">HB</div>
+      <div><div class="tname">hunterbue4</div><div class="towner">FRINGE · 5–5 · 17% playoff</div></div>
+      <span class="tcaret">▾</span>
+    </div>
+    <div class="strip-spacer"></div>
+    <button class="clearall">✕ Clear</button>
+  </div>
+
+  <!-- BENTO -->
+  <div class="bento">
+
+    <!-- YOU RECEIVE -->
+    <div class="col">
+      <div class="colhead">
+        <div class="who">
+          <div class="av" style="background:rgba(143,180,224,.15);color:var(--accent2)">PP</div>
+          <span class="lbl" style="color:var(--accent2)">You receive</span>
+        </div>
+        <span class="sum" style="color:var(--value)">+2,410</span>
+      </div>
+
+      <div class="asset">
+        <span class="flag buy">Buy-low</span>
+        <div class="face WR">CO</div>
+        <div class="info">
+          <div class="nm">Chris Olave</div>
+          <div class="meta"><span class="v-pos WR">WR</span><span class="team">NO</span><span class="trend up">▲ 6% 30d</span></div>
+        </div>
+        <div class="vals"><div class="bigval" style="color:var(--wr)">4,180</div><div class="subval">↓14% vs peak</div></div>
+      </div>
+
+      <div class="asset">
+        <div class="face RB">JW</div>
+        <div class="info">
+          <div class="nm">Jaylen Warren</div>
+          <div class="meta"><span class="v-pos RB">RB</span><span class="team">PIT</span></div>
+        </div>
+        <div class="vals"><div class="bigval" style="color:var(--rb)">1,650</div><div class="subval">RB27</div></div>
+      </div>
+
+      <button class="addbtn">＋ Add player or pick</button>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="verdict">
+      <div class="vhead">
+        <div class="vkick">Verdict · Contender lens</div>
+        <div class="vword">You win</div>
+        <div class="vfor">Great fit for <b>Putput</b> — fills your WR need without denting starters</div>
+      </div>
+
+      <div class="balance">
+        <div class="btrack"><div class="bfill" style="width:63%"></div><div class="btick"></div></div>
+        <div class="bends"><span>hunterbue4</span><span>even</span><span>you +9%</span></div>
+      </div>
+
+      <div class="dt">
+        <div class="dt-row">
+          <div class="dt-src"><span class="dt-dot" style="background:var(--accent2)"></span>Market (real trades)</div>
+          <div class="dt-val" style="color:var(--value)">You +260</div>
+        </div>
+        <div class="dt-row">
+          <div class="dt-src"><span class="dt-dot" style="background:var(--te)"></span>Community (votes)</div>
+          <div class="dt-val" style="color:var(--value)">You +140</div>
+        </div>
+        <div class="dt-row">
+          <div class="dt-src"><span class="dt-dot" style="background:var(--muted)"></span>My Board</div>
+          <div class="dt-val" style="color:var(--value)">You +410</div>
+        </div>
+        <div class="dt-gap">
+          <span class="g-lbl">Consensus gap</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">Market values Olave 8% under community</span>
+          <span class="g-tag">Buy signal</span>
+        </div>
+      </div>
+
+      <div class="deltas">
+        <div class="delta"><div class="dl">Dynasty value</div><div class="dv neg">−129</div></div>
+        <div class="delta"><div class="dl">Redraft starters</div><div class="dv pos">+1,796</div></div>
+        <div class="delta"><div class="dl">Proj PPG</div><div class="dv pos">+2.5</div></div>
+        <div class="delta"><div class="dl">Title odds</div><div class="dv pos">+6.0%</div></div>
+      </div>
+
+      <button class="sendbtn"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Send trade to Sleeper</button>
+      <div class="altrow">
+        <button class="altbtn">⇄ Build variant</button>
+        <button class="altbtn">⧉ Copy block</button>
+        <button class="altbtn">↗ Share card</button>
+      </div>
+    </div>
+
+    <!-- YOU GIVE -->
+    <div class="col">
+      <div class="colhead">
+        <div class="who">
+          <div class="av" style="background:rgba(226,58,78,.15);color:var(--red2)">HB</div>
+          <span class="lbl" style="color:var(--muted)">You give</span>
+        </div>
+        <span class="sum" style="color:var(--red2)">−2,281</span>
+      </div>
+
+      <div class="asset">
+        <span class="flag sell">Sell-high</span>
+        <div class="face RB">IP</div>
+        <div class="info">
+          <div class="nm">Isiah Pacheco</div>
+          <div class="meta"><span class="v-pos RB">RB</span><span class="team">DET</span><span class="trend up">▲ 11% 7d</span></div>
+        </div>
+        <div class="vals"><div class="bigval" style="color:var(--rb)">2,281</div><div class="subval">Bench · RB depth</div></div>
+      </div>
+
+      <div class="pick">
+        <div class="pico">RD1</div>
+        <div class="info">
+          <div class="nm" style="font-size:14px">2027 Round 1 <span style="color:var(--muted);font-weight:600">(Mid)</span></div>
+          <div class="mini-need">Projected pick 1.06 · dynasty depth</div>
+        </div>
+        <div class="vals"><div class="bigval" style="color:#b7a6e8">— </div></div>
+      </div>
+
+      <button class="addbtn">＋ Add player or pick</button>
+
+      <div style="background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.18);border-radius:13px;padding:12px 14px;margin-top:2px">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:6px">Best chip to move</div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--text2)">Pacheco is your <b style="color:var(--text)">#1 trade currency</b> — high dynasty value, low starter impact behind Henry & Hampton.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- REASONING -->
+  <div class="reason">
+    <div class="reason-h">
+      <div class="sp"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12c1 1 1 2 1 3h6c0-1 0-2 1-3a7 7 0 0 0-4-12Z"/><path d="M9 21h6"/></svg></div>
+      <div class="t">Why this works for you</div>
+      <div class="g">92 / 100 fit</div>
+    </div>
+    <p>You're a <b>contender at 71% playoff odds</b> and your board grades <b class="wr">WR</b> as your softest starting spot (11th of 12). <b class="wr">Chris Olave</b> is down 14% off his peak on hype fade, but the <b>market still trades him 8% above community consensus</b> — a textbook buy-low. You cash a <b class="rb">bench RB</b> and a mid first you don't need in your window, add <b>+2.5 proj PPG</b> to your starting lineup, and push title odds <b class="te">+6.0%</b>. hunterbue4 (17% playoff) gets the youth-and-picks pivot their rebuild wants, so <b>both sides win</b> — this one actually closes.</p>
+  </div>
+
+  <!-- FINDER PREVIEW -->
+  <div class="finder">
+    <div class="ti-head" style="margin-bottom:4px">
+      <div>
+        <div style="font-size:22px;font-weight:900;letter-spacing:-.02em">Beyond the calculator</div>
+        <div class="ti-sub" style="margin-top:6px">Three engines that find the trade before you do. Every idea ends in one action.</div>
+      </div>
+    </div>
+    <div class="fgrid">
+
+      <div class="fcard">
+        <div class="fk">
+          <div class="ico" style="background:rgba(143,180,224,.14);color:var(--accent2)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg></div>
+          <div class="ft">Matchmaker</div>
+          <div class="score"><div class="n" style="color:var(--accent2)">15</div><div class="l">FAIR IDEAS</div></div>
+        </div>
+        <p>Ranked, mutual-win trades built around <b style="color:var(--text)">your needs</b> — each shows both sides' dynasty, starter, PPG and title-odds deltas so you know it'll actually get accepted.</p>
+        <div class="tgt">
+          <span class="t"><span class="v-pos WR" style="padding:2px 6px">WR</span> WR upgrades</span>
+          <span class="t">Primary need</span>
+        </div>
+        <button class="fbtn">Browse ideas</button>
+      </div>
+
+      <div class="fcard">
+        <div class="fk">
+          <div class="ico" style="background:rgba(245,200,66,.14);color:var(--gold)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <div class="ft">Exploit Finder</div>
+          <div class="score"><div class="n" style="color:var(--gold)">3</div><div class="l">SOFT SPOTS</div></div>
+        </div>
+        <p>A pressure map of <b style="color:var(--text)">every manager</b> — who's fading, who's tilting toward a rebuild, their top need — and exactly which piece to pry loose while the window is open.</p>
+        <div class="tgt">
+          <span class="t">blaineboyd · 17% playoff</span>
+          <span class="t" style="color:var(--value)">Buy-low vet</span>
+        </div>
+        <button class="fbtn">Show pressure map</button>
+      </div>
+
+      <div class="fcard">
+        <div class="fk">
+          <div class="ico" style="background:rgba(147,120,224,.16);color:#b7a6e8"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12c1 1 1 2 1 3h6c0-1 0-2 1-3a7 7 0 0 0-4-12Z"/><path d="M9 21h6"/></svg></div>
+          <div class="ft">Idea Generator</div>
+          <div class="score"><div class="n" style="color:#b7a6e8">∞</div><div class="l">PACKAGES</div></div>
+        </div>
+        <p>Creative multi-piece packages you wouldn't have drawn up — each scored for <b style="color:var(--text)">novelty and realism</b> so you get fresh angles that still hold water.</p>
+        <div class="tgt">
+          <span class="t">2-for-1 consolidation</span>
+          <span class="t" style="color:#b7a6e8">Realism 81</span>
+        </div>
+        <button class="fbtn">Generate ideas</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
