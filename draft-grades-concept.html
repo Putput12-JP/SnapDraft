@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault · Draft Grades (4-Factor) — Concept</title>
+<style>
+/* ── inlined tokens (standalone: no external CSS) ── */
+:root{
+  --bg:#0a0e14; --s1:#111722; --s2:#161d2b; --s3:#1c2536; --s4:#26324a;
+  --border:#222b3d; --border2:#2c3850; --border3:#3a4967;
+  --text:#e6ecf5; --text2:#aeb9cc; --muted:#7d8aa2; --dim:#4d5972;
+  --qb:#E8556B; --rb:#35B7E6; --wr:#71D13A; --te:#F2C14E;
+  --f-up:#36B7E6; --f-fl:#E84F9E; --f-rk:#F5A623; --f-si:#71D13A; --gold:#F5C842;
+  --font-sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:
+  radial-gradient(1200px 600px at 20% -10%, #10202a 0%, transparent 60%),
+  radial-gradient(1000px 500px at 90% 0%, #17130f 0%, transparent 55%),
+  var(--bg);
+  color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;
+  min-height:100vh;padding:22px;}
+.wrap{max-width:1240px;margin:0 auto}
+.chalk{position:fixed;inset:0;pointer-events:none;opacity:.05;z-index:0;
+  background-image:radial-gradient(circle at 50% 50%,#fff 0.6px,transparent 0.6px);background-size:26px 26px}
+.wrap>*{position:relative;z-index:1}
+
+/* header */
+.hd{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.hd h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em;font-family:var(--font-mono)}
+.hd h1 em{color:var(--gold);font-style:normal}
+.hd-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.04em;padding:6px 11px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text2)}
+.pill .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--f-si);margin-right:6px;box-shadow:0 0 8px var(--f-si);animation:pulse 1.8s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.teamsel{font-family:var(--font-mono);font-size:11px;font-weight:700;background:var(--s2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;outline:none}
+
+/* top grid: draft grade + team 4-factor */
+.topgrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr);gap:14px;margin-bottom:16px}
+@media(max-width:760px){.topgrid{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--s1),#0d131d);border:1px solid var(--border2);border-radius:16px;overflow:hidden;position:relative}
+.grade-card{padding:20px 22px;background:
+  radial-gradient(600px 300px at 0% 0%, rgba(113,209,58,.10), transparent 60%),
+  linear-gradient(180deg,var(--s1),#0d131d)}
+.grade-card.b{background:radial-gradient(600px 300px at 0% 0%, rgba(54,183,230,.10), transparent 60%),linear-gradient(180deg,var(--s1),#0d131d)}
+.grade-card.c{background:radial-gradient(600px 300px at 0% 0%, rgba(245,166,35,.10), transparent 60%),linear-gradient(180deg,var(--s1),#0d131d)}
+.grade-card.d{background:radial-gradient(600px 300px at 0% 0%, rgba(232,79,107,.10), transparent 60%),linear-gradient(180deg,var(--s1),#0d131d)}
+.grade-lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.grade-row{display:flex;align-items:baseline;gap:16px;margin-top:6px}
+.grade-letter{font-size:60px;font-weight:900;line-height:.9;letter-spacing:-.03em;font-family:var(--font-mono)}
+.grade-desc{font-size:20px;font-weight:800;letter-spacing:.01em;text-transform:uppercase}
+.grade-bar{margin-top:16px;height:14px;border-radius:8px;background:rgba(255,255,255,.06);overflow:hidden;position:relative}
+.grade-bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:8px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.grade-score{font-family:var(--font-mono);font-size:12px;color:var(--muted);text-align:right;margin-bottom:5px;font-weight:700}
+.grade-sub{font-family:var(--font-mono);font-size:11px;color:var(--dim);margin-top:10px}
+
+.tf-card{padding:0}
+.tf-head{padding:12px 18px;background:linear-gradient(180deg,#1a3a52,#13293b);border-bottom:1px solid var(--border2)}
+.tf-head span{font-family:var(--font-mono);font-weight:800;font-size:15px;letter-spacing:.06em;font-style:italic}
+.tf-body{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:18px 14px}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:8px}
+.gauge-lbl{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.gauge-ring{position:relative;width:78px;height:78px}
+.gauge-ring svg{transform:rotate(-90deg)}
+.gauge-ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.gauge-val{font-family:var(--font-mono);font-size:26px;font-weight:900}
+
+/* board */
+.board{background:linear-gradient(180deg,var(--s1),#0c1119);border:1px solid var(--border2);border-radius:16px;overflow:hidden}
+.board-hd{display:flex;align-items:center;gap:14px;padding:15px 18px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.board-title{font-family:var(--font-mono);font-weight:800;font-size:16px;letter-spacing:.02em}
+.seg{display:inline-flex;background:var(--s3);border:1px solid var(--border2);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--muted);font-family:var(--font-mono);font-weight:800;font-size:11px;letter-spacing:.06em;padding:6px 14px;border-radius:999px;cursor:pointer}
+.seg button.on{background:#fff;color:#0a0e14}
+.board-tools{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
+.srch{background:var(--s3);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;width:200px}
+.srch::placeholder{color:var(--dim)}
+.posbar{display:flex;gap:7px;padding:12px 18px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.posbtn{font-family:var(--font-mono);font-weight:800;font-size:12px;border:1.5px solid var(--border2);background:var(--s2);color:var(--muted);border-radius:10px;padding:8px 15px;cursor:pointer;transition:all .12s}
+.posbtn.on{color:#0a0e14}
+.posbtn.on[data-pos="ALL"]{background:#e6ecf5;border-color:#e6ecf5;color:#0a0e14}
+.posbtn.on[data-pos="QB"]{background:var(--qb);border-color:var(--qb)}
+.posbtn.on[data-pos="RB"]{background:var(--rb);border-color:var(--rb)}
+.posbtn.on[data-pos="WR"]{background:var(--wr);border-color:var(--wr)}
+.posbtn.on[data-pos="TE"]{background:var(--te);border-color:var(--te)}
+
+/* table */
+.tbl{width:100%}
+.trow{display:grid;grid-template-columns:52px 40px minmax(0,1fr) 60px 60px 60px 60px 64px;align-items:center;gap:6px;padding:11px 18px;border-bottom:1px solid var(--border);cursor:default}
+.thead{position:sticky;top:0;background:rgba(10,14,20,.92);backdrop-filter:blur(6px);z-index:5;padding-top:12px;padding-bottom:12px;border-bottom:1px solid var(--border2)}
+.thead>div{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.th-sort{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:center;gap:3px}
+.th-sort.act{color:var(--text)}
+.th-c{text-align:center;justify-content:center;display:flex}
+.trow:hover{background:rgba(255,255,255,.025)}
+.trow.drafted{opacity:.4}
+.trow.mine{background:linear-gradient(90deg,rgba(245,200,66,.08),transparent 70%)}
+.rk{font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--text2);text-align:right;padding-right:4px}
+.logo{width:30px;height:30px;object-fit:contain}
+.pl{display:flex;align-items:center;gap:10px;min-width:0}
+.pl-av{width:38px;height:38px;border-radius:9px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0}
+.pl-txt{min-width:0}
+.pl-name{display:flex;align-items:center;gap:7px}
+.pl-name b{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.posbadge{font-family:var(--font-mono);font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;color:#0a0e14;flex-shrink:0}
+.pl-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-meta .ppg-hi{color:var(--wr)} .pl-meta .ppg-mid{color:var(--te)} .pl-meta .ppg-lo{color:var(--qb)}
+.fcell{font-family:var(--font-mono);font-size:17px;font-weight:800;text-align:center}
+.comp{font-family:var(--font-mono);font-size:16px;font-weight:900;text-align:center;color:var(--gold);
+  border:1.5px solid rgba(245,200,66,.4);border-radius:9px;padding:6px 0;background:rgba(245,200,66,.08)}
+/* board (card grid) view */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;padding:16px 18px}
+.gcard{background:var(--s2);border:1px solid var(--border2);border-radius:13px;padding:13px;position:relative;overflow:hidden}
+.gcard.drafted{opacity:.42} .gcard.mine{border-color:rgba(245,200,66,.5)}
+.gcard-top{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.gcard-av{width:42px;height:42px;border-radius:10px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0}
+.gcard-nm{min-width:0;flex:1}
+.gcard-nm b{display:block;font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gcard-nm span{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+.gcard-comp{font-family:var(--font-mono);font-size:20px;font-weight:900;color:var(--gold);flex-shrink:0}
+.gcard-rk{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:10px;color:var(--dim);font-weight:700}
+.gcard-fs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.gf{text-align:center;background:var(--s1);border-radius:7px;padding:6px 0}
+.gf i{display:block;font-size:11px;opacity:.85}
+.gf b{font-family:var(--font-mono);font-size:15px;font-weight:800}
+.foot{padding:12px 18px;font-family:var(--font-mono);font-size:10.5px;color:var(--dim);text-align:center;border-top:1px solid var(--border)}
+.loading{padding:60px;text-align:center;color:var(--muted);font-family:var(--font-mono)}
+</style>
+</head>
+<body>
+<div class="chalk"></div>
+<div class="wrap">
+  <div class="hd">
+    <h1>DRAFT <em>GRADES</em> · 4-FACTOR</h1>
+    <div class="hd-meta">
+      <span class="pill" id="statusPill"><span class="dot"></span><span id="statusTxt">connecting…</span></span>
+      <select class="teamsel" id="teamSel" title="Grade a team's roster"></select>
+    </div>
+  </div>
+
+  <div class="topgrid">
+    <div class="card grade-card" id="gradeCard">
+      <div class="grade-lbl">Draft Grade</div>
+      <div class="grade-row">
+        <div class="grade-letter" id="gradeLetter">—</div>
+        <div class="grade-desc" id="gradeDesc" style="color:var(--muted)">no picks yet</div>
+      </div>
+      <div class="grade-score"><span id="gradeScore">—</span>/100</div>
+      <div class="grade-bar"><i id="gradeFill" style="width:0%"></i></div>
+      <div class="grade-sub" id="gradeSub">Pick a team above to grade its roster.</div>
+    </div>
+    <div class="card tf-card">
+      <div class="tf-head"><span>TEAM 4-FACTOR SCORE</span></div>
+      <div class="tf-body" id="tfBody"></div>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="board-hd">
+      <span class="board-title">PLAYER BOARD</span>
+      <div class="seg" id="viewSeg">
+        <button class="on" data-view="list">LIST</button>
+        <button data-view="board">BOARD</button>
+      </div>
+      <div class="board-tools">
+        <input class="srch" id="srch" placeholder="Search players…">
+      </div>
+    </div>
+    <div class="posbar" id="posbar">
+      <button class="posbtn on" data-pos="ALL">ALL</button>
+      <button class="posbtn" data-pos="QB">QB</button>
+      <button class="posbtn" data-pos="RB">RB</button>
+      <button class="posbtn" data-pos="WR">WR</button>
+      <button class="posbtn" data-pos="TE">TE</button>
+    </div>
+    <div class="tbl" id="tbl"><div class="loading">Loading players + last-season data…</div></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+const DRAFT_ID = new URLSearchParams(location.search).get('draft') || '1377042546194128896';
+const DATA = 'https://vaultfantasy.com/data';
+const SLEEPER = 'https://api.sleeper.app/v1';
+
+/* ── factor colors + icons ── */
+const FC = { upside:'var(--f-up)', floor:'var(--f-fl)', risk:'var(--f-rk)', situational:'var(--f-si)' };
+const FICON = { upside:'🔥', floor:'🛡️', risk:'⚠️', situational:'🎯' };
+const POSCOL = { QB:'#E8556B', RB:'#35B7E6', WR:'#71D13A', TE:'#F2C14E' };
+const ESPN = {WAS:'wsh',JAX:'jax'}; // most are just lowercase
+const espnSlug = t => (ESPN[t]||String(t||'').toLowerCase());
+
+const normName = s => String(s||'').toLowerCase()
+  .replace(/[.'`]/g,'').replace(/\s+(jr|sr|ii|iii|iv|v)$/,'').replace(/[^a-z0-9]+/g,' ').trim();
+
+/* ── state ── */
+let PLAYERS = [];       // enriched + scored
+let PICKS = [];         // sleeper picks
+let DRAFT = null;
+let VIEW='list', POS='ALL', SORT='comp', SORTDIR=1, Q=''; // SORTDIR: 1=desc (best first), -1=asc
+let MY_SLOT = 0;        // 0 = league baseline (no team)
+
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const r1 = n => Math.round(n*10)/10;
+
+/* percentile of x within a sorted ascending array (0..1) */
+function pctRank(sorted, x){
+  if(!sorted.length) return 0.5;
+  let lo=0, hi=sorted.length;
+  while(lo<hi){ const m=(lo+hi)>>1; if(sorted[m]<x) lo=m+1; else hi=m; }
+  return sorted.length>1 ? lo/(sorted.length-1) : 0.5;
+}
+
+/* ── data load ── */
+async function load(){
+  const [adpJson, statsJson, draft, picks] = await Promise.all([
+    fetch(`${DATA}/adp_ppr_12team.json`).then(r=>r.json()),
+    fetch(`${DATA}/nflverse_stats.json`).then(r=>r.json()),
+    fetch(`${SLEEPER}/draft/${DRAFT_ID}`).then(r=>r.json()).catch(()=>null),
+    fetch(`${SLEEPER}/draft/${DRAFT_ID}/picks`).then(r=>r.json()).catch(()=>[]),
+  ]);
+  DRAFT = draft; PICKS = picks||[];
+  const adp = adpJson.players || [];
+  const statsMap = {};
+  for(const n in statsJson){ statsMap[normName(n)] = statsJson[n]; }
+
+  // team offensive strength = summed skill-position fantasy PPG (proxy), then ranked
+  const teamOff = {};
+  for(const n in statsJson){
+    const e = statsJson[n]; const t=e.team; if(!t||!e.season) continue;
+    if(!['QB','RB','WR','TE'].includes(e.pos)) continue;
+    teamOff[t] = teamOff[t] || {sum:0, list:[]};
+    teamOff[t].list.push(e.season.avg_pts||0);
+  }
+  Object.values(teamOff).forEach(o=>{ o.list.sort((a,b)=>b-a); o.sum = o.list.slice(0,7).reduce((a,b)=>a+b,0); });
+  const teamRank = Object.entries(teamOff).sort((a,b)=>b[1].sum-a[1].sum);
+  teamRank.forEach(([t,o],i)=>{ o.rank=i+1; o.pct=1-(i/(teamRank.length-1||1)); });
+
+  // build per-position stat pools for percentile normalization
+  const pool = {QB:{ppg:[],ceil:[],floor:[]},RB:{ppg:[],ceil:[],floor:[]},WR:{ppg:[],ceil:[],floor:[]},TE:{ppg:[],ceil:[],floor:[]}};
+  const prof = {};
+  adp.forEach(p=>{
+    if(!['QB','RB','WR','TE'].includes(p.pos)) return;
+    const e = statsMap[normName(p.name)];
+    let pr=null;
+    if(e && e.season && (e.season.games||0)>=3){
+      const ssn=e.season, wk=(e.weeks||[]).map(w=>+w.pts).filter(v=>!isNaN(v)).sort((a,b)=>a-b);
+      const q=f=>wk.length? wk[clamp(Math.round(f*(wk.length-1)),0,wk.length-1)] : null;
+      pr={ ppg:ssn.avg_pts||0, boom:ssn.boom_pct??0, bust:ssn.bust_pct??0, games:ssn.games||wk.length,
+           floor:q(0.2), ceil:q(0.85), tgt:ssn.avg_tgt||0, headshot:e.headshot };
+      pool[p.pos].ppg.push(pr.ppg); if(pr.ceil!=null)pool[p.pos].ceil.push(pr.ceil); if(pr.floor!=null)pool[p.pos].floor.push(pr.floor);
+    }
+    prof[p.name]=pr;
+  });
+  Object.values(pool).forEach(o=>{o.ppg.sort((a,b)=>a-b);o.ceil.sort((a,b)=>a-b);o.floor.sort((a,b)=>a-b);});
+
+  // scoring/roster context
+  const st = (draft&&draft.settings)||{teams:12};
+  const ctx = { teams:st.teams||12, ppr:true,
+    slots:{QB:st.slots_qb||1,RB:st.slots_rb||2,WR:st.slots_wr||2,TE:st.slots_te||1,FLEX:st.slots_flex||2},
+    superflex:(st.slots_super_flex||0)>0 };
+
+  PLAYERS = adp.filter(p=>['QB','RB','WR','TE'].includes(p.pos)).map((p,i)=>{
+    const f = computeFactors(p, prof[p.name], pool, teamOff[p.team], ctx);
+    return { ...p, overallRank:i+1, prof:prof[p.name], teamOff:teamOff[p.team], ...f };
+  });
+
+  buildTeamSel();
+  applyMySlot();
+  render();
+  setStatus();
+}
+
+/* ══════════════════════ THE 4-FACTOR ENGINE ══════════════════════
+   Each factor 0-10. Risk: higher = riskier (inverted in composite).
+   Composite = mean(upside, floor, 11-risk, situational)  [matches reference]. */
+function computeFactors(p, pr, pool, tOff, ctx){
+  const pos=p.pos, po=pool[pos];
+  const hasData = !!pr;
+
+  // ---------- UPSIDE (ceiling / breakout) ----------
+  let upside;
+  if(hasData){
+    const boom01 = clamp(pr.boom/55, 0, 1);
+    const ceilPct = pctRank(po.ceil, pr.ceil);
+    const ppgPct  = pctRank(po.ppg, pr.ppg);
+    let u = 0.46*boom01 + 0.34*ceilPct + 0.20*ppgPct;
+    if((p.years_of_experience??9)<=2) u += 0.06;          // ascending youth
+    if((p.trend30Day||0) > 40) u += 0.05;                  // market rising
+    upside = u*10;
+  } else {
+    // rookie / no data → draft-capital proxy (early ADP = high ceiling bet)
+    upside = clamp(9.2 - Math.log2(Math.max(1,p.adp))*0.95, 3, 9) + 0.4; // rookie premium
+  }
+
+  // ---------- FLOOR (weekly safety / consistency) ----------
+  let floor;
+  if(hasData){
+    const safe01 = 1 - clamp(pr.bust/45, 0, 1);
+    const floorPct = pctRank(po.floor, pr.floor);
+    const avail = clamp(pr.games/17, 0, 1);
+    floor = (0.40*safe01 + 0.40*floorPct + 0.20*avail)*10;
+  } else {
+    floor = clamp(7.5 - Math.log2(Math.max(1,p.adp))*0.9, 2, 6.5); // unproven → capped
+  }
+
+  // ---------- RISK (higher = riskier) ----------
+  let risk = 0;
+  if(hasData){
+    risk += clamp((17-pr.games)*0.42, 0, 4);               // durability
+    risk += clamp(pr.bust/15, 0, 3);                       // weekly volatility
+    if(pos==='RB' && p.age>=27) risk += p.age>=29?2.4:1.4; // age cliffs
+    if((pos==='WR')&&p.age>=30) risk += 1.6;
+    if((pos==='TE')&&p.age>=31) risk += 1.5;
+    if((pos==='QB')&&p.age>=36) risk += 1.6;
+    if((p.trend30Day||0) < -60) risk += 1.2;               // falling market
+    risk += 0.6;                                            // baseline uncertainty
+  } else {
+    risk = 5.2 - clamp((60-Math.min(60,p.adp))/60*1.6,0,1.6); // rookies riskier, tempered by capital
+    if((p.years_of_experience??0)===0) risk += 0.6;
+  }
+  risk = clamp(risk, 0, 10);
+
+  // ---------- SITUATIONAL (fit to team + league settings) ----------
+  // scoring fit (PPR rewards volume pass-catchers)
+  const scoreFit = ctx.ppr
+    ? ({WR:0.86, TE:0.80, RB:0.66, QB:0.50}[pos])
+    : ({WR:0.70, TE:0.66, RB:0.78, QB:0.52}[pos]);
+  let recBonus = 0;
+  if(ctx.ppr && hasData && (pos==='RB') && pr.tgt>=3) recBonus = clamp((pr.tgt-3)/6,0,1)*0.14;
+  const offPct = tOff ? tOff.pct : 0.5;                    // good offense = better situation
+
+  // need: pre-draft = positional scarcity vs league demand; with a team = your roster hole
+  let need;
+  if(MY_SLOT){
+    need = rosterNeed(pos);
+  }else{
+    const demand = (ctx.slots[pos]||0) + (['RB','WR','TE'].includes(pos)? ctx.slots.FLEX*0.34 : 0);
+    const startersLeague = demand*ctx.teams;
+    need = clamp(1 - (p.positionRank-1)/(startersLeague*1.35), 0.25, 1); // top of scarce pos → high
+  }
+  let sit = (0.34*scoreFit + 0.28*offPct + 0.38*need + recBonus)*10;
+
+  upside=clamp(upside,0,10); floor=clamp(floor,0,10); sit=clamp(sit,0,10);
+  const composite = (upside + floor + (11-risk) + sit)/4;
+  return {
+    upside:Math.round(upside), floor:Math.round(floor), risk:Math.round(risk),
+    situational:Math.round(sit), composite:r1(composite)
+  };
+}
+
+/* roster need for the currently-selected team (0.2 filled … 1 open starter) */
+function rosterNeed(pos){
+  const have = myRosterCounts();
+  const s = (DRAFT&&DRAFT.settings)||{};
+  const req = {QB:s.slots_qb||1, RB:s.slots_rb||2, WR:s.slots_wr||2, TE:s.slots_te||1};
+  const flex = s.slots_flex||2;
+  if((have[pos]||0) < req[pos]) return 1;                  // open starter slot
+  // flex depth for RB/WR/TE
+  if(['RB','WR','TE'].includes(pos)){
+    const over = ['RB','WR','TE'].reduce((a,p)=>a+Math.max(0,(have[p]||0)-req[p]),0);
+    if(over < flex) return 0.6;
+  }
+  return 0.22;                                             // filled → luxury
+}
+function myRosterCounts(){
+  const c={QB:0,RB:0,WR:0,TE:0};
+  if(!MY_SLOT) return c;
+  PICKS.filter(pk=>pk.draft_slot===MY_SLOT).forEach(pk=>{
+    const pos=(pk.metadata&&pk.metadata.position)||''; if(c[pos]!==undefined)c[pos]++;
+  });
+  return c;
+}
+
+/* ── selected-team recompute (situational depends on your roster) ── */
+function applyMySlot(){
+  if(!PLAYERS.length) return;
+  // re-run situational for all players against current roster
+  // (cheap: recompute full factor set)
+  const st=(DRAFT&&DRAFT.settings)||{teams:12};
+  const ctx={teams:st.teams||12,ppr:true,slots:{QB:st.slots_qb||1,RB:st.slots_rb||2,WR:st.slots_wr||2,TE:st.slots_te||1,FLEX:st.slots_flex||2},superflex:false};
+  // rebuild pools once
+  const pool={QB:{ppg:[],ceil:[],floor:[]},RB:{ppg:[],ceil:[],floor:[]},WR:{ppg:[],ceil:[],floor:[]},TE:{ppg:[],ceil:[],floor:[]}};
+  PLAYERS.forEach(p=>{const pr=p.prof;if(pr){pool[p.pos].ppg.push(pr.ppg);if(pr.ceil!=null)pool[p.pos].ceil.push(pr.ceil);if(pr.floor!=null)pool[p.pos].floor.push(pr.floor);}});
+  Object.values(pool).forEach(o=>{o.ppg.sort((a,b)=>a-b);o.ceil.sort((a,b)=>a-b);o.floor.sort((a,b)=>a-b);});
+  PLAYERS.forEach(p=>{ Object.assign(p, computeFactors(p, p.prof, pool, p.teamOff, ctx)); });
+  renderTeamGrade();
+}
+
+/* ── team grade + team 4-factor ── */
+function renderTeamGrade(){
+  const card=document.getElementById('gradeCard');
+  const draftedMine = MY_SLOT ? PICKS.filter(pk=>pk.draft_slot===MY_SLOT) : [];
+  const rosterPlayers = draftedMine.map(pk=>{
+    const nm=normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim());
+    return PLAYERS.find(p=>normName(p.name)===nm);
+  }).filter(Boolean);
+
+  // Grade the OPTIMAL STARTING LINEUP, not bench depth — a good draft shouldn't
+  // be dragged down by late fliers. Fill QB/2RB/2WR/TE/2FLEX by best composite.
+  const starters = pickStarters(rosterPlayers);
+  const tf=document.getElementById('tfBody');
+  const keys=['upside','floor','risk','situational'];
+  let avg={upside:0,floor:0,risk:0,situational:0}, comp=0;
+  if(starters.length){
+    starters.forEach(p=>{keys.forEach(k=>avg[k]+=p[k]); comp+=p.composite;});
+    keys.forEach(k=>avg[k]=avg[k]/starters.length); comp/=starters.length;
+  }
+  tf.innerHTML = keys.map(k=>{
+    const v = rosterPlayers.length? Math.round(avg[k]) : 0;
+    const shown = rosterPlayers.length? v : '—';
+    const frac = rosterPlayers.length? v/10 : 0;
+    const col = FC[k];
+    const R=32, C=2*Math.PI*R, off=C*(1-frac);
+    return `<div class="gauge">
+      <div class="gauge-lbl">${k}</div>
+      <div class="gauge-ring">
+        <svg width="78" height="78"><circle cx="39" cy="39" r="${R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="7"/>
+        <circle cx="39" cy="39" r="${R}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round"
+          stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg>
+        <div class="gauge-ic">${FICON[k]}</div>
+      </div>
+      <div class="gauge-val" style="color:${col}">${shown}</div>
+    </div>`;
+  }).join('');
+
+  // draft grade from avg starter composite. Calibrated to the reference: a team
+  // whose 4 factors average ~7 (their A- sample) → 88/100. score = 11 + comp*11.
+  const score100 = starters.length? clamp(Math.round(11 + comp*11), 0, 100) : 0;
+  const [letter,desc,gcol,cls] = gradeBand(score100);
+  card.className = 'card grade-card '+cls;
+  document.getElementById('gradeLetter').textContent = rosterPlayers.length? letter : '—';
+  document.getElementById('gradeLetter').style.color = gcol;
+  const dEl=document.getElementById('gradeDesc');
+  dEl.textContent = rosterPlayers.length? desc : 'no picks yet';
+  dEl.style.color = rosterPlayers.length? gcol : 'var(--muted)';
+  document.getElementById('gradeScore').textContent = rosterPlayers.length? score100 : '—';
+  const fill=document.getElementById('gradeFill');
+  fill.style.width = (rosterPlayers.length?score100:0)+'%';
+  fill.style.background = `linear-gradient(90deg,${gcol}, ${gcol}bb)`;
+  document.getElementById('gradeSub').textContent = MY_SLOT
+    ? `${rosterPlayers.length} skill pick${rosterPlayers.length===1?'':'s'} · grading ${starters.length}-man starting lineup · Team ${MY_SLOT}`
+    : 'Pick a team above to grade its roster.';
+}
+/* fill the league's starting slots from a roster by best composite */
+function pickStarters(roster){
+  const s=(DRAFT&&DRAFT.settings)||{};
+  const req={QB:s.slots_qb||1,RB:s.slots_rb||2,WR:s.slots_wr||2,TE:s.slots_te||1};
+  const flex=s.slots_flex||2;
+  const byComp=roster.slice().sort((a,b)=>b.composite-a.composite);
+  const used=new Set(), out=[], have={QB:0,RB:0,WR:0,TE:0};
+  // fill dedicated slots first
+  byComp.forEach(p=>{ if(used.has(p)) return; if((have[p.pos]||0)<(req[p.pos]||0)){ out.push(p); used.add(p); have[p.pos]++; } });
+  // then flex from best remaining RB/WR/TE
+  let f=0;
+  byComp.forEach(p=>{ if(f>=flex||used.has(p)) return; if(['RB','WR','TE'].includes(p.pos)){ out.push(p); used.add(p); f++; } });
+  return out;
+}
+function gradeBand(s){
+  if(s>=93) return ['A','BEST IN THE LEAGUE','var(--f-si)','a'];
+  if(s>=88) return ['A-','AHEAD OF THE PACK','var(--f-si)','a'];
+  if(s>=84) return ['B+','STRONG BUILD','var(--f-si)','a'];
+  if(s>=80) return ['B','SOLID FOUNDATION','var(--f-up)','b'];
+  if(s>=76) return ['B-','ON TRACK','var(--f-up)','b'];
+  if(s>=72) return ['C+','MIDDLE OF THE PACK','var(--f-rk)','c'];
+  if(s>=68) return ['C','ROOM TO GROW','var(--f-rk)','c'];
+  if(s>=64) return ['C-','WORK TO DO','var(--f-rk)','c'];
+  if(s>=58) return ['D','FALLING BEHIND','var(--qb)','d'];
+  return ['F','REBUILD MODE','var(--qb)','d'];
+}
+
+/* ── board render ── */
+function render(){
+  renderTeamGrade();
+  const tbl=document.getElementById('tbl');
+  const drafted = new Set(PICKS.map(pk=>normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim())));
+  let list = PLAYERS.filter(p=> POS==='ALL'||p.pos===POS );
+  if(Q) list = list.filter(p=>normName(p.name).includes(Q));
+  const key = {rk:'overallRank',ups:'upside',flr:'floor',rsk:'risk',sit:'situational',comp:'composite'}[SORT];
+  // RK sorts ascending by default (1,2,3…); everything else descending (best first)
+  const dir = SORT==='rk' ? -SORTDIR : SORTDIR;
+  list = list.slice().sort((a,b)=> dir*((b[key]||0)-(a[key]||0)) );
+
+  if(VIEW==='board'){ renderBoardGrid(list, drafted); return; }
+
+  const arrow = SORTDIR>0?' ▾':' ▴';
+  const th = (id,ic,lbl)=>`<div class="th-c th-sort ${SORT===id?'act':''}" onclick="setSort('${id}')">${ic||lbl}${SORT===id?arrow:''}</div>`;
+  let html = `<div class="trow thead">
+    <div class="th-sort ${SORT==='rk'?'act':''}" style="justify-content:flex-end" onclick="setSort('rk')">RK${SORT==='rk'?arrow:''}</div>
+    <div></div><div>PLAYER</div>
+    ${th('ups','🔥')}${th('flr','🛡️')}${th('rsk','⚠️')}${th('sit','🎯')}${th('comp','🏆')}
+  </div>`;
+
+  html += list.map(p=>{
+    const isD = drafted.has(normName(p.name));
+    const isMine = MY_SLOT && PICKS.some(pk=>pk.draft_slot===MY_SLOT && normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim())===normName(p.name));
+    const pc = POSCOL[p.pos];
+    const av = p.prof&&p.prof.headshot ? p.prof.headshot.replace('/f_auto,q_auto/','/f_auto,q_auto,w_76,h_76,c_thumb,g_face/') : '';
+    const ppg = p.prof ? p.prof.ppg : null;
+    const ppgCls = ppg==null?'':(ppg>=ppgTier(p.pos,'hi')?'ppg-hi':ppg>=ppgTier(p.pos,'mid')?'ppg-mid':'ppg-lo');
+    const meta = [
+      p.team,
+      `ADP ${r1(p.adp)}`,
+      ppg!=null? `<span class="${ppgCls}">${r1(ppg)} PPG</span>·#${p.positionRank}` : `${p.pos}${p.positionRank}`,
+      p.teamOff? `OFF #${p.teamOff.rank}` : ''
+    ].filter(Boolean).join(' · ');
+    const fc = (k,col)=>`<div class="fcell" style="color:${col}">${p[k]}</div>`;
+    return `<div class="trow ${isD?'drafted':''} ${isMine?'mine':''}">
+      <div class="rk">${p.overallRank}</div>
+      <div>${p.team?`<img class="logo" src="https://a.espncdn.com/i/teamlogos/nfl/500/${espnSlug(p.team)}.png" onerror="this.style.visibility='hidden'">`:''}</div>
+      <div class="pl">
+        ${av?`<img class="pl-av" src="${av}" onerror="this.style.visibility='hidden'">`:'<div class="pl-av"></div>'}
+        <div class="pl-txt">
+          <div class="pl-name"><b>${p.name}</b><span class="posbadge" style="background:${pc}">${p.pos}</span></div>
+          <div class="pl-meta">${meta}</div>
+        </div>
+      </div>
+      ${fc('upside',FC.upside)}${fc('floor',FC.floor)}${fc('risk',FC.risk)}${fc('situational',FC.situational)}
+      <div class="comp">${p.composite.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+
+  tbl.innerHTML = html;
+  document.getElementById('foot').textContent =
+    `${list.length} players · factors from 2024 nflverse (PPG · boom% · bust% · floor/ceiling) + PPR 12-team settings · composite = mean(upside, floor, 11−risk, situational)`;
+}
+function renderBoardGrid(list, drafted){
+  const tbl=document.getElementById('tbl');
+  const F=[['upside',FC.upside],['floor',FC.floor],['risk',FC.risk],['situational',FC.situational]];
+  const FI={upside:'🔥',floor:'🛡️',risk:'⚠️',situational:'🎯'};
+  tbl.innerHTML = '<div class="grid">'+list.map(p=>{
+    const isD=drafted.has(normName(p.name));
+    const isMine=MY_SLOT&&PICKS.some(pk=>pk.draft_slot===MY_SLOT&&normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim())===normName(p.name));
+    const pc=POSCOL[p.pos];
+    const av=p.prof&&p.prof.headshot?p.prof.headshot.replace('/f_auto,q_auto/','/f_auto,q_auto,w_84,h_84,c_thumb,g_face/'):'';
+    return `<div class="gcard ${isD?'drafted':''} ${isMine?'mine':''}">
+      <div class="gcard-rk">#${p.overallRank}</div>
+      <div class="gcard-top">
+        ${av?`<img class="gcard-av" src="${av}" onerror="this.style.visibility='hidden'">`:'<div class="gcard-av"></div>'}
+        <div class="gcard-nm"><b>${p.name}</b><span style="color:${pc}">${p.pos}${p.positionRank} · ${p.team}</span></div>
+        <div class="gcard-comp">${p.composite.toFixed(1)}</div>
+      </div>
+      <div class="gcard-fs">${F.map(([k,c])=>`<div class="gf"><i>${FI[k]}</i><b style="color:${c}">${p[k]}</b></div>`).join('')}</div>
+    </div>`;
+  }).join('')+'</div>';
+  document.getElementById('foot').textContent = `${list.length} players · board view`;
+}
+const PPGT={QB:{hi:22,mid:18},RB:{hi:16,mid:11},WR:{hi:15,mid:10},TE:{hi:11,mid:7}};
+const ppgTier=(pos,k)=>(PPGT[pos]||PPGT.WR)[k];
+
+function setSort(id){ if(SORT===id) SORTDIR*=-1; else {SORT=id; SORTDIR=1;} render(); }
+function buildTeamSel(){
+  const sel=document.getElementById('teamSel');
+  const teams=(DRAFT&&DRAFT.settings&&DRAFT.settings.teams)||12;
+  let opts='<option value="0">League baseline (no team)</option>';
+  for(let i=1;i<=teams;i++){ const n=PICKS.filter(p=>p.draft_slot===i).length; opts+=`<option value="${i}">Team ${i}${n?` · ${n} picks`:''}</option>`; }
+  sel.innerHTML=opts; sel.value=String(MY_SLOT);
+  sel.onchange=()=>{ MY_SLOT=+sel.value; applyMySlot(); render(); };
+}
+function setStatus(){
+  const s=DRAFT&&DRAFT.status; const nm=(DRAFT&&DRAFT.metadata&&DRAFT.metadata.name)||'draft';
+  document.getElementById('statusTxt').textContent = `${nm} · ${s==='drafting'?'LIVE':(s||'').toUpperCase()} · ${PICKS.length} picks`;
+}
+
+/* ── events ── */
+document.getElementById('viewSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b)); VIEW=b.dataset.view; render();});
+document.getElementById('posbar').addEventListener('click',e=>{const b=e.target.closest('.posbtn');if(!b)return;
+  document.querySelectorAll('.posbtn').forEach(x=>x.classList.toggle('on',x===b)); POS=b.dataset.pos; render();});
+document.getElementById('srch').addEventListener('input',e=>{Q=normName(e.target.value);render();});
+
+load().catch(err=>{ document.getElementById('tbl').innerHTML='<div class="loading">Load failed: '+err+'</div>'; console.error(err); });
+setInterval(()=>{ fetch(`${SLEEPER}/draft/${DRAFT_ID}/picks`).then(r=>r.json()).then(pk=>{ if(pk&&pk.length!==PICKS.length){PICKS=pk;buildTeamSel();applyMySlot();render();setStatus();} }).catch(()=>{}); }, 15000);
+</script>
+</body>
+</html>

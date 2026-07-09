@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Vault · Grades — Vault DS mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+/* ══ Vault design tokens (inlined from vault-ds.css — standalone mock) ══ */
+:root{
+  --bg:#070d18;--surface:#0e1626;--s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
+  --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);--dim:#1b2740;
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#7d8ca3;
+  --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+  --red:#e23a4e;--red2:#ff5a6e;--sky:#4d86f0;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --value:#3DCC7A;--suggest:#7bd0ff;--gold:#f5c842;--reach:#e23a4e;
+  --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;
+  /* factor hues mapped to Vault tokens (meaning-coded) */
+  --f-up:var(--gold);--f-fl:var(--rb);--f-rk:var(--red);--f-si:var(--accent2);
+  --t-title:24px;--t-h1:20px;--t-h2:17px;--t-body:15px;--t-secondary:13px;--t-label:11px;--t-micro:10px;--t-nano:9px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:
+  radial-gradient(1100px 520px at 12% -8%, rgba(47,99,196,.16), transparent 60%),
+  radial-gradient(900px 460px at 92% -4%, rgba(123,208,255,.08), transparent 55%),
+  var(--bg);
+  color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+.page{max-width:1180px;margin:0 auto;padding:22px 16px 80px}
+
+/* ── page header (mirrors .dvh) ── */
+.dvh{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:6px 2px 14px;flex-wrap:wrap}
+.dvh h1{margin:0;font-size:var(--t-title);font-weight:800;letter-spacing:-.02em}
+.dvh .titlerow{display:flex;align-items:center;gap:10px}
+.fmtbadge{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;padding:4px 8px;border-radius:6px;background:rgba(226,58,78,.12);color:var(--red2);border:1px solid rgba(226,58,78,.25)}
+.dvh-meta{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--muted);background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px}
+.chip .k{color:var(--text2)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--rb);box-shadow:0 0 8px var(--rb);animation:pulse 1.8s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.teamsel{font-family:var(--font-mono);font-size:11px;font-weight:700;background:var(--s2);border:1.5px solid var(--border2);color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer;outline:none}
+
+/* ── controls row (mirrors .controls.dvc) ── */
+.controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:13px 4px;margin:6px 0 0;position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+.grp{display:flex;align-items:center;gap:9px}
+.ctl-label{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.seg{display:inline-flex;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);font-family:var(--font-mono);font-weight:700;font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:7px 13px;border-radius:7px;cursor:pointer;transition:all .14s}
+.seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
+.seg.pos button.on[data-pos="ALL"]{background:var(--s4);color:var(--text)}
+.seg.pos button.on[data-pos="QB"]{background:rgba(255,102,128,.16);color:var(--qb)}
+.seg.pos button.on[data-pos="RB"]{background:rgba(61,204,122,.16);color:var(--rb)}
+.seg.pos button.on[data-pos="WR"]{background:rgba(123,208,255,.16);color:var(--wr)}
+.seg.pos button.on[data-pos="TE"]{background:rgba(245,200,66,.16);color:var(--te)}
+.spacer{flex:1}
+.search{display:flex;align-items:center;gap:9px;height:36px;padding:0 13px;border:1.5px solid var(--border2);border-radius:10px;background:var(--s2);min-width:200px}
+.search input{background:transparent;border:0;outline:none;color:var(--text);font-size:13px;width:100%;font-family:var(--font-sans)}
+.search input::placeholder{color:var(--muted)}
+.search svg{color:var(--muted);flex-shrink:0}
+
+/* ── grade cards (mirror .dsc cockpit bento) ── */
+.gradegrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:12px;margin:16px 0}
+@media(max-width:720px){.gradegrid{grid-template-columns:1fr}}
+.dcard{background:var(--s1);border:1px solid var(--border2);border-radius:14px;position:relative;overflow:hidden}
+.grade-card{padding:18px 20px}
+.grade-card::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 200px at 0% 0%,var(--gc,rgba(61,204,122,.12)),transparent 60%)}
+.grade-card>*{position:relative}
+.kick{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.grade-row{display:flex;align-items:baseline;gap:14px;margin-top:6px}
+.grade-letter{font-size:52px;font-weight:900;line-height:.9;letter-spacing:-.03em;font-family:var(--font-sans)}
+.grade-desc{font-size:16px;font-weight:800;letter-spacing:.01em;text-transform:uppercase}
+.grade-score{font-family:var(--font-mono);font-size:11px;color:var(--muted);text-align:right;margin:14px 0 5px;font-weight:700}
+.vbar{height:12px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;position:relative}
+.vbar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.grade-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:11px;letter-spacing:.02em}
+.tf-head{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--s2),transparent)}
+.tf-head .kick{font-size:11px;letter-spacing:.14em;color:var(--text2)}
+.tf-body{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:16px 12px}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:7px}
+.gauge-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.gauge-ring{position:relative;width:72px;height:72px}
+.gauge-ring svg{transform:rotate(-90deg)}
+.gauge-ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.gauge-ic svg{width:20px;height:20px}
+.gauge-val{font-family:var(--font-mono);font-size:23px;font-weight:800}
+
+/* ── board (mirrors .plist-table card + .prow rows) ── */
+.board{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.trow{display:grid;grid-template-columns:46px minmax(0,1fr) 54px 54px 54px 54px 62px;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border)}
+.trow:last-child{border-bottom:0}
+.trow.body:hover{background:rgba(123,170,240,.035)}
+.trow.drafted{opacity:.38}
+.trow.mine{background:linear-gradient(90deg,rgba(245,200,66,.07),transparent 72%)}
+.thead{background:rgba(14,22,38,.6);border-bottom:1px solid var(--border2);padding-top:11px;padding-bottom:11px}
+.thead>div{font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.th-c{display:flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;user-select:none}
+.th-c.act{color:var(--text)}
+.th-c svg{width:13px;height:13px}
+.rk{font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--text2);text-align:right;padding-right:3px}
+.pl{display:flex;align-items:center;gap:10px;min-width:0}
+.av{width:34px;height:34px;border-radius:9px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0}
+.pl-txt{min-width:0}
+.pl-name{display:flex;align-items:center;gap:7px}
+.pl-name b{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vpos{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:5px;flex-shrink:0}
+.vpos.QB{background:rgba(255,102,128,.15);color:var(--qb)} .vpos.RB{background:rgba(61,204,122,.15);color:var(--rb)}
+.vpos.WR{background:rgba(123,208,255,.15);color:var(--wr)} .vpos.TE{background:rgba(245,200,66,.15);color:var(--te)}
+.pl-meta{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-meta .g{color:var(--rb)} .pl-meta .y{color:var(--te)} .pl-meta .r{color:var(--qb)}
+.fcell{font-family:var(--font-mono);font-size:16px;font-weight:800;text-align:center}
+.comp{font-family:var(--font-mono);font-size:15px;font-weight:800;text-align:center;padding:5px 0;border-radius:8px;border:1.5px solid}
+.foot{padding:11px 16px;font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;border-top:1px solid var(--border);opacity:.8}
+.loading{padding:60px;text-align:center;color:var(--muted);font-family:var(--font-mono)}
+/* board (card grid) */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px;padding:14px}
+.gcard{background:var(--s2);border:1px solid var(--border);border-radius:13px;padding:12px;position:relative}
+.gcard.drafted{opacity:.4} .gcard.mine{border-color:rgba(245,200,66,.45)}
+.gcard-rk{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:10px;color:var(--muted);font-weight:700}
+.gcard-top{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.gcard-comp{font-family:var(--font-mono);font-size:19px;font-weight:900;margin-left:auto}
+.gcard-fs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.gf{text-align:center;background:var(--s1);border-radius:7px;padding:6px 0}
+.gf i{display:block;height:13px;opacity:.8}.gf i svg{width:13px;height:13px}
+.gf b{font-family:var(--font-mono);font-size:14px;font-weight:800}
+.note{max-width:1180px;margin:14px auto 0;padding:12px 16px;background:var(--s2);border:1px solid var(--border2);border-left:3px solid var(--accent2);border-radius:10px;font-size:12.5px;color:var(--text2);line-height:1.55}
+.note b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="note">
+  <b>Draft Vault · Grades view (mock)</b> — this is the 4-Factor system rendered in Vault's design system (real tokens, Archivo/JetBrains, <code>.dvh</code>/<code>.dvc-seg</code>/<code>.plist</code>/<code>.dsc</code> components). It would live behind a new <b>Grades</b> toggle in the Draft Vault controls row. Live-wired to draft <code id="didlabel"></code>.
+</div>
+<div class="page">
+  <div class="dvh">
+    <div>
+      <div class="titlerow"><h1>Draft Vault</h1><span class="fmtbadge" id="fmtbadge">REDRAFT · PPR</span></div>
+      <div class="dvh-meta">
+        <span class="chip"><span class="dot"></span>LIVE grades</span>
+        <span class="chip"><span class="k">Factors</span> 2024 nflverse</span>
+        <span class="chip"><span class="k">Players</span> <span id="pcount">—</span></span>
+      </div>
+    </div>
+    <select class="teamsel" id="teamSel"></select>
+  </div>
+
+  <div class="controls">
+    <div class="grp"><span class="ctl-label">Format</span>
+      <div class="seg"><button class="on">Redraft</button><button>Dynasty</button></div>
+    </div>
+    <div class="grp"><span class="ctl-label">View</span>
+      <div class="seg" id="viewSeg"><button class="on" data-view="list">List</button><button data-view="grid">Grid</button></div>
+    </div>
+    <div class="grp"><span class="ctl-label">Pos</span>
+      <div class="seg pos" id="posbar">
+        <button class="on" data-pos="ALL">All</button><button data-pos="QB">QB</button>
+        <button data-pos="RB">RB</button><button data-pos="WR">WR</button><button data-pos="TE">TE</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="srch" placeholder="Search players…">
+    </div>
+  </div>
+
+  <div class="gradegrid">
+    <div class="dcard grade-card" id="gradeCard">
+      <div class="kick">Draft Grade</div>
+      <div class="grade-row"><div class="grade-letter" id="gradeLetter" style="color:var(--muted)">—</div>
+        <div class="grade-desc" id="gradeDesc" style="color:var(--muted)">pick a team</div></div>
+      <div class="grade-score"><span id="gradeScore">—</span>/100</div>
+      <div class="vbar"><i id="gradeFill" style="width:0%"></i></div>
+      <div class="grade-sub" id="gradeSub">Grade updates live as picks come in.</div>
+    </div>
+    <div class="dcard">
+      <div class="tf-head"><span class="kick">Team 4-Factor Score</span><span class="kick" id="tfHint" style="letter-spacing:.06em">starting lineup</span></div>
+      <div class="tf-body" id="tfBody"></div>
+    </div>
+  </div>
+
+  <div class="board">
+    <div id="tbl"><div class="loading">Loading players + last-season data…</div></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+const DRAFT_ID = new URLSearchParams(location.search).get('draft') || '1377042546194128896';
+const DATA='https://vaultfantasy.com/data', SLEEPER='https://api.sleeper.app/v1';
+document.getElementById('didlabel').textContent = DRAFT_ID;
+
+/* factor colors (Vault tokens) + line icons */
+const FC={upside:'var(--f-up)',floor:'var(--f-fl)',risk:'var(--f-rk)',situational:'var(--f-si)'};
+const FICON={
+  upside:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg>',
+  floor:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg>',
+  risk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg>',
+  situational:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>',
+};
+const ESPN={WAS:'wsh',JAX:'jax'}; const espnSlug=t=>(ESPN[t]||String(t||'').toLowerCase());
+const normName=s=>String(s||'').toLowerCase().replace(/[.'`]/g,'').replace(/\s+(jr|sr|ii|iii|iv|v)$/,'').replace(/[^a-z0-9]+/g,' ').trim();
+
+let PLAYERS=[],PICKS=[],DRAFT=null,VIEW='grades',POS='ALL',SORT='comp',SORTDIR=1,Q='',MY_SLOT=0;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), r1=n=>Math.round(n*10)/10;
+function pctRank(s,x){if(!s.length)return .5;let lo=0,hi=s.length;while(lo<hi){const m=(lo+hi)>>1;if(s[m]<x)lo=m+1;else hi=m;}return s.length>1?lo/(s.length-1):.5;}
+
+async function load(){
+  const [adpJson,statsJson,draft,picks]=await Promise.all([
+    fetch(`${DATA}/adp_ppr_12team.json`).then(r=>r.json()),
+    fetch(`${DATA}/nflverse_stats.json`).then(r=>r.json()),
+    fetch(`${SLEEPER}/draft/${DRAFT_ID}`).then(r=>r.json()).catch(()=>null),
+    fetch(`${SLEEPER}/draft/${DRAFT_ID}/picks`).then(r=>r.json()).catch(()=>[]),
+  ]);
+  DRAFT=draft;PICKS=picks||[];
+  const adp=adpJson.players||[], statsMap={};
+  for(const n in statsJson) statsMap[normName(n)]=statsJson[n];
+  const teamOff={};
+  for(const n in statsJson){const e=statsJson[n];if(!e.team||!e.season||!['QB','RB','WR','TE'].includes(e.pos))continue;(teamOff[e.team]=teamOff[e.team]||{list:[]}).list.push(e.season.avg_pts||0);}
+  Object.values(teamOff).forEach(o=>{o.list.sort((a,b)=>b-a);o.sum=o.list.slice(0,7).reduce((a,b)=>a+b,0);});
+  const tr=Object.entries(teamOff).sort((a,b)=>b[1].sum-a[1].sum);tr.forEach(([t,o],i)=>{o.rank=i+1;o.pct=1-(i/(tr.length-1||1));});
+  const prof={};
+  adp.forEach(p=>{if(!['QB','RB','WR','TE'].includes(p.pos))return;const e=statsMap[normName(p.name)];let pr=null;
+    if(e&&e.season&&(e.season.games||0)>=3){const ssn=e.season,wk=(e.weeks||[]).map(w=>+w.pts).filter(v=>!isNaN(v)).sort((a,b)=>a-b);
+      const q=f=>wk.length?wk[clamp(Math.round(f*(wk.length-1)),0,wk.length-1)]:null;
+      pr={ppg:ssn.avg_pts||0,boom:ssn.boom_pct??0,bust:ssn.bust_pct??0,games:ssn.games||wk.length,floor:q(.2),ceil:q(.85),tgt:ssn.avg_tgt||0,headshot:e.headshot};}
+    prof[p.name]=pr;});
+  document.getElementById('pcount').textContent=adp.filter(p=>['QB','RB','WR','TE'].includes(p.pos)).length;
+  PLAYERS=adp.filter(p=>['QB','RB','WR','TE'].includes(p.pos)).map((p,i)=>({...p,overallRank:i+1,prof:prof[p.name],teamOff:teamOff[p.team]}));
+  buildTeamSel();applyMySlot();render();setStatus();
+}
+
+/* ══ 4-FACTOR ENGINE (0-10; risk higher=riskier; composite=mean(up,fl,11-rk,si)) ══ */
+const PPG_BASE={QB:17,RB:11,WR:11,TE:8},PPG_ELITE={QB:23,RB:18,WR:17,TE:13};
+function pools(){const P={QB:{ppg:[],ceil:[],floor:[]},RB:{ppg:[],ceil:[],floor:[]},WR:{ppg:[],ceil:[],floor:[]},TE:{ppg:[],ceil:[],floor:[]}};
+  PLAYERS.forEach(p=>{const pr=p.prof;if(pr){P[p.pos].ppg.push(pr.ppg);if(pr.ceil!=null)P[p.pos].ceil.push(pr.ceil);if(pr.floor!=null)P[p.pos].floor.push(pr.floor);}});
+  Object.values(P).forEach(o=>{o.ppg.sort((a,b)=>a-b);o.ceil.sort((a,b)=>a-b);o.floor.sort((a,b)=>a-b);});return P;}
+function computeFactors(p,pr,pool,tOff,ctx){
+  const pos=p.pos,po=pool[pos],has=!!pr;
+  let upside;
+  if(has){const boom01=clamp(pr.boom/55,0,1),ceilP=pctRank(po.ceil,pr.ceil),ppgP=pctRank(po.ppg,pr.ppg);
+    let u=.46*boom01+.34*ceilP+.20*ppgP;if((p.years_of_experience??9)<=2)u+=.06;if((p.trend30Day||0)>40)u+=.05;upside=u*10;}
+  else upside=clamp(9.2-Math.log2(Math.max(1,p.adp))*.95,3,9)+.4;
+  let floor;
+  if(has){const safe=1-clamp(pr.bust/45,0,1),flP=pctRank(po.floor,pr.floor),av=clamp(pr.games/17,0,1);floor=(.40*safe+.40*flP+.20*av)*10;}
+  else floor=clamp(7.5-Math.log2(Math.max(1,p.adp))*.9,2,6.5);
+  let risk=0;
+  if(has){risk+=clamp((17-pr.games)*.42,0,4);risk+=clamp(pr.bust/15,0,3);
+    if(pos==='RB'&&p.age>=27)risk+=p.age>=29?2.4:1.4;if(pos==='WR'&&p.age>=30)risk+=1.6;if(pos==='TE'&&p.age>=31)risk+=1.5;if(pos==='QB'&&p.age>=36)risk+=1.6;
+    if((p.trend30Day||0)<-60)risk+=1.2;risk+=.6;}
+  else{risk=5.2-clamp((60-Math.min(60,p.adp))/60*1.6,0,1.6);if((p.years_of_experience??0)===0)risk+=.6;}
+  risk=clamp(risk,0,10);
+  const scoreFit=ctx.ppr?({WR:.86,TE:.80,RB:.66,QB:.50}[pos]):({WR:.70,TE:.66,RB:.78,QB:.52}[pos]);
+  let recBonus=(ctx.ppr&&has&&pos==='RB'&&pr.tgt>=3)?clamp((pr.tgt-3)/6,0,1)*.14:0;
+  const offPct=tOff?tOff.pct:.5;
+  let need;
+  if(MY_SLOT)need=rosterNeed(pos);
+  else{const demand=(ctx.slots[pos]||0)+(['RB','WR','TE'].includes(pos)?ctx.slots.FLEX*.34:0);need=clamp(1-(p.positionRank-1)/(demand*ctx.teams*1.35),.25,1);}
+  let sit=(.34*scoreFit+.28*offPct+.38*need+recBonus)*10;
+  upside=clamp(upside,0,10);floor=clamp(floor,0,10);sit=clamp(sit,0,10);
+  return{upside:Math.round(upside),floor:Math.round(floor),risk:Math.round(risk),situational:Math.round(sit),composite:r1((upside+floor+(11-risk)+sit)/4)};
+}
+function rosterNeed(pos){const have=myCounts(),s=(DRAFT&&DRAFT.settings)||{};
+  const req={QB:s.slots_qb||1,RB:s.slots_rb||2,WR:s.slots_wr||2,TE:s.slots_te||1},flex=s.slots_flex||2;
+  if((have[pos]||0)<req[pos])return 1;
+  if(['RB','WR','TE'].includes(pos)){const over=['RB','WR','TE'].reduce((a,pp)=>a+Math.max(0,(have[pp]||0)-req[pp]),0);if(over<flex)return .6;}
+  return .22;}
+function myCounts(){const c={QB:0,RB:0,WR:0,TE:0};if(!MY_SLOT)return c;
+  PICKS.filter(pk=>pk.draft_slot===MY_SLOT).forEach(pk=>{const p=(pk.metadata&&pk.metadata.position)||'';if(c[p]!==undefined)c[p]++;});return c;}
+function applyMySlot(){if(!PLAYERS.length)return;const st=(DRAFT&&DRAFT.settings)||{teams:12};
+  const ctx={teams:st.teams||12,ppr:true,slots:{QB:st.slots_qb||1,RB:st.slots_rb||2,WR:st.slots_wr||2,TE:st.slots_te||1,FLEX:st.slots_flex||2}};
+  const pool=pools();PLAYERS.forEach(p=>Object.assign(p,computeFactors(p,p.prof,pool,p.teamOff,ctx)));renderTeamGrade();}
+
+/* ── team grade (starting lineup) ── */
+function pickStarters(roster){const s=(DRAFT&&DRAFT.settings)||{};const req={QB:s.slots_qb||1,RB:s.slots_rb||2,WR:s.slots_wr||2,TE:s.slots_te||1},flex=s.slots_flex||2;
+  const by=roster.slice().sort((a,b)=>b.composite-a.composite),used=new Set(),out=[],have={QB:0,RB:0,WR:0,TE:0};
+  by.forEach(p=>{if(used.has(p))return;if((have[p.pos]||0)<(req[p.pos]||0)){out.push(p);used.add(p);have[p.pos]++;}});
+  let f=0;by.forEach(p=>{if(f>=flex||used.has(p))return;if(['RB','WR','TE'].includes(p.pos)){out.push(p);used.add(p);f++;}});return out;}
+function renderTeamGrade(){
+  const roster=MY_SLOT?PICKS.filter(pk=>pk.draft_slot===MY_SLOT).map(pk=>{const nm=normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim());return PLAYERS.find(p=>normName(p.name)===nm);}).filter(Boolean):[];
+  const starters=pickStarters(roster),keys=['upside','floor','risk','situational'];
+  let avg={upside:0,floor:0,risk:0,situational:0},comp=0;
+  if(starters.length){starters.forEach(p=>{keys.forEach(k=>avg[k]+=p[k]);comp+=p.composite;});keys.forEach(k=>avg[k]/=starters.length);comp/=starters.length;}
+  document.getElementById('tfBody').innerHTML=keys.map(k=>{const v=starters.length?Math.round(avg[k]):0,shown=starters.length?v:'—',frac=starters.length?v/10:0,col=FC[k];
+    const R=30,C=2*Math.PI*R,off=C*(1-frac);
+    return `<div class="gauge"><div class="gauge-lbl">${k}</div><div class="gauge-ring">
+      <svg width="72" height="72"><circle cx="36" cy="36" r="${R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6.5"/>
+      <circle cx="36" cy="36" r="${R}" fill="none" stroke="${col}" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg>
+      <div class="gauge-ic" style="color:${col}">${FICON[k]}</div></div><div class="gauge-val" style="color:${col}">${shown}</div></div>`;}).join('');
+  const score=starters.length?clamp(Math.round(11+comp*11),0,100):0;
+  const [letter,desc,col,tint]=gradeBand(score);
+  const card=document.getElementById('gradeCard');card.style.setProperty('--gc',tint);
+  const L=document.getElementById('gradeLetter');L.textContent=starters.length?letter:'—';L.style.color=starters.length?col:'var(--muted)';
+  const D=document.getElementById('gradeDesc');D.textContent=starters.length?desc:'pick a team';D.style.color=starters.length?col:'var(--muted)';
+  document.getElementById('gradeScore').textContent=starters.length?score:'—';
+  const fill=document.getElementById('gradeFill');fill.style.width=(starters.length?score:0)+'%';fill.style.background=`linear-gradient(90deg,${col},${col}bb)`;
+  document.getElementById('gradeSub').textContent=MY_SLOT?`${roster.length} skill picks · grading ${starters.length}-man lineup · Team ${MY_SLOT}`:'Pick a team above to grade its roster.';
+}
+function gradeBand(s){
+  if(s>=93)return['A','BEST IN THE LEAGUE','var(--rb)','rgba(61,204,122,.14)'];
+  if(s>=88)return['A-','AHEAD OF THE PACK','var(--rb)','rgba(61,204,122,.12)'];
+  if(s>=84)return['B+','STRONG BUILD','var(--accent2)','rgba(123,208,255,.12)'];
+  if(s>=80)return['B','SOLID FOUNDATION','var(--accent2)','rgba(123,208,255,.10)'];
+  if(s>=76)return['B-','ON TRACK','var(--accent2)','rgba(123,208,255,.09)'];
+  if(s>=72)return['C+','MIDDLE OF THE PACK','var(--te)','rgba(245,200,66,.11)'];
+  if(s>=68)return['C','ROOM TO GROW','var(--te)','rgba(245,200,66,.10)'];
+  if(s>=64)return['C-','WORK TO DO','var(--te)','rgba(245,200,66,.09)'];
+  if(s>=58)return['D','FALLING BEHIND','var(--red2)','rgba(226,58,78,.11)'];
+  return['F','REBUILD MODE','var(--red2)','rgba(226,58,78,.11)'];
+}
+const compCol=c=>c>=8?'var(--rb)':c>=6.5?'var(--accent2)':c>=5?'var(--te)':'var(--red2)';
+
+/* ── board render ── */
+function render(){
+  renderTeamGrade();
+  const tbl=document.getElementById('tbl');
+  const drafted=new Set(PICKS.map(pk=>normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim())));
+  let list=PLAYERS.filter(p=>POS==='ALL'||p.pos===POS);
+  if(Q)list=list.filter(p=>normName(p.name).includes(Q));
+  const key={rk:'overallRank',ups:'upside',flr:'floor',rsk:'risk',sit:'situational',comp:'composite'}[SORT];
+  const dir=SORT==='rk'?-SORTDIR:SORTDIR;list=list.slice().sort((a,b)=>dir*((b[key]||0)-(a[key]||0)));
+  if(VIEW==='grid'){renderGrid(list,drafted);return;}
+  const arrow=SORTDIR>0?'▾':'▴';
+  const ico=k=>`<span style="color:${FC[k]}">${FICON[k]}</span>`;
+  const th=(id,inner)=>`<div class="th-c ${SORT===id?'act':''}" onclick="setSort('${id}')">${inner}${SORT===id?' '+arrow:''}</div>`;
+  let html=`<div class="trow thead">
+    <div class="th-c ${SORT==='rk'?'act':''}" style="justify-content:flex-end" onclick="setSort('rk')">RK${SORT==='rk'?' '+arrow:''}</div>
+    <div style="color:var(--muted)">PLAYER</div>
+    ${th('ups',ico('upside'))}${th('flr',ico('floor'))}${th('rsk',ico('risk'))}${th('sit',ico('situational'))}
+    ${th('comp','<span style="color:var(--gold);font-weight:800">GRD</span>')}</div>`;
+  html+=list.map(p=>{
+    const isD=drafted.has(normName(p.name)),isMine=MY_SLOT&&PICKS.some(pk=>pk.draft_slot===MY_SLOT&&normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim())===normName(p.name));
+    const av=p.prof&&p.prof.headshot?p.prof.headshot.replace('/f_auto,q_auto/','/f_auto,q_auto,w_72,h_72,c_thumb,g_face/'):'';
+    const ppg=p.prof?p.prof.ppg:null,cls=ppg==null?'':(ppg>=PT(p.pos,'hi')?'g':ppg>=PT(p.pos,'mid')?'y':'r');
+    const meta=[p.team,`ADP ${r1(p.adp)}`,ppg!=null?`<span class="${cls}">${r1(ppg)} PPG</span>·#${p.positionRank}`:`${p.pos}${p.positionRank}`,p.teamOff?`OFF #${p.teamOff.rank}`:''].filter(Boolean).join(' · ');
+    const fc=(k)=>`<div class="fcell" style="color:${FC[k]}">${p[k]}</div>`;
+    return `<div class="trow body ${isD?'drafted':''} ${isMine?'mine':''}">
+      <div class="rk">${p.overallRank}</div>
+      <div class="pl">${av?`<img class="av" src="${av}" onerror="this.style.visibility='hidden'">`:'<div class="av"></div>'}
+        <div class="pl-txt"><div class="pl-name"><b>${p.name}</b><span class="vpos ${p.pos}">${p.pos}</span></div><div class="pl-meta">${meta}</div></div></div>
+      ${fc('upside')}${fc('floor')}${fc('risk')}${fc('situational')}
+      <div class="comp" style="color:${compCol(p.composite)};border-color:${compCol(p.composite)}55;background:${compCol(p.composite)}14">${p.composite.toFixed(1)}</div></div>`;
+  }).join('');
+  tbl.innerHTML=html;
+  document.getElementById('foot').textContent=`${list.length} players · 4-factor scores from 2024 nflverse + PPR 12-team settings · GRD = mean(upside, floor, 11−risk, situational)`;
+}
+function renderGrid(list,drafted){
+  const F=[['upside'],['floor'],['risk'],['situational']];
+  document.getElementById('tbl').innerHTML='<div class="grid">'+list.map(p=>{
+    const isD=drafted.has(normName(p.name)),isMine=MY_SLOT&&PICKS.some(pk=>pk.draft_slot===MY_SLOT&&normName(((pk.metadata&&(pk.metadata.first_name+' '+pk.metadata.last_name))||'').trim())===normName(p.name));
+    const av=p.prof&&p.prof.headshot?p.prof.headshot.replace('/f_auto,q_auto/','/f_auto,q_auto,w_84,h_84,c_thumb,g_face/'):'';
+    return `<div class="gcard ${isD?'drafted':''} ${isMine?'mine':''}"><div class="gcard-rk">#${p.overallRank}</div>
+      <div class="gcard-top">${av?`<img class="av" src="${av}" onerror="this.style.visibility='hidden'">`:'<div class="av"></div>'}
+        <div class="pl-txt" style="min-width:0"><div class="pl-name"><b style="font-size:13px">${p.name}</b></div><div class="pl-meta">${p.pos}${p.positionRank} · ${p.team}</div></div>
+        <div class="gcard-comp" style="color:${compCol(p.composite)}">${p.composite.toFixed(1)}</div></div>
+      <div class="gcard-fs">${F.map(([k])=>`<div class="gf"><i style="color:${FC[k]}">${FICON[k]}</i><b style="color:${FC[k]}">${p[k]}</b></div>`).join('')}</div></div>`;
+  }).join('')+'</div>';
+  document.getElementById('foot').textContent=`${list.length} players · grid view`;
+}
+const PPGT={QB:{hi:22,mid:18},RB:{hi:16,mid:11},WR:{hi:15,mid:10},TE:{hi:11,mid:7}},PT=(p,k)=>(PPGT[p]||PPGT.WR)[k];
+function setSort(id){if(SORT===id)SORTDIR*=-1;else{SORT=id;SORTDIR=1;}render();}
+function buildTeamSel(){const sel=document.getElementById('teamSel');const teams=(DRAFT&&DRAFT.settings&&DRAFT.settings.teams)||12;
+  let o='<option value="0">League baseline (no team)</option>';for(let i=1;i<=teams;i++){const n=PICKS.filter(p=>p.draft_slot===i).length;o+=`<option value="${i}">Grade Team ${i}${n?` · ${n} picks`:''}</option>`;}
+  sel.innerHTML=o;sel.value=String(MY_SLOT);sel.onchange=()=>{MY_SLOT=+sel.value;applyMySlot();render();};}
+function setStatus(){}
+document.getElementById('viewSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!b.dataset.view)return;
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));
+  VIEW=b.dataset.view==='grid'?'grid':'grades';render();});
+document.getElementById('posbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#posbar button').forEach(x=>x.classList.toggle('on',x===b));POS=b.dataset.pos;render();});
+document.getElementById('srch').addEventListener('input',e=>{Q=normName(e.target.value);render();});
+load().catch(err=>{document.getElementById('tbl').innerHTML='<div class="loading">Load failed: '+err+'</div>';console.error(err);});
+setInterval(()=>{fetch(`${SLEEPER}/draft/${DRAFT_ID}/picks`).then(r=>r.json()).then(pk=>{if(pk&&pk.length!==PICKS.length){PICKS=pk;buildTeamSel();applyMySlot();render();}}).catch(()=>{});},15000);
+</script>
+</body>
+</html>
