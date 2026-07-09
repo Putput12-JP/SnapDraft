@@ -26243,6 +26243,13 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
 #page-draft .board-scroll{ max-width:1760px; }
 #page-draft .dconn-bar{ max-width:1760px; border-radius:14px; margin-top:16px; }
 .dconn-btn{ background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:9px; }
+/* 24px page gutters so every section's visible edge lines up with the table.
+   !important needed: the theme block earlier sets controls/suggest-bar padding
+   with !important (14px / 0), which would otherwise win over the container rule. */
+@media(min-width:701px){
+  #page-draft .dconn-bar{ width:calc(100% - 48px); max-width:1712px; }
+  #page-draft .suggest-bar{ padding-left:24px!important; padding-right:24px!important; }
+}
 
 /* ── page header ── */
 #page-draft .dvh{ max-width:1760px; margin:0 auto; padding:26px 24px 4px; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; box-sizing:border-box; }
@@ -26263,7 +26270,7 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
 .dv-abtn .hg-count{ background:var(--accent); color:#fff; font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; font-family:var(--font-sans); margin-left:0; }
 
 /* ── controls bar: bordered strip, labelled segments ── */
-#page-draft .controls.dvc{ background:var(--bg)!important; border-top:1px solid var(--border)!important; border-bottom:1px solid var(--border)!important; padding:13px 14px!important; gap:14px!important; margin-top:14px; position:sticky; top:0; z-index:97; }
+#page-draft .controls.dvc{ background:var(--bg)!important; border-top:1px solid var(--border)!important; border-bottom:1px solid var(--border)!important; padding:13px 24px!important; gap:14px!important; margin-top:14px; position:sticky; top:0; z-index:97; }
 .dv-grp{ display:flex; align-items:center; gap:8px; }
 .dv-spacer{ flex:1; }
 .dv-ctl-label{ font-size:9.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; font-family:var(--font-mono); }
