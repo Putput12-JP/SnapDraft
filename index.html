@@ -4715,10 +4715,11 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
           </div>
         </div>
         <div class="adp-seg-group">
-          <span class="adp-seg-label">Order by</span>
+          <span class="adp-seg-label">ADP source</span>
           <div class="adp-seg">
-            <button class="on" data-order="adp" onclick="adpSetOrder('adp')">Market ADP</button>
-            <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')">My Rankings</button>
+            <button data-order="ffc" id="adp-order-ffc" onclick="adpSetOrder('ffc')" title="Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board">FFC</button>
+            <button class="on" data-order="fc" onclick="adpSetOrder('fc')" title="FantasyCalc — market value rank from real Sleeper/MFL/Fleaflicker trades">FC</button>
+            <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')" title="Your imported My Rankings order">Mine</button>
           </div>
         </div>
       </div>
@@ -4742,7 +4743,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <th class="r" data-sort="adp" id="adp-th-rk" onclick="adpSortPrimary()">RK ↕</th>
             <th data-sort="name" onclick="adpSetSort('name')">PLAYER ↕</th>
             <th class="r" data-sort="posrk" onclick="adpSetSort('posrk')">POSRK ↕</th>
-            <th class="r sorted" data-sort="adp" onclick="adpSetSort('adp')">ADP ↕</th>
+            <th class="r sorted" data-sort="adp" id="adp-th-adp" onclick="adpSetSort(_adpSource==='ffc'?'ffcadp':_adpSource==='my'?'myrank':'adp')"><span id="adp-th-adp-lbl">FC ADP</span> ↕</th>
             <th class="r" data-sort="trend" id="adp-th-change" onclick="adpSetSort('trend')">30D ↕</th>
           </tr>
         </thead>
@@ -29480,6 +29481,7 @@ let _adpCache   = {};
 let _adpView    = 'list';  // list | board
 let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
+let _adpSource  = 'fc';    // fc (FantasyCalc value-rank) | ffc (real ADP) | my (My Rankings)
 let _adpBoardPos= '';      // '' | QB | RB | WR | TE  (board highlight)
 
 /* ── board / ADP toggle ── */
@@ -29640,6 +29642,7 @@ function _adpRenderTable(players) {
   rows = [...rows].sort((a,b) => {
     let av, bv;
     if (_adpSort === 'adp')  { av = a.adp||999; bv = b.adp||999; }
+    else if (_adpSort === 'ffcadp') { av = a.adpReal!=null?a.adpReal:9999; bv = b.adpReal!=null?b.adpReal:9999; }
     else if (_adpSort === 'myrank') { av = myRankOf(a); bv = myRankOf(b); }
     else if (_adpSort === 'posrk') { av = a.positionRank||999; bv = b.positionRank||999; }
     else if (_adpSort === 'trend') { av = a['adpDelta'+_adpRange] ?? 0; bv = b['adpDelta'+_adpRange] ?? 0; }
@@ -29683,7 +29686,11 @@ function _adpRenderTable(players) {
         </div>
       </td>
       <td class="r">${p.positionRank ? `<span style="font-size:11px;color:${posC};font-family:var(--font-mono);font-weight:700">${p.pos}${p.positionRank}</span>` : '—'}</td>
-      <td class="r" style="font-weight:700;color:var(--text)">${p.adp?.toFixed(1)||'—'}</td>
+      <td class="r" style="font-weight:700;color:var(--text)">${(()=>{
+        if (_adpSource==='ffc') return p.adpFmt || (p.adpReal!=null?p.adpReal.toFixed(1):null) || '<span style="color:var(--dim)">—</span>';
+        if (_adpSource==='my') { const mr = myMap[_norm(p.name)]; return mr!=null ? '#'+mr : '<span style="color:var(--dim)">—</span>'; }
+        return p.adp?.toFixed(1) || '—';
+      })()}</td>
       <td class="r"><span class="adp-trend ${trendCls}">${trendStr}</span></td>
     </tr>`;
   }).join('');
@@ -29868,6 +29875,22 @@ function _adpRender() {
   // keep the My Rankings order button in sync with whether an import exists
   const myBtn = document.getElementById('adp-order-my');
   if (myBtn) myBtn.style.display = _adpHasMyRankings() ? '' : 'none';
+  // FFC real ADP only exists for redraft formats — disable the button (and fall
+  // back to FC) when the loaded format has none.
+  const ffcBtn = document.getElementById('adp-order-ffc');
+  const ffcOk = _adpFfcHasData();
+  if (ffcBtn) {
+    ffcBtn.disabled = !ffcOk;
+    ffcBtn.style.opacity = ffcOk ? '' : '.4';
+    ffcBtn.style.cursor = ffcOk ? '' : 'not-allowed';
+    ffcBtn.title = ffcOk ? 'Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board'
+                         : 'FFC real ADP is redraft-only — pick a Redraft format above';
+  }
+  if (_adpSource === 'ffc' && !ffcOk) { _adpSource = 'fc'; _adpSort = 'adp'; _adpOrder = 'adp'; }
+  // reflect current source on the buttons + header each render
+  document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === _adpSource));
+  const _al = document.getElementById('adp-th-adp-lbl');
+  if (_al) _al.textContent = (_adpSource === 'my') ? 'MY RANK' : (_adpSource === 'ffc') ? 'FFC ADP' : 'FC ADP';
   const liveBadge = document.getElementById('adp-live-badge');
   if (liveBadge) liveBadge.style.display = _adpDraftConnected() ? 'inline-flex' : 'none';
   _adpUpdateChangeHeader();
@@ -29926,18 +29949,25 @@ function _adpUpdateChangeHeader() {
 }
 
 window.adpSetOrder = function(o) {
-  _adpOrder = o;
+  // FFC has no data for dynasty/superflex/rookie formats — ignore the click there.
+  if (o === 'ffc' && !_adpFfcHasData()) return;
+  _adpSource = o;
+  _adpOrder = (o === 'my') ? 'my' : 'adp';
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === o));
-  if (_adpView === 'board') { _adpRenderBoard(); return; }
-  // List view: "Order by" sets the primary sort — My Rankings ranks the board by
-  // your imported order while the ADP column still shows the market number.
-  _adpSort = (o === 'my') ? 'myrank' : 'adp';
+  // sort key follows the source
+  _adpSort = (o === 'my') ? 'myrank' : (o === 'ffc') ? 'ffcadp' : 'adp';
   _adpSortDir = 1;
   const rkTh = document.getElementById('adp-th-rk');
   if (rkTh) rkTh.textContent = (o === 'my') ? 'MY ↕' : 'RK ↕';
+  // ADP value column header reflects the source
+  const adpLbl = document.getElementById('adp-th-adp-lbl');
+  if (adpLbl) adpLbl.textContent = (o === 'my') ? 'MY RANK' : (o === 'ffc') ? 'FFC ADP' : 'FC ADP';
+  if (_adpView === 'board') { _adpRenderBoard(); return; }
   document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === _adpSort));
   _adpRenderTable(_adpData);
 };
+// FFC real ADP is only present in redraft files (has adpFmt on matched players).
+function _adpFfcHasData() { return _adpData.some(p => p.adpFmt); }
 
 /* re-render when a live-draft pick lands so drafted players grey out in real time */
 window.adpOnDraftUpdate = function() {
