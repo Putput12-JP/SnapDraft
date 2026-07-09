@@ -496,10 +496,10 @@ header{
 .plist-thead th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;padding:5px 4px;text-align:left;border-bottom:1.5px solid var(--border2);background:var(--s1);font-family:var(--font-mono);font-weight:400;white-space:nowrap;position:sticky;top:0;z-index:6}
 .plist-thead th:first-child{text-align:right;padding-right:8px}
 @media(max-width:700px){.plist-thead{display:none}}
-.plist{padding:0 14px 110px;display:block;width:100%;overflow-x:hidden;max-width:1180px;margin:0 auto}
-/* Draft Vault page: lock every section to the same 1180px container (matches the page header .dvh) with the same 14px side padding so header, summary, list, and board all align edge-to-edge */
+.plist{padding:0 24px 110px;display:block;width:100%;overflow-x:hidden;max-width:1760px;margin:0 auto}
+/* Draft Vault page: lock every section to the same wide container (near full-bleed, matching the app header's 24px gutters) so header, summary, list, and board all align edge-to-edge */
 #page-draft #intel-bar, #page-draft .pstrip, #page-draft .search-bar-wrap, #page-draft .suggest-bar, #page-draft .controls, #page-draft .draft-summary, #page-draft .ld-page{
-  max-width:1180px;margin-left:auto;margin-right:auto;padding-left:14px;padding-right:14px;box-sizing:border-box;
+  max-width:1760px;margin-left:auto;margin-right:auto;padding-left:24px;padding-right:24px;box-sizing:border-box;
 }
 /* .ld-page already has its own padding; keep its larger bottom padding */
 #page-draft .ld-page{padding-top:28px;padding-bottom:100px}
@@ -998,7 +998,7 @@ header{
   .ctl-mobile-hide{display:none!important}
 }
 
-/* A10: Data source freshness summary line shown above the player table */.ds-summary{display:flex;align-items:center;gap:10px;padding:8px 14px;margin:0 14px 8px;border-radius:8px;background:var(--s1);border:1px solid var(--border);font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);letter-spacing:.04em;flex-wrap:wrap;max-width:1072px}
+/* A10: Data source freshness summary line shown above the player table */.ds-summary{display:flex;align-items:center;gap:10px;padding:8px 14px;margin:0 14px 8px;border-radius:8px;background:var(--s1);border:1px solid var(--border);font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);letter-spacing:.04em;flex-wrap:wrap}
 .ds-summary-item{display:inline-flex;align-items:center;gap:5px}
 .ds-summary-item span:not(.ds-summary-dot){color:var(--text2)}
 .ds-summary-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
@@ -4645,7 +4645,8 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     <!-- biggest movers -->
     <div class="adp-movers" id="adp-movers">
       <button class="adp-movers-head" type="button" onclick="adpToggleMovers()" aria-expanded="true" aria-controls="adp-movers-cols">
-        <span data-reicon="trendup" data-rsize="14"></span><span style="margin-left:6px">Biggest movers · past 30 days</span>
+        <span data-reicon="trendup" data-rsize="14"></span><span style="margin-left:6px">Biggest movers</span>
+        <span id="adp-movers-note" style="margin-left:8px;font-weight:400;letter-spacing:.04em;color:var(--muted);text-transform:none"></span>
         <span class="adp-movers-caret" aria-hidden="true">▾</span>
       </button>
       <div class="adp-movers-cols" id="adp-movers-cols">
@@ -4719,6 +4720,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
           <div class="adp-seg">
             <button data-order="ffc" id="adp-order-ffc" onclick="adpSetOrder('ffc')" title="Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board">FFC</button>
             <button class="on" data-order="fc" onclick="adpSetOrder('fc')" title="FantasyCalc — market value rank from real Sleeper/MFL/Fleaflicker trades">FC</button>
+            <button data-order="espn" id="adp-order-espn" onclick="adpSetOrder('espn')" title="ESPN live draft ADP — where players actually go in ESPN drafts">ESPN</button>
             <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')" title="Your imported My Rankings order">Mine</button>
           </div>
         </div>
@@ -4743,7 +4745,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <th class="r" data-sort="adp" id="adp-th-rk" onclick="adpSortPrimary()">RK ↕</th>
             <th data-sort="name" onclick="adpSetSort('name')">PLAYER ↕</th>
             <th class="r" data-sort="posrk" onclick="adpSetSort('posrk')">POSRK ↕</th>
-            <th class="r sorted" data-sort="adp" id="adp-th-adp" onclick="adpSetSort(_adpSource==='ffc'?'ffcadp':_adpSource==='my'?'myrank':'adp')"><span id="adp-th-adp-lbl">FC ADP</span> ↕</th>
+            <th class="r sorted" data-sort="adp" id="adp-th-adp" onclick="adpSetSort(_adpSource==='ffc'?'ffcadp':_adpSource==='espn'?'espnadp':_adpSource==='my'?'myrank':'adp')"><span id="adp-th-adp-lbl">FC ADP</span> ↕</th>
             <th class="r" data-sort="trend" id="adp-th-change" onclick="adpSetSort('trend')">30D ↕</th>
           </tr>
         </thead>
@@ -26234,16 +26236,16 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
    (approved in "Draft Vault Restyle Preview.html")
    ════════════════════════════════════════════════════════════════ */
 
-/* ── container: match My Rankings 1180px ── */
+/* ── container: wide, matching the app header's 24px gutters ── */
 #page-draft #intel-bar, #page-draft .pstrip, #page-draft .search-bar-wrap,
 #page-draft .suggest-bar, #page-draft .controls, #page-draft .draft-summary,
-#page-draft .ld-page, #page-draft .plist{ max-width:1180px; }
-#page-draft .board-scroll{ max-width:1180px; }
-#page-draft .dconn-bar{ max-width:1180px; border-radius:14px; margin-top:16px; }
+#page-draft .ld-page, #page-draft .plist{ max-width:1760px; }
+#page-draft .board-scroll{ max-width:1760px; }
+#page-draft .dconn-bar{ max-width:1760px; border-radius:14px; margin-top:16px; }
 .dconn-btn{ background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:9px; }
 
 /* ── page header ── */
-#page-draft .dvh{ max-width:1180px; margin:0 auto; padding:26px 14px 4px; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; box-sizing:border-box; }
+#page-draft .dvh{ max-width:1760px; margin:0 auto; padding:26px 24px 4px; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; box-sizing:border-box; }
 .dvh-l{ min-width:0; }
 .dvh-titlerow{ display:flex; align-items:center; gap:11px; flex-wrap:wrap; }
 .dvh-title{ font-size:clamp(26px,3.4vw,38px); font-weight:800; letter-spacing:-0.03em; line-height:1; color:var(--text); margin:0; font-family:var(--font-sans); }
@@ -29294,7 +29296,7 @@ body .page,body .page.on{background:transparent!important}
 #page-draft.adp-mode #your-pick-banner{display:none!important}
 
 /* ── ADP Explorer shell ── */
-#dv-adp-view{display:none;max-width:1180px;margin:0 auto;padding:0 14px 120px;box-sizing:border-box}
+#dv-adp-view{display:none;max-width:1760px;margin:0 auto;padding:0 24px 120px;box-sizing:border-box}
 #page-draft.adp-mode #dv-adp-view{display:block}
 
 /* hero */
@@ -29410,8 +29412,6 @@ body .page,body .page.on{background:transparent!important}
 #dv-adp-view.board-view .adp-table-wrap{display:none}
 #dv-adp-view.board-view #adp-list-note{display:none!important}
 #dv-adp-view.board-view .adp-board-outer{display:block;animation:adp-fade .2s ease both}
-/* widen the whole ADP view in board mode so all team columns fit the screen */
-#dv-adp-view.board-view{max-width:min(1760px,96vw)}
 .adp-board-note{font-size:12px;color:var(--muted);padding:2px 2px 12px;display:none;line-height:1.5}
 .adp-board-note.show{display:block}
 .adp-board-note b{color:var(--text2);font-weight:700}
@@ -29481,7 +29481,7 @@ let _adpCache   = {};
 let _adpView    = 'list';  // list | board
 let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
-let _adpSource  = 'fc';    // fc (FantasyCalc value-rank) | ffc (real ADP) | my (My Rankings)
+let _adpSource  = 'fc';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | my (My Rankings)
 let _adpBoardPos= '';      // '' | QB | RB | WR | TE  (board highlight)
 
 /* ── board / ADP toggle ── */
@@ -29599,14 +29599,66 @@ function _mvAvatar(p, size=32) {
   return `<div class="${fbCls}">${(p.pos||'?')}</div>`;
 }
 
-/* ── render movers ── */
+/* ── round.pick from a fractional overall ADP (54.2 → "5.06" in 12-team) ── */
+function _adpPickFmt(adp) {
+  const teams = _adpTeams || 12;
+  const n = Math.max(1, Math.round(adp));
+  const r = Math.ceil(n / teams);
+  return r + '.' + String(n - (r - 1) * teams).padStart(2, '0');
+}
+
+/* ── render movers ──
+   Basis, best available first:
+   1. FFC real draft ADP movement from daily snapshots ("5.12 → 5.06")
+   2. FantasyCalc market-rank movement from daily snapshots ("#58 → #51")
+   3. While history is still collecting: estimated rank movement from FC's
+      30-day value trend (strip the trend, re-rank, diff). */
 function _adpRenderMovers(players) {
-  const valid = players.filter(p => p.trend30Day && p.pos !== 'PICK');
-  const risers = [...valid].sort((a,b) => b.trend30Day - a.trend30Day).slice(0,5);
-  const fallers = [...valid].sort((a,b) => a.trend30Day - b.trend30Day).slice(0,5);
+  const range = _adpRange;
+  const pool = players.filter(p => p.pos !== 'PICK' && p.pos !== 'DEF');
+
+  let mode, deltaOf, headNote;
+  if (pool.some(p => p['adpRealDelta' + range] != null)) {
+    mode = 'ffc';
+    deltaOf = p => p['adpRealDelta' + range] || 0;
+    headNote = `FFC real ADP · past ${range} days`;
+  } else if (pool.some(p => p['adpDelta' + range] != null)) {
+    mode = 'fc';
+    deltaOf = p => p['adpDelta' + range] || 0;
+    headNote = `FC market rank · past ${range} days`;
+  } else {
+    mode = 'est';
+    const prev = [...pool].sort((a,b) =>
+      ((b.value||0) - (b.trend30Day||0)) - ((a.value||0) - (a.trend30Day||0)));
+    const prevRank = new Map(prev.map((p,i) => [p, i+1]));
+    deltaOf = p => (prevRank.get(p) || 0) - (p.adp || 0);   // + = moved up
+    headNote = 'est. from 30-day value trend · real ADP history collecting';
+  }
+
+  const lbl = document.getElementById('adp-movers-note');
+  if (lbl) lbl.textContent = headNote;
+
+  // only surface movement inside the draftable range (~15 rounds) — deep-roster
+  // ranks swing wildly and would otherwise drown out the picks that matter
+  const lim = (_adpTeams || 12) * 15;
+  const inRange = p => {
+    const cur = (mode === 'ffc' ? p.adpReal : p.adp) || 9999;
+    return Math.min(cur, cur + deltaOf(p)) <= lim;
+  };
+  const valid = pool.filter(p => deltaOf(p) && (mode !== 'est' || p.trend30Day) && inRange(p));
+  const risers  = [...valid].sort((a,b) => deltaOf(b) - deltaOf(a)).slice(0,5);
+  const fallers = [...valid].sort((a,b) => deltaOf(a) - deltaOf(b)).slice(0,5);
+
+  function fromTo(p, d) {
+    if (mode === 'ffc') return `${_adpPickFmt(p.adpReal + d)} → ${_adpPickFmt(p.adpReal)}`;
+    const cur = Math.round(p.adp || 0), past = Math.round((p.adp || 0) + d);
+    return `${mode==='est'?'≈ ':''}#${past} → #${cur}`;
+  }
 
   function mvRow(p, i, isRiser) {
-    const delta = Math.abs(p.trend30Day).toFixed(1);
+    const d = deltaOf(p);
+    const mag = Math.abs(d);
+    const delta = mag % 1 ? mag.toFixed(1) : String(mag);
     const posC = POS_C[p.pos]||'var(--muted)';
     return `<div class="adp-mv-row" style="cursor:pointer" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')">
       <span class="adp-mv-num">${i+1}</span>
@@ -29616,10 +29668,10 @@ function _adpRenderMovers(players) {
         <div class="adp-mv-meta">
           <span class="adp-mv-pos" style="background:${posC}22;color:${posC}">${p.pos}</span>
           <span>${p.team||''}</span>
-          <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${p.adp?.toFixed(1)||'—'} → ${(p.adp - p.trend30Day).toFixed(1)}</span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${fromTo(p, d)}</span>
         </div>
       </div>
-      <span class="adp-mv-delta ${isRiser?'up':'dn'}">${isRiser?'▲':'▾'}${delta}</span>
+      <span class="adp-mv-delta ${isRiser?'up':'dn'}" title="${delta} spots">${isRiser?'▲':'▾'}${delta}</span>
     </div>`;
   }
 
@@ -29643,9 +29695,10 @@ function _adpRenderTable(players) {
     let av, bv;
     if (_adpSort === 'adp')  { av = a.adp||999; bv = b.adp||999; }
     else if (_adpSort === 'ffcadp') { av = a.adpReal!=null?a.adpReal:9999; bv = b.adpReal!=null?b.adpReal:9999; }
+    else if (_adpSort === 'espnadp') { av = a.adpEspn!=null?a.adpEspn:9999; bv = b.adpEspn!=null?b.adpEspn:9999; }
     else if (_adpSort === 'myrank') { av = myRankOf(a); bv = myRankOf(b); }
     else if (_adpSort === 'posrk') { av = a.positionRank||999; bv = b.positionRank||999; }
-    else if (_adpSort === 'trend') { av = a['adpDelta'+_adpRange] ?? 0; bv = b['adpDelta'+_adpRange] ?? 0; }
+    else if (_adpSort === 'trend') { av = _adpDeltaVal(a) ?? 0; bv = _adpDeltaVal(b) ?? 0; }
     else if (_adpSort === 'name')  { av = a.name||''; bv = b.name||''; return _adpSortDir*(av<bv?-1:1); }
     else { av = a.adp||999; bv = b.adp||999; }
     return _adpSortDir*(av-bv);
@@ -29654,7 +29707,7 @@ function _adpRenderTable(players) {
   // collecting-history hint for the change column
   const listNote = document.getElementById('adp-list-note');
   if (listNote) {
-    const hasDelta = players.some(p => p['adpDelta'+_adpRange] != null);
+    const hasDelta = players.some(p => _adpDeltaVal(p) != null);
     listNote.innerHTML = hasDelta ? '' : `<b>${_adpRange}-day change is still collecting.</b> Vault snapshots market ADP daily — the ${_adpRange}D column fills in once ${_adpRange} days of history accrue.`;
     listNote.classList.toggle('show', !hasDelta);
   }
@@ -29666,7 +29719,7 @@ function _adpRenderTable(players) {
 
   document.getElementById('adp-tbody').innerHTML = rows.map((p, i) => {
     const posC = POS_C[p.pos]||'var(--muted)';
-    const dv = p['adpDelta'+_adpRange];
+    const dv = _adpDeltaVal(p);
     const trendCls = (dv == null || dv === 0) ? 'flat' : dv > 0 ? 'up' : 'dn';
     const trendStr = (dv == null || dv === 0) ? '—' : dv > 0 ? `▲${dv.toFixed(1)}` : `▾${Math.abs(dv).toFixed(1)}`;
     const age = p.age ? `${p.age}` : '';
@@ -29688,6 +29741,7 @@ function _adpRenderTable(players) {
       <td class="r">${p.positionRank ? `<span style="font-size:11px;color:${posC};font-family:var(--font-mono);font-weight:700">${p.pos}${p.positionRank}</span>` : '—'}</td>
       <td class="r" style="font-weight:700;color:var(--text)">${(()=>{
         if (_adpSource==='ffc') return p.adpFmt || (p.adpReal!=null?p.adpReal.toFixed(1):null) || '<span style="color:var(--dim)">—</span>';
+        if (_adpSource==='espn') return p.adpEspn!=null ? _adpPickFmt(p.adpEspn) : '<span style="color:var(--dim)">—</span>';
         if (_adpSource==='my') { const mr = myMap[_norm(p.name)]; return mr!=null ? '#'+mr : '<span style="color:var(--dim)">—</span>'; }
         return p.adp?.toFixed(1) || '—';
       })()}</td>
@@ -29788,12 +29842,22 @@ function _adpRenderBoard() {
   // ordering
   const hasMy = _adpHasMyRankings();
   const useMy = _adpOrder === 'my' && hasMy;
+  const useFfc  = !useMy && _adpSource === 'ffc'  && _adpFfcHasData();
+  const useEspn = !useMy && _adpSource === 'espn' && _adpEspnHasData();
   if (useMy) {
     const mine = _adpMyRankMap();
     list = [...list].sort((a,b) => {
       const ra = mine[norm(a.name)], rb = mine[norm(b.name)];
       const va = ra != null ? ra : 100000 + (a.adp||999);
       const vb = rb != null ? rb : 100000 + (b.adp||999);
+      return va - vb;
+    });
+  } else if (useFfc || useEspn) {
+    // real draft ADP order — players the source hasn't seen sink below, in FC order
+    const k = useFfc ? 'adpReal' : 'adpEspn';
+    list = [...list].sort((a,b) => {
+      const va = a[k] != null ? a[k] : 100000 + (a.adp||999);
+      const vb = b[k] != null ? b[k] : 100000 + (b.adp||999);
       return va - vb;
     });
   } else {
@@ -29819,11 +29883,12 @@ function _adpRenderBoard() {
       if (!p) { html += `<div class="adp-bd-cell empty"></div>`; continue; }
 
       const pc = POS_C[p.pos] || 'var(--muted)';
-      const delta = p['adpDelta' + _adpRange];
+      const delta = _adpDeltaVal(p);
       let deltaHtml = '';
       if (delta != null && delta !== 0) {
         const up = delta > 0;
-        deltaHtml = `<span class="adp-bd-delta ${up?'up':'dn'}">${up?'▲':'▾'}${Math.abs(delta)}</span>`;
+        const mag = Math.abs(delta);
+        deltaHtml = `<span class="adp-bd-delta ${up?'up':'dn'}">${up?'▲':'▾'}${mag % 1 ? mag.toFixed(1) : mag}</span>`;
       }
       const posrk = p.positionRank ? `${p.pos}${p.positionRank}` : (p.pos||'');
       const dim = (_adpBoardPos && p.pos !== _adpBoardPos) ? ' dim' : '';
@@ -29848,7 +29913,7 @@ function _adpRenderBoard() {
 
   // note: history-availability + order state
   if (note) {
-    const hasDelta = list.some(p => p['adpDelta' + _adpRange] != null);
+    const hasDelta = list.some(p => _adpDeltaVal(p) != null);
     let msg = '';
     if (!hasDelta) {
       msg = `<b>${_adpRange}-day change is still collecting.</b> Vault snapshots market ADP daily — ${_adpRange==7?'7-day':_adpRange+'-day'} movers appear once ${_adpRange} days of history accrue.`;
@@ -29875,8 +29940,8 @@ function _adpRender() {
   // keep the My Rankings order button in sync with whether an import exists
   const myBtn = document.getElementById('adp-order-my');
   if (myBtn) myBtn.style.display = _adpHasMyRankings() ? '' : 'none';
-  // FFC real ADP only exists for redraft formats — disable the button (and fall
-  // back to FC) when the loaded format has none.
+  // FFC / ESPN ADP only exist for redraft formats — disable those buttons (and
+  // fall back to FC) when the loaded format has none.
   const ffcBtn = document.getElementById('adp-order-ffc');
   const ffcOk = _adpFfcHasData();
   if (ffcBtn) {
@@ -29886,11 +29951,20 @@ function _adpRender() {
     ffcBtn.title = ffcOk ? 'Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board'
                          : 'FFC real ADP is redraft-only — pick a Redraft format above';
   }
-  if (_adpSource === 'ffc' && !ffcOk) { _adpSource = 'fc'; _adpSort = 'adp'; _adpOrder = 'adp'; }
+  const espnBtn = document.getElementById('adp-order-espn');
+  const espnOk = _adpEspnHasData();
+  if (espnBtn) {
+    espnBtn.disabled = !espnOk;
+    espnBtn.style.opacity = espnOk ? '' : '.4';
+    espnBtn.style.cursor = espnOk ? '' : 'not-allowed';
+    espnBtn.title = espnOk ? 'ESPN live draft ADP — where players actually go in ESPN drafts'
+                           : 'ESPN ADP is redraft-only — pick a Redraft format above';
+  }
+  if ((_adpSource === 'ffc' && !ffcOk) || (_adpSource === 'espn' && !espnOk)) { _adpSource = 'fc'; _adpSort = 'adp'; _adpOrder = 'adp'; }
   // reflect current source on the buttons + header each render
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === _adpSource));
   const _al = document.getElementById('adp-th-adp-lbl');
-  if (_al) _al.textContent = (_adpSource === 'my') ? 'MY RANK' : (_adpSource === 'ffc') ? 'FFC ADP' : 'FC ADP';
+  if (_al) _al.textContent = (_adpSource === 'my') ? 'MY RANK' : (_adpSource === 'ffc') ? 'FFC ADP' : (_adpSource === 'espn') ? 'ESPN ADP' : 'FC ADP';
   const liveBadge = document.getElementById('adp-live-badge');
   if (liveBadge) liveBadge.style.display = _adpDraftConnected() ? 'inline-flex' : 'none';
   _adpUpdateChangeHeader();
@@ -29932,13 +30006,16 @@ window.adpSetView = function(v) {
   if (view) view.classList.toggle('board-view', v === 'board');
   if (bar)  bar.classList.toggle('board-active', v === 'board');
   document.querySelectorAll('.adp-seg button[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-  if (v === 'board' && _adpData.length) _adpRenderBoard();
+  if (!_adpData.length) return;
+  if (v === 'board') _adpRenderBoard();
+  else _adpRenderTable(_adpData);   // table may be stale if source changed while in board view
 };
 
 window.adpSetRange = function(r) {
   _adpRange = +r;
   document.querySelectorAll('.adp-seg button[data-range]').forEach(b => b.classList.toggle('on', +b.dataset.range === _adpRange));
   _adpUpdateChangeHeader();
+  if (_adpData.length) _adpRenderMovers(_adpData);
   if (_adpView === 'board') _adpRenderBoard();
   else _adpRenderTable(_adpData);
 };
@@ -29949,25 +30026,35 @@ function _adpUpdateChangeHeader() {
 }
 
 window.adpSetOrder = function(o) {
-  // FFC has no data for dynasty/superflex/rookie formats — ignore the click there.
+  // FFC / ESPN have no data for dynasty/superflex/rookie formats — ignore the click there.
   if (o === 'ffc' && !_adpFfcHasData()) return;
+  if (o === 'espn' && !_adpEspnHasData()) return;
   _adpSource = o;
   _adpOrder = (o === 'my') ? 'my' : 'adp';
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === o));
   // sort key follows the source
-  _adpSort = (o === 'my') ? 'myrank' : (o === 'ffc') ? 'ffcadp' : 'adp';
+  _adpSort = (o === 'my') ? 'myrank' : (o === 'ffc') ? 'ffcadp' : (o === 'espn') ? 'espnadp' : 'adp';
   _adpSortDir = 1;
   const rkTh = document.getElementById('adp-th-rk');
   if (rkTh) rkTh.textContent = (o === 'my') ? 'MY ↕' : 'RK ↕';
   // ADP value column header reflects the source
   const adpLbl = document.getElementById('adp-th-adp-lbl');
-  if (adpLbl) adpLbl.textContent = (o === 'my') ? 'MY RANK' : (o === 'ffc') ? 'FFC ADP' : 'FC ADP';
+  if (adpLbl) adpLbl.textContent = (o === 'my') ? 'MY RANK' : (o === 'ffc') ? 'FFC ADP' : (o === 'espn') ? 'ESPN ADP' : 'FC ADP';
   if (_adpView === 'board') { _adpRenderBoard(); return; }
   document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === _adpSort));
   _adpRenderTable(_adpData);
 };
 // FFC real ADP is only present in redraft files (has adpFmt on matched players).
 function _adpFfcHasData() { return _adpData.some(p => p.adpFmt); }
+// ESPN ADP likewise only merges into redraft files.
+function _adpEspnHasData() { return _adpData.some(p => p.adpEspn != null); }
+// change value for the current range, matched to the active source:
+// FFC → real-ADP spots moved; ESPN → ESPN spots; FC / Mine → FantasyCalc rank spots.
+function _adpDeltaVal(p) {
+  if (_adpSource === 'ffc')  return p['adpRealDelta' + _adpRange];
+  if (_adpSource === 'espn') return p['adpEspnDelta' + _adpRange];
+  return p['adpDelta' + _adpRange];
+}
 
 /* re-render when a live-draft pick lands so drafted players grey out in real time */
 window.adpOnDraftUpdate = function() {

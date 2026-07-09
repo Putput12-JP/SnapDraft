@@ -186,6 +186,70 @@ def enrich_ffc(transformed, format_key, teams):
     return matched
 
 
+# ── ESPN live draft ADP ──────────────────────────────────────────────
+# ESPN's (undocumented but stable) fantasy read API exposes ownership data
+# incl. averageDraftPosition from real ESPN drafts. Like FFC there's no CORS,
+# so we merge server-side. Redraft only; ESPN has no half-PPR league default,
+# so half-PPR reuses the PPR draft pool.
+ESPN_API = ("https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/"
+            "seasons/{year}/segments/0/leaguedefaults/{league}?view=kona_player_info")
+ESPN_FMT = {'standard': 1, 'ppr': 3, 'halfppr': 3}
+
+
+def fetch_espn(league_id, year, timeout=60):
+    url = ESPN_API.format(year=year, league=league_id)
+    print(f"  GET {url}", flush=True)
+    filt = json.dumps({'players': {'limit': 400,
+                                   'sortAdp': {'sortPriority': 1, 'sortAsc': True}}})
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT,
+                                               'x-fantasy-filter': filt,
+                                               'Accept': 'application/json'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
+_espn_cache = {}  # league_id -> name index (ESPN ADP is team-count independent)
+
+
+def enrich_espn(transformed, format_key):
+    """Merge ESPN live draft ADP into a redraft file. Adds adpEspn (fractional
+    overall pick) per matched player. Returns match count (0 = skipped)."""
+    league = ESPN_FMT.get(format_key)
+    if not league:
+        return 0
+    idx = _espn_cache.get(league)
+    if idx is None:
+        year = datetime.date.today().year
+        data = None
+        for y in (year, year - 1):  # current season, fall back to last
+            try:
+                d = fetch_espn(league, y)
+                if d.get('players'):
+                    data = d
+                    break
+            except Exception as e:
+                print(f"  → ESPN league {league} {y} err: {e}", file=sys.stderr, flush=True)
+        if not data:
+            return 0
+        idx = {}
+        for entry in data['players']:
+            pl = entry.get('player') or {}
+            adp = (pl.get('ownership') or {}).get('averageDraftPosition')
+            name = (pl.get('fullName') or '').strip()
+            if name and adp:
+                idx[normalize_name(name)] = adp
+        _espn_cache[league] = idx
+    matched = 0
+    for p in transformed['players']:
+        adp = idx.get(normalize_name(p['name']))
+        if adp is None:
+            continue
+        p['adpEspn'] = round(adp, 1)
+        matched += 1
+    transformed['adp_espn_source'] = f"espn.com fantasy · live draft ADP · {len(idx)} players"
+    return matched
+
+
 # ── ADP history / trend snapshotting ────────────────────────────────
 # FantasyCalc only exposes a 30-day *value* trend, not positional-ADP
 # movement over 7/30/90 days. To power the board's 7/30/90-day change view
@@ -224,10 +288,21 @@ def annotate_trends(transformed, out_dir, basename, teams, today=None):
 
     today_iso = today.isoformat()
     ranks_today = {_player_key(p): p['adp'] for p in transformed['players']}
+    # Also snapshot FFC real draft ADP and ESPN ADP (fractional pick numbers)
+    # when present, so the frontend can show true ADP movement over time.
+    real_today = {_player_key(p): p['adpReal'] for p in transformed['players']
+                  if p.get('adpReal') is not None}
+    espn_today = {_player_key(p): p['adpEspn'] for p in transformed['players']
+                  if p.get('adpEspn') is not None}
 
     # Replace any existing snapshot for today, then prune old ones.
     snaps = [s for s in hist['snapshots'] if s.get('date') != today_iso]
-    snaps.append({'date': today_iso, 'ranks': ranks_today})
+    snap = {'date': today_iso, 'ranks': ranks_today}
+    if real_today:
+        snap['ranksReal'] = real_today
+    if espn_today:
+        snap['ranksEspn'] = espn_today
+    snaps.append(snap)
     cutoff = (today - datetime.timedelta(days=HISTORY_KEEP_DAYS)).isoformat()
     snaps = [s for s in snaps if s.get('date', '') >= cutoff]
     snaps.sort(key=lambda s: s.get('date', ''))
@@ -235,10 +310,17 @@ def annotate_trends(transformed, out_dir, basename, teams, today=None):
 
     # For each window, find the most recent snapshot that is >= N days old.
     past_for_window = {}
+    past_real_for_window = {}
+    past_espn_for_window = {}
     for n in HISTORY_WINDOWS:
         boundary = (today - datetime.timedelta(days=n)).isoformat()
         eligible = [s for s in snaps if s.get('date', '') <= boundary]
         past_for_window[n] = eligible[-1]['ranks'] if eligible else None
+        # FFC / ESPN ADP for the same window (older snapshots may predate them)
+        real_eligible = [s for s in eligible if s.get('ranksReal')]
+        past_real_for_window[n] = real_eligible[-1]['ranksReal'] if real_eligible else None
+        espn_eligible = [s for s in eligible if s.get('ranksEspn')]
+        past_espn_for_window[n] = espn_eligible[-1]['ranksEspn'] if espn_eligible else None
 
     for p in transformed['players']:
         key = _player_key(p)
@@ -249,6 +331,17 @@ def annotate_trends(transformed, out_dir, basename, teams, today=None):
                 # positive => rank decreased => moved up the board
                 delta = round(past[key] - p['adp'], 1)
             p[f'adpDelta{n}'] = delta
+            past_real = past_real_for_window[n]
+            rdelta = None
+            if past_real is not None and p.get('adpReal') is not None and key in past_real:
+                # positive => real ADP got earlier => player is rising
+                rdelta = round(past_real[key] - p['adpReal'], 1)
+            p[f'adpRealDelta{n}'] = rdelta
+            past_espn = past_espn_for_window[n]
+            edelta = None
+            if past_espn is not None and p.get('adpEspn') is not None and key in past_espn:
+                edelta = round(past_espn[key] - p['adpEspn'], 1)
+            p[f'adpEspnDelta{n}'] = edelta
 
     os.makedirs(out_dir, exist_ok=True)
     with open(hist_path, 'w') as f:
@@ -280,6 +373,14 @@ def build_one(format_key, teams, out_dir):
             print(f"  → FFC real ADP merged for {m} players", flush=True)
     except Exception as e:
         print(f"  → WARN: FFC enrich failed: {e}", file=sys.stderr, flush=True)
+
+    # Merge ESPN live draft ADP (redraft formats).
+    try:
+        m = enrich_espn(transformed, format_key)
+        if m:
+            print(f"  → ESPN ADP merged for {m} players", flush=True)
+    except Exception as e:
+        print(f"  → WARN: ESPN enrich failed: {e}", file=sys.stderr, flush=True)
 
     # Snapshot today's ADP and annotate 7/30/90-day movement.
     try:
