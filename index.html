@@ -12854,19 +12854,27 @@ function renderList(){
     const dynastyHtml = `<span style="color:${dynastyVal > 0 ? dynastyColor : 'var(--dim)'}">${_fmt(dynastyVal)}</span>`;
     const redraftHtml = `<span style="color:${redraftVal > 0 ? redraftColor : 'var(--dim)'}">${_fmt(redraftVal)}</span>`;
 
-    // ADP cell: pull from current selection (auto-detected from active league or user-picked)
+    // ADP cell: prefer REAL market ADP (Fantasy Football Calculator, redraft) —
+    // a true round.pick from thousands of drafts (e.g. "1.02"). Falls back to the
+    // FantasyCalc value-rank → round.pick conversion (dynasty, or unmatched players).
     let adpHtml = '<span style="color:var(--dim)">—</span>';
     if (p.pos !== 'PICK') {
-      const adpRank = typeof getADP === 'function' ? getADP(p.name) : null;
-      if (adpRank && adpRank > 0 && _activeDraft?.teams) {
-        const teams = _activeDraft.teams;
-        const round = Math.floor((adpRank - 1) / teams) + 1;
-        const slot = ((adpRank - 1) % teams) + 1;
-        const slotStr = `${round}.${String(slot).padStart(2,'0')}`;
-        adpHtml = `<span style="color:#a78bfa" title="ADP rank ${adpRank} → round ${round}, pick ${slot}">${slotStr}</span>`;
-      } else if (adpRank && adpRank > 0) {
-        // No active draft known, show overall ADP rank only
-        adpHtml = `<span style="color:#a78bfa" title="ADP rank ${adpRank}">${Math.round(adpRank)}</span>`;
+      const _ad = ADP_LOOKUP[p.name] || ADP_LOOKUP[normName(p.name)] || null;
+      if (_ad && _ad.adpFmt) {
+        const rng = (_ad.adpHigh && _ad.adpLow) ? ` · range ${_ad.adpHigh}–${_ad.adpLow}` : '';
+        const drafts = _ad.adpDrafts ? ` · ${_ad.adpDrafts} drafts` : '';
+        adpHtml = `<span style="color:#a78bfa" title="Real market ADP · avg pick ${_ad.adpReal}${rng}${drafts} (Fantasy Football Calculator)">${_ad.adpFmt}</span>`;
+      } else {
+        const adpRank = typeof getADP === 'function' ? getADP(p.name) : null;
+        if (adpRank && adpRank > 0 && _activeDraft?.teams) {
+          const teams = _activeDraft.teams;
+          const round = Math.floor((adpRank - 1) / teams) + 1;
+          const slot = ((adpRank - 1) % teams) + 1;
+          const slotStr = `${round}.${String(slot).padStart(2,'0')}`;
+          adpHtml = `<span style="color:#a78bfa" title="Value-based ADP rank ${adpRank} → round ${round}, pick ${slot}">${slotStr}</span>`;
+        } else if (adpRank && adpRank > 0) {
+          adpHtml = `<span style="color:#a78bfa" title="Value-based ADP rank ${adpRank}">${Math.round(adpRank)}</span>`;
+        }
       }
     }
 

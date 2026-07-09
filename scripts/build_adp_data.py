@@ -123,6 +123,69 @@ def transform(raw, label, ffc_format_key, teams, format_key):
     }
 
 
+# ── Real draft ADP from Fantasy Football Calculator ─────────────────
+# FantasyCalc (above) gives trade-VALUE ranks, not true draft position.
+# Fantasy Football Calculator (a different site) publishes real fractional
+# ADP from thousands of live redraft drafts, incl. a round.pick string
+# ("1.02"), a high/low range, stdev and bye. No CORS, so we merge it here
+# (server-side) into the redraft files; the browser reads our CORS-ok data.
+FFC_API = "https://fantasyfootballcalculator.com/api/v1/adp"
+# our format_key -> FFC endpoint slug. Redraft 1QB only: FFC has no dynasty ADP,
+# and our 'superflex' file doubles as the dynasty-SF ADP source, so we leave it
+# on FantasyCalc to avoid mixing redraft ADP into a dynasty context.
+FFC_FMT = {'standard': 'standard', 'ppr': 'ppr', 'halfppr': 'half-ppr'}
+
+
+def fetch_ffc(ffc_slug, teams, year, timeout=60):
+    url = f"{FFC_API}/{ffc_slug}?teams={teams}&year={year}"
+    print(f"  GET {url}", flush=True)
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
+def enrich_ffc(transformed, format_key, teams):
+    """Merge Fantasy Football Calculator's real ADP into a redraft file.
+    Adds adpReal (fractional) / adpFmt ("1.02") / adpHigh / adpLow / adpStdev
+    / adpDrafts / bye per matched player. Returns match count (0 = skipped)."""
+    ffc_slug = FFC_FMT.get(format_key)
+    if not ffc_slug:
+        return 0
+    year = datetime.date.today().year
+    data = None
+    for y in (year, year - 1):  # current season, fall back to last
+        try:
+            d = fetch_ffc(ffc_slug, teams, y)
+            if d.get('players'):
+                data = d
+                break
+        except Exception as e:
+            print(f"  → FFC {ffc_slug} {y} err: {e}", file=sys.stderr, flush=True)
+    if not data:
+        return 0
+    idx = {normalize_name(p.get('name')): p for p in data['players']}
+    matched = 0
+    for p in transformed['players']:
+        f = idx.get(normalize_name(p['name']))
+        if not f:
+            continue
+        p['adpReal'] = f.get('adp')
+        p['adpFmt'] = f.get('adp_formatted')
+        p['adpHigh'] = f.get('high')
+        p['adpLow'] = f.get('low')
+        p['adpStdev'] = f.get('stdev')
+        p['adpDrafts'] = f.get('times_drafted')
+        if f.get('bye'):
+            p['bye'] = f.get('bye')
+        matched += 1
+    meta = data.get('meta', {}) or {}
+    transformed['adp_real_source'] = (
+        f"fantasyfootballcalculator.com · {meta.get('total_drafts', '?')} drafts "
+        f"({meta.get('start_date', '?')}–{meta.get('end_date', '?')})"
+    )
+    return matched
+
+
 # ── ADP history / trend snapshotting ────────────────────────────────
 # FantasyCalc only exposes a 30-day *value* trend, not positional-ADP
 # movement over 7/30/90 days. To power the board's 7/30/90-day change view
@@ -209,6 +272,14 @@ def build_one(format_key, teams, out_dir):
     if not transformed['players']:
         print(f"  → SKIP (empty player list)", flush=True)
         return ('skip', 0)
+
+    # Merge real draft ADP from Fantasy Football Calculator (redraft formats).
+    try:
+        m = enrich_ffc(transformed, format_key, teams)
+        if m:
+            print(f"  → FFC real ADP merged for {m} players", flush=True)
+    except Exception as e:
+        print(f"  → WARN: FFC enrich failed: {e}", file=sys.stderr, flush=True)
 
     # Snapshot today's ADP and annotate 7/30/90-day movement.
     try:
