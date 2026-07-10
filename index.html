@@ -19022,6 +19022,39 @@ function pickYear(year) {
     var sel=document.getElementById('header-league-select'); var nameEl=document.getElementById('vlg-name'); if(!sel||!nameEl) return;
     var opt=[].slice.call(sel.options).filter(function(o){return o.value;}).find(function(o){return o.value===sel.value;});
     nameEl.textContent = opt ? cleanName(opt.textContent) : 'Select league';
+    fitTrigger();
+  }
+  // ---- Dynamic pill width ----
+  // CSS caps .vlg-trigger (150px desktop, tighter below 1280px) so the nav tabs
+  // always fit. Measure the real slack between the last tab and the right-side
+  // controls and let the pill grow into it, up to the full league name.
+  function fitTrigger(){
+    var trig=document.getElementById('vlg-trigger'); var nameEl=document.getElementById('vlg-name');
+    if(!trig||!nameEl) return;
+    trig.style.removeProperty('max-width'); // re-measure from the CSS baseline
+    var nav=document.querySelector('.glassnav .desktop-nav');
+    if(!nav||getComputedStyle(nav).display==='none') return; // mobile layout: CSS owns it
+    // The nav is flex:1 and stretches to the right block, so the free space
+    // lives INSIDE it: measure from its last visible tab (Betting) to its edge.
+    var btns=[].slice.call(nav.querySelectorAll('button')).filter(function(b){ return b.offsetParent!==null; });
+    var last=btns[btns.length-1];
+    if(!last) return;
+    var slack=nav.getBoundingClientRect().right - last.getBoundingClientRect().right - 10;
+    if(slack<=0) return; // tabs need every pixel
+    // scrollWidth under-reports (integer rounding, emoji glyphs), measure the
+    // full name precisely with an unclipped clone instead.
+    var cs=getComputedStyle(nameEl);
+    var meas=document.createElement('span');
+    meas.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0';
+    meas.style.font=cs.font; meas.style.letterSpacing=cs.letterSpacing;
+    meas.textContent=nameEl.textContent;
+    document.body.appendChild(meas);
+    var deficit=meas.getBoundingClientRect().width - nameEl.getBoundingClientRect().width;
+    meas.remove();
+    if(deficit<=0) return; // full name already visible
+    var base=trig.getBoundingClientRect().width;
+    var target=Math.min(base+deficit+3, base+slack, 440);
+    if(target>base) trig.style.setProperty('max-width', Math.ceil(target)+'px', 'important');
   }
   function renderMenu(){
     var sel=document.getElementById('header-league-select'); var menu=document.getElementById('vlg-menu'); if(!sel||!menu) return;
@@ -19066,6 +19099,7 @@ function pickYear(year) {
     // Empty <img src=""> resolves to the page URL and 404s, strip until real src is set
     [].slice.call(document.querySelectorAll('img')).forEach(function(im){ if(!im.getAttribute('src')) im.removeAttribute('src'); });
     ensureDD(); refreshDD(); watchSelect();
+    var _fitT; window.addEventListener('resize', function(){ clearTimeout(_fitT); _fitT=setTimeout(fitTrigger, 120); });
     try{ if(typeof applyTheme==='function') applyTheme(currentTheme); }catch(err){}
     // Catch late-rendered chrome
     setTimeout(function(){ injectIcons(); refreshDD(); }, 400);
@@ -26777,16 +26811,12 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
 </style>
 <style id="vault-mobile-dock">
 /* ════ BRAND · real shield mark in header (desktop + mobile) ════ */
-/* Onyx theme uses the red/gold crest from the brand logo; other themes keep the navy crest */
-.glassnav .gn-shield-onyx{display:none}
-[data-theme="onyx"] .glassnav .gn-shield-default{display:none!important}
-[data-theme="onyx"] .glassnav .gn-shield-onyx{display:block!important;height:40px!important;width:auto!important}
-[data-theme="onyx"] .glassnav .gn-shieldtile{background:transparent!important;border:none!important;box-shadow:none!important;width:auto!important;height:auto!important;padding:0!important}
-/* legible gold-accented wordmark to match the crest */
+/* All themes (onyx included) use the OG navy crest; gn-shield-onyx kept in markup but retired */
+.glassnav .gn-shield-onyx{display:none!important}
+/* legible accented wordmark */
 [data-theme="onyx"] .glassnav .gn-word .t1{color:#f6f1e6!important}
 [data-theme="onyx"] .glassnav .gn-word .t1 span{color:var(--accent)!important}
 [data-theme="onyx"] .glassnav .gn-word .t2{color:var(--accent)!important;opacity:.92}
-@media(max-width:700px){ [data-theme="onyx"] .glassnav .gn-shield-onyx{height:34px!important} }
 .glassnav .gn-shieldtile{background:transparent!important;border:none!important;box-shadow:none!important;width:auto!important;height:auto!important;border-radius:0!important}
 .glassnav .gn-shield{height:36px!important;width:auto!important}
 @media(max-width:700px){ .glassnav .gn-shield{height:32px!important} }
