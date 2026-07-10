@@ -26,6 +26,13 @@
   --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
   --shadow-card:0 24px 60px -20px rgba(4,9,20,0.62),0 1px 0 rgba(255,255,255,0.06) inset;
 
+  /* ── MOTION ─────────────────────────────────────────────────────
+     Easing vocabulary for anything that MOVES (transforms, entrances,
+     expanders). Fast start, gentle settle — never the default `ease`.
+     Short color/opacity feedback (≤150ms) can keep plain `ease`.      */
+  --ease-out:cubic-bezier(0.16,1,0.3,1);    /* entrances, expanders, movement */
+  --ease-sheet:cubic-bezier(0.32,0.72,0,1); /* bottom sheets — iOS/Vaul curve */
+
   /* ── TYPE SCALE ──────────────────────────────────────────────────
      One ramp for the whole app. iOS-anchored; sizes are theme-agnostic.
      Sans (Archivo) carries all reading + UI text. Mono is reserved for

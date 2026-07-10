@@ -287,7 +287,7 @@ header{
 @media(max-width:360px){.tab-icon{font-size:17px}.tab-label{font-size:var(--t-nano)}}
 .tab-btn.on .tab-label{color:var(--accent2)}
 .page{display:none;width:100%;overflow-x:hidden;overflow-y:auto}
-.page.on{display:block;opacity:1;animation:vault-page-in 150ms ease-out forwards;transform:translateY(0)}
+.page.on{display:block;opacity:1;animation:vault-page-in 150ms var(--ease-out) forwards;transform:translateY(0)}
 }
 .page.on{display:block;width:100%;overflow-x:hidden}
 .pstrip{padding:6px 12px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:98}
@@ -555,7 +555,7 @@ header{
   background:var(--s2);border:1px solid var(--border3);border-radius:12px;padding:12px 13px;
   box-shadow:0 18px 44px -14px rgba(4,9,20,.85),0 1px 0 rgba(255,255,255,.05) inset;
   font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--text2);letter-spacing:0;text-transform:none;
-  opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .14s ease,transform .14s ease}
+  opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .14s var(--ease-out),transform .14s var(--ease-out)}
 #page-draft .dfk-scale-item .dfk-pop{left:auto;right:0}
 #page-draft .dfk-item:hover .dfk-pop,#page-draft .dfk-item:focus-within .dfk-pop{opacity:1;transform:translateY(0)}
 #page-draft .dfk-pop::after{content:'';position:absolute;bottom:100%;left:20px;border:6px solid transparent;border-bottom-color:var(--border3)}
@@ -933,7 +933,7 @@ header{
 .bm-team-owner{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:2px}
 .bm-rank{font-size:11px;font-weight:600;font-family:var(--font-mono);flex-shrink:0}
 .bm-img{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--s3);border:1.5px solid var(--border2);flex-shrink:0}
-#ps-modal{transition:opacity 150ms ease}
+#ps-modal{opacity:0;transition:opacity 180ms ease}
 /* Player-stats modal tables AND Research game-log tables: center-align everything except FPTS (column 4 has progress bars) */
 #ps-modal table th,
 #ps-modal table td,
@@ -961,7 +961,7 @@ header{
 #page-portfolio #portfolio-owned, #page-portfolio #portfolio-signals{padding:24px!important;border-radius:14px!important}
 
 /* ===== Bundle B: Settings Drawer ===== */
-.settings-drawer{position:absolute;top:0;right:0;height:100%;width:420px;max-width:90vw;background:#0e1730;border-left:1px solid var(--border2);box-shadow:-8px 0 40px rgba(0,0,0,0.5);display:flex;flex-direction:column;animation:sdSlideIn 240ms cubic-bezier(0.16,1,0.3,1)}
+.settings-drawer{position:absolute;top:0;right:0;height:100%;width:420px;max-width:90vw;background:#0e1730;border-left:1px solid var(--border2);box-shadow:-8px 0 40px rgba(0,0,0,0.5);display:flex;flex-direction:column;animation:sdSlideIn 240ms var(--ease-out)}
 @keyframes sdSlideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
 .sd-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 18px;border-bottom:1px solid var(--border)}
 .sd-title{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-0.02em;font-family:var(--font-sans)}
@@ -1267,14 +1267,14 @@ header{
 @media(max-width:900px){.pf-v2-bottom-grid{grid-template-columns:1fr}}
 /* Chevron column for expandable rows, proper button-sized hit target */
 .pf-v2-th-chev,.pf-v2-td-chev{width:56px;padding-left:14px;padding-right:6px;text-align:center;cursor:pointer}
-.pf-v2-chev{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;font-size:var(--t-h1);line-height:1;color:var(--muted);background:transparent;border:1px solid transparent;transition:transform 200ms ease,background 150ms ease,border-color 150ms ease,color 150ms ease;font-family:var(--font-mono);font-weight:600}
+.pf-v2-chev{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;font-size:var(--t-h1);line-height:1;color:var(--muted);background:transparent;border:1px solid transparent;transition:transform 200ms var(--ease-out),background 150ms ease,border-color 150ms ease,color 150ms ease;font-family:var(--font-mono);font-weight:600}
 .pf-v2-td-chev:hover .pf-v2-chev{background:rgba(123,208,255,0.08);border-color:var(--accent2);color:var(--accent2)}
 .pf-v2-chev.open{transform:rotate(90deg);color:var(--accent2);background:rgba(123,208,255,0.1);border-color:rgba(123,208,255,0.25)}
 .pf-v2-row-expanded{background:rgba(255,255,255,0.02)}
 /* Expanded detail row (per-position bars) */
 .pf-v2-detail-row{background:rgba(255,255,255,0.015)}
 .pf-v2-detail-row td{padding:0;border-bottom:1px solid var(--border)}
-.pf-v2-detail{padding:18px 24px 22px 56px;opacity:1;animation:pfV2DetailFade 220ms ease-out}
+.pf-v2-detail{padding:18px 24px 22px 56px;opacity:1;animation:pfV2DetailFade 220ms var(--ease-out)}
 @keyframes pfV2DetailFade{from{transform:translateY(-4px)}to{transform:translateY(0)}}
 .pf-v2-detail-title{font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}
 .pf-v2-posbars{display:flex;flex-direction:column;gap:8px;max-width:520px}
@@ -1372,7 +1372,7 @@ header{
 #ps-sheet{
   transform:translateY(20px) scale(0.98);
   opacity:0;
-  transition:transform 200ms ease-out, opacity 200ms ease-out;
+  transition:transform 220ms var(--ease-out), opacity 220ms var(--ease-out);
 }
 #ps-modal.ps-entering #ps-sheet{
   transform:translateY(0) scale(1);
@@ -1576,7 +1576,7 @@ header{
 .fc-loading{padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:12px}
 .fc-error{padding:16px;color:var(--qb);font-family:var(--font-mono);font-size:11px;background:var(--s2);border-radius:8px}
 .toast-stack{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;max-width:90vw}
-.toast{position:relative;background:var(--s1);border:1.5px solid var(--border2);color:var(--text);padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;animation:toast-in 350ms ease;pointer-events:auto;white-space:nowrap;font-family:var(--font-mono);box-shadow:0 4px 20px #00000055;display:flex;align-items:center;gap:10px;max-width:90vw;transition:transform 250ms ease-in,opacity 250ms ease-in}
+.toast{position:relative;background:var(--s1);border:1.5px solid var(--border2);color:var(--text);padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;animation:toast-in 350ms var(--ease-out);pointer-events:auto;white-space:nowrap;font-family:var(--font-mono);box-shadow:0 4px 20px #00000055;display:flex;align-items:center;gap:10px;max-width:90vw;transition:transform 250ms ease-in,opacity 250ms ease-in}
 @keyframes toast-in{from{opacity:0;transform:translateY(16px) scale(.97)}}
 .toast.hiding{opacity:0;transform:translateY(8px) scale(0.97)}
 @media(prefers-reduced-motion:reduce){.toast{animation:none}}
@@ -1628,7 +1628,7 @@ header{
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.val-update{animation:val-pop 180ms ease-out forwards}
+.val-update{animation:val-pop 180ms var(--ease-out) forwards}
 @keyframes val-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── DESIGN.md: JetBrains Mono for data/stats ── */
@@ -2381,7 +2381,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .page.on {
   display:block !important;
   min-height:calc(100dvh - 52px);
-  animation:vault-page-in 150ms ease-out forwards;
+  animation:vault-page-in 150ms var(--ease-out) forwards;
 }
 
 /* Remove the old position:absolute that breaks layout */
@@ -3576,7 +3576,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .vp-dchip .ic{font-size:13px}
 .vp-dchip b{color:var(--text);font-weight:700}
 /* sticky selection bar */
-.vp-selbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(160px);z-index:1001;width:min(720px,calc(100% - 36px));background:rgba(18,26,37,0.92);backdrop-filter:blur(22px);border:1px solid var(--border2);border-top:2px solid var(--accent);border-radius:18px;padding:14px 16px 14px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 30px 70px -20px rgba(0,0,0,0.85);transition:transform .35s cubic-bezier(.2,.8,.2,1);opacity:0;pointer-events:none}
+.vp-selbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(160px);z-index:1001;width:min(720px,calc(100% - 36px));background:rgba(18,26,37,0.92);backdrop-filter:blur(22px);border:1px solid var(--border2);border-top:2px solid var(--accent);border-radius:18px;padding:14px 16px 14px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 30px 70px -20px rgba(0,0,0,0.85);transition:transform .35s var(--ease-out);opacity:0;pointer-events:none}
 .vp-selbar.show{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
 .vp-selbar .meta{flex:1;min-width:0}
 .vp-selbar .big{font-size:16px;font-weight:800;letter-spacing:-0.02em;color:var(--text)}
@@ -4412,7 +4412,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
 
 <!-- MORE bottom sheet, secondary nav (League / Trade / Draft Room) -->
 <div id="more-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeMoreSheet()">
-  <div style="background:var(--bg);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,0.5);animation:slideUp 200ms ease;padding-bottom:env(safe-area-inset-bottom)">
+  <div style="background:var(--bg);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,0.5);animation:slideUp 260ms var(--ease-sheet);padding-bottom:env(safe-area-inset-bottom)">
     <div style="display:flex;justify-content:center;padding:10px 0 0">
       <div style="width:40px;height:4px;background:var(--border2);border-radius:2px"></div>
     </div>
@@ -5290,11 +5290,11 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
 .tc-trend-chip:hover{border-color:var(--accent2)}
 
 /* toast */
-#tc-toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:12px 20px;border-radius:12px;font-family:var(--font-sans);font-size:13px;font-weight:600;box-shadow:0 16px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9999;max-width:340px;text-align:center}
+#tc-toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:12px 20px;border-radius:12px;font-family:var(--font-sans);font-size:13px;font-weight:600;box-shadow:0 16px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s var(--ease-out),transform .25s var(--ease-out);z-index:9999;max-width:340px;text-align:center}
 #tc-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ── TRADE INTELLIGENCE (v4) — verdict card, dual-truth, motion ── */
-.tc-rise{opacity:0;transform:translateY(10px);transition:opacity .3s ease-out,transform .3s ease-out}
+.tc-rise{opacity:0;transform:translateY(10px);transition:opacity .3s var(--ease-out),transform .3s var(--ease-out)}
 .tc-rise.in{opacity:1;transform:translateY(0)}
 .tc-int-word{font-family:var(--font-sans);font-weight:900;letter-spacing:-.03em;font-size:30px;line-height:1.05;text-align:center}
 .tc-int-sub{font-family:var(--font-sans);font-size:12.5px;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5}
@@ -6471,7 +6471,10 @@ async function openPlayerStats(normN, name, pos, team) {
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   
-  requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('ps-entering')));
+  // Force a reflow so the transition runs from the hidden start styles —
+  // double-rAF never fires in throttled/background tabs, leaving the modal invisible.
+  void modal.offsetHeight;
+  modal.classList.add('ps-entering');
 
   _psRenderHeader();
   _psSetTabActive('weekly');
@@ -6498,11 +6501,29 @@ function closePlayerStats() {
   const modal = document.getElementById('ps-modal');
   if (!modal) return;
   modal.classList.remove('ps-entering');
+  // Wait out the #ps-sheet exit transition (220ms) so it retraces its entrance
+  const _rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   setTimeout(() => {
     modal.style.display = 'none';
     document.body.style.overflow = '';
     _psPlayer = null; _psData = null;
-  }, 160);
+  }, _rm ? 0 : 230);
+}
+
+// Shared symmetric-exit for display-toggled overlays: .vm-leaving reverses the
+// entrance via CSS transitions (see MICRO-INTERACTIONS block), then hides.
+function _vmLeave(el, ms, after) {
+  if (!el || el.style.display === 'none') { if (after) after(); return; }
+  if (el._vmLeaving) return;
+  el._vmLeaving = true;
+  const rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.classList.add('vm-leaving');
+  setTimeout(() => {
+    el.style.display = 'none';
+    el.classList.remove('vm-leaving');
+    el._vmLeaving = false;
+    if (after) after();
+  }, rm ? 0 : (ms || 200));
 }
 
 function setPsTab(tab) {
@@ -10351,8 +10372,7 @@ function saveNoteFromModal(){
   closeNote();
 }
 function closeNote(){
-  document.getElementById('note-modal').style.display='none';
-  _noteTarget=null;
+  _vmLeave(document.getElementById('note-modal'), 260, ()=>{ _noteTarget=null; });
 }
 
 // Shape-matched loading skeletons (see .skel styles). Widths vary per row so
@@ -17874,8 +17894,7 @@ function openPortfolioLeaguePicker() {
 }
 
 function closePortfolioLeaguePicker() {
-  const modal = document.getElementById('portfolio-league-picker');
-  if (modal) modal.style.display = 'none';
+  _vmLeave(document.getElementById('portfolio-league-picker'), 200);
 }
 
 function portfolioPickerSelectAll(check) {
@@ -18273,8 +18292,7 @@ function openAdpPicker(bucket) {
 }
 
 function closeAdpPicker() {
-  const sheet = document.getElementById('adp-picker-sheet');
-  if (sheet) sheet.style.display = 'none';
+  _vmLeave(document.getElementById('adp-picker-sheet'), 260);
 }
 
 function applyAdpPicker() {
@@ -18326,8 +18344,7 @@ setTimeout(() => {
 }, 1500);
 
 function closeYearPicker() {
-  const sheet = document.getElementById('year-picker-sheet');
-  if (sheet) sheet.style.display = 'none';
+  _vmLeave(document.getElementById('year-picker-sheet'), 260);
 }
 
 // More bottom sheet, secondary nav for less-frequent destinations
@@ -18336,8 +18353,7 @@ function openMoreSheet() {
   if (sheet) sheet.style.display = 'flex';
 }
 function closeMoreSheet() {
-  const sheet = document.getElementById('more-sheet');
-  if (sheet) sheet.style.display = 'none';
+  _vmLeave(document.getElementById('more-sheet'), 260);
 }
 
 function pickYear(year) {
@@ -18355,7 +18371,7 @@ function pickYear(year) {
 </script>
 <!-- Year Picker Bottom Sheet, for game logs -->
 <div id="year-picker-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeYearPicker()">
-  <div style="background:var(--bg);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,0.5);animation:slideUp 200ms ease">
+  <div style="background:var(--bg);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,0.5);animation:slideUp 260ms var(--ease-sheet)">
     <!-- Drag handle -->
     <div style="display:flex;justify-content:center;padding:10px 0 0">
       <div style="width:40px;height:4px;background:var(--border2);border-radius:2px"></div>
@@ -18377,7 +18393,7 @@ function pickYear(year) {
 
 <!-- ADP Picker Bottom Sheet, for choosing format + team size -->
 <div id="adp-picker-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeAdpPicker()">
-  <div style="background:var(--bg);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,0.5);animation:slideUp 200ms ease">
+  <div style="background:var(--bg);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 -20px 60px rgba(0,0,0,0.5);animation:slideUp 260ms var(--ease-sheet)">
     <div style="display:flex;justify-content:center;padding:10px 0 0">
       <div style="width:40px;height:4px;background:var(--border2);border-radius:2px"></div>
     </div>
@@ -32128,20 +32144,37 @@ else { _ssInjectPage();_ssInjectNav(); }
 .skel-cards{ padding:14px 4px; display:flex; flex-direction:column; gap:10px; }
 @media(prefers-reduced-motion:reduce){ .skel{ animation:none; opacity:.45; } }
 
-/* ════ MICRO-INTERACTIONS · modal entrances ════
-   Pure CSS: display:none elements don't animate, so these run exactly when
-   each overlay opens. Backdrop fades 150ms, panel rises 200ms ease-out,
-   bottom sheets slide like iOS (Vaul curve). Exits stay instant. */
-.modal-bg:not(.gone), #note-modal, #ps-modal, #portfolio-league-picker{ animation:vmodal-bg-in 150ms ease; }
-.modal-bg:not(.gone) .modal, #ps-modal #ps-sheet, #portfolio-league-picker > div{ animation:vmodal-in 200ms ease-out; }
-#note-modal > div{ animation:vsheet-in 240ms cubic-bezier(0.32,0.72,0,1); }
+/* ════ MICRO-INTERACTIONS · modal entrances & exits ════
+   Pure CSS entrances: display:none elements don't animate, so these run
+   exactly when each overlay opens. Backdrop fades 150ms, panel rises with
+   --ease-out, bottom sheets slide on the iOS/Vaul curve.
+   (#ps-modal is transition-driven via .ps-entering, not listed here.)
+   Exits are SYMMETRIC: _vmLeave() adds .vm-leaving, which reverses the
+   entrance via the transitions below, then hides after the duration. */
+.modal-bg:not(.gone), #note-modal, #portfolio-league-picker,
+#year-picker-sheet, #adp-picker-sheet, #more-sheet{ animation:vmodal-bg-in 150ms ease; }
+.modal-bg:not(.gone) .modal, #portfolio-league-picker > div{ animation:vmodal-in 220ms var(--ease-out); }
+#note-modal > div{ animation:vsheet-in 260ms var(--ease-sheet); }
 @keyframes vmodal-bg-in{ from{ opacity:0; } }
 @keyframes vmodal-in{ from{ opacity:0; transform:translateY(20px); } }
 @keyframes vsheet-in{ from{ transform:translateY(100%); } }
+/* exit plumbing: backdrops fade, panels retrace their entrance path */
+#note-modal, #portfolio-league-picker, #year-picker-sheet, #adp-picker-sheet, #more-sheet{ transition:opacity 200ms ease; }
+#note-modal > div, #year-picker-sheet > div, #adp-picker-sheet > div, #more-sheet > div{ transition:transform 260ms var(--ease-sheet); }
+#portfolio-league-picker > div{ transition:transform 200ms var(--ease-out), opacity 200ms var(--ease-out); }
+.vm-leaving{ opacity:0; pointer-events:none; }
+#note-modal.vm-leaving > div, #year-picker-sheet.vm-leaving > div,
+#adp-picker-sheet.vm-leaving > div, #more-sheet.vm-leaving > div{ transform:translateY(100%); }
+#portfolio-league-picker.vm-leaving > div{ transform:translateY(20px); opacity:0; }
 @media(prefers-reduced-motion:reduce){
-  .modal-bg:not(.gone), #note-modal, #ps-modal, #portfolio-league-picker,
-  .modal-bg:not(.gone) .modal, #ps-modal #ps-sheet, #portfolio-league-picker > div,
+  .modal-bg:not(.gone), #note-modal, #portfolio-league-picker,
+  #year-picker-sheet, #adp-picker-sheet, #more-sheet,
+  .modal-bg:not(.gone) .modal, #portfolio-league-picker > div,
   #note-modal > div{ animation:none; }
+  #ps-modal, #ps-sheet,
+  #note-modal, #portfolio-league-picker, #year-picker-sheet, #adp-picker-sheet, #more-sheet,
+  #note-modal > div, #portfolio-league-picker > div,
+  #year-picker-sheet > div, #adp-picker-sheet > div, #more-sheet > div{ transition:none; }
 }
 </style>
 </body>
