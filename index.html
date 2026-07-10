@@ -11354,6 +11354,24 @@ function _ccSparkline(tr, w=60, h=22){
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;flex-shrink:0"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
+// Recover the selected league from the saved profile (chosen during sign-in).
+// Shared by renderOverview AND the resumeSession boot path: a deep-linked boot
+// (/league, /calc, …) never runs renderOverview, and without this the header
+// dropdown displays the first league while ovLeagueId/teamsLeagueId stay null,
+// so every page silently falls back to the stale draft board.
+function restoreLeagueSelection() {
+  if (ovLeagueId && teamsLeagueId) return;
+  const sp = localStorage.getItem(SK+'-primary-league');
+  let ss = null; try { ss = JSON.parse(localStorage.getItem(SK+'-selected-leagues') || 'null'); } catch(e){}
+  // Prefer a league that already has a starting roster over a saved drafting/pre-draft one
+  let cand = sp;
+  const spL = myTeamsData.find(l => l.league_id === sp);
+  if (!cand || _leagueStartRank(spL) >= 3) {
+    cand = _bestLeagueId(Array.isArray(ss) ? ss : []) || _bestLeagueId(myTeamsData.map(l=>l.league_id)) || cand || (Array.isArray(ss) && ss.length ? ss[0] : null);
+  }
+  if (cand) { if (!ovLeagueId) ovLeagueId = cand; if (!teamsLeagueId) teamsLeagueId = cand; }
+}
+
 let _ovRendering = false;
 async function renderOverview() {
   if (_ovRendering) return;
@@ -11366,17 +11384,7 @@ async function renderOverview() {
 
   // Recover the selected league from the saved profile (chosen during sign-in)
   // so we never re-prompt with the league picker once a profile exists.
-  if (!ovLeagueId) {
-    const sp = localStorage.getItem(SK+'-primary-league');
-    let ss = null; try { ss = JSON.parse(localStorage.getItem(SK+'-selected-leagues') || 'null'); } catch(e){}
-    // Prefer a league that already has a starting roster over a saved drafting/pre-draft one
-    let cand = sp;
-    const spL = myTeamsData.find(l => l.league_id === sp);
-    if (!cand || _leagueStartRank(spL) >= 3) {
-      cand = _bestLeagueId(Array.isArray(ss) ? ss : []) || _bestLeagueId(myTeamsData.map(l=>l.league_id)) || cand || (Array.isArray(ss) && ss.length ? ss[0] : null);
-    }
-    if (cand) { ovLeagueId = cand; if (!teamsLeagueId) teamsLeagueId = cand; }
-  }
+  restoreLeagueSelection();
 
   const draftRoster = getMyRoster();
   const hasContext = ovLeagueId || draftRoster.length > 0;
@@ -15434,7 +15442,7 @@ function populateHeaderLeague() {
     leagues = leagues.filter(l => selectedIds.includes(l.league_id));
   }
   wrap.style.display = '';
-  sel.innerHTML = `<option value="" disabled>Select League</option>` +
+  sel.innerHTML = `<option value="" disabled${teamsLeagueId?'':' selected'}>Select League</option>` +
     leagues.map(l => {
       const active = l.status === 'in_season';
       return `<option value="${l.league_id}">${active?'🟢 ':''}${l.name||'League'}</option>`;
@@ -16862,9 +16870,16 @@ function resumeSession() {
   const savedUn = localStorage.getItem(SK+'-username');
   if (savedUn && !myTeamsData.length) {
     loadMyTeams().then(() => {
+      // Deep-linked boots (/league, /calc, …) never run renderOverview's
+      // recovery, so restore the saved league before building the dropdowns —
+      // otherwise the header displays the first league while nothing is
+      // actually selected and pages fall back to the stale draft board.
+      restoreLeagueSelection();
       populateHeaderLeague();
       populateAnalyzerDropdown();
       populateOverviewDropdown();
+      const _active = document.querySelector('.page.on')?.id;
+      if (_active === 'page-teams' && teamsLeagueId) renderTeams();
     });
   }
   setTimeout(() => {
@@ -16922,9 +16937,10 @@ function pfV2ToggleRow(leagueId, event){
 function pfV2OpenLeague(leagueId, event){
   if (event) event.stopPropagation();
   if (!leagueId) return;
-  window.ovLeagueId = leagueId;
-  window.teamsLeagueId = leagueId;
-  showPage('overview');
+  // ovLeagueId/teamsLeagueId are module-scope `let`s, assigning window props
+  // never reached them, so the overview kept showing the previous league.
+  // switchGlobalLeague sets the real bindings, syncs dropdowns and navigates.
+  switchGlobalLeague(leagueId);
 }
 
 // ===== Portfolio finances: per-league buy-in + payout structure (user-entered) =====
@@ -18307,7 +18323,9 @@ function applyAdpPicker() {
 // Auto-detect league format/size from user's active Sleeper league
 function autoDetectAdpFromLeague() {
   try {
-    const lg = myTeamsData?.find(l => l.league_id === (window.ovLeagueId || window.teamsLeagueId)) || myTeamsData?.[0];
+    // ovLeagueId/teamsLeagueId are module-scope `let`s — window.* is always undefined
+    const _adpLid = (typeof ovLeagueId!=='undefined' && ovLeagueId) || (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || null;
+    const lg = myTeamsData?.find(l => l.league_id === _adpLid) || myTeamsData?.[0];
     if (!lg) return;
     const teamCount = lg.total_rosters || 12;
     const closestSize = [8, 10, 12, 14].reduce((best, t) => Math.abs(t - teamCount) < Math.abs(best - teamCount) ? t : best, 12);
