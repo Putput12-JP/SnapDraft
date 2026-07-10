@@ -1088,7 +1088,7 @@ header{
 .mth-pg-row{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 120ms ease}
 .mth-pg-row:last-child{border-bottom:none}
 .mth-pg-row:hover{background:rgba(255,255,255,0.03)}
-.mth-pg-photo{width:30px;height:30px;border-radius:7px;background:var(--s3);overflow:hidden;flex-shrink:0}
+.mth-pg-photo{width:38px;height:38px;border-radius:8px;background:var(--s3);overflow:hidden;flex-shrink:0}
 .mth-pg-photo img{width:100%;height:100%;object-fit:cover}
 .mth-pg-info{flex:1;min-width:0}
 .mth-pg-name{font-size:var(--t-secondary);font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1153,6 +1153,7 @@ header{
   .mth-strip-team{font-size:var(--t-nano)}
   .mth-pg-grid{grid-template-columns:1fr;gap:10px}
   .mth-pg-row{padding:7px 12px}
+  .mth-pg-photo{width:30px;height:30px;border-radius:7px}
   .mth-ps-row{gap:8px;padding:4px 0}
   .mth-ps-pos{width:30px;font-size:var(--t-micro)}
   .mth-ps-rank{width:38px;font-size:var(--t-nano)}
@@ -1554,6 +1555,10 @@ header{
 .roster-pos-title{font-size:10px;font-weight:700;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;display:flex;justify-content:space-between}
 .roster-player{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
 .roster-player:last-child{border-bottom:none}
+.rp-left{display:flex;align-items:center;gap:9px;min-width:0}
+.rp-av{position:relative;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--font-sans)}
+.rp-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+@media(max-width:500px){.rp-av{width:28px;height:28px;font-size:10px}}
 .rp-name{font-size:12px;font-weight:600}
 .rp-meta{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:1px}
 .rp-val{font-size:12px;font-weight:700;font-family:var(--font-mono)}
@@ -4575,6 +4580,12 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       </div>
     </div>
 
+    <!-- Standings ⇄ This Week tabs (This Week = former Matchup Overview page) -->
+    <div class="pf-tabs" id="pf-tabs">
+      <button class="pf-tab on" data-pftab="standings" onclick="pfSetTab('standings')">Standings</button>
+      <button class="pf-tab" data-pftab="week" onclick="pfSetTab('week')">This Week</button>
+    </div>
+
     <!-- Classic view (now hidden, kept in DOM only so renderPortfolio() can write to its elements without errors) -->
     <div id="portfolio-classic" style="display:none">
       <!-- Summary KPI strip -->
@@ -4608,6 +4619,16 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
           <div id="pf-v2-signals" class="pf-v2-section-body"></div>
         </div>
       </div>
+    </div>
+    <!-- This Week: every league's current matchup (former Matchup Overview page) -->
+    <div id="pf-week" style="display:none">
+      <div class="mo-head">
+        <span class="mo-wk"><b id="mo-wk-n">—</b><i>WEEK</i></span>
+        <div><div class="mo-title" style="font-size:20px">This Week</div><div class="mo-sub" id="mo-sub">Loading your week…</div></div>
+        <div class="mo-agg" id="mo-agg"></div>
+      </div>
+      <div class="mo-rule"></div>
+      <div class="mo-rows" id="mo-rows"></div>
     </div>
   </div>
 </div>
@@ -9565,6 +9586,19 @@ function _vhUpgradeImgs() {
 }
 window.vaultHeadshot = vaultHeadshot; window._vhUpgradeImgs = _vhUpgradeImgs;
 
+/* Compact roster-row avatar (Team Review roster lists): face crop over
+   position-tinted initials, so a failed photo degrades to initials. */
+function rpAvatarHtml(name, sid, pos, px) {
+  px = px || 34;
+  sid = sid || (window.sleeperPlayerMap && sleeperPlayerMap[normName(name || '')]?.player_id) || '';
+  const ini = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const c = { QB: 'var(--qb)', RB: 'var(--rb)', WR: 'var(--wr)', TE: 'var(--te)' }[pos] || 'var(--muted)';
+  const ph = vaultHeadshot(name, sid, px);
+  const nEsc = (name || '').replace(/"/g, '&quot;');
+  return `<span class="rp-av" style="color:${c};background:color-mix(in srgb,${c} 12%,var(--s3))">${ini}${ph ? `<img src="${ph}" alt="" loading="lazy" data-vh-n="${nEsc}" data-vh-sid="${sid}" data-vh-px="${px}" onerror="this.style.display='none'">` : ''}</span>`;
+}
+window.rpAvatarHtml = rpAvatarHtml;
+
 /* ── Universal player-profile popout ────────────────────────────────
    Any player element on any page opens the full Research Hub Player
    Profile page (#page-playerprofile) inside a large modal — X /
@@ -12398,10 +12432,13 @@ async function renderOverviewRoster(el) {
           <span style="font-size:11px;font-weight:700;color:${pc};font-family:Space Mono,monospace">${pos} · ${players.length}</span>
           <span style="font-size:11px;font-family:Space Mono,monospace;color:var(--muted)">${total.toLocaleString()}</span>
         </div>
-        ${players.map(p=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openPlayerProfile('${(p.name||'').replace(/'/g,"\\'")}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')">
-          <div>
-            <div style="font-size:13px;font-weight:600">${p.name}</div>
-            <div style="font-size:10px;color:var(--muted);font-family:Space Mono,monospace">${p.team||'FA'}</div>
+        ${players.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openPlayerProfile('${(p.name||'').replace(/'/g,"\\'")}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')">
+          <div class="rp-left">
+            ${rpAvatarHtml(p.name, p.sleeperId, p.pos)}
+            <div style="min-width:0">
+              <div style="font-size:13px;font-weight:600">${p.name}</div>
+              <div style="font-size:10px;color:var(--muted);font-family:Space Mono,monospace">${p.team||'FA'}</div>
+            </div>
           </div>
           <div style="font-size:12px;font-weight:700;font-family:Space Mono,monospace;color:${pc}">${(p.fcVal||0)?p.fcVal.toLocaleString():'—'}</div>
         </div>`).join('')}
@@ -14934,9 +14971,12 @@ function renderTeamDetailFromCache(idx) {
             const trendC = fc?.trend>0?'var(--rb)':fc?.trend<0?'var(--qb)':'var(--muted)';
             const trendStr = fc?.trend?(fc.trend>0?'▲'+fc.trend:'▼'+Math.abs(fc.trend)):'';
             return `<div class="roster-player">
-              <div>
-                <div class="rp-name">${p.name}</div>
-                <div class="rp-meta">${p.team||''}${fc?.age?` · Age ${fc.age}`:''}</div>
+              <div class="rp-left">
+                ${rpAvatarHtml(p.name, p.sleeperId, pos)}
+                <div style="min-width:0">
+                  <div class="rp-name">${p.name}</div>
+                  <div class="rp-meta">${p.team||''}${fc?.age?` · Age ${fc.age}`:''}</div>
+                </div>
               </div>
               <div style="text-align:right">
                 <div class="rp-val" style="color:${posColors[pos]}">${pVal?pVal.toLocaleString():'—'}</div>
@@ -14980,9 +15020,12 @@ function renderTeamDetail(idx) {
             const trendC = fc?.trend > 0 ? 'var(--rb)' : fc?.trend < 0 ? 'var(--qb)' : 'var(--muted)';
             const trendStr = fc?.trend ? (fc.trend > 0 ? `▲${fc.trend}` : `▼${Math.abs(fc.trend)}`) : '';
             return `<div class="roster-player">
-              <div>
-                <div class="rp-name">${p.name}</div>
-                <div class="rp-meta">${fc ? `Rank #${fc.overallRank} · Age ${fc.age||'?'}` : 'No FC data'}</div>
+              <div class="rp-left">
+                ${rpAvatarHtml(p.name, p.sleeperId, pos)}
+                <div style="min-width:0">
+                  <div class="rp-name">${p.name}</div>
+                  <div class="rp-meta">${fc ? `Rank #${fc.overallRank} · Age ${fc.age||'?'}` : 'No FC data'}</div>
+                </div>
               </div>
               <div style="text-align:right">
                 <div class="rp-val" style="color:${posColors[pos]}">${fc ? fc.value.toLocaleString() : '—'}</div>
@@ -17078,10 +17121,10 @@ function renderPortfolioV2(){
       <div class="pf-v2-stat-lbl">Total Buy-in</div>
       ${hasStake?`<div class="pf-v2-stat-foot">${stakeCount} of ${totalLeagues} ${totalLeagues===1?'league':'leagues'}</div>`:'<div class="pf-v2-stat-foot">expand a league to set</div>'}
     </div>
-    <div class="pf-v2-stat">
+    <div class="pf-v2-stat" title="If standings hold: your current roster-value rank in each league, looked up against the payout places you entered — no playoff-odds modeling.">
       <div class="pf-v2-stat-num" style="color:${has?'#7bd0ff':'var(--muted)'}">${has?_pfMoney(projCash):'—'}</div>
       <div class="pf-v2-stat-lbl">Projected Cash</div>
-      ${has?`<div class="pf-v2-stat-foot">${inMoney} of ${financeCount} in the money</div>`:''}
+      ${has?`<div class="pf-v2-stat-foot">${inMoney} of ${financeCount} in the money · current standing × your payouts</div>`:''}
     </div>
     <div class="pf-v2-stat">
       <div class="pf-v2-stat-num" style="color:${!has?'var(--muted)':net>=0?'#3DCC7A':'#ff6680'}">${has?((net>=0?'+':'−')+_pfMoney(Math.abs(net))):'—'}</div>
@@ -20271,6 +20314,151 @@ function pickYear(year) {
 @media (max-width:700px) and (prefers-reduced-motion:reduce){ .page.on{ animation:none !important; } }
 @media (max-width:360px){ .bottom-tab-bar .tab-label{ font-size:var(--t-nano) !important; } }
 </style>
+<script id="vaultgrades-inline">
+/* ════════════════════════════════════════════════════════════════════
+   GRADE KEYS · 4-factor player grades (Upside / Floor / Risk / Situational)
+   Engine ported from draft-grades-concept.html. Grades are 0-10 per factor;
+   Risk is inverted (lower = safer). Fed by nflverse_stats.json weekly logs;
+   players without data (rookies) fall back to a market-rank proxy.
+   Exposes window.VaultGrades for My Rankings + the Draft Vault Grades view.
+   ════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function pctRank(sorted, x) {
+    if (!sorted.length) return 0.5;
+    let lo = 0, hi = sorted.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m] < x) lo = m + 1; else hi = m; }
+    return sorted.length > 1 ? lo / (sorted.length - 1) : 0.5;
+  }
+  const _norm = s => (window.normName ? normName(s) : String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+  let _p = null, _data = null, _subs = [];
+  function ensure() {
+    if (_p) return _p;
+    const base = (typeof NFLVERSE_BASE !== 'undefined') ? NFLVERSE_BASE : '/data';
+    _p = fetch(base + '/nflverse_stats.json').then(r => r.json()).then(stats => {
+      const statsMap = {};
+      for (const n in stats) statsMap[_norm(n)] = stats[n];
+      // team offensive strength = summed top-7 skill-position PPG, ranked to a 0-1 pct
+      const teamOff = {};
+      for (const n in stats) {
+        const e = stats[n]; const t = e.team;
+        if (!t || !e.season || !['QB', 'RB', 'WR', 'TE'].includes(e.pos)) continue;
+        (teamOff[t] = teamOff[t] || { list: [] }).list.push(e.season.avg_pts || 0);
+      }
+      Object.values(teamOff).forEach(o => { o.list.sort((a, b) => b - a); o.sum = o.list.slice(0, 7).reduce((a, b) => a + b, 0); });
+      const tr = Object.entries(teamOff).sort((a, b) => b[1].sum - a[1].sum);
+      tr.forEach(([t, o], i) => { o.rank = i + 1; o.pct = 1 - (i / (tr.length - 1 || 1)); });
+      _data = { statsMap, teamOff };
+      _subs.splice(0).forEach(f => { try { f(); } catch (e) {} });
+      return _data;
+    }).catch(e => { console.warn('[VaultGrades] stats load failed:', e); return null; });
+    return _p;
+  }
+
+  /* weekly-log profile: ppg, boom/bust %, 20th/85th pct weeks (floor/ceiling) */
+  function profileFor(name) {
+    const e = _data && _data.statsMap[_norm(name)];
+    if (!e || !e.season || (e.season.games || 0) < 3) return null;
+    const ssn = e.season, wk = (e.weeks || []).map(w => +w.pts).filter(v => !isNaN(v)).sort((a, b) => a - b);
+    const q = f => wk.length ? wk[clamp(Math.round(f * (wk.length - 1)), 0, wk.length - 1)] : null;
+    return { ppg: ssn.avg_pts || 0, boom: ssn.boom_pct ?? 0, bust: ssn.bust_pct ?? 0,
+             games: ssn.games || wk.length, floor: q(0.2), ceil: q(0.85), tgt: ssn.avg_tgt || 0 };
+  }
+
+  /* p: {name,pos,team,age,ovrRank,posRank}  ovrRank = market overall rank (ADP proxy) */
+  function computeFactors(p, pr, pool, tOff, ctx) {
+    const pos = p.pos, po = pool[pos];
+    const hasData = !!pr;
+    const trend30 = (typeof getPlayerTrend === 'function' ? Math.round(getPlayerTrend(p.name) || 0) : 0);
+
+    // ---------- UPSIDE (ceiling / breakout) ----------
+    let upside;
+    if (hasData) {
+      const boom01 = clamp(pr.boom / 55, 0, 1);
+      let u = 0.46 * boom01 + 0.34 * pctRank(po.ceil, pr.ceil) + 0.20 * pctRank(po.ppg, pr.ppg);
+      if ((p.age || 30) <= 24) u += 0.06;            // ascending youth
+      if (trend30 > 40) u += 0.05;                   // market rising
+      upside = u * 10;
+    } else {
+      // rookie / no data → draft-capital proxy (early market rank = high ceiling bet)
+      upside = clamp(9.2 - Math.log2(Math.max(1, p.ovrRank)) * 0.95, 3, 9) + 0.4;
+    }
+
+    // ---------- FLOOR (weekly safety / consistency) ----------
+    let floor;
+    if (hasData) {
+      const safe01 = 1 - clamp(pr.bust / 45, 0, 1);
+      floor = (0.40 * safe01 + 0.40 * pctRank(po.floor, pr.floor) + 0.20 * clamp(pr.games / 17, 0, 1)) * 10;
+    } else {
+      floor = clamp(7.5 - Math.log2(Math.max(1, p.ovrRank)) * 0.9, 2, 6.5);
+    }
+
+    // ---------- RISK (higher = riskier) ----------
+    let risk = 0;
+    if (hasData) {
+      risk += clamp((17 - pr.games) * 0.42, 0, 4);                       // durability
+      risk += clamp(pr.bust / 15, 0, 3);                                 // weekly volatility
+      if (pos === 'RB' && p.age >= 27) risk += p.age >= 29 ? 2.4 : 1.4;  // age cliffs
+      if (pos === 'WR' && p.age >= 30) risk += 1.6;
+      if (pos === 'TE' && p.age >= 31) risk += 1.5;
+      if (pos === 'QB' && p.age >= 36) risk += 1.6;
+      if (trend30 < -60) risk += 1.2;                                    // falling market
+      risk += 0.6;                                                       // baseline uncertainty
+    } else {
+      risk = 5.2 - clamp((60 - Math.min(60, p.ovrRank)) / 60 * 1.6, 0, 1.6);
+      risk += 0.6;
+    }
+    risk = clamp(risk, 0, 10);
+
+    // ---------- SITUATIONAL (scoring fit + offense quality + positional scarcity) ----------
+    const scoreFit = ctx.ppr
+      ? ({ WR: 0.86, TE: 0.80, RB: 0.66, QB: 0.50 })[pos]
+      : ({ WR: 0.70, TE: 0.66, RB: 0.78, QB: 0.52 })[pos];
+    let recBonus = 0;
+    if (ctx.ppr && hasData && pos === 'RB' && pr.tgt >= 3) recBonus = clamp((pr.tgt - 3) / 6, 0, 1) * 0.14;
+    const offPct = tOff ? tOff.pct : 0.5;
+    const demand = (ctx.slots[pos] || 0) + (['RB', 'WR', 'TE'].includes(pos) ? ctx.slots.FLEX * 0.34 : 0);
+    const startersLeague = demand * ctx.teams;
+    const need = clamp(1 - ((p.posRank || 1) - 1) / (startersLeague * 1.35), 0.25, 1);
+    let sit = (0.34 * scoreFit + 0.28 * offPct + 0.38 * need + recBonus) * 10;
+
+    upside = clamp(upside, 0, 10); floor = clamp(floor, 0, 10); sit = clamp(sit, 0, 10);
+    const composite = (upside + floor + (11 - risk) + sit) / 4;
+    return { upside: Math.round(upside), floor: Math.round(floor), risk: Math.round(risk),
+             situational: Math.round(sit), composite: Math.round(composite * 10) / 10 };
+  }
+
+  /* Batch: players [{name,pos,team,age,ovrRank,posRank}] → Map(normName → factors) */
+  function gradesFor(players, ctx) {
+    if (!_data) return null;
+    ctx = ctx || { teams: 12, ppr: true, slots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 } };
+    const pool = { QB: { ppg: [], ceil: [], floor: [] }, RB: { ppg: [], ceil: [], floor: [] },
+                   WR: { ppg: [], ceil: [], floor: [] }, TE: { ppg: [], ceil: [], floor: [] } };
+    const profs = new Map();
+    players.forEach(p => {
+      if (!pool[p.pos]) return;
+      const pr = profileFor(p.name);
+      profs.set(_norm(p.name), pr);
+      if (pr) { pool[p.pos].ppg.push(pr.ppg); if (pr.ceil != null) pool[p.pos].ceil.push(pr.ceil); if (pr.floor != null) pool[p.pos].floor.push(pr.floor); }
+    });
+    Object.values(pool).forEach(o => { o.ppg.sort((a, b) => a - b); o.ceil.sort((a, b) => a - b); o.floor.sort((a, b) => a - b); });
+    const out = new Map();
+    players.forEach(p => {
+      if (!pool[p.pos]) return;
+      out.set(_norm(p.name), computeFactors(p, profs.get(_norm(p.name)), pool, _data.teamOff[p.team], ctx));
+    });
+    return out;
+  }
+
+  window.VaultGrades = {
+    ensure, gradesFor,
+    ready: () => !!_data,
+    onReady(f) { if (_data) { try { f(); } catch (e) {} } else { _subs.push(f); ensure(); } }
+  };
+})();
+</script>
 <script id="myrankings-inline">
 /* ════════════════════════════════════════════════════════════════════
    MY RANKINGS, Vault Fantasy
@@ -20347,6 +20535,7 @@ function pickYear(year) {
     redraft: { order: null, pinned: {}, notes: {}, breaks: null },
   };
   let _dragFrom = null;
+  let _gk = null;   // Grade Keys factor map for the current board (normName → factors)
 
   function norm(s){ return (window.normName ? window.normName(s) : String(s||'').toLowerCase().replace(/[^a-z]/g,'')); }
 
@@ -20813,6 +21002,18 @@ function pickYear(year) {
 #P .mr-cdelta.dn{color:var(--qb)}
 #P .mr-cdelta.eq{color:var(--dim)}
 #P .mr-cdelta small{display:block;font-size:var(--t-nano);color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
+#P .mr-gklegend{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:10px 16px;margin-bottom:12px;background:var(--s1);border:1px solid var(--border);border-radius:10px}
+#P .mr-gklegend .gk-cap{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+#P .mr-gklegend .gk-item{display:inline-flex;align-items:center;gap:7px;font-size:var(--t-label);color:var(--muted);font-family:var(--font-mono)}
+#P .mr-gklegend .gk-item b{color:var(--text);font-weight:700}
+#P .mr-gkh,#P .mr-gk{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;justify-items:center;gap:0}
+#P .mr-gkh span{display:inline-flex;align-items:center}
+#P .mr-gk span{font-family:var(--font-mono);font-weight:800;font-size:var(--t-secondary)}
+#P .mr-gk .u{color:#f5c842}
+#P .mr-gk .f{color:#3DCC7A}
+#P .mr-gk .rk{color:#ff5a6e}
+#P .mr-gk .s{color:#7bd0ff}
+#P .mr-gk.na{display:flex;justify-content:center;color:var(--dim);font-weight:400}
 @media(max-width:760px){
 #P .mr-wrap{padding:16px 10px 116px}
 #P .mr-title{font-size:var(--t-title)}
@@ -20824,6 +21025,7 @@ function pickYear(year) {
 #P .mr-bhead{display:none}
 #P .mr-row{display:flex!important;flex-wrap:wrap;align-items:center;gap:9px;padding:10px 12px}
 #P .mr-grip,#P .mr-rankin,#P .mr-note,#P .mr-conv{display:none!important}
+#P .mr-gk,#P .mr-gkh,#P .mr-gklegend{display:none!important}
 #P .mr-val small{display:none!important}
 #P .mr-rank{flex-direction:row;align-items:baseline;gap:5px;width:auto;flex-shrink:0}
 #P .mr-rank .n{font-size:var(--t-body)}
@@ -20856,6 +21058,10 @@ function pickYear(year) {
     injectStyles();
     load();
     buildBaseline();
+    // Grade Keys columns appear once nflverse stats land (one-shot re-render)
+    try { window.VaultGrades && VaultGrades.onReady(() => {
+      if (document.getElementById('page-myrankings')?.classList.contains('on')) render();
+    }); } catch(e){}
     // rebuild baseline once FC finishes loading (in case page opened first)
     if (typeof fcLoaded !== 'undefined' && !fcLoaded) {
       let tries=0; const t=setInterval(()=>{ tries++;
@@ -20895,6 +21101,18 @@ function pickYear(year) {
     ensureManualBreaks(rows);
     invalidate();
 
+    // Grade Keys 4-factor map; market pos rank feeds the scarcity term
+    _gk = null;
+    try {
+      if (window.VaultGrades && VaultGrades.ready()) {
+        const pc = {};
+        const mkt = [...rows].sort((a,b)=>(a.fcRank||9e9)-(b.fcRank||9e9))
+          .map(r => ({ name:r.name, pos:r.pos, team:r.team, age:r.age,
+                       ovrRank:r.fcRank||r.myRank, posRank:(pc[r.pos]=(pc[r.pos]||0)+1) }));
+        _gk = VaultGrades.gradesFor(mkt);
+      } else if (window.VaultGrades) VaultGrades.ensure();
+    } catch(e){}
+
     const isRdr = format==='redraft';
     const live = (typeof fcLoaded!=='undefined' && fcLoaded);
     const moved = customCount();
@@ -20902,7 +21120,7 @@ function pickYear(year) {
 
     page.style.setProperty('--mr-cols', compareSrc
       ? '48px minmax(0,1fr) 88px minmax(150px,1fr) 96px 78px'
-      : '58px minmax(0,1fr) 118px 104px 142px');
+      : '58px minmax(0,1fr) 118px 148px 104px 142px');
 
     const header = `
       <div class="mr-head">
@@ -20982,10 +21200,23 @@ function pickYear(year) {
           <div id="mr-rows">${compareRows(rows)}</div>
         </div>`;
     } else {
+      const gkIco = (n,c) => (typeof reIcon==='function' ? reIcon(n,{size:13,color:c}) : '');
+      const legend = `
+        <div class="mr-gklegend">
+          <span class="gk-cap">Grade Keys</span>
+          <span class="gk-item">${gkIco('fire','#f5c842')}<b>Upside</b> ceiling / boom weeks</span>
+          <span class="gk-item">${gkIco('shield','#3DCC7A')}<b>Floor</b> weekly safety</span>
+          <span class="gk-item">${gkIco('alert','#ff5a6e')}<b>Risk</b> injury · volatility (lower = safer)</span>
+          <span class="gk-item">${gkIco('target','#7bd0ff')}<b>Situational</b> fit to format &amp; situation</span>
+        </div>`;
       body = `
+        ${legend}
         <div class="mr-board">
           <div class="mr-bhead">
             <span class="r">#</span><span>Player</span><span>Conviction</span>
+            <span class="mr-gkh" title="Grade Keys · Upside / Floor / Risk / Situational">
+              <span title="Upside">${gkIco('fire','#f5c842')}</span><span title="Floor">${gkIco('shield','#3DCC7A')}</span><span title="Risk (lower = safer)">${gkIco('alert','#ff5a6e')}</span><span title="Situational">${gkIco('target','#7bd0ff')}</span>
+            </span>
             <span class="r">My ${isRdr?'redraft':'dynasty'}</span><span class="r">Adjust</span>
           </div>
           <div id="mr-rows">${renderRows(filtered, rows)}</div>
@@ -21069,6 +21300,11 @@ function pickYear(year) {
         </div>
       </div>
       ${conv}
+      ${(() => { const g = _gk && _gk.get(norm(r.name));
+        if (!g) return `<div class="mr-gk na" title="Grade Keys load with nflverse stats">·</div>`;
+        return `<div class="mr-gk" title="Upside ${g.upside} · Floor ${g.floor} · Risk ${g.risk} (lower = safer) · Situational ${g.situational}">
+          <span class="u">${g.upside}</span><span class="f">${g.floor}</span><span class="rk">${g.risk}</span><span class="s">${g.situational}</span>
+        </div>`; })()}
       <div class="mr-val ${isRdr?'rdr':''}" title="FantasyCalc value for your #${r.myRank} slot, re-pulls daily">${r.myValue?r.myValue.toLocaleString():'—'}<small>mkt ${r.marketValue?r.marketValue.toLocaleString():'—'}</small></div>
       <div class="mr-act">
         <button class="mr-nudge" onclick="MyRankings._nudge(${idx},-1)" title="Move up">▲</button>
@@ -23411,6 +23647,7 @@ function pickYear(year) {
       else { const liveCols = asLiveCols(visCols, posRows); main = asIsMobile() ? asMobileHtml(rows, liveCols)
         : asLeadersHtml(posRows) + asTableHtml(rows, liveCols); }
       middle = `
+      ${askHtml()}
       <div class="rh-tools">
         <div class="rh-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -23474,12 +23711,25 @@ function pickYear(year) {
     const { players } = cmpData();
     const cols = D.COLS[AS.pos];
 
-    const slotCards = players.map(p => `
+    // table is built first so the header cards can carry each player's stat-win tally
+    let body, wins = players.map(() => 0), statTotal = 0;
+    if (players.length < 2) {
+      body = `<div class="rh-cmp-empty"><div class="rh-cmp-empty-ic">⇄</div><div class="rh-cmp-empty-t">Compare ${AS.pos}s head-to-head</div><div class="rh-cmp-empty-s">Add at least two players above to line up every advanced metric side by side. The leader in each stat is highlighted.</div></div>`;
+    } else {
+      const t = cmpTableHtml(players, cols);
+      body = t.html; wins = t.wins; statTotal = t.statTotal;
+    }
+    const bestWins = Math.max.apply(null, wins.concat([0]));
+
+    const slotCards = players.map((p, i) => `
       <div class="rh-cmp-slot filled" style="--pc:${POS_COLOR[p.pos]}">
         <button class="rh-cmp-x" data-rh-cmpremove="${esc(p.name)}" title="Remove">×</button>
         ${avatar(p, 'rh-cmp-av')}
-        <div class="rh-cmp-sname">${esc(p.name)}</div>
-        <div class="rh-cmp-smeta"><span class="rh-pos" style="color:${POS_COLOR[p.pos]};border-color:${POS_COLOR[p.pos]}40;background:${POS_COLOR[p.pos]}14">${esc(p.pos)}</span>${esc(p.team)}${p.age != null ? ' · ' + p.age.toFixed(1) + 'y' : ''}</div>
+        <div class="rh-cmp-sid">
+          <div class="rh-cmp-sname">${esc(p.name)}</div>
+          <div class="rh-cmp-smeta"><span class="rh-pos" style="color:${POS_COLOR[p.pos]};border-color:${POS_COLOR[p.pos]}40;background:${POS_COLOR[p.pos]}14">${esc(p.pos)}</span>${esc(p.team)}${p.age != null ? ' · ' + p.age.toFixed(1) + 'y' : ''}</div>
+          ${statTotal ? `<div class="rh-cmp-swins${wins[i] === bestWins && bestWins > 0 ? ' lead' : ''}">${wins[i] === bestWins && bestWins > 0 ? '▲ ' : ''}Leads ${wins[i]} of ${statTotal} stats</div>` : ''}
+        </div>
         <div class="rh-cmp-spts">${r1(p.fppg)}<small>FP/G · ${p.g} G</small></div>
       </div>`).join('');
     const addSlot = players.length < 3 ? `
@@ -23493,17 +23743,9 @@ function pickYear(year) {
       </div>` : '';
     const clearBtn = players.length ? `<button class="rh-cmp-clear" data-rh-cmpclear>Clear all</button>` : '';
 
-    const slots = `<div class="rh-cmp-slots">${slotCards}${addSlot}</div>`;
-
-    let body;
-    if (players.length < 2) {
-      body = `<div class="rh-cmp-empty"><div class="rh-cmp-empty-ic">⇄</div><div class="rh-cmp-empty-t">Compare ${AS.pos}s head-to-head</div><div class="rh-cmp-empty-s">Add at least two players above to line up every advanced metric side by side. The leader in each stat is highlighted.</div></div>`;
-    } else {
-      body = cmpTableHtml(players, cols);
-    }
     return `<div class="rh-cmp">
       <div class="rh-cmp-top"><span class="rh-cmp-cap">Head-to-head · ${AS.pos} · ${AS.season === 'all' ? 'All seasons' : AS.season}</span>${clearBtn}</div>
-      ${slots}
+      <div class="rh-cmp-slots">${slotCards}${addSlot}</div>
       ${body}
     </div>`;
   }
@@ -23511,31 +23753,36 @@ function pickYear(year) {
   function cmpTableHtml(players, cols) {
     const groups = [];
     cols.forEach(c => { const last = groups[groups.length - 1]; if (last && last.key === c.group) last.cols.push(c); else groups.push({ key: c.group, cols: [c] }); });
-    const headCols = players.map(p => `<th class="rh-cmp-ph"><span class="rh-cmp-ph-in">${avatar(p, 'rh-cmp-ph-av')}<span class="rh-cmp-ph-name">${esc(p.name.split(' ').slice(-1)[0])}</span><span class="rh-cmp-ph-team">${esc(p.team)}</span></span></th>`).join('');
+    const headCols = players.map(p => `<th class="rh-cmp-ph"><span class="rh-cmp-ph-in">${avatar(p, 'rh-cmp-ph-av')}<span class="rh-cmp-ph-txt"><span class="rh-cmp-ph-name">${esc(p.name.split(' ').slice(-1)[0])}</span><span class="rh-cmp-ph-team">${esc(p.team)}</span></span></span></th>`).join('');
     let rowsHtml = '';
+    const wins = players.map(() => 0);
+    let statTotal = 0;
     groups.forEach(g => {
       // only show metrics at least one player has a value for (keeps NGS rows
       // from filling the table with em-dashes when that feed isn't in yet)
       const liveCols = g.cols.filter(c => players.some(p => p[c.key] != null && isFinite(p[c.key])));
       if (!liveCols.length) return;
-      rowsHtml += `<tr class="rh-cmp-grouprow"><td colspan="${players.length + 1}">${GROUP_LABEL[g.key] || ''}</td></tr>`;
+      rowsHtml += `<tr class="rh-cmp-grouprow"><td colspan="${players.length + 1}"><span class="tick"></span>${GROUP_LABEL[g.key] || ''}</td></tr>`;
       liveCols.forEach(c => {
         const vals = players.map(p => p[c.key]);
         const valid = vals.filter(v => v != null && isFinite(v));
         const lo = !!c.lo;
         let best = null;
         if (valid.length) best = lo ? Math.min.apply(null, valid) : Math.max.apply(null, valid);
+        const contested = valid.length > 1 && valid.some(x => x !== best);
+        if (contested) statTotal++;
         const maxAbs = Math.max.apply(null, valid.map(v => Math.abs(v)).concat([1]));
         const cells = players.map((p, idx) => {
           const v = vals[idx];
-          const isWin = v != null && isFinite(v) && best != null && v === best && valid.length > 1 && valid.some(x => x !== best);
-          const pct = (v != null && isFinite(v)) ? Math.max(2, Math.abs(v) / maxAbs * 100) : 0;
-          return `<td class="rh-cmp-cell${isWin ? ' win' : ''}"><span class="rh-cmp-bar" style="width:${pct}%"></span><span class="rh-cmp-v">${esc(c.fmt(v))}</span>${isWin ? '<span class="rh-cmp-crown">▲</span>' : ''}</td>`;
+          const isWin = v != null && isFinite(v) && best != null && v === best && contested;
+          if (isWin) wins[idx]++;
+          const pct = (v != null && isFinite(v)) ? Math.max(4, Math.abs(v) / maxAbs * 100) : 0;
+          return `<td class="rh-cmp-cell${isWin ? ' win' : ''}"><span class="rh-cmp-v">${esc(c.fmt(v))}${isWin ? '<span class="rh-cmp-crown">▲</span>' : ''}</span><span class="rh-cmp-track"><span class="rh-cmp-bar" style="width:${pct}%"></span></span></td>`;
         }).join('');
         rowsHtml += `<tr class="rh-cmp-row"><td class="rh-cmp-metric" title="${esc(c.hint)}">${esc(c.label)}<small>${esc(c.hint)}</small></td>${cells}</tr>`;
       });
     });
-    return `<div class="rh-cmp-tablewrap"><table class="rh-cmp-table"><thead><tr><th class="rh-cmp-mh">Metric</th>${headCols}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+    return { html: `<div class="rh-cmp-tablewrap"><table class="rh-cmp-table"><thead><tr><th class="rh-cmp-mh">Metric</th>${headCols}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`, wins, statTotal };
   }
 
   function cmpRenderAc() {
@@ -23546,6 +23793,80 @@ function pickYear(year) {
     if (CMP.players.length || AS.loading) return;
     const top = asPosRows().filter(D.QUALIFY[AS.pos]).sort((a, b) => (b.fpts || 0) - (a.fpts || 0));
     CMP.players = top.slice(0, 2).map(p => p.name);
+  }
+
+  /* ════════════════════ ASK THE DATA (local query box) ════════════════════
+     Parses plain-English questions ("most yac among rookies", "lowest bust
+     rate top 10 rbs", "best ypc under 25") against the rows already in
+     memory. Pure client-side — no API, no key. */
+  const ASK = { q: '', out: '' };
+  const ASK_STOP = new Set(['the','a','an','most','highest','least','lowest','fewest','top','bottom','best','worst','among','for','with','of','in','on','and','or','who','has','had','have','what','which','show','me','players','player','under','over','than','younger','older','by','this','season','all','stats','stat','rate','per','qb','qbs','rb','rbs','wr','wrs','te','tes','quarterback','quarterbacks','receiver','receivers','back','backs','end','ends','wide','running','tight']);
+
+  function askAnswerHtml(qRaw) {
+    const ql = qRaw.toLowerCase();
+    if (AS.loading || !AS.rows.length) return '<div class="rh-ask-note">Data is still loading — try again in a second.</div>';
+    // position (defaults to the active filter)
+    let pos = AS.pos;
+    const pm = ql.match(/\b(qbs?|quarterbacks?|rbs?|running ?backs?|wrs?|wide ?receivers?|receivers?|tes?|tight ?ends?)\b/);
+    if (pm) { const w = pm[1]; pos = (w[0] === 'q' || w.startsWith('quarter')) ? 'QB' : (w.startsWith('rb') || w.startsWith('running')) ? 'RB' : (w.startsWith('te') || w.startsWith('tight')) ? 'TE' : 'WR'; }
+    let rows = AS.rows.filter(r => r.pos === pos);
+    // age filters
+    let m = ql.match(/\b(?:under|younger than|below)\s+(\d{2})\b/); if (m) rows = rows.filter(r => r.age != null && r.age < +m[1]);
+    m = ql.match(/\b(?:over|older than|above)\s+(\d{2})\b/); if (m) rows = rows.filter(r => r.age != null && r.age > +m[1]);
+    // team: uppercase 2-3 letter tokens in the original question (KC, DET…)
+    const teamToks = (qRaw.match(/\b[A-Z]{2,3}\b/g) || []).filter(t => !['QB','RB','WR','TE'].includes(t));
+    if (teamToks.length) { const ts = new Set(teamToks); const f = rows.filter(r => ts.has((r.team || '').toUpperCase())); if (f.length) rows = f; }
+    // direction + count
+    const asc = /\b(lowest|least|fewest|worst|bottom)\b/.test(ql);
+    m = ql.match(/\b(?:top|first|bottom)\s+(\d{1,2})\b/); const n = m ? Math.min(25, +m[1]) : 5;
+    // metric: score columns by token overlap on label + hint + key
+    const cols = (D.COLS[pos] || []).filter(c => typeof c.fmt === 'function');
+    const toks = ql.split(/[^a-z0-9%\/]+/).filter(t => t.length >= 2 && !ASK_STOP.has(t));
+    let col = null, bestScore = 0;
+    cols.forEach(c => {
+      const label = (c.label || '').toLowerCase(), text = label + ' ' + (c.hint || '').toLowerCase() + ' ' + (c.key || '').toLowerCase();
+      let s = 0; toks.forEach(t => { if (text.includes(t)) s += t.length; });
+      if (label && ql.includes(label)) s += 8;
+      if (s > bestScore) { bestScore = s; col = c; }
+    });
+    if (!col) col = cols.find(c => c.key === 'fpts') || cols[0];
+    if (!col) return '<div class="rh-ask-note">Couldn’t match that to a stat — try naming a column, like "yac" or "target share".</div>';
+    // rate stats get the qualified floor so 1-game wonders don't top the list
+    const isRate = col.group === 'eff' || /\b(rate|per|%|avg|average|share)\b/.test(((col.label || '') + ' ' + (col.hint || '')).toLowerCase());
+    let pool = rows.filter(r => r[col.key] != null && isFinite(r[col.key]));
+    if (isRate && D.QUALIFY[pos]) pool = pool.filter(D.QUALIFY[pos]);
+    const wantLow = asc || (!!col.lo && !/\b(most|highest|top)\b/.test(ql));
+    pool = pool.slice().sort((a, b) => wantLow ? a[col.key] - b[col.key] : b[col.key] - a[col.key]);
+    const picks = pool.slice(0, n);
+    if (!picks.length) return '<div class="rh-ask-note">No ' + esc(pos) + 's matched those filters for ' + esc(String(AS.season)) + '.</div>';
+    const items = picks.map((r, i) => `
+      <button class="rh-ask-row" onclick="openPlayerProfile('${esc(r.name).replace(/'/g, "\\'")}','','${esc(r.pos)}','${esc(r.team || '')}')">
+        <span class="rh-ask-rank">${i + 1}</span>
+        ${avatar(r, 'rh-ask-av')}
+        <span class="rh-ask-id"><span class="nm">${esc(r.name)}</span><span class="mt">${esc(r.team || 'FA')}${r.age != null ? ' · ' + r.age.toFixed(0) + 'y' : ''} · ${r1(r.fppg)} FP/G</span></span>
+        <span class="rh-ask-val">${esc(col.fmt(r[col.key]))}<small>${esc(col.label)}</small></span>
+      </button>`).join('');
+    const cap = (wantLow ? 'Lowest' : 'Top') + ' ' + picks.length + ' · ' + esc(col.label) + (col.hint ? ' — ' + esc(col.hint) : '') + ' · ' + esc(pos) + ' · ' + esc(AS.season === 'all' ? 'All seasons' : String(AS.season)) + (isRate ? ' · qualified' : '');
+    return '<div class="rh-ask-cap">' + cap + '</div><div class="rh-ask-list">' + items + '</div>';
+  }
+
+  function askRun() {
+    const out = document.getElementById('rh-ask-out');
+    const q = (ASK.q || '').trim();
+    ASK.out = q ? askAnswerHtml(q) : '';
+    if (out) out.innerHTML = ASK.out;
+  }
+
+  function askHtml() {
+    return `
+      <div class="rh-ask">
+        <div class="rh-ask-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+          <input id="rh-ask-input" placeholder='Ask the data — try "most yac among wrs" or "lowest bust rate top 10 rbs"' value="${esc(ASK.q)}" autocomplete="off" spellcheck="false">
+          <button class="rh-ask-go" data-rh-ask>Ask</button>
+        </div>
+        <div id="rh-ask-out">${ASK.out || ''}</div>
+      </div>`;
   }
 
   /* ════════════════════════ GAME LOGS ════════════════════════ */
@@ -23708,6 +24029,7 @@ function pickYear(year) {
       const cmpAdd = e.target.closest('[data-rh-cmpadd]'); if (cmpAdd) { const n = cmpAdd.dataset.rhCmpadd; if (CMP.players.indexOf(n) < 0 && CMP.players.length < 3) CMP.players.push(n); CMP.search = ''; CMP.acOpen = false; asRender(); return; }
       const cmpRm = e.target.closest('[data-rh-cmpremove]'); if (cmpRm) { CMP.players = CMP.players.filter(x => x !== cmpRm.dataset.rhCmpremove); asRender(); return; }
       const cmpClr = e.target.closest('[data-rh-cmpclear]'); if (cmpClr) { CMP.players = []; CMP.search = ''; CMP.acOpen = false; asRender(); return; }
+      const ask = e.target.closest('[data-rh-ask]'); if (ask) { askRun(); return; }
       const qual = e.target.closest('[data-rh-qual]'); if (qual) { AS.qualified = !AS.qualified; asRender(); return; }
       const clr = e.target.closest('[data-rh-clear]'); if (clr) { AS.search = ''; asRender(); return; }
       const sort = e.target.closest('[data-rh-sort]'); if (sort) { const k = sort.dataset.rhSort; if (AS.sortKey === k) AS.sortDir = AS.sortDir === 'desc' ? 'asc' : 'desc'; else { AS.sortKey = k; AS.sortDir = 'desc'; } asRender(); return; }
@@ -23743,6 +24065,10 @@ function pickYear(year) {
     if (e.target.id === 'rh-adv-search') { AS.search = e.target.value; AS._focus = true; asRenderSearchOnly(); }
     if (e.target.id === 'rh-cmp-search') { CMP.search = e.target.value; CMP.acOpen = true; cmpRenderAc(); }
     if (e.target.id === 'rh-gl-search') { GL.acQuery = e.target.value; GL.acOpen = true; glRenderAc(); }
+    if (e.target.id === 'rh-ask-input') { ASK.q = e.target.value; }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.id === 'rh-ask-input' && e.key === 'Enter') { askRun(); }
   });
   document.addEventListener('change', e => {
     if (e.target.id === 'rh-gl-opp') { GL.opp = e.target.value; glRenderBody(); }
@@ -23768,7 +24094,7 @@ function pickYear(year) {
     const S = '.rh-scope';
     const css = `
     ${S}{--faint:color-mix(in srgb,var(--muted) 72%,transparent);--rh-border3:var(--border3,rgba(255,255,255,.22))}
-    ${S} .rh-wrap{max-width:1280px;margin:0 auto;padding:26px 24px 90px}
+    ${S} .rh-wrap{max-width:1760px;margin:0 auto;padding:26px 24px 90px}
     ${S} .rh-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
     ${S} .rh-title{font-size:clamp(26px,3vw,32px);font-weight:800;letter-spacing:-.035em;line-height:1;font-family:var(--font-sans)}
     ${S} .rh-rule{width:38px;height:3px;background:var(--accent);border-radius:2px;margin:11px 0 9px}
@@ -23894,27 +24220,57 @@ function pickYear(year) {
     ${S} .rh-compare-slot.ghost{opacity:.5}
     ${S} .rh-foot{text-align:center;font-size:var(--t-label);color:var(--faint);margin-top:24px;font-family:var(--font-sans)}
     /* Compare */
+    ${S} .rh-ask{margin-bottom:16px}
+    ${S} .rh-ask-bar{display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:4px 5px 4px 14px;transition:border-color .15s}
+    ${S} .rh-ask-bar:focus-within{border-color:var(--rh-border3)}
+    ${S} .rh-ask-bar>svg{width:16px;height:16px;color:var(--sky);flex-shrink:0}
+    ${S} .rh-ask-bar input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--text);font-size:var(--t-secondary);font-family:var(--font-sans);padding:9px 0}
+    ${S} .rh-ask-go{border:none;background:var(--s3);color:var(--text);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:700;padding:8px 18px;border-radius:9px;cursor:pointer;transition:background .15s,transform .12s}
+    ${S} .rh-ask-go:hover{background:var(--s4)}
+    ${S} .rh-ask-go:active{transform:scale(.97)}
+    ${S} .rh-ask-cap{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:12px 2px 8px}
+    ${S} .rh-ask-list{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    ${S} .rh-ask-row{display:flex;align-items:center;gap:12px;width:100%;border:none;background:transparent;color:var(--text);padding:10px 14px;cursor:pointer;text-align:left;border-bottom:1px solid rgba(255,255,255,.045);transition:background .1s}
+    ${S} .rh-ask-row:last-child{border-bottom:none}
+    ${S} .rh-ask-row:hover{background:rgba(255,255,255,.03)}
+    ${S} .rh-ask-rank{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;color:var(--faint);width:18px;text-align:right;flex-shrink:0}
+    ${S} .rh-ask-av{width:34px;height:34px;border-radius:9px;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-size:var(--t-micro);flex-shrink:0}
+    ${S} .rh-ask-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    ${S} .rh-ask-id .nm{font-size:var(--t-secondary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-sans)}
+    ${S} .rh-ask-id .mt{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted)}
+    ${S} .rh-ask-val{font-family:var(--font-mono);font-size:var(--t-body);font-weight:700;color:var(--rb);text-align:right;flex-shrink:0}
+    ${S} .rh-ask-val small{display:block;font-size:var(--t-nano);color:var(--faint);font-weight:500;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+    ${S} .rh-ask-note{padding:14px 16px;background:var(--s1);border:1px dashed var(--border2);border-radius:12px;color:var(--muted);font-size:var(--t-secondary);margin-top:12px;font-family:var(--font-sans)}
+    ${S} .rh-cmp{max-width:1160px;margin:0 auto;animation:rhCmpIn .15s ease-out}
+    @keyframes rhCmpIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @media(prefers-reduced-motion:reduce){${S} .rh-cmp{animation:none}}
     ${S} .rh-cmp-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
     ${S} .rh-cmp-cap{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
-    ${S} .rh-cmp-clear{border:1px solid var(--border);background:var(--s1);color:var(--text2);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;padding:7px 13px;border-radius:9px;cursor:pointer}
+    ${S} .rh-cmp-clear{border:1px solid var(--border);background:var(--s1);color:var(--text2);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;padding:7px 13px;border-radius:9px;cursor:pointer;transition:border-color .15s,color .15s,transform .12s}
     ${S} .rh-cmp-clear:hover{border-color:var(--rh-border3);color:var(--text)}
+    ${S} .rh-cmp-clear:active{transform:scale(.97)}
     ${S} .rh-cmp-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
-    ${S} .rh-cmp-slot{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;text-align:center}
-    ${S} .rh-cmp-slot.filled{border-top:3px solid var(--pc)}
-    ${S} .rh-cmp-slot.add{border-style:dashed;gap:10px}
-    ${S} .rh-cmp-x{position:absolute;top:9px;right:9px;width:22px;height:22px;border-radius:7px;border:none;background:var(--s3);color:var(--muted);cursor:pointer;font-size:var(--t-body);line-height:1;z-index:5}
+    ${S} .rh-cmp-slot{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-height:86px;display:flex;align-items:center;gap:13px;position:relative;transition:border-color .15s}
+    ${S} .rh-cmp-slot.filled{border-left:3px solid var(--pc);box-shadow:inset 12px 0 24px -18px var(--pc)}
+    ${S} .rh-cmp-slot.filled:hover{border-color:var(--rh-border3);border-left-color:var(--pc)}
+    ${S} .rh-cmp-slot.add{border-style:dashed;flex-direction:column;align-items:stretch;justify-content:center;gap:8px}
+    ${S} .rh-cmp-x{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:7px;border:none;background:var(--s3);color:var(--muted);cursor:pointer;font-size:var(--t-body);line-height:1;z-index:5;opacity:0;transition:opacity .12s,background .12s,color .12s}
+    ${S} .rh-cmp-slot:hover .rh-cmp-x{opacity:1}
     ${S} .rh-cmp-x:hover{background:var(--accent);color:#fff}
-    ${S} .rh-cmp-av{width:54px;height:54px;border-radius:13px;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-size:var(--t-body)}
-    ${S} .rh-cmp-sname{font-family:var(--font-sans);font-size:var(--t-body);font-weight:700;letter-spacing:-.01em;line-height:1.1}
+    ${S} .rh-cmp-av{width:52px;height:52px;border-radius:12px;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-size:var(--t-body);flex-shrink:0}
+    ${S} .rh-cmp-sid{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+    ${S} .rh-cmp-sname{font-family:var(--font-sans);font-size:var(--t-body);font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     ${S} .rh-cmp-smeta{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:var(--t-label);color:var(--muted)}
-    ${S} .rh-cmp-spts{font-family:var(--font-mono);font-size:var(--t-h1);font-weight:700;color:var(--text);margin-top:2px}
-    ${S} .rh-cmp-spts small{display:block;font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-top:2px}
-    ${S} .rh-cmp-search{position:relative;width:100%;display:flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+    ${S} .rh-cmp-swins{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+    ${S} .rh-cmp-swins.lead{color:var(--rb);font-weight:700}
+    ${S} .rh-cmp-spts{font-family:var(--font-mono);font-size:var(--t-h2);font-weight:700;color:var(--text);text-align:right;flex-shrink:0}
+    ${S} .rh-cmp-spts small{display:block;font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-top:3px}
+    ${S} .rh-cmp-search{position:relative;width:100%;display:flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;transition:border-color .15s}
     ${S} .rh-cmp-search:focus-within{border-color:var(--rh-border3)}
     ${S} .rh-cmp-search svg{width:15px;height:15px;color:var(--muted);flex-shrink:0}
     ${S} .rh-cmp-search input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--text);font-size:var(--t-secondary);font-family:var(--font-sans)}
     ${S} .rh-cmp-search .rh-ac{top:calc(100% + 7px)}
-    ${S} .rh-cmp-addhint{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--faint)}
+    ${S} .rh-cmp-addhint{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--faint);text-align:center}
     ${S} .rh-cmp-empty{padding:54px 24px;text-align:center;background:var(--s1);border:1px dashed var(--border2);border-radius:16px;display:flex;flex-direction:column;align-items:center;gap:8px}
     ${S} .rh-cmp-empty-ic{font-size:30px;color:var(--sky)}
     ${S} .rh-cmp-empty-t{font-size:var(--t-h2);font-weight:700;font-family:var(--font-sans)}
@@ -23922,24 +24278,29 @@ function pickYear(year) {
     ${S} .rh-cmp-tablewrap{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--s1)}
     ${S} .rh-cmp-table{width:100%;border-collapse:separate;border-spacing:0;font-family:var(--font-sans)}
     ${S} .rh-cmp-table th{background:var(--s2);border-bottom:1px solid var(--border)}
-    ${S} .rh-cmp-mh{text-align:left;padding:12px 16px;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:600;width:30%}
-    ${S} .rh-cmp-ph{padding:12px 14px;vertical-align:bottom}
-    ${S} .rh-cmp-ph-in{display:flex;flex-direction:column;align-items:center;gap:5px}
-    ${S} .rh-cmp-ph-av{width:40px;height:40px;border-radius:10px;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-size:var(--t-secondary)}
-    ${S} .rh-cmp-ph-name{font-size:var(--t-secondary);font-weight:700;letter-spacing:-.01em}
+    ${S} .rh-cmp-mh{text-align:left;padding:14px 16px;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:600;width:26%}
+    ${S} .rh-cmp-ph{padding:11px 14px}
+    ${S} .rh-cmp-ph-in{display:flex;align-items:center;justify-content:center;gap:10px}
+    ${S} .rh-cmp-ph-av{width:38px;height:38px;border-radius:10px;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-size:var(--t-secondary);flex-shrink:0}
+    ${S} .rh-cmp-ph-txt{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+    ${S} .rh-cmp-ph-name{font-size:var(--t-secondary);font-weight:700;letter-spacing:-.01em;line-height:1}
     ${S} .rh-cmp-ph-team{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted)}
-    ${S} .rh-cmp-grouprow td{padding:9px 16px;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.14em;text-transform:uppercase;color:var(--sky);font-weight:700;background:rgba(77,134,240,.05);border-bottom:1px solid var(--border)}
+    ${S} .rh-cmp-grouprow td{padding:10px 16px 8px;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.14em;text-transform:uppercase;color:var(--text2);font-weight:700;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)}
+    ${S} .rh-cmp-grouprow .tick{display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--accent);margin-right:9px;vertical-align:-1px}
     ${S} .rh-cmp-row td{border-bottom:1px solid rgba(255,255,255,.045)}
+    ${S} .rh-cmp-row{transition:background .1s}
+    ${S} .rh-cmp-row:hover td{background:rgba(255,255,255,.025)}
     ${S} .rh-cmp-row:last-child td{border-bottom:none}
-    ${S} .rh-cmp-metric{padding:0 16px;height:46px;font-size:var(--t-secondary);font-weight:600;color:var(--text2)}
+    ${S} .rh-cmp-metric{padding:0 16px;height:48px;font-size:var(--t-secondary);font-weight:600;color:var(--text2)}
     ${S} .rh-cmp-metric small{display:block;font-family:var(--font-mono);font-weight:400;font-size:var(--t-micro);color:var(--faint);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
-    ${S} .rh-cmp-cell{position:relative;text-align:center;height:46px;font-family:var(--font-mono);font-size:var(--t-body);color:var(--text2);overflow:hidden}
-    ${S} .rh-cmp-bar{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);height:3px;background:var(--border3);border-radius:2px;max-width:80%;transition:width .35s ease}
-    ${S} .rh-cmp-v{position:relative;z-index:2}
-    ${S} .rh-cmp-cell.win{color:var(--rb);font-weight:700;background:rgba(61,204,122,.08)}
-    ${S} .rh-cmp-cell.win .rh-cmp-bar{background:var(--rb);box-shadow:0 0 8px -1px var(--rb)}
-    ${S} .rh-cmp-crown{position:absolute;top:7px;right:10px;font-size:var(--t-nano);color:var(--rb);z-index:2}
-    @media(max-width:760px){${S} .rh-cmp-slots{grid-template-columns:1fr}${S} .rh-cmp-mh{width:34%}${S} .rh-cmp-metric small{display:none}}
+    ${S} .rh-cmp-cell{position:relative;text-align:center;height:48px;font-family:var(--font-mono);font-size:var(--t-body);color:var(--text2);padding:7px 18px 0}
+    ${S} .rh-cmp-v{display:inline-flex;align-items:center;gap:6px;position:relative;z-index:2;font-variant-numeric:tabular-nums}
+    ${S} .rh-cmp-track{display:block;height:3px;border-radius:2px;background:rgba(255,255,255,.05);margin:5px auto 0;max-width:150px;overflow:hidden}
+    ${S} .rh-cmp-bar{display:block;height:100%;background:var(--border3);border-radius:2px;transition:width .25s ease}
+    ${S} .rh-cmp-cell.win{color:var(--rb);font-weight:700;background:rgba(61,204,122,.06)}
+    ${S} .rh-cmp-cell.win .rh-cmp-bar{background:var(--rb)}
+    ${S} .rh-cmp-crown{font-size:var(--t-nano);color:var(--rb)}
+    @media(max-width:760px){${S} .rh-cmp-slots{grid-template-columns:1fr}${S} .rh-cmp-mh{width:34%}${S} .rh-cmp-metric small{display:none}${S} .rh-cmp-cell{padding:7px 8px 0}${S} .rh-cmp-x{opacity:1}${S} .rh-cmp-ph-txt{display:none}}
     /* Game Logs */
     ${S} .gl-season{align-self:flex-start}
     ${S} .rh-glsearch{flex:none;margin-bottom:18px;padding:14px 16px;gap:11px}
@@ -28169,7 +28530,10 @@ body .page,body .page.on{background:transparent!important}
   function injectStyles(){
     if($('mo-styles')) return;
     var css=''
-    +'#page-matchup-overview .mo-page{max-width:1120px;margin:0 auto;padding:26px 22px 60px}'
+    +'.pf-tabs{display:inline-flex;background:var(--s2);border:1.5px solid var(--border2);border-radius:11px;padding:3px;gap:2px;margin-bottom:20px}'
+    +'.pf-tabs .pf-tab{padding:8px 18px;border:none;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:600;border-radius:8px;cursor:pointer;transition:background .15s,color .15s,transform .12s}'
+    +'.pf-tabs .pf-tab.on{background:var(--s4);color:var(--text)}'
+    +'.pf-tabs .pf-tab:active{transform:scale(.97)}'
     +'.mo-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:6px}'
     +'.mo-wk{flex-shrink:0;width:52px;height:52px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,rgba(123,208,255,.22),rgba(77,134,240,.14));border:1px solid rgba(123,208,255,.3)}'
     +'.mo-wk b{font-family:var(--font-mono);font-size:19px;font-weight:700;line-height:1;color:#bfe6ff}'
@@ -28212,7 +28576,7 @@ body .page,body .page.on{background:transparent!important}
     +'.mo-rope-l .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;white-space:nowrap}'
     +'.mo-rope-l .pm{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent2);white-space:nowrap}'
     +'.mo-rope{position:relative;height:16px;border-radius:99px;overflow:hidden;display:flex;background:#1b2740;border:1px solid rgba(123,170,240,.17);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}'
-    +'.mo-rope .me{height:100%;background:linear-gradient(90deg,#2f63c4 0%,#4a8be6 58%,#7bd0ff 100%)}'
+    +'.mo-rope .me{height:100%;background:linear-gradient(90deg,var(--accent) 0%,var(--accent2) 100%)}'
     +'.mo-rope .opp{height:100%;background:linear-gradient(90deg,#e8657e,#b6405a)}'
     +'.mo-rope::after{content:"";position:absolute;inset:0;border-radius:99px;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 48%)}'
     +'.mo-rope .knot{position:absolute;top:50%;width:4px;height:26px;border-radius:3px;background:#eaf2fc;transform:translate(-50%,-50%);box-shadow:0 0 0 3px rgba(7,13,24,.7);z-index:3}'
@@ -28228,23 +28592,18 @@ body .page,body .page.on{background:transparent!important}
     var st=document.createElement('style'); st.id='mo-styles'; st.textContent=css; document.head.appendChild(st);
   }
 
-  function injectPage(){
-    if($('page-matchup-overview')) return;
-    var anchor=$('page-portfolio')||document.querySelector('.page'); if(!anchor) return;
-    var page=document.createElement('div');
-    page.className='page'; page.id='page-matchup-overview'; page.style.overflowY='auto';
-    page.innerHTML=''
-      +'<div class="mo-page">'
-        +'<div class="mo-head">'
-          +'<span class="mo-wk"><b id="mo-wk-n">—</b><i>WEEK</i></span>'
-          +'<div><div class="mo-title">Matchup Overview</div><div class="mo-sub" id="mo-sub">Loading your week…</div></div>'
-          +'<div class="mo-agg" id="mo-agg"></div>'
-        +'</div>'
-        +'<div class="mo-rule"></div>'
-        +'<div class="mo-rows" id="mo-rows"></div>'
-      +'</div>';
-    anchor.parentNode.appendChild(page);
-  }
+  /* This Week now lives inside #page-portfolio as a tab (static markup in
+     #pf-week). pfSetTab flips Standings ⇄ This Week and lazy-loads matchups. */
+  window.pfSetTab=function(t){
+    var week=(t==='week');
+    var v2=$('portfolio-v2'), wk=$('pf-week'), classic=$('portfolio-classic');
+    if(v2) v2.style.display=week?'none':'';
+    if(wk) wk.style.display=week?'':'none';
+    if(classic) classic.style.display='none';
+    document.querySelectorAll('#pf-tabs .pf-tab').forEach(function(b){ b.classList.toggle('on', (b.dataset.pftab==='week')===week); });
+    window._pfTab=t;
+    if(week) moLoad(false);
+  };
 
   function injectNavDropdown(){
     var navBtn=$('nb-portfolio');
@@ -28294,12 +28653,15 @@ body .page,body .page.on{background:transparent!important}
     if(typeof orig!=='function') return false;
     if(_moHooked) return true; _moHooked=true;
     window.showPage=function(p){
-      orig.apply(this, arguments);
-      var onPf=(p==='portfolio'||p==='matchup-overview');
+      // Matchup Overview merged into Portfolio: old destination → This Week tab
+      var toWeek=(p==='matchup-overview');
+      orig.call(this, toWeek?'portfolio':p);
+      var onPf=(p==='portfolio'||toWeek);
       $('nb-portfolio') && $('nb-portfolio').classList.toggle('on', onPf);
-      $('sl-portfolio') && $('sl-portfolio').classList.toggle('active', p==='portfolio');
-      $('sl-matchup-overview') && $('sl-matchup-overview').classList.toggle('active', p==='matchup-overview');
-      if(p==='matchup-overview'){ injectPage(); moLoad(false); }
+      $('sl-portfolio') && $('sl-portfolio').classList.toggle('active', onPf);
+      $('sl-matchup-overview') && $('sl-matchup-overview').classList.toggle('active', toWeek);
+      if(toWeek) window.pfSetTab('week');
+      else if(p==='portfolio') window.pfSetTab(window._pfTab||'standings');
     };
     return true;
   }
@@ -28309,7 +28671,7 @@ body .page,body .page.on{background:transparent!important}
   window.moRefreshMatchups=function(){ moLoad(true); };
 
   function boot(){
-    injectStyles(); injectPage(); injectNavDropdown();
+    injectStyles(); injectNavDropdown();
     var tries=0; var t=setInterval(function(){ if(hookShowPage()||++tries>40) clearInterval(t); }, 100);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
