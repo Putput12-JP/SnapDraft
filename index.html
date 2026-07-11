@@ -550,19 +550,19 @@ header{
 #page-draft .dv-factor-key .dfk-scale{font-size:9.5px;color:var(--dim);letter-spacing:.04em}
 #page-draft .dv-factor-key .dfk-scale-item{margin-left:auto;cursor:help}
 #page-draft .dv-factor-key .dfk-item{position:relative;cursor:help}
-/* hover popover with the full calculation */
-#page-draft .dfk-pop{position:absolute;top:calc(100% + 9px);left:0;width:320px;max-width:78vw;z-index:120;
+/* hover popover with the full calculation — shared by the draft key + My Rankings legend */
+.dfk-pop{position:absolute;top:calc(100% + 9px);left:0;width:320px;max-width:78vw;z-index:120;
   background:var(--s2);border:1px solid var(--border3);border-radius:12px;padding:12px 13px;
   box-shadow:0 18px 44px -14px rgba(4,9,20,.85),0 1px 0 rgba(255,255,255,.05) inset;
   font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--text2);letter-spacing:0;text-transform:none;
   opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .14s var(--ease-out),transform .14s var(--ease-out)}
 #page-draft .dfk-scale-item .dfk-pop{left:auto;right:0}
 #page-draft .dfk-item:hover .dfk-pop,#page-draft .dfk-item:focus-within .dfk-pop{opacity:1;transform:translateY(0)}
-#page-draft .dfk-pop::after{content:'';position:absolute;bottom:100%;left:20px;border:6px solid transparent;border-bottom-color:var(--border3)}
+.dfk-pop::after{content:'';position:absolute;bottom:100%;left:20px;border:6px solid transparent;border-bottom-color:var(--border3)}
 #page-draft .dfk-scale-item .dfk-pop::after{left:auto;right:20px}
-#page-draft .dfk-pop .dfk-pop-h{display:block;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text);margin-bottom:6px}
-#page-draft .dfk-pop b{color:var(--text);font-weight:700}
-#page-draft .dfk-pop .dfk-pop-s{display:block;margin-top:8px;padding-top:7px;border-top:1px solid var(--border);font-family:var(--font-mono);font-size:9.5px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+.dfk-pop .dfk-pop-h{display:block;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text);margin-bottom:6px}
+.dfk-pop b{color:var(--text);font-weight:700}
+.dfk-pop .dfk-pop-s{display:block;margin-top:8px;padding-top:7px;border-top:1px solid var(--border);font-family:var(--font-mono);font-size:9.5px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
 @media(max-width:700px){#page-draft .dv-factor-key{display:none}}
 .plist-thead th{
   font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;
@@ -4992,15 +4992,15 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     <div class="dv-factor-key" id="dv-factor-key">
       <span class="dfk-title">Grade keys</span>
       <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--te)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg><b>Upside</b><i>ceiling / boom weeks</i>
-        <span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--te)">Upside · ceiling</span>Blends last season's <b>boom-game rate</b> (weeks hitting the position's boom line — QB 24, RB/WR 20, TE 15 pts), the player's <b>weekly ceiling</b> (85th-percentile game, ranked within position), and per-game scoring. Ascending youth (≤2 seasons) and a rising market add a small bump; rookies with no data are estimated from draft capital.<span class="dfk-pop-s">0–10 · higher = bigger ceiling</span></span></span>
+        <span class="dfk-pop" id="dfk-pop-upside"><span class="dfk-pop-h" style="color:var(--te)">Upside · ceiling</span>Blends last season's <b>boom-game rate</b> (weeks hitting the position's boom line — QB 24, RB/WR 20, TE 15 pts), the player's <b>weekly ceiling</b> (85th-percentile game, ranked within position), and per-game scoring. Ascending youth (≤2 seasons) and a rising market add a small bump; rookies with no data are estimated from draft capital. <b>Dynasty boards</b> credit youth more (multi-year runway) and trim ceiling for age.<span class="dfk-pop-s">0–10 · higher = bigger ceiling</span></span></span>
       <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--rb)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg><b>Floor</b><i>weekly safety</i>
-        <span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--rb)">Floor · weekly safety</span>Rewards a <b>low bust-game rate</b> (weeks under the position's bust line), a strong <b>weekly floor</b> (20th-percentile game vs position), and <b>availability</b> (games played ÷ 17). Proven, high-volume players score highest.<span class="dfk-pop-s">0–10 · higher = safer week to week</span></span></span>
+        <span class="dfk-pop" id="dfk-pop-floor"><span class="dfk-pop-h" style="color:var(--rb)">Floor · weekly safety</span>Rewards a <b>low bust-game rate</b> (weeks under the position's bust line), a strong <b>weekly floor</b> (20th-percentile game vs position), and <b>availability</b> (games played ÷ 17). Proven, high-volume players score highest.<span class="dfk-pop-s">0–10 · higher = safer week to week</span></span></span>
       <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--red)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg><b>Risk</b><i>injury · volatility <em>(lower = safer)</em></i>
-        <span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--red)">Risk · downside</span>Adds risk for <b>games missed</b> last year (durability), week-to-week <b>volatility</b> (bust rate), <b>age cliffs</b> (RB ≥27 · WR ≥30 · TE ≥31 · QB ≥36), and a <b>sharply falling ADP</b>. Shown 0–10 where <b>lower is safer</b> — the overall grade uses (11 − Risk).<span class="dfk-pop-s">0–10 · lower = safer</span></span></span>
+        <span class="dfk-pop" id="dfk-pop-risk"><span class="dfk-pop-h" style="color:var(--red)">Risk · downside</span>Adds risk for <b>games missed across the last 3 seasons</b> (durability — recent seasons count more, and a season missed entirely counts in full), week-to-week <b>volatility</b> (bust rate), <b>age cliffs</b> (RB ≥27 · WR ≥30 · TE ≥31 · QB ≥36), and a <b>sharply falling ADP</b>. <b>Dynasty boards</b> apply age earlier and more steeply — asset value fades before the production cliff. Shown 0–10 where <b>lower is safer</b> — the overall grade uses (11 − Risk).<span class="dfk-pop-s">0–10 · lower = safer</span></span></span>
       <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--wr)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg><b>Situational</b><i>fit to your roster</i>
-        <span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--wr)">Situational · fit to you</span>Combines your <b>roster need</b> (open starter slots, blended with positional scarcity), league <b>scoring</b> (PPR lifts pass-catchers), and the player's <b>team-offense strength</b>. Recalculates every pick as your roster fills — so the same player scores differently for different teams.<span class="dfk-pop-s">0–10 · higher = better fit right now</span></span></span>
+        <span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--wr)">Situational · fit to you</span>Combines your <b>roster need</b> (open starter slots, blended with positional scarcity), league <b>scoring</b> (PPR lifts pass-catchers), and the player's <b>team-offense strength</b> (weighed less on dynasty boards). Recalculates every pick as your roster fills — so the same player scores differently for different teams.<span class="dfk-pop-s">0–10 · higher = better fit right now</span></span></span>
       <span class="dfk-item dfk-scale-item" tabindex="0"><span class="dfk-scale">how the grade adds up ⓘ</span>
-        <span class="dfk-pop"><span class="dfk-pop-h">Player grade &amp; team grade</span>A player's overall grade = <b>mean(Upside, Floor, 11−Risk, Situational)</b> on a 0–10 scale. Your <b>Draft Grade</b> averages that across your best starting lineup (QB / 2RB / 2WR / TE / 2FLEX by grade, bench excluded) and maps it to 0–100 + a letter. All factors are built from last-season nflverse data (PPG · boom% · bust% · weekly floor/ceiling) plus your league's scoring and roster settings.<span class="dfk-pop-s">skill positions only · K/DST not scored</span></span></span>
+        <span class="dfk-pop"><span class="dfk-pop-h">Player grade &amp; team grade</span>A player's overall grade = <b>mean(Upside, Floor, 11−Risk, Situational)</b> on a 0–10 scale. Your <b>Draft Grade</b> averages that across your best starting lineup (QB / 2RB / 2WR / TE / 2FLEX by grade, bench excluded) and maps it to 0–100 + a letter. All factors are built from nflverse data (last-season PPG · boom% · bust% · weekly floor/ceiling, plus 3-season durability) and your league's scoring and roster settings.<span class="dfk-pop-s">skill positions only · K/DST not scored</span></span></span>
     </div>
     <table class="plist-table">
       <colgroup>
@@ -9946,6 +9946,75 @@ function paQualityAdjust(p, need){
   return out;
 }
 
+/* ── 3-season durability history ─────────────────────────────────────
+   Games missed in the two seasons BEFORE the last completed one, so the
+   Risk factor sees real injury history (e.g. CMC: healthy 2025 but 4
+   games in 2024). Fetches the prior-year nflverse archives once, keyed
+   by nflverse_meta.json so it survives season rollover. Shared by both
+   grade engines (dvComputeFactors + window.VaultGrades). */
+window.VaultDurability = (function(){
+  let _p = null, _hist = null;   // normName → [gamesLastMinus1, gamesLastMinus2]
+  function ensure(){
+    if (_p) return _p;
+    const base = (typeof NFLVERSE_BASE !== 'undefined') ? NFLVERSE_BASE : '/data';
+    _p = fetch(base + '/nflverse_meta.json').then(r => r.ok ? r.json() : null).catch(() => null)
+      .then(meta => {
+        const latest = +(meta && (meta.latest_complete_season || meta.season)) || (new Date().getFullYear() - 1);
+        return Promise.all([latest - 1, latest - 2].map(y =>
+          fetch(base + '/nflverse_stats_' + y + '.json').then(r => r.ok ? r.json() : null).catch(() => null)));
+      })
+      .then(files => {
+        _hist = {};
+        files.forEach((f, i) => {
+          if (!f) return;
+          for (const n in f){
+            const g = (f[n] && f[n].season && f[n].season.games) || 0;
+            const k = normName(n);
+            (_hist[k] = _hist[k] || [null, null])[i] = g;
+          }
+        });
+        return _hist;
+      })
+      .catch(e => { console.warn('[VaultDurability] history load failed:', e); return null; });
+    return _p;
+  }
+  // Extra risk points (0–2) for games missed in the two seasons before last,
+  // recent season weighted heavier. Absent from year-1 but present in year-2
+  // = a season missed entirely (17 games); absent from both = too new to judge.
+  function priorRisk(name){
+    if (!_hist || !name) return 0;
+    const h = _hist[normName(name)];
+    if (!h) return 0;
+    let [g1, g2] = h;
+    if (g1 == null && g2 == null) return 0;
+    if (g1 == null) g1 = 0;
+    const m1 = Math.max(0, 17 - g1);
+    const m2 = (g2 == null) ? 0 : Math.max(0, 17 - g2);
+    return Math.max(0, Math.min(2, (m1 * 0.7 + m2 * 0.4) * 0.2));
+  }
+  return { ensure, priorRisk, ready: () => !!_hist };
+})();
+
+/* Age-curve risk, shared by both grade engines. Redraft = late cliffs
+   (will he decline THIS season); dynasty = earlier + graduated (asset
+   value fades before the production cliff). Returns 0–3.2 risk points. */
+window.vaultAgeRisk = function(pos, age, dynasty){
+  if (age == null) return 0;
+  if (!dynasty){
+    if (pos==='RB' && age>=27) return age>=29 ? 2.4 : 1.4;
+    if (pos==='WR' && age>=30) return 1.6;
+    if (pos==='TE' && age>=31) return 1.5;
+    if (pos==='QB' && age>=36) return 1.6;
+    return 0;
+  }
+  const c = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  if (pos==='RB') return c((age-25)*0.8, 0, 3.2);
+  if (pos==='WR') return c((age-27)*0.55, 0, 2.4);
+  if (pos==='TE') return c((age-28)*0.5, 0, 2.2);
+  if (pos==='QB') return c((age-32)*0.5, 0, 2.2);
+  return 0;
+};
+
 /* ══════════════ 4-FACTOR DRAFT GRADES ENGINE ══════════════
    Per-player Upside / Floor / Risk / Situational, each 0-10
    (risk: higher = riskier). Composite = mean(up, fl, 11-rk, si).
@@ -9989,6 +10058,7 @@ function _dvContext(){
 function dvComputeFactors(p, needOverride){
   const pos = p && p.pos;
   if (!DVF_POS[pos]) return null;
+  if (window.VaultDurability) VaultDurability.ensure();  // 3yr injury history (0 until loaded)
   const ctx = _dvContext(); if (!ctx) return null;
   const nm = normName(p.name);
   const pr = paStatProfile(p.name);
@@ -10000,13 +10070,15 @@ function dvComputeFactors(p, needOverride){
   const tOff = ad.team ? ctx.teamOff[ad.team] : (pr && pr.team ? ctx.teamOff[pr.team] : null);
   const has = !!(pr && pr.games >= 3);
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const dyn = !!window._draftIsDynasty;
 
   // UPSIDE
   let upside;
   if (has){
     const boom01 = clamp((pr.boomPct||0)/55,0,1), ceilP=_dvPct(po.ceil,pr.ceiling), ppgP=_dvPct(po.ppg,pr.ppg);
     let u = .46*boom01 + .34*ceilP + .20*ppgP;
-    if (yoe!=null && yoe<=2) u += .06;
+    if (dyn) u += clamp((25-(age!=null?age:27))*.03, -.06, .12);  // dynasty: multi-year runway
+    else if (yoe!=null && yoe<=2) u += .06;
     if (trend > 40) u += .05;
     upside = u*10;
   } else upside = clamp(9.2 - Math.log2(Math.max(1,adp))*.95, 3, 9) + .4;
@@ -10022,13 +10094,9 @@ function dvComputeFactors(p, needOverride){
   let risk = 0;
   if (has){
     risk += clamp((17-pr.games)*.42,0,4);
+    risk += window.VaultDurability ? VaultDurability.priorRisk(p.name) : 0;  // games missed 2 seasons prior
     risk += clamp((pr.bustPct||0)/15,0,3);
-    if (age!=null){
-      if (pos==='RB' && age>=27) risk += age>=29?2.4:1.4;
-      if (pos==='WR' && age>=30) risk += 1.6;
-      if (pos==='TE' && age>=31) risk += 1.5;
-      if (pos==='QB' && age>=36) risk += 1.6;
-    }
+    risk += vaultAgeRisk(pos, age, dyn);  // age curve (dynasty: earlier + steeper)
     if (trend < -60) risk += 1.2;
     risk += .6;
   } else { risk = 5.2 - clamp((60-Math.min(60,adp))/60*1.6,0,1.6); if (yoe===0) risk += .6; }
@@ -10050,7 +10118,8 @@ function dvComputeFactors(p, needOverride){
   if (needOverride != null) rosterNeed = needOverride;
   else { try{ const n = paMyNeeds(); rosterNeed = n[pos]; }catch(e){} }
   const need = (rosterNeed!=null) ? clamp(0.55*rosterNeed + 0.45*scarcity, 0, 1) : scarcity;
-  let sit = (.34*scoreFit + .28*offPct + .38*need)*10;
+  let sit = (dyn ? .40*scoreFit + .12*offPct + .48*need    // dynasty: this-season offense matters less
+                 : .34*scoreFit + .28*offPct + .38*need)*10;
 
   upside=clamp(upside,0,10); floor=clamp(floor,0,10); sit=clamp(sit,0,10);
   const composite = Math.round(((upside + floor + (11-risk) + sit)/4)*10)/10;
@@ -20378,7 +20447,8 @@ function pickYear(year) {
 /* ════════════════════════════════════════════════════════════════════
    GRADE KEYS · 4-factor player grades (Upside / Floor / Risk / Situational)
    Engine ported from draft-grades-concept.html. Grades are 0-10 per factor;
-   Risk is inverted (lower = safer). Fed by nflverse_stats.json weekly logs;
+   Risk is inverted (lower = safer). Fed by nflverse_stats.json weekly logs
+   plus VaultDurability's prior-season archives (3-year injury history);
    players without data (rookies) fall back to a market-rank proxy.
    Exposes window.VaultGrades for My Rankings + the Draft Vault Grades view.
    ════════════════════════════════════════════════════════════════════ */
@@ -20397,7 +20467,10 @@ function pickYear(year) {
   function ensure() {
     if (_p) return _p;
     const base = (typeof NFLVERSE_BASE !== 'undefined') ? NFLVERSE_BASE : '/data';
-    _p = fetch(base + '/nflverse_stats.json').then(r => r.json()).then(stats => {
+    _p = Promise.all([
+      fetch(base + '/nflverse_stats.json').then(r => r.json()),
+      window.VaultDurability ? VaultDurability.ensure().catch(() => null) : null  // 3yr injury history
+    ]).then(([stats]) => {
       const statsMap = {};
       for (const n in stats) statsMap[_norm(n)] = stats[n];
       // team offensive strength = summed top-7 skill-position PPG, ranked to a 0-1 pct
@@ -20431,6 +20504,7 @@ function pickYear(year) {
   function computeFactors(p, pr, pool, tOff, ctx) {
     const pos = p.pos, po = pool[pos];
     const hasData = !!pr;
+    const dyn = !!ctx.dynasty;
     const trend30 = (typeof getPlayerTrend === 'function' ? Math.round(getPlayerTrend(p.name) || 0) : 0);
 
     // ---------- UPSIDE (ceiling / breakout) ----------
@@ -20438,7 +20512,8 @@ function pickYear(year) {
     if (hasData) {
       const boom01 = clamp(pr.boom / 55, 0, 1);
       let u = 0.46 * boom01 + 0.34 * pctRank(po.ceil, pr.ceil) + 0.20 * pctRank(po.ppg, pr.ppg);
-      if ((p.age || 30) <= 24) u += 0.06;            // ascending youth
+      if (dyn) u += clamp((25 - (p.age || 27)) * 0.03, -0.06, 0.12);  // dynasty: multi-year runway (youth ↑, age ↓)
+      else if ((p.age || 30) <= 24) u += 0.06;       // ascending youth
       if (trend30 > 40) u += 0.05;                   // market rising
       upside = u * 10;
     } else {
@@ -20458,12 +20533,10 @@ function pickYear(year) {
     // ---------- RISK (higher = riskier) ----------
     let risk = 0;
     if (hasData) {
-      risk += clamp((17 - pr.games) * 0.42, 0, 4);                       // durability
+      risk += clamp((17 - pr.games) * 0.42, 0, 4);                       // durability (last season)
+      risk += window.VaultDurability ? VaultDurability.priorRisk(p.name) : 0;  // games missed 2 seasons prior
       risk += clamp(pr.bust / 15, 0, 3);                                 // weekly volatility
-      if (pos === 'RB' && p.age >= 27) risk += p.age >= 29 ? 2.4 : 1.4;  // age cliffs
-      if (pos === 'WR' && p.age >= 30) risk += 1.6;
-      if (pos === 'TE' && p.age >= 31) risk += 1.5;
-      if (pos === 'QB' && p.age >= 36) risk += 1.6;
+      risk += vaultAgeRisk(pos, p.age, dyn);                             // age curve (dynasty: earlier + steeper)
       if (trend30 < -60) risk += 1.2;                                    // falling market
       risk += 0.6;                                                       // baseline uncertainty
     } else {
@@ -20482,7 +20555,9 @@ function pickYear(year) {
     const demand = (ctx.slots[pos] || 0) + (['RB', 'WR', 'TE'].includes(pos) ? ctx.slots.FLEX * 0.34 : 0);
     const startersLeague = demand * ctx.teams;
     const need = clamp(1 - ((p.posRank || 1) - 1) / (startersLeague * 1.35), 0.25, 1);
-    let sit = (0.34 * scoreFit + 0.28 * offPct + 0.38 * need + recBonus) * 10;
+    let sit = (dyn
+      ? 0.40 * scoreFit + 0.12 * offPct + 0.48 * need   // dynasty: this-season offense matters less
+      : 0.34 * scoreFit + 0.28 * offPct + 0.38 * need) * 10 + recBonus * 10;
 
     upside = clamp(upside, 0, 10); floor = clamp(floor, 0, 10); sit = clamp(sit, 0, 10);
     const composite = (upside + floor + (11 - risk) + sit) / 4;
@@ -20493,7 +20568,7 @@ function pickYear(year) {
   /* Batch: players [{name,pos,team,age,ovrRank,posRank}] → Map(normName → factors) */
   function gradesFor(players, ctx) {
     if (!_data) return null;
-    ctx = ctx || { teams: 12, ppr: true, slots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 } };
+    ctx = Object.assign({ teams: 12, ppr: true, slots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 }, dynasty: false }, ctx || {});
     const pool = { QB: { ppg: [], ceil: [], floor: [] }, RB: { ppg: [], ceil: [], floor: [] },
                    WR: { ppg: [], ceil: [], floor: [] }, TE: { ppg: [], ceil: [], floor: [] } };
     const profs = new Map();
@@ -21064,8 +21139,11 @@ function pickYear(year) {
 #P .mr-cdelta small{display:block;font-size:var(--t-nano);color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
 #P .mr-gklegend{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:10px 16px;margin-bottom:12px;background:var(--s1);border:1px solid var(--border);border-radius:10px}
 #P .mr-gklegend .gk-cap{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-#P .mr-gklegend .gk-item{display:inline-flex;align-items:center;gap:7px;font-size:var(--t-label);color:var(--muted);font-family:var(--font-mono)}
+#P .mr-gklegend .gk-item{display:inline-flex;align-items:center;gap:7px;font-size:var(--t-label);color:var(--muted);font-family:var(--font-mono);position:relative;cursor:help}
 #P .mr-gklegend .gk-item b{color:var(--text);font-weight:700}
+#P .mr-gklegend .gk-item:hover .dfk-pop,#P .mr-gklegend .gk-item:focus-within .dfk-pop{opacity:1;transform:translateY(0)}
+#P .mr-gklegend .gk-item:last-child .dfk-pop{left:auto;right:0}
+#P .mr-gklegend .gk-item:last-child .dfk-pop::after{left:auto;right:20px}
 #P .mr-gkh,#P .mr-gk{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;justify-items:center;gap:0}
 #P .mr-gkh span{display:inline-flex;align-items:center}
 #P .mr-gk span{font-family:var(--font-mono);font-weight:800;font-size:var(--t-secondary)}
@@ -21169,7 +21247,7 @@ function pickYear(year) {
         const mkt = [...rows].sort((a,b)=>(a.fcRank||9e9)-(b.fcRank||9e9))
           .map(r => ({ name:r.name, pos:r.pos, team:r.team, age:r.age,
                        ovrRank:r.fcRank||r.myRank, posRank:(pc[r.pos]=(pc[r.pos]||0)+1) }));
-        _gk = VaultGrades.gradesFor(mkt);
+        _gk = VaultGrades.gradesFor(mkt, { dynasty: format === 'dynasty' });
       } else if (window.VaultGrades) VaultGrades.ensure();
     } catch(e){}
 
@@ -21261,13 +21339,17 @@ function pickYear(year) {
         </div>`;
     } else {
       const gkIco = (n,c) => (typeof reIcon==='function' ? reIcon(n,{size:13,color:c}) : '');
+      // hover popouts: clone the draft key's calculation copy (single source of
+      // truth); Situational gets its own text — no live roster on this page
+      const gkPop = id => { const src = document.getElementById(id); return src ? `<span class="dfk-pop">${src.innerHTML}</span>` : ''; };
+      const sitPop = `<span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--wr)">Situational · fit &amp; scarcity</span>Combines <b>positional scarcity</b> (market rank vs a league's starter slots), league <b>scoring</b> (PPR lifts pass-catchers), and the player's <b>team-offense strength</b> (weighed less on the Dynasty board). Here it assumes a standard 12-team PPR lineup — in a live draft it re-scores to your actual roster every pick.<span class="dfk-pop-s">0–10 · higher = better fit</span></span>`;
       const legend = `
         <div class="mr-gklegend">
           <span class="gk-cap">Grade Keys</span>
-          <span class="gk-item">${gkIco('fire','#f5c842')}<b>Upside</b> ceiling / boom weeks</span>
-          <span class="gk-item">${gkIco('shield','#3DCC7A')}<b>Floor</b> weekly safety</span>
-          <span class="gk-item">${gkIco('alert','#ff5a6e')}<b>Risk</b> injury · volatility (lower = safer)</span>
-          <span class="gk-item">${gkIco('target','#7bd0ff')}<b>Situational</b> fit to format &amp; situation</span>
+          <span class="gk-item" tabindex="0">${gkIco('fire','#f5c842')}<b>Upside</b> ceiling / boom weeks${gkPop('dfk-pop-upside')}</span>
+          <span class="gk-item" tabindex="0">${gkIco('shield','#3DCC7A')}<b>Floor</b> weekly safety${gkPop('dfk-pop-floor')}</span>
+          <span class="gk-item" tabindex="0">${gkIco('alert','#ff5a6e')}<b>Risk</b> injury · volatility (lower = safer)${gkPop('dfk-pop-risk')}</span>
+          <span class="gk-item" tabindex="0">${gkIco('target','#7bd0ff')}<b>Situational</b> fit to format &amp; situation${sitPop}</span>
         </div>`;
       body = `
         ${legend}
