@@ -11584,6 +11584,23 @@ async function renderOverview() {
       const _rosterMeta = {};
       _metaList.slice().sort((a,b)=>b.val-a.val).forEach((m,i)=>{ m.rank=i+1; _rosterMeta[m.roster_id]=m; });
       window._ovSosCtx = { leagueId:ovLeagueId, myRosterId:myRoster_raw.roster_id, rosterMeta:_rosterMeta, totalTeams:allTeamVals.length, playoffStart:_ovPlayoffStart, oppSorted:_metaList.filter(m=>m.owner!==myTeamsUserId).sort((a,b)=>b.val-a.val) };
+      // Redraft roster-preview extras (real record-based seed, FAAB, waiver order),
+      // captured here where raw rosters/users are in scope for the redraft view below.
+      try {
+        const _rrLg = ctx.lgFull || league;
+        const _rrStand = rosters.map(r => { const s=r.settings||{}; return { name:userMap[r.owner_id]||'Team', w:s.wins||0, l:s.losses||0, t:s.ties||0, pf:(s.fpts||0)+((s.fpts_decimal||0)/100), isMe:r.owner_id===myTeamsUserId }; })
+          .sort((a,b)=> (b.w-a.w) || (b.pf-a.pf));
+        _rrStand.forEach((t,i)=>{ t.seed=i+1; });
+        const _rrMe = _rrStand.find(t=>t.isMe) || {};
+        const _rrBudget = (_rrLg?.settings?.waiver_budget) || 0;
+        const _rrUsed = (myRoster_raw.settings?.waiver_budget_used) || 0;
+        window._rrpExtras = {
+          standings:_rrStand, seed:_rrMe.seed||null,
+          playoffTeams:(_rrLg?.settings?.playoff_teams) || Math.round(rosters.length/2),
+          faab:{ hasFaab: !!_rrBudget, budget:_rrBudget||100, left:Math.max(0,(_rrBudget||100)-_rrUsed) },
+          waiverPos:(myRoster_raw.settings?.waiver_position) || null
+        };
+      } catch(e){ window._rrpExtras=null; }
       const nameEl = document.getElementById('ov-subtitle');
       if (nameEl) nameEl.textContent = `${teamName} - managed by ${mySleeperUser?.display_name||mySleeperUser?.username||''}`;
     } catch(e) { el.innerHTML = `<div class="fc-error">⚠ ${e.message}</div>`; _ovRendering = false; return; }
@@ -11973,26 +11990,40 @@ async function renderOverview() {
   if (_ovIsDyn) { try { window._rdvForceMatchup = (window._ovGetDynView && window._ovGetDynView()==='matchup'); } catch(e){} }
   if (ovLeagueId && (!_ovIsDyn || window._rdvForceMatchup)) {
     try {
-      // Gamecast (new broadcast layout) only for the dynasty "Matchup" view.
-      // Redraft leagues keep the existing "Team review" matchup untouched.
       window._rdvGamecast = true;
-      el.innerHTML = window._buildRedraftView({
-        managerName:_managerName, avatarUrl:_avatarUrl, leagueName:leagueName, teamName:teamName,
-        teamsN:_teamsN, scoring:_fmtScoring, compositeGrade:compositeGrade, powerRank:powerRank,
-        totalTeams:totalTeams, overallLabel:_overallLabel, topPct:topPct, redraftTeamVal:_winNowVal,
-        rec:_ovRec, pf:_ovPF, pa:_ovPA, pfRank:_ovPFRank, gp:(_ovRec?_ovRec.w+_ovRec.l+_ovRec.t:0),
-        playoffOdds:playoffOdds, posRankInfo:_posRankInfo, roster:roster, starters:_starters,
-        isDyn:_ovIsDyn, platform:(_curLeague?vpPlat(_curLeague):'sleeper'), playoffStart:_ovPlayoffStart
-      });
       window._rdvCtx = {
         leagueId: ovLeagueId, season: _curLeague && _curLeague.season, scoring: _scoringPpr,
         rosterPositions: (_curLeague && _curLeague.roster_positions) || [],
         myRosterId: (window._ovSosCtx && window._ovSosCtx.myRosterId),
         roster: roster, teamName: teamName, managerName: _managerName, avatarUrl: _avatarUrl, rec: _ovRec
       };
-      _ovRendering = false;
-      try { window._ovRenderRedraftMatchup(); } catch(e){ console.warn('[Vault] redraft matchup:', e); }
-      try { window._ovRenderRedraftWaiver(); } catch(e){ console.warn('[Vault] redraft waiver:', e); }
+      const _rdvPayload = {
+        managerName:_managerName, avatarUrl:_avatarUrl, leagueName:leagueName, teamName:teamName,
+        teamsN:_teamsN, scoring:_fmtScoring, compositeGrade:compositeGrade, powerRank:powerRank,
+        totalTeams:totalTeams, overallLabel:_overallLabel, topPct:topPct, redraftTeamVal:_winNowVal,
+        rec:_ovRec, pf:_ovPF, pa:_ovPA, pfRank:_ovPFRank, gp:(_ovRec?_ovRec.w+_ovRec.l+_ovRec.t:0),
+        playoffOdds:playoffOdds, posRankInfo:_posRankInfo, roster:roster, starters:_starters,
+        isDyn:_ovIsDyn, platform:(_curLeague?vpPlat(_curLeague):'sleeper'), playoffStart:_ovPlayoffStart
+      };
+      if (!_ovIsDyn) {
+        // Real redraft league → concept-parity Roster Preview.
+        const _rrx = window._rrpExtras || {};
+        window._rrpCompactWaiver = true;
+        el.innerHTML = window._buildRedraftPreview(Object.assign({}, _rdvPayload, {
+          seed:_rrx.seed, standings:_rrx.standings, playoffTeams:_rrx.playoffTeams, faab:_rrx.faab,
+          waiverPos:_rrx.waiverPos, lineupStr:_lineupStr, curWeek:((_ovRec?_ovRec.w+_ovRec.l+_ovRec.t:0)+1)
+        }));
+        _ovRendering = false;
+        try { window._ovRenderRedraftRace(); } catch(e){ console.warn('[Vault] redraft race:', e); }
+        try { window._ovRenderRedraftWaiver(); } catch(e){ console.warn('[Vault] redraft waiver:', e); }
+      } else {
+        // Dynasty "Matchup" toggle → legacy broadcast gamecast (unchanged).
+        window._rrpCompactWaiver = false;
+        el.innerHTML = window._buildRedraftView(_rdvPayload);
+        _ovRendering = false;
+        try { window._ovRenderRedraftMatchup(); } catch(e){ console.warn('[Vault] redraft matchup:', e); }
+        try { window._ovRenderRedraftWaiver(); } catch(e){ console.warn('[Vault] redraft waiver:', e); }
+      }
       const _ovExtraEl = document.getElementById('ov-extra'); if (_ovExtraEl) _ovExtraEl.style.display = 'none';
       return;
     } catch(e){ console.warn('[Vault] redraft view failed, falling back to standard:', e); }
@@ -16621,6 +16652,9 @@ const HPLAYERS=[{"name":"Josh Allen","team":"BUF","pos":"QB","avery":1,"expert":
 let currentTheme = localStorage.getItem('snapdraft-theme') || 'onyx';
 /* One-time launch of the Onyx & Gold theme: show it once for everyone, then respect toggles. */
 try{ if(!localStorage.getItem('vault-theme-v2')){ currentTheme='onyx'; localStorage.setItem('snapdraft-theme','onyx'); localStorage.setItem('vault-theme-v2','1'); } }catch(e){}
+/* My Team default = Team Review for both redraft & dynasty. Matchup is an in-session
+   toggle only — don't let a persisted preference make it the landing view on load. */
+try{ if(localStorage.getItem('vault-ov-dynview')==='matchup') localStorage.removeItem('vault-ov-dynview'); }catch(e){}
 const THEME_CYCLE = ['onyx','dark','light'];
 const THEME_ICONS = {dark:'🌙', medium:'🌆', light:'☀️', onyx:'◈'};
 const THEME_LABELS = {dark:'Dark', medium:'Navy', light:'Light', onyx:'Onyx'};
@@ -25743,6 +25777,107 @@ function pickYear(year) {
   .rdv-wt thead th.opt-h,.rdv-wt td.opt-c{display:none}
 }
 </style>
+<!-- ══ Redraft Roster Preview (concept-parity, theme-aware via tokens) ══ -->
+<style id="rrp-css">
+/* section head shared by the concept cards */
+.rrp-sechd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+.rrp-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--t-micro,10px);font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:8px}
+.rrp-chip.steel{background:color-mix(in srgb,var(--accent2) 12%,transparent);color:var(--accent2)}
+.rrp-chip.green{background:color-mix(in srgb,var(--value) 14%,transparent);color:var(--value)}
+.rrp-chip.amber{background:rgba(245,166,35,.14);color:#f5a623}
+
+/* 1 · The Race */
+.rrp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:640px){.rrp-stats{grid-template-columns:1fr;gap:8px}}
+.rrp-stat{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+.rrp-stat .k{font-family:var(--font-mono);font-size:var(--t-nano,9px);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.rrp-stat .v{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.1;color:var(--text)}
+.rrp-stat .v small{font-size:var(--t-label,11px);color:var(--muted);font-weight:600}
+.rrp-stat .d{font-family:var(--font-mono);font-size:var(--t-nano,9px);font-weight:800;margin-top:4px;color:var(--muted)}
+.rrp-stat .d.up{color:var(--value)}
+.rrp-stat .d.dn{color:var(--red2)}
+.rrp-subhd{font-family:var(--font-mono);font-size:var(--t-nano,9px);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+.rrp-sched{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px}
+@media(max-width:900px){.rrp-sched{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:480px){.rrp-sched{grid-template-columns:repeat(2,1fr)}}
+.rrp-wk{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;position:relative}
+.rrp-wk.now{border-color:color-mix(in srgb,var(--accent2) 45%,transparent);background:color-mix(in srgb,var(--accent2) 7%,transparent)}
+.rrp-wk.warn{border-color:rgba(245,166,35,.35)}
+.rrp-wk .w{font-family:var(--font-mono);font-size:var(--t-nano,9px);letter-spacing:.08em;color:var(--muted);font-weight:700}
+.rrp-wk-av{position:relative;width:26px;height:26px;border-radius:50%;margin:6px auto 4px;background:var(--s3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--text2)}
+.rrp-wk-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.rrp-wk .o{font-size:var(--t-label,11px);font-weight:700;margin:0 0 6px;line-height:1.2;min-height:16px;display:flex;align-items:center;justify-content:center;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrp-wk .p{font-family:var(--font-mono);font-size:var(--t-secondary,13px);font-weight:800}
+.rrp-wk .bar{height:4px;border-radius:999px;background:rgba(127,140,163,.18);margin-top:6px;overflow:hidden}
+.rrp-wk .bar i{display:block;height:100%;border-radius:999px}
+.rrp-flag{position:absolute;top:-7px;right:-5px;font-size:10px}
+.rrp-legend{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--font-mono);font-size:var(--t-nano,9px);color:var(--muted);letter-spacing:.06em;margin-top:10px;flex-wrap:wrap}
+.rrp-legend b{color:var(--text2)}
+
+/* odds rows (Season Trajectory) */
+.rrp-odds{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rrp-odds .k{font-size:var(--t-label,11px);color:var(--text2);width:96px;flex-shrink:0}
+.rrp-odds .tr{flex:1;height:8px;background:rgba(127,140,163,.16);border-radius:999px;overflow:hidden}
+.rrp-odds .tr i{display:block;height:100%;border-radius:999px}
+.rrp-odds .v{font-family:var(--font-mono);font-size:var(--t-label,11px);font-weight:700;width:34px;text-align:right;flex-shrink:0}
+.rrp-tj{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 6px;margin-bottom:14px}
+
+/* player status */
+.rrp-st{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;row-gap:4px}
+.rrp-st:last-child{border-bottom:none}
+.rrp-st-ph{width:38px;height:38px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0;border:2px solid transparent}
+.rrp-st-ph img{width:100%;height:100%;object-fit:cover}
+.rrp-st-ph.q{border-color:#f5a623}.rrp-st-ph.out{border-color:var(--red2)}
+.rrp-st-ph.ir{border-color:var(--red);opacity:.75}.rrp-st-ph.bye{border-color:var(--border3);filter:saturate(.4)}
+.rrp-st-pill{font-family:var(--font-mono);font-size:var(--t-nano,9px);font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:6px;flex-shrink:0;width:44px;text-align:center}
+.rrp-st-pill.q{background:rgba(245,166,35,.14);color:#f5a623}
+.rrp-st-pill.out{background:color-mix(in srgb,var(--red2) 14%,transparent);color:var(--red2)}
+.rrp-st-pill.ir{background:transparent;border:1px solid color-mix(in srgb,var(--red) 45%,transparent);color:var(--red2)}
+.rrp-st-pill.bye{background:var(--s3);color:var(--muted)}
+.rrp-st-main{flex:1 1 0;min-width:170px}
+.rrp-st-nm{font-size:var(--t-secondary,13px);font-weight:700;color:var(--text)}
+.rrp-st-dt{font-size:var(--t-micro,10px);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.rrp-st-act{font-size:var(--t-micro,10px);font-family:var(--font-mono);color:var(--accent2);flex:0 0 100%;padding-left:50px;line-height:1.45}
+.rrp-empty{padding:18px 4px;color:var(--muted);font-size:var(--t-secondary,13px);text-align:center}
+
+/* waiver compact */
+.rrp-wt{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border)}
+.rrp-wt:last-of-type{border-bottom:none}
+.rrp-wt-ph{width:36px;height:36px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0}
+.rrp-wt-ph img{width:100%;height:100%;object-fit:cover}
+.rrp-wt-main{flex:1;min-width:0}
+.rrp-wt-nm{font-size:var(--t-secondary,13px);font-weight:700;color:var(--text)}
+.rrp-wt-nm .pos{font-family:var(--font-mono);font-size:var(--t-nano,9px);font-weight:800;margin-left:6px}
+.rrp-wt-why{font-size:var(--t-micro,10px);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.rrp-wt-bid{flex-shrink:0;text-align:right}
+.rrp-wt-bid b{display:block;font-family:var(--font-mono);font-size:var(--t-secondary,13px);font-weight:800;color:var(--value)}
+.rrp-wt-bid small{font-size:var(--t-nano,9px);color:var(--muted);font-family:var(--font-mono)}
+.rrp-wt-foot{margin-top:12px;padding:9px 12px;border-radius:10px;background:var(--s2);border:1px solid var(--border);font-size:var(--t-micro,10px);font-family:var(--font-mono);color:var(--muted)}
+.rrp-wt-foot b{color:var(--red2);font-weight:700}
+
+/* trade angles */
+.rrp-tr-angle{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--s2);border:1px solid var(--border);margin-bottom:12px}
+.rrp-tr-side{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.rrp-tr-ph{width:40px;height:40px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0}
+.rrp-tr-ph img{width:100%;height:100%;object-fit:cover}
+.rrp-tr-k{font-family:var(--font-mono);font-size:var(--t-nano,9px);font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.rrp-tr-k.ship{color:var(--red2)}.rrp-tr-k.get{color:var(--value)}
+.rrp-tr-nm{font-size:var(--t-secondary,13px);font-weight:700;margin-top:1px;color:var(--text)}
+.rrp-tr-sub{font-size:var(--t-nano,9px);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.rrp-tr-arrow{font-size:16px;color:var(--muted);flex-shrink:0}
+.rrp-tr-match{font-size:var(--t-micro,10px);font-family:var(--font-mono);color:var(--muted);line-height:1.7}
+.rrp-tr-match b{color:var(--text2)}.rrp-tr-match .up{color:var(--value)}
+.rrp-tr-cta{margin-top:12px;display:inline-block;font-size:var(--t-label,11px);font-weight:700;font-family:var(--font-mono);letter-spacing:.06em;color:var(--accent2);border:1px solid color-mix(in srgb,var(--accent2) 35%,transparent);background:color-mix(in srgb,var(--accent2) 7%,transparent);padding:7px 14px;border-radius:8px;cursor:pointer}
+
+/* bottom pair: pin trade CTA to the card floor so it bottom-aligns with status */
+.rrp-pin>.cc-card{display:flex;flex-direction:column}
+.rrp-pin .rrp-tr-cta{margin-top:auto;align-self:flex-start}
+
+/* two-column wrapper mirrors dynasty .mth-wrap */
+.rrp-wrap{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start;min-width:0;max-width:100%}
+@media(max-width:980px){.rrp-wrap{grid-template-columns:1fr}}
+.rrp-wrap>*{min-width:0;max-width:100%;box-sizing:border-box}
+</style>
 <!-- ══ Dynasty "Matchup" gamecast view + My Team view dropdown ══ -->
 <style id="ovgc-css">
 /*, My Team view dropdown, */
@@ -26162,11 +26297,10 @@ function _ovDynViewBar(active){
 window._ovGetDynView=_ovGetDynView; window._ovSetDynView=_ovSetDynView; window._ovToggleDynMenu=_ovToggleDynMenu; window._ovDynViewBar=_ovDynViewBar;
 
 /* ── Build the static redraft shell from in-scope, already-computed data ── */
+/* Legacy redraft/dynasty-matchup view (gamecast). Kept for the dynasty "Matchup"
+   toggle; real redraft leagues use _buildRedraftPreview below. */
 function _buildRedraftView(d){
   var posC=_RDV_POSC;
-  // identity stat cells
-  // Team redraft value, summed from the roster via _rdvVal so it follows the
-  // Market/Mine toggle (Mine → your redraft board; Market → FC 1QB redraft).
   var rdVal = (d.roster||[]).reduce(function(s,p){ return s+(_rdvVal(p.name)||0); },0) || (d.redraftTeamVal||0);
   var _rdvSrc = (typeof valueSource!=='undefined' && valueSource==='my') ? 'MINE' : 'MARKET';
   var grade = d.compositeGrade||'—';
@@ -26184,17 +26318,11 @@ function _buildRedraftView(d){
     + '</div>'
     + (d.isDyn?'<div class="rdv-seg"><button onclick="_rdvSetView(\'dynasty\')">Dynasty</button><button class="on">Matchup</button></div>':'')
     + '</div>';
-
-  // matchup placeholder (async-filled)
   var matchup = '<div class="rdv-section"><div class="rdv-sechd"><div class="rdv-sectitle"><span class="tick"></span>This Week · Matchup</div><div class="rdv-secnote">'+(d.platform==='espn'?'PROJECTIONS · ESPN':'PROJECTIONS · SLEEPER')+'</div></div>'
     + '<div class="rdv-mu" id="rdv-matchup"><div class="rdv-empty"><span class="rdv-spin">⟳</span> Loading this week\'s matchup…</div></div>'
     + '<div id="rdv-optimizer"></div></div>';
-
-  // waiver placeholder
   var waiver = '<div class="rdv-section"><div class="rdv-sechd"><div class="rdv-sectitle"><span class="tick"></span>Waiver Wire Targets</div><div class="rdv-secnote">RANKED FOR YOUR ROSTER</div></div>'
     + '<div class="rdv-wt-wrap" id="rdv-waiver"><div class="rdv-empty"><span class="rdv-spin">⟳</span> Scanning free agents…</div></div></div>';
-
-  // season outlook (sync)
   var oddsP = d.playoffOdds!=null?d.playoffOdds:50;
   var oddsBye = Math.max(2,Math.min(92,Math.round(oddsP*0.55-((d.powerRank||6)-1)*4)));
   var oddsTitle = Math.max(1,Math.min(60,Math.round(oddsP*0.22-((d.powerRank||6)-1)*1.2)));
@@ -26210,16 +26338,12 @@ function _buildRedraftView(d){
     + '</div></div>';
   var nextweek = '<div class="rdv-card" id="rdv-nextweek"><div class="rdv-sechd" style="margin-bottom:2px"><div class="rdv-sectitle"><span class="tick" style="background:var(--rw)"></span>Next Up</div></div><div class="rdv-empty" style="padding:18px"><span class="rdv-spin">⟳</span> Projecting…</div></div>';
   var row1 = '<div class="rdv-section rdv-two">'+nextweek+outlook+'</div>';
-
-  // position grades (sync)
   var pgCards = ['QB','RB','WR','TE'].map(function(p){
     var info=(d.posRankInfo&&d.posRankInfo[p])||{};
     var lab=info.label||'—'; var col=info.color||'var(--muted)';
     return '<div class="c"><div class="p" style="color:'+(posC[p])+'">'+p+'</div><div class="g" style="color:'+col+'">'+lab+'</div><div class="r">'+(info.rank?('#'+info.rank+'/'+(info.total||d.totalTeams||12)):'—')+'</div></div>';
   }).join('');
   var pg = '<div class="rdv-card"><div class="rdv-sechd" style="margin-bottom:6px"><div class="rdv-sectitle"><span class="tick" style="background:var(--rt)"></span>Position Grades</div><span class="rdv-secnote">REDRAFT · VS LEAGUE</span></div><div class="rdv-pg">'+pgCards+'</div></div>';
-
-  // risers / fallers (sync, redraft trend)
   var movers = (d.roster||[]).map(function(p){ return {name:p.name,pos:p.pos,team:p.team,sid:p.sleeperId,tr:_rdvTrend(p.name)}; }).filter(function(p){return p.tr!==0;});
   var up=movers.slice().sort(function(a,b){return b.tr-a.tr;}).slice(0,2);
   var dn=movers.slice().sort(function(a,b){return a.tr-b.tr;}).slice(0,2);
@@ -26232,10 +26356,201 @@ function _buildRedraftView(d){
     : '<div class="rdv-pmeta" style="padding:6px 0">Trend data populates from the value feed.</div>';
   var mv = '<div class="rdv-card"><div class="rdv-sechd" style="margin-bottom:10px"><div class="rdv-sectitle"><span class="tick" style="background:#ff5a6e"></span>Risers &amp; Fallers</div><span class="rdv-secnote">REDRAFT · 7D</span></div>'+moversHtml+'</div>';
   var row2='<div class="rdv-section rdv-two" style="margin-bottom:0">'+pg+mv+'</div>';
-
   return '<div class="rdv">'+ident+matchup+waiver+row1+row2+'</div>';
 }
 window._buildRedraftView=_buildRedraftView;
+function _rrpEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function _rrpImg(name,sid,px,fallback){ var ph=vaultHeadshot(name,sid,px||40); return ph?'<img src="'+ph+'" alt="" onerror="this.style.display=\'none\'">':(fallback||''); }
+/* Concept-parity redraft "My Team" view: two-column (manager rail + roster preview).
+   Uses semantic tokens so it tracks whichever theme is active (onyx / vapor / paper).
+   Sync modules render from d; The Race schedule + waiver targets fill async. */
+function _buildRedraftPreview(d){
+  var posC=_RDV_POSC, teams=d.totalTeams||d.teamsN||12;
+  var rec=d.rec||{w:0,l:0,t:0}, gp=d.gp||0;
+  var seed=d.seed||d.powerRank||'—';
+  var playoffTeams=d.playoffTeams||Math.round(teams/2);
+  var pfRank=d.pfRank||null;
+  var faab=d.faab||{}, hasFaab=!!faab.hasFaab, faabLeft=faab.left!=null?faab.left:0, faabBudget=faab.budget||100;
+  var winPct=gp?((rec.w+0.5*rec.t)/gp):0;
+  // roster health (active vs out/IR)
+  var _out=function(s){ s=(s||'').toLowerCase(); return s.indexOf('out')>=0||s.indexOf('ir')>=0||s.indexOf('injured reserve')>=0||s.indexOf('doubtful')>=0; };
+  var rosterN=(d.roster||[]).length;
+  var activeN=(d.roster||[]).filter(function(p){ return !_out(p.injury_status||p.status); }).length;
+
+  /* ── LEFT: manager rail ── */
+  var avatar='<div class="mth-avatar">'+(d.avatarUrl?'<img src="'+_rrpEsc(d.avatarUrl)+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(d.managerName)+'\'">':_rdvInitials(d.managerName))+'</div>';
+  var tierLabel = (winPct>=0.6?'🔥 Playoff Track':winPct>=0.4?'Playoff Hunt':gp?'Chasing':'Season Start');
+  var heroStats='<div class="mth-hero-stats">'
+    + '<div class="mth-hero-stat"><div class="mth-hero-label">Record</div><div class="mth-hero-val">'+rec.w+'-'+rec.l+(rec.t?'-'+rec.t:'')+'</div><div class="mth-hero-sub">'+(gp?Math.round(winPct*100)+'% win':'0-0')+'</div></div>'
+    + '<div class="mth-hero-stat"><div class="mth-hero-label">Standing</div><div class="mth-hero-val">#'+seed+'<span style="font-size:12px;color:var(--muted)">/'+teams+'</span></div><div class="mth-hero-sub">'+playoffTeams+' make it</div></div>'
+    + '<div class="mth-hero-stat"><div class="mth-hero-label">Pts For</div><div class="mth-hero-val">'+(gp?Math.round(d.pf):'—')+'</div><div class="mth-hero-sub">'+(pfRank?'#'+pfRank+' in lg':'—')+'</div></div>'
+    + '</div>';
+  var faabBar=hasFaab?'<div class="faab-bar" style="height:6px;background:var(--s3);border-radius:999px;overflow:hidden;margin-top:5px"><i style="display:block;height:100%;border-radius:999px;background:var(--value);width:'+Math.round(faabBudget?(faabLeft/faabBudget*100):0)+'%"></i></div>':'';
+  var snapshot='<div class="mth-snapshot">'
+    + '<div class="mth-snap-title">Team Snapshot</div>'
+    + '<div class="mth-snap-grid">'
+    + '<div class="mth-snap-item"><span class="mth-snap-k">💰 FAAB Left</span><span class="mth-snap-v">'+(hasFaab?('$'+faabLeft+' <span class="mth-snap-rank">of $'+faabBudget+'</span>'):'—')+'</span>'+faabBar+'</div>'
+    + '<div class="mth-snap-item"><span class="mth-snap-k">⏳ Waiver Order</span><span class="mth-snap-v">'+(d.waiverPos?('#'+d.waiverPos+' <span class="mth-snap-rank">of '+teams+'</span>'):(hasFaab?'FAAB':'—'))+'</span></div>'
+    + '<div class="mth-snap-item"><span class="mth-snap-k">📈 Win %</span><span class="mth-snap-v">'+(gp?Math.round(winPct*100)+'%':'—')+' <span class="mth-snap-rank">'+(gp?rec.w+'-'+rec.l:'')+'</span></span></div>'
+    + '<div class="mth-snap-item"><span class="mth-snap-k">🩹 Roster Health</span><span class="mth-snap-v">'+activeN+'/'+rosterN+' <span class="mth-snap-rank">active</span></span></div>'
+    + '</div></div>';
+  var settings=d.lineupStr?'<div class="mth-settings"><div class="mth-snap-title">League Settings</div><div class="mth-lineup-str">Lineup: '+_rrpEsc(d.lineupStr)+'<br>'+teams+'-team · '+_rrpEsc(d.scoring||'PPR')+(hasFaab?' · FAAB waivers':'')+'</div></div>':'';
+  var psBars=['QB','RB','WR','TE'].map(function(p){
+    var info=(d.posRankInfo&&d.posRankInfo[p])||{};
+    var fill=info.rank?Math.max(8,Math.round((1-(info.pct||0.5))*100)):50;
+    var col=posC[p]||'var(--muted)';
+    return '<div class="mth-ps-row"><span class="mth-ps-pos" style="color:'+col+'">'+p+'</span>'
+      + '<div class="mth-ps-track"><div class="mth-ps-fill" style="width:'+fill+'%;background:'+col+'"></div></div>'
+      + '<span class="mth-ps-rank">'+(info.rank?'#'+info.rank+'/'+(info.total||teams):'—')+'</span>'
+      + '<span class="mth-ps-label" style="color:'+(info.color||'var(--text2)')+'">'+(info.label||'—')+'</span></div>';
+  }).join('');
+  var posStrength='<div class="mth-posstrength"><div class="mth-snap-title">Positional Strength <span style="color:var(--accent2);letter-spacing:.04em">· ROS</span></div>'+psBars+'</div>';
+  var profile='<div class="mth-profile">'
+    + '<div class="mth-profile-head">'+avatar+'<div><div class="mth-mgr-label">REDRAFT MANAGER</div><div class="mth-mgr-name">'+_rrpEsc(d.managerName||d.teamName||'My Team')+'</div><div class="mth-league-name">🏈 '+_rrpEsc(d.leagueName||'My League')+'</div></div></div>'
+    + '<div class="mth-badges"><span class="mth-tier-pill">'+tierLabel+'</span><span class="mth-fmt-badge">'+teams+'-TEAM</span><span class="mth-fmt-badge">'+_rrpEsc(d.scoring||'PPR')+'</span><span class="mth-fmt-badge">REDRAFT</span></div>'
+    + heroStats + snapshot + settings + posStrength
+    + '<div class="mth-brand">VAULT · REDRAFT COMMAND</div>'
+    + '</div>';
+
+  /* ── RIGHT: roster preview ── */
+  // 1 · The Race (stats sync; schedule strip fills async into #rrp-race)
+  var oddsP=d.playoffOdds!=null?d.playoffOdds:Math.round(Math.max(5,Math.min(95,50+(playoffTeams-(typeof seed==='number'?seed:6))*12)));
+  var oddsBye=Math.max(2,Math.min(92,Math.round(oddsP*0.55-((typeof seed==='number'?seed:6)-1)*4)));
+  var oddsTitle=Math.max(1,Math.min(60,Math.round(oddsP*0.22-((typeof seed==='number'?seed:6)-1)*1.2)));
+  var totalG=Math.max(1,(d.playoffStart||15)-1);
+  var projW=gp?Math.round(winPct*totalG):Math.round(0.5*totalG); var projL=totalG-projW;
+  var cutGap=(typeof seed==='number')?(seed<=playoffTeams?(playoffTeams-seed+1)+' clear of cut':(seed-playoffTeams)+' out of cut'):'—';
+  var seg=d.isDyn?'<div class="rdv-seg" style="margin-left:auto"><button onclick="_rdvSetView(\'dynasty\')">Dynasty</button><button class="on">Matchup</button></div>':'';
+  var race='<div class="cc-card glowc glow-sky" style="margin-bottom:16px">'
+    + '<div class="rrp-sechd"><span class="cc-lab">League Outlook · The Race</span><span class="rrp-chip steel">'+(gp?('AFTER WK '+gp):'PRESEASON')+'</span></div>'
+    + '<div class="rrp-stats">'
+    + '<div class="rrp-stat"><div class="k">Seed Now</div><div class="v">#'+seed+' <small>of '+teams+'</small></div><div class="d">'+_rrpEsc(cutGap)+'</div></div>'
+    + '<div class="rrp-stat"><div class="k">Projected Finish</div><div class="v">'+projW+'-'+projL+' <small>· #'+seed+' seed</small></div><div class="d">pace of '+(gp?Math.round(winPct*100):50)+'% win</div></div>'
+    + '<div class="rrp-stat"><div class="k">Playoff Odds</div><div class="v">'+oddsP+'%</div><div class="d">bye '+oddsBye+'% · title '+oddsTitle+'%</div></div>'
+    + '</div>'
+    + '<div class="rrp-subhd"><span>Remaining Schedule · Win Probability</span><span>PROJECTED</span></div>'
+    + '<div id="rrp-race"><div class="rrp-empty">Loading your remaining schedule…</div></div>'
+    + '</div>';
+
+  // 2 · Waiver Wire Targets (async #rdv-waiver) | Season Trajectory (sync)
+  var trajChart='<div class="rrp-tj"><svg viewBox="0 0 360 92" width="100%" xmlns="http://www.w3.org/2000/svg">'
+    + '<line x1="14" y1="46" x2="352" y2="46" stroke="var(--red2)" stroke-width="1" stroke-dasharray="3 4" opacity=".4"/>'
+    + '<text x="286" y="42" font-family="var(--font-mono)" font-size="7.5" fill="var(--red2)" opacity=".75">PLAYOFF CUT</text>'
+    + '<polyline points="14,'+(gp?58:46)+' 120,'+(gp?52:46)+' 226,'+(seed<=playoffTeams?34:56)+'" fill="none" stroke="var(--accent2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<polyline points="226,'+(seed<=playoffTeams?34:56)+' 352,'+(seed<=playoffTeams?32:52)+'" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".7"/>'
+    + '<circle cx="226" cy="'+(seed<=playoffTeams?34:56)+'" r="4.5" fill="var(--accent2)"/>'
+    + '<circle cx="352" cy="'+(seed<=playoffTeams?32:52)+'" r="3.5" fill="none" stroke="var(--accent2)" stroke-width="1.6"/>'
+    + '<text x="196" y="'+(seed<=playoffTeams?26:70)+'" font-family="var(--font-mono)" font-size="8" font-weight="700" fill="var(--accent2)">NOW · #'+seed+'</text>'
+    + '<text x="8" y="88" font-family="var(--font-mono)" font-size="7.5" fill="var(--muted)">WK 1</text>'
+    + '<text x="316" y="88" font-family="var(--font-mono)" font-size="7.5" fill="var(--muted)">WK '+totalG+'</text>'
+    + '</svg></div>';
+  var traj='<div class="cc-card">'
+    + '<div class="rrp-sechd"><span class="cc-lab">Season Trajectory</span><span class="rrp-chip steel">PROJECTED</span></div>'
+    + trajChart
+    + [['Make playoffs',oddsP,'var(--value)'],['First-round bye',oddsBye,'var(--accent2)'],['Win title',oddsTitle,'var(--red2)']].map(function(o){
+        return '<div class="rrp-odds"><span class="k">'+o[0]+'</span><span class="tr"><i style="width:'+o[1]+'%;background:'+o[2]+'"></i></span><span class="v" style="color:'+o[2]+'">'+o[1]+'%</span></div>';
+      }).join('')
+    + '<div class="rrp-legend" style="margin-top:12px"><span>SOLID = PLAYED · DASHED = <b>PROJECTION</b> · updates as results post</span></div>'
+    + '</div>';
+  var waiver='<div class="cc-card">'
+    + '<div class="rrp-sechd"><span class="cc-lab">Waiver Wire Targets</span><span class="rrp-chip green">'+(hasFaab?('FAAB $'+faabLeft):'RANKED FOR YOU')+'</span></div>'
+    + '<div id="rdv-waiver"><div class="rrp-empty">Scanning free agents…</div></div></div>';
+  var pair1='<div class="cc-two" style="margin-bottom:16px">'+waiver+traj+'</div>';
+
+  // 3 · Starting lineup strip (sync from d.starters)
+  var starters=d.starters||[];
+  var stripHtml=starters.length?starters.map(function(p){
+    var c=posC[_rdvSlotBase?_rdvSlotBase(p.slotLabel||p.pos):p.pos]||posC[p.pos]||'var(--muted)';
+    var flagged=_out(p.injury_status||p.status)?'out':((/quest/i.test(p.injury_status||p.status||''))?'q':'');
+    var dot=flagged?'<span style="position:absolute;right:-1px;top:-1px;width:13px;height:13px;border-radius:50%;border:2px solid var(--s1);background:'+(flagged==='out'?'var(--red2)':'#f5a623')+';font-size:7px;font-weight:900;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);color:#0a0e14">'+(flagged==='out'?'!':'Q')+'</span>':'';
+    return '<div class="mth-strip-item" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sleeperId||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')">'
+      + '<div class="mth-strip-slot" style="color:'+c+'">'+_rrpEsc(p.slotLabel||p.pos)+'</div>'
+      + '<div class="mth-strip-photo" style="border-color:'+c+';position:relative">'+_rrpImg(p.name,p.sleeperId,48,_rdvInitials(p.name))+dot+'</div>'
+      + '<div class="mth-strip-name">'+_rrpEsc(_rdvSurname(p.name))+'</div>'
+      + '<div class="mth-strip-team">'+_rrpEsc(p.team||'')+'</div></div>';
+  }).join(''):'<div style="padding:22px;color:var(--muted);font-size:13px;text-align:center;width:100%">No starting lineup set for this league yet.</div>';
+  var strip='<div class="mth-strip-card"><div class="mth-strip-label"><span>Starting Lineup</span><span>'+(gp?('WK '+(gp+1)):'WK 1')+'</span></div><div class="mth-strip">'+stripHtml+'</div></div>';
+
+  // 4 · Position groups (sync, ROS value)
+  var byPos={QB:[],RB:[],WR:[],TE:[]};
+  (d.roster||[]).forEach(function(p){ if(byPos[p.pos]) byPos[p.pos].push(p); });
+  var pgCard=function(pos){
+    var list=byPos[pos].slice().sort(function(a,b){return (_rdvVal(b.name)||b.fcVal||0)-(_rdvVal(a.name)||a.fcVal||0);});
+    if(!list.length) return '<div class="mth-pg-card"><div class="mth-pg-head"><span class="mth-pg-badge" style="background:color-mix(in srgb,'+posC[pos]+' 14%,transparent);color:'+posC[pos]+'">'+pos+'</span><span class="mth-pg-count">(0)</span></div><div style="padding:14px 16px;color:var(--muted);font-size:12px;font-family:var(--font-mono)">No '+pos+' rostered</div></div>';
+    var starterCount=(d.starters||[]).filter(function(s){return s.pos===pos;}).length;
+    var irNote=list.filter(function(p){return _out(p.injury_status||p.status);}).length;
+    var rows=list.map(function(p){
+      var val=_rdvVal(p.name)||p.fcVal||0;
+      var st=(p.injury_status||p.status||''); var tag=_out(st)?'<span style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;margin-left:6px;background:color-mix(in srgb,var(--red2) 14%,transparent);color:var(--red2)">'+(/(^|\b)(ir|injured)/i.test(st)?'IR':'OUT')+'</span>':(/quest/i.test(st)?'<span style="font-family:var(--font-mono);font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:6px;background:rgba(245,166,35,.14);color:#f5a623">Q</span>':'');
+      return '<div class="mth-pg-row" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sleeperId||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')">'
+        + '<div class="mth-pg-photo">'+_rrpImg(p.name,p.sleeperId,38,'')+'</div>'
+        + '<div class="mth-pg-info"><div class="mth-pg-name">'+_rrpEsc(p.name)+tag+'</div><div class="mth-pg-meta">'+_rrpEsc(p.team||'FA')+(p.isStarter?' · starter':' · bench')+'</div></div>'
+        + '<div class="mth-pg-val">'+(val?val.toLocaleString():'—')+'</div></div>';
+    }).join('');
+    return '<div class="mth-pg-card"><div class="mth-pg-head"><span class="mth-pg-badge" style="background:color-mix(in srgb,'+posC[pos]+' 14%,transparent);color:'+posC[pos]+'">'+pos+'</span><span class="mth-pg-count">('+list.length+(irNote?' · '+irNote+' IR':'')+')</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase">ROS VALUE</span></div>'+rows+'</div>';
+  };
+  var posGroups='<div class="mth-pg-grid">'+['QB','RB','WR','TE'].map(pgCard).join('')+'</div>';
+
+  // 5 · Player Status (sync) | Trade Angles (sync)
+  var statusHtml=(function(){
+    var curWk=d.curWeek||(gp+1);
+    var flagged=(d.roster||[]).map(function(p){
+      var st=(p.injury_status||p.status||''); var lo=st.toLowerCase();
+      var kind=null;
+      if(/(injured reserve|(^|\b)ir\b)/i.test(st)) kind={c:'ir',l:'IR'};
+      else if(lo.indexOf('out')>=0) kind={c:'out',l:'OUT'};
+      else if(lo.indexOf('doubt')>=0) kind={c:'out',l:'DOUBT'};
+      else if(lo.indexOf('quest')>=0) kind={c:'q',l:'QUES'};
+      else if(p.byeWeek && curWk && String(p.byeWeek)===String(curWk)) kind={c:'bye',l:'BYE'};
+      if(!kind) return null;
+      return {p:p,kind:kind,st:st};
+    }).filter(Boolean).sort(function(a,b){ var o={ir:0,out:1,q:2,bye:3}; return (o[a.kind.c]||9)-(o[b.kind.c]||9); }).slice(0,6);
+    if(!flagged.length) return '<div class="rrp-empty">✓ Everyone active — no injuries or byes flagged for your roster this week.</div>';
+    return flagged.map(function(f){
+      var p=f.p, st=f.st;
+      var detail=f.kind.c==='bye'?(_rrpEsc(p.team||'')+' bye · back next week'):(_rrpEsc(st)+(p.byeWeek?' · bye Wk '+p.byeWeek:''));
+      var action=f.kind.c==='q'?'Check status before kickoff':(f.kind.c==='bye'?'Bench covered — no action':(p.isStarter?'Starter — line up a replacement':'Benched — no lineup impact'));
+      return '<div class="rrp-st">'
+        + '<div class="rrp-st-ph '+f.kind.c+'">'+_rrpImg(p.name,p.sleeperId,38,_rdvInitials(p.name))+'</div>'
+        + '<span class="rrp-st-pill '+f.kind.c+'">'+f.kind.l+'</span>'
+        + '<div class="rrp-st-main"><div class="rrp-st-nm">'+_rrpEsc(p.name)+' <span style="color:var(--muted);font-weight:400">· '+_rrpEsc(p.pos||'')+' '+_rrpEsc(p.team||'')+'</span></div><div class="rrp-st-dt">'+detail+'</div></div>'
+        + '<div class="rrp-st-act">'+action+'</div></div>';
+    }).join('');
+  })();
+  var statusCard='<div class="cc-card"><div class="rrp-sechd"><span class="cc-lab">Player Status</span><span class="rrp-chip amber">THIS WEEK</span></div>'+statusHtml+'</div>';
+
+  // Trade angles (sync, from positional surplus/need)
+  var tradeCard=(function(){
+    var pr=d.posRankInfo||{}; var arr=['QB','RB','WR','TE'].map(function(p){ return {pos:p, rank:(pr[p]&&pr[p].rank)||teams, n:byPos[p].length, starters:(d.starters||[]).filter(function(s){return s.pos===p;}).length}; });
+    var surplus=arr.slice().filter(function(a){return a.n>a.starters+1;}).sort(function(a,b){return a.rank-b.rank;})[0];
+    var need=arr.slice().sort(function(a,b){return b.rank-a.rank;})[0];
+    var body;
+    if(surplus && need && surplus.pos!==need.pos){
+      var sellList=byPos[surplus.pos].slice().filter(function(p){return !p.isStarter;}).sort(function(a,b){return (_rdvVal(b.name)||0)-(_rdvVal(a.name)||0);});
+      var sell=sellList[0]||byPos[surplus.pos].slice().sort(function(a,b){return (_rdvVal(a.name)||0)-(_rdvVal(b.name)||0);})[0];
+      body='<div class="rrp-tr-angle">'
+        + '<div class="rrp-tr-side"><div class="rrp-tr-ph">'+(sell?_rrpImg(sell.name,sell.sleeperId,40,_rdvInitials(sell.name)):'')+'</div><div><div class="rrp-tr-k ship">Ship · from surplus</div><div class="rrp-tr-nm">'+_rrpEsc(sell?sell.name:surplus.pos+' depth')+'</div><div class="rrp-tr-sub">'+surplus.pos+' is your deepest spot (#'+surplus.rank+')</div></div></div>'
+        + '<span class="rrp-tr-arrow">⇄</span>'
+        + '<div class="rrp-tr-side"><div class="rrp-tr-ph" style="display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;color:'+(posC[need.pos]||'var(--muted)')+'">'+need.pos+'</div><div><div class="rrp-tr-k get">Target · buy</div><div class="rrp-tr-nm">A starting '+need.pos+'</div><div class="rrp-tr-sub">'+need.pos+' is your thinnest spot (#'+need.rank+')</div></div></div>'
+        + '</div>'
+        + '<div class="rrp-tr-match">Your <b>'+surplus.pos+'</b> surplus can buy up your <b>'+need.pos+'</b> hole. <span class="up">Deal from strength</span> before the trade deadline.</div>';
+    } else {
+      body='<div class="rrp-tr-match" style="padding:6px 0">Roster is balanced across positions — no obvious surplus-for-need swap right now. Trade Center has live values if you want to explore.</div>';
+    }
+    return '<div class="cc-card"><div class="rrp-sechd"><span class="cc-lab">Trade Angles</span><span class="rrp-chip steel">SURPLUS → NEED</span></div>'+body+'<span class="rrp-tr-cta" onclick="_rrpOpenTrades()">OPEN TRADE CENTER →</span></div>';
+  })();
+  var pair2='<div class="cc-two rrp-pin" style="margin-top:16px">'+statusCard+tradeCard+'</div>';
+
+  var right='<div class="mth-roster">'
+    + '<div class="mth-roster-head"><span class="mth-roster-title">Roster Preview</span>'+seg+'</div>'
+    + race + pair1 + strip + posGroups + pair2
+    + '</div>';
+
+  return '<div class="rrp-wrap">'+profile+right+'</div>';
+}
+window._buildRedraftPreview=_buildRedraftPreview;
+function _rrpOpenTrades(){ try{ if(typeof setPage==='function') setPage('trade'); else if(typeof showPage==='function') showPage('trade'); }catch(e){} }
+window._rrpOpenTrades=_rrpOpenTrades;
 
 /* ── Shared: Sleeper weekly projections feed → pid→{name,pos,team,stats} ── */
 var _RDV_DST={ARI:'Cardinals',ATL:'Falcons',BAL:'Ravens',BUF:'Bills',CAR:'Panthers',CHI:'Bears',CIN:'Bengals',CLE:'Browns',DAL:'Cowboys',DEN:'Broncos',DET:'Lions',GB:'Packers',HOU:'Texans',IND:'Colts',JAX:'Jaguars',KC:'Chiefs',LV:'Raiders',LAC:'Chargers',LAR:'Rams',MIA:'Dolphins',MIN:'Vikings',NE:'Patriots',NO:'Saints',NYG:'Giants',NYJ:'Jets',PHI:'Eagles',PIT:'Steelers',SF:'49ers',SEA:'Seahawks',TB:'Buccaneers',TEN:'Titans',WAS:'Commanders'};
@@ -26671,6 +26986,24 @@ async function _ovRenderRedraftWaiver(){
     if(!avail.length){ el.innerHTML='<div class="rdv-empty">No clear upgrades on the wire right now, your roster is deep.</div>'; return; }
     var benchSorted=(ctx.roster||[]).map(function(p){return {name:p.name,rd:_rdvVal(p.name)};}).sort(function(a,b){return a.rd-b.rd;});
     var maxRd=Math.max.apply(null,[1].concat(avail.map(function(p){return p.rd||0;})));
+    if(window._rrpCompactWaiver){
+      // Compact card (redraft roster-preview): photo · name/pos · why · bid
+      var compact=avail.slice(0,4);
+      var crows=compact.map(function(p,i){
+        var col=_RDV_POSC[p.pos]||'var(--muted)';
+        var bidV=faabLeft?Math.max(i<3?1:0,Math.min(faabLeft,Math.round((p.rd/maxRd)*faabLeft*0.42))):0;
+        var why=(p.pr!=null?('proj '+p.pr.toFixed(1)+' Wk'+week):('ROS +'+(p.rd||0).toLocaleString()))+(p.tr?(' · '+(p.tr>0?'▲':'▼')+Math.abs(p.tr)+' 7d'):'');
+        return '<div class="rrp-wt" style="cursor:pointer" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.sid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')">'
+          + '<div class="rrp-wt-ph">'+(vaultHeadshot(p.name,p.sid,36)?'<img src="'+vaultHeadshot(p.name,p.sid,36)+'" onerror="this.style.display=\'none\'">':'')+'</div>'
+          + '<div class="rrp-wt-main"><div class="rrp-wt-nm">'+p.name+'<span class="pos" style="color:'+col+'">'+p.pos+' · '+(p.team||'FA')+'</span></div><div class="rrp-wt-why">'+why+'</div></div>'
+          + '<div class="rrp-wt-bid">'+(hasFaab?('<b>$'+bidV+'</b><small>suggested</small>'):'<b style="color:var(--accent2)">#'+(i+1)+'</b><small>priority</small>')+'</div>'
+          + '</div>';
+      }).join('');
+      var dropCand=benchSorted[0];
+      var dropHtml=(dropCand&&compact[0]&&dropCand.rd<compact[0].rd)?'<div class="rrp-wt-foot">SUGGESTED DROP → <b>'+_rdvSurname(dropCand.name)+'</b> · lowest ROS value on your bench</div>':'';
+      el.innerHTML=crows+dropHtml;
+      return;
+    }
     var rows=avail.map(function(p,i){
       var ph=vaultHeadshot(p.name, p.sid, 34); var col=_RDV_POSC[p.pos]||'var(--muted)';
       var bidV=faabLeft?Math.max(i<3?1:0,Math.min(faabLeft,Math.round((p.rd/maxRd)*faabLeft*0.42))):0;
@@ -26694,6 +27027,50 @@ async function _ovRenderRedraftWaiver(){
   }
 }
 window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
+
+/* ── The Race: remaining schedule + win probability (Sleeper only, real opponents).
+   Win prob derived from each team's season points-per-game (logistic on the margin). ── */
+function _rrpWkColor(p){ return p>=60?'var(--value)':p>=52?'var(--accent2)':p>=46?'#f5a623':'var(--red2)'; }
+function _rrpUserAv(u){ if(!u) return ''; var m=u.metadata||{}; if(m.avatar && /^https?:/.test(m.avatar)) return m.avatar; if(u.avatar) return 'https://sleepercdn.com/avatars/thumbs/'+u.avatar; return ''; }
+function _rrpAvCell(url,name){ var ini=_rdvInitials(name||'?'); return '<div class="rrp-wk-av">'+ini+(url?'<img src="'+url+'" alt="" onerror="this.style.display=\'none\'">':'')+'</div>'; }
+async function _ovRenderRedraftRace(){
+  var ctx=window._rdvCtx, el=document.getElementById('rrp-race'); if(!el||!ctx) return;
+  try{
+    var lid=ctx.leagueId;
+    var _lg=myTeamsData.find(function(l){return l.league_id===lid;});
+    // ESPN schedule isn't wired here yet — keep the projected note.
+    if(_lg && typeof vpPlat==='function' && vpPlat(_lg)==='espn'){ el.innerHTML='<div class="rrp-empty">Weekly win-probability schedule is Sleeper-only for now.</div>'; return; }
+    var playoffStart=(_lg&&_lg.settings&&_lg.settings.playoff_week_start)||15;
+    var st; try{ st=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); }catch(e){ st={week:1}; }
+    var curWk=Math.max(1, st.week||1);
+    var rosters=await fetch('https://api.sleeper.app/v1/league/'+lid+'/rosters').then(function(r){return r.json();}).catch(function(){return [];});
+    var users=await fetch('https://api.sleeper.app/v1/league/'+lid+'/users').then(function(r){return r.json();}).catch(function(){return [];});
+    var uName={}, uAv={}; (users||[]).forEach(function(u){ uName[u.user_id]=(u.metadata&&u.metadata.team_name)||u.display_name||'Team'; uAv[u.user_id]=_rrpUserAv(u); });
+    var ppg={}, myRid=ctx.myRosterId;
+    (rosters||[]).forEach(function(r){ var s=r.settings||{}; var g=(s.wins||0)+(s.losses||0)+(s.ties||0); var pf=(s.fpts||0)+((s.fpts_decimal||0)/100); ppg[r.roster_id]={ppg:g?pf/g:0, name:uName[r.owner_id]||'Team', av:uAv[r.owner_id]||''}; });
+    var myPPG=(ppg[myRid]&&ppg[myRid].ppg)||0;
+    var weeks=[]; for(var w=curWk; w<playoffStart && weeks.length<7; w++) weeks.push(w);
+    if(!weeks.length){ el.innerHTML='<div class="rrp-empty">Regular season is complete — playoffs are set.</div>'; return; }
+    var mus=await Promise.all(weeks.map(function(w){ return fetch('https://api.sleeper.app/v1/league/'+lid+'/matchups/'+w).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}); }));
+    var tiles=weeks.map(function(w,i){
+      var mw=mus[i]||[]; var mine=mw.find(function(m){return m.roster_id===myRid;});
+      var oppName='—', oppAv='', wp=50;
+      if(mine){ var opp=mw.find(function(m){return m.roster_id!==myRid && m.matchup_id===mine.matchup_id;});
+        if(opp){ var o=ppg[opp.roster_id]||{ppg:0,name:'Opp',av:''}; oppName=o.name; oppAv=o.av; wp=(myPPG||o.ppg)?_rdvWinProb(myPPG-o.ppg):50; }
+      }
+      var col=_rrpWkColor(wp);
+      var nowCls=(w===curWk)?' now':'';
+      return '<div class="rrp-wk'+nowCls+'"><div class="w">WK '+w+'</div>'+_rrpAvCell(oppAv,oppName)+'<div class="o">'+_rrpEsc(oppName.length>14?oppName.slice(0,13)+'…':oppName)+'</div><div class="p" style="color:'+col+'">'+wp+'%</div><div class="bar"><i style="width:'+wp+'%;background:'+col+'"></i></div></div>';
+    }).join('');
+    var avgWp=Math.round(weeks.reduce(function(a,_,i){ var mw=mus[i]||[]; var mine=mw.find(function(m){return m.roster_id===myRid;}); if(!mine)return a+50; var opp=mw.find(function(m){return m.roster_id!==myRid&&m.matchup_id===mine.matchup_id;}); var o=opp?(ppg[opp.roster_id]||{ppg:0}):{ppg:0}; return a+((myPPG||o.ppg)?_rdvWinProb(myPPG-o.ppg):50); },0)/weeks.length);
+    el.innerHTML='<div class="rrp-sched">'+tiles+'</div>'
+      + '<div class="rrp-legend"><span>WIN % from each team\'s season points-per-game · playoffs Wk '+playoffStart+'</span><span>AVG <b>'+avgWp+'%</b> vs remaining slate</span></div>';
+  }catch(e){
+    console.warn('[Vault] redraft race failed:', e);
+    el.innerHTML='<div class="rrp-empty">Couldn\'t load your remaining schedule right now.</div>';
+  }
+}
+window._ovRenderRedraftRace=_ovRenderRedraftRace;
 </script>
 <script>
 /* ── UI Enhancers: count-up values + bar fills animate on each My Team / League render ── */
