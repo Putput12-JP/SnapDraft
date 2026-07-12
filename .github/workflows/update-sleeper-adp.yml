@@ -1,0 +1,67 @@
+name: Update Sleeper Dynasty ADP
+
+# Crawls real Sleeper dynasty startup drafts and aggregates them into true ADP.
+# Each run does a BOUNDED chunk of the snowball crawl (checkpointed in
+# data/sleeper_crawl_state.json) so the corpus grows over time. Runs a few times
+# a day during draft season; the crawl is self-limiting via per-run budgets.
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'   # every 6 hours (bounded crawl step each time)
+  workflow_dispatch:
+    inputs:
+      user_budget:
+        description: 'Frontier users to process this run'
+        required: false
+        default: '400'
+      draft_budget:
+        description: 'New drafts to pull this run'
+        required: false
+        default: '500'
+
+# Avoid overlapping runs racing on the checkpoint files.
+concurrency:
+  group: sleeper-adp
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  crawl-adp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Crawl + rebuild Sleeper dynasty ADP
+        run: |
+          python3 scripts/build_sleeper_adp.py \
+            --user-budget "${{ github.event.inputs.user_budget || '400' }}" \
+            --draft-budget "${{ github.event.inputs.draft_budget || '500' }}"
+
+      - name: Show generated files
+        run: |
+          echo "Sleeper ADP files:"
+          ls -lh data/adp_sleeper_*.json data/sleeper_*.json 2>/dev/null || echo "(none)"
+
+      - name: Commit updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Rebase in case another data cron pushed while we were crawling.
+          git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+          git add data/adp_sleeper_*.json data/sleeper_adp_history_*.json \
+                  data/sleeper_crawl_state.json data/sleeper_adp_corpus.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "data: crawl + refresh real Sleeper dynasty ADP"
+            git push
+          fi
