@@ -4730,6 +4730,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <button data-order="ffc" id="adp-order-ffc" onclick="adpSetOrder('ffc')" title="Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board">FFC</button>
             <button class="on" data-order="fc" onclick="adpSetOrder('fc')" title="FantasyCalc — market value rank from real Sleeper/MFL/Fleaflicker trades">FC</button>
             <button data-order="espn" id="adp-order-espn" onclick="adpSetOrder('espn')" title="ESPN live draft ADP — where players actually go in ESPN drafts">ESPN</button>
+            <button data-order="sl" id="adp-order-sl" onclick="adpSetOrder('sl')" title="Real dynasty startup ADP aggregated from thousands of live Sleeper drafts">Sleeper</button>
             <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')" title="Your imported My Rankings order">Mine</button>
           </div>
         </div>
@@ -4754,7 +4755,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <th class="r" data-sort="adp" id="adp-th-rk" onclick="adpSortPrimary()">RK ↕</th>
             <th data-sort="name" onclick="adpSetSort('name')">PLAYER ↕</th>
             <th class="r" data-sort="posrk" onclick="adpSetSort('posrk')">POSRK ↕</th>
-            <th class="r sorted" data-sort="adp" id="adp-th-adp" onclick="adpSetSort(_adpSource==='ffc'?'ffcadp':_adpSource==='espn'?'espnadp':_adpSource==='my'?'myrank':'adp')"><span id="adp-th-adp-lbl">FC ADP</span> ↕</th>
+            <th class="r sorted" data-sort="adp" id="adp-th-adp" onclick="adpSetSort(_adpSource==='ffc'?'ffcadp':_adpSource==='espn'?'espnadp':_adpSource==='sl'?'sladp':_adpSource==='my'?'myrank':'adp')"><span id="adp-th-adp-lbl">FC ADP</span> ↕</th>
             <th class="r" data-sort="trend" id="adp-th-change" onclick="adpSetSort('trend')">30D ↕</th>
           </tr>
         </thead>
@@ -30200,17 +30201,50 @@ function _adpFile(scoring, teams) {
   return `data/adp_${scoring}_${teams}team.json`;
 }
 
+/* ── Sleeper real-draft ADP overlay ──
+   Aggregated from real Sleeper dynasty startup drafts (scripts/build_sleeper_adp.py).
+   Dynasty-only (the inverse of FFC/ESPN which are redraft-only): superflex→sf,
+   dynasty→1qb, everything else has no Sleeper overlay. Merged onto the shared rows
+   as p.adpSleeper so it behaves like any other source. */
+let _adpSleeperCache = {};
+function _adpSleeperKey() {
+  if (_adpScoring === 'superflex') return 'sf';
+  if (_adpScoring === 'dynasty')   return '1qb';
+  return null;
+}
+function _adpMergeSleeper(cb) {
+  const k = _adpSleeperKey();
+  const clear = () => _adpData.forEach(p => { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; });
+  if (!k) { clear(); cb(); return; }
+  const apply = (rows) => {
+    const nn = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const byId = {}, byName = {};
+    rows.forEach(s => { if (s.sleeperId) byId[String(s.sleeperId)] = s; byName[nn(s.name)] = s; });
+    _adpData.forEach(p => {
+      const s = (p.sleeperId && byId[String(p.sleeperId)]) || byName[nn(p.name)];
+      if (s) { p.adpSleeper = s.adp; p.adpSleeperN = s.n; p.adpSleeperD14 = (s.adpDelta14 != null ? s.adpDelta14 : null); }
+      else   { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; }
+    });
+    cb();
+  };
+  if (_adpSleeperCache[k]) { apply(_adpSleeperCache[k]); return; }
+  fetch(`data/adp_sleeper_dynasty_${k}.json`)
+    .then(r => r.ok ? r.json() : { players: [] })
+    .then(j => { _adpSleeperCache[k] = j.players || []; apply(_adpSleeperCache[k]); })
+    .catch(() => { _adpSleeperCache[k] = []; apply([]); });
+}
+
 /* ── load ── */
 function _adpLoad() {
   const key = _adpFile(_adpScoring, _adpTeams);
-  if (_adpCache[key]) { _adpData = _adpCache[key]; _adpRender(); return; }
+  if (_adpCache[key]) { _adpData = _adpCache[key]; _adpMergeSleeper(_adpRender); return; }
   _adpRenderLoading();
   fetch(key)
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(json => {
       _adpCache[key] = json.players || [];
       _adpData = _adpCache[key];
-      _adpRender();
+      _adpMergeSleeper(_adpRender);
     })
     .catch(() => {
       document.getElementById('adp-tbody').innerHTML =
@@ -30329,6 +30363,7 @@ function _adpRenderTable(players) {
     if (_adpSort === 'adp')  { av = a.adp||999; bv = b.adp||999; }
     else if (_adpSort === 'ffcadp') { av = a.adpReal!=null?a.adpReal:9999; bv = b.adpReal!=null?b.adpReal:9999; }
     else if (_adpSort === 'espnadp') { av = a.adpEspn!=null?a.adpEspn:9999; bv = b.adpEspn!=null?b.adpEspn:9999; }
+    else if (_adpSort === 'sladp') { av = a.adpSleeper!=null?a.adpSleeper:9999; bv = b.adpSleeper!=null?b.adpSleeper:9999; }
     else if (_adpSort === 'myrank') { av = myRankOf(a); bv = myRankOf(b); }
     else if (_adpSort === 'posrk') { av = a.positionRank||999; bv = b.positionRank||999; }
     else if (_adpSort === 'trend') { av = _adpDeltaVal(a) ?? 0; bv = _adpDeltaVal(b) ?? 0; }
@@ -30375,6 +30410,7 @@ function _adpRenderTable(players) {
       <td class="r" style="font-weight:700;color:var(--text)">${(()=>{
         if (_adpSource==='ffc') return p.adpFmt || (p.adpReal!=null?p.adpReal.toFixed(1):null) || '<span style="color:var(--dim)">—</span>';
         if (_adpSource==='espn') return p.adpEspn!=null ? _adpPickFmt(p.adpEspn) : '<span style="color:var(--dim)">—</span>';
+        if (_adpSource==='sl') return p.adpSleeper!=null ? _adpPickFmt(p.adpSleeper) : '<span style="color:var(--dim)">—</span>';
         if (_adpSource==='my') { const mr = myMap[_norm(p.name)]; return mr!=null ? '#'+mr : '<span style="color:var(--dim)">—</span>'; }
         return p.adp?.toFixed(1) || '—';
       })()}</td>
@@ -30477,6 +30513,7 @@ function _adpRenderBoard() {
   const useMy = _adpOrder === 'my' && hasMy;
   const useFfc  = !useMy && _adpSource === 'ffc'  && _adpFfcHasData();
   const useEspn = !useMy && _adpSource === 'espn' && _adpEspnHasData();
+  const useSleeper = !useMy && _adpSource === 'sl' && _adpSleeperHasData();
   if (useMy) {
     const mine = _adpMyRankMap();
     list = [...list].sort((a,b) => {
@@ -30485,9 +30522,9 @@ function _adpRenderBoard() {
       const vb = rb != null ? rb : 100000 + (b.adp||999);
       return va - vb;
     });
-  } else if (useFfc || useEspn) {
+  } else if (useFfc || useEspn || useSleeper) {
     // real draft ADP order — players the source hasn't seen sink below, in FC order
-    const k = useFfc ? 'adpReal' : 'adpEspn';
+    const k = useFfc ? 'adpReal' : useEspn ? 'adpEspn' : 'adpSleeper';
     list = [...list].sort((a,b) => {
       const va = a[k] != null ? a[k] : 100000 + (a.adp||999);
       const vb = b[k] != null ? b[k] : 100000 + (b.adp||999);
@@ -30593,11 +30630,21 @@ function _adpRender() {
     espnBtn.title = espnOk ? 'ESPN live draft ADP — where players actually go in ESPN drafts'
                            : 'ESPN ADP is redraft-only — pick a Redraft format above';
   }
-  if ((_adpSource === 'ffc' && !ffcOk) || (_adpSource === 'espn' && !espnOk)) { _adpSource = 'fc'; _adpSort = 'adp'; _adpOrder = 'adp'; }
+  // Sleeper real-draft ADP is dynasty-only — disable (and fall back) on redraft formats.
+  const slBtn = document.getElementById('adp-order-sl');
+  const slOk = _adpSleeperHasData();
+  if (slBtn) {
+    slBtn.disabled = !slOk;
+    slBtn.style.opacity = slOk ? '' : '.4';
+    slBtn.style.cursor = slOk ? '' : 'not-allowed';
+    slBtn.title = slOk ? 'Real dynasty startup ADP aggregated from thousands of live Sleeper drafts'
+                       : 'Sleeper real-draft ADP is dynasty-only — pick Dynasty or Superflex above';
+  }
+  if ((_adpSource === 'ffc' && !ffcOk) || (_adpSource === 'espn' && !espnOk) || (_adpSource === 'sl' && !slOk)) { _adpSource = 'fc'; _adpSort = 'adp'; _adpOrder = 'adp'; }
   // reflect current source on the buttons + header each render
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === _adpSource));
   const _al = document.getElementById('adp-th-adp-lbl');
-  if (_al) _al.textContent = (_adpSource === 'my') ? 'MY RANK' : (_adpSource === 'ffc') ? 'FFC ADP' : (_adpSource === 'espn') ? 'ESPN ADP' : 'FC ADP';
+  if (_al) _al.textContent = (_adpSource === 'my') ? 'MY RANK' : (_adpSource === 'ffc') ? 'FFC ADP' : (_adpSource === 'espn') ? 'ESPN ADP' : (_adpSource === 'sl') ? 'SLEEPER ADP' : 'FC ADP';
   const liveBadge = document.getElementById('adp-live-badge');
   if (liveBadge) liveBadge.style.display = _adpDraftConnected() ? 'inline-flex' : 'none';
   _adpUpdateChangeHeader();
@@ -30659,20 +30706,21 @@ function _adpUpdateChangeHeader() {
 }
 
 window.adpSetOrder = function(o) {
-  // FFC / ESPN have no data for dynasty/superflex/rookie formats — ignore the click there.
+  // FFC / ESPN (redraft-only) and Sleeper (dynasty-only) lack data in some formats — ignore the click there.
   if (o === 'ffc' && !_adpFfcHasData()) return;
   if (o === 'espn' && !_adpEspnHasData()) return;
+  if (o === 'sl' && !_adpSleeperHasData()) return;
   _adpSource = o;
   _adpOrder = (o === 'my') ? 'my' : 'adp';
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === o));
   // sort key follows the source
-  _adpSort = (o === 'my') ? 'myrank' : (o === 'ffc') ? 'ffcadp' : (o === 'espn') ? 'espnadp' : 'adp';
+  _adpSort = (o === 'my') ? 'myrank' : (o === 'ffc') ? 'ffcadp' : (o === 'espn') ? 'espnadp' : (o === 'sl') ? 'sladp' : 'adp';
   _adpSortDir = 1;
   const rkTh = document.getElementById('adp-th-rk');
   if (rkTh) rkTh.textContent = (o === 'my') ? 'MY ↕' : 'RK ↕';
   // ADP value column header reflects the source
   const adpLbl = document.getElementById('adp-th-adp-lbl');
-  if (adpLbl) adpLbl.textContent = (o === 'my') ? 'MY RANK' : (o === 'ffc') ? 'FFC ADP' : (o === 'espn') ? 'ESPN ADP' : 'FC ADP';
+  if (adpLbl) adpLbl.textContent = (o === 'my') ? 'MY RANK' : (o === 'ffc') ? 'FFC ADP' : (o === 'espn') ? 'ESPN ADP' : (o === 'sl') ? 'SLEEPER ADP' : 'FC ADP';
   if (_adpView === 'board') { _adpRenderBoard(); return; }
   document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === _adpSort));
   _adpRenderTable(_adpData);
@@ -30686,8 +30734,11 @@ function _adpEspnHasData() { return _adpData.some(p => p.adpEspn != null); }
 function _adpDeltaVal(p) {
   if (_adpSource === 'ffc')  return p['adpRealDelta' + _adpRange];
   if (_adpSource === 'espn') return p['adpEspnDelta' + _adpRange];
+  if (_adpSource === 'sl')   return p.adpSleeperD14;   // Sleeper snapshots a single 14-day window
   return p['adpDelta' + _adpRange];
 }
+// Sleeper real-draft ADP only exists for dynasty/superflex formats (adpSleeper on matched players).
+function _adpSleeperHasData() { return _adpData.some(p => p.adpSleeper != null); }
 
 /* re-render when a live-draft pick lands so drafted players grey out in real time */
 window.adpOnDraftUpdate = function() {
