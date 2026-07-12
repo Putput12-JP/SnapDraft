@@ -74,7 +74,8 @@ HISTORY_MAX = 160                             # snapshots kept per player in his
 
 # per-run budgets (keep a cron run comfortably inside a few minutes)
 DEF_USER_BUDGET = 400                         # frontier users processed per run
-DEF_DRAFT_BUDGET = 500                        # new drafts pulled per run
+DEF_DRAFT_BUDGET = 400                        # new drafts pulled per run, PER MODE (dyn/rdr)
+MAX_RUN_SECONDS = 1200                         # wall-clock cap so a cron run always finishes
 REQ_MIN_INTERVAL = 0.08                       # ~750 req/min ceiling (Sleeper asks < 1000)
 
 DATA_DIR = "data"
@@ -191,9 +192,19 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     players = corpus["players"]
 
     users_done = 0
-    drafts_done = 0
+    done = {"dyn": 0, "rdr": 0}   # per-mode draft budgets — dynasty can't starve redraft
     new_dyn = 0
     new_rdr = 0
+    t0 = time.time()
+
+    # Always re-scan the seed first so the anchor account's own current drafts —
+    # including this season's redraft startups — get ingested every run.
+    seed = state.get("seed")
+    if seed:
+        seen_users.discard(seed)
+        if seed in frontier:
+            frontier.remove(seed)
+        frontier.insert(0, seed)
 
     def push_user(uid):
         if uid and uid not in seen_users and uid not in frontier:
@@ -201,7 +212,6 @@ def crawl(state, corpus, user_budget, draft_budget, log):
 
     def ingest_draft(did, lg_format, mode):
         """Pull one completed startup draft's picks into the corpus (mode: 'dyn'|'rdr')."""
-        nonlocal drafts_done
         if did in processed_drafts or did in drafts:
             return
         d = _get(f"draft/{did}")
@@ -219,7 +229,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
             processed_drafts.add(did)
             return
         picks = _get(f"draft/{did}/picks") or []
-        drafts_done += 1
+        done[mode] += 1
         pmap = {}
         for pk in picks:
             pid = pk.get("player_id")
@@ -243,6 +253,8 @@ def crawl(state, corpus, user_budget, draft_budget, log):
         processed_drafts.add(did)
 
     while frontier and users_done < user_budget:
+        if time.time() - t0 > MAX_RUN_SECONDS:
+            break
         uid = frontier.pop(0)
         seen_users.add(uid)
         users_done += 1
@@ -267,14 +279,15 @@ def crawl(state, corpus, user_budget, draft_budget, log):
                 # harvest leaguemates from rosters (owner_ids) — fuel for the snowball
                 for rs in (_get(f"league/{lid}/rosters") or []):
                     push_user(rs.get("owner_id"))
-                # pull this league's completed startup drafts
-                if drafts_done < draft_budget:
+                # pull this league's completed startup drafts (per-mode budget)
+                if done[mode] < draft_budget:
                     for d in (_get(f"league/{lid}/drafts") or []):
-                        if drafts_done >= draft_budget:
+                        if done[mode] >= draft_budget:
                             break
                         ingest_draft(d.get("draft_id"), fmt, mode)
-        if drafts_done >= draft_budget and users_done >= 1:
-            # draft budget spent — stop discovering more this run
+        # stop only when BOTH modes are satisfied — never let abundant dynasty
+        # drafts end the run before redraft leagues have been harvested
+        if done["dyn"] >= draft_budget and done["rdr"] >= draft_budget:
             break
 
     state["frontier"] = frontier
@@ -283,8 +296,8 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     state["dynasty_leagues"] = sorted(dynasty_leagues)
     state["redraft_leagues"] = sorted(redraft_leagues)
     state["processed_drafts"] = sorted(processed_drafts)
-    log(f"crawl: +{users_done} users, +{drafts_done} drafts, +{new_dyn} dynasty / +{new_rdr} redraft leagues "
-        f"| frontier={len(frontier)} corpus_drafts={len(drafts)}")
+    log(f"crawl: +{users_done} users, +{done['dyn']} dyn / +{done['rdr']} rdr drafts, "
+        f"+{new_dyn} dynasty / +{new_rdr} redraft leagues | frontier={len(frontier)} corpus_drafts={len(drafts)}")
 
 
 # ---- corpus -> ADP outputs ----------------------------------------------

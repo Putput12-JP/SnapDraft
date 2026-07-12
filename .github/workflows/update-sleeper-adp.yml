@@ -15,9 +15,9 @@ on:
         required: false
         default: '400'
       draft_budget:
-        description: 'New drafts to pull this run'
+        description: 'New drafts to pull this run, PER MODE (dynasty/redraft); run is also time-capped'
         required: false
-        default: '500'
+        default: '400'
 
 # Avoid overlapping runs racing on the checkpoint files.
 concurrency:
