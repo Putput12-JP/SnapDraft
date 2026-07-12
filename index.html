@@ -4730,7 +4730,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
             <button data-order="ffc" id="adp-order-ffc" onclick="adpSetOrder('ffc')" title="Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board">FFC</button>
             <button class="on" data-order="fc" onclick="adpSetOrder('fc')" title="FantasyCalc — market value rank from real Sleeper/MFL/Fleaflicker trades">FC</button>
             <button data-order="espn" id="adp-order-espn" onclick="adpSetOrder('espn')" title="ESPN live draft ADP — where players actually go in ESPN drafts">ESPN</button>
-            <button data-order="sl" id="adp-order-sl" onclick="adpSetOrder('sl')" title="Real dynasty startup ADP aggregated from thousands of live Sleeper drafts">Sleeper</button>
+            <button data-order="sl" id="adp-order-sl" onclick="adpSetOrder('sl')" title="Real ADP aggregated from thousands of live Sleeper drafts (dynasty + redraft)">Sleeper</button>
             <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')" title="Your imported My Rankings order">Mine</button>
           </div>
         </div>
@@ -30207,31 +30207,54 @@ function _adpFile(scoring, teams) {
    dynasty→1qb, everything else has no Sleeper overlay. Merged onto the shared rows
    as p.adpSleeper so it behaves like any other source. */
 let _adpSleeperCache = {};
+let _adpSleeperExtra = [];   // Sleeper players outside the main file's universe (source='sl' only)
 function _adpSleeperKey() {
-  if (_adpScoring === 'superflex') return 'sf';
-  if (_adpScoring === 'dynasty')   return '1qb';
-  return null;
+  // The Explorer's 'superflex'/'dynasty' options are both DYNASTY; ppr/half/standard are REDRAFT.
+  if (_adpScoring === 'dynasty')   return 'dynasty_1qb';
+  if (_adpScoring === 'superflex') return 'dynasty_sf';
+  if (_adpScoring === 'ppr' || _adpScoring === 'halfppr' || _adpScoring === 'standard') return 'redraft_1qb';
+  return null;   // rookie: no Sleeper bucket (rookie drafts are excluded from the corpus)
 }
 function _adpMergeSleeper(cb) {
   const k = _adpSleeperKey();
-  const clear = () => _adpData.forEach(p => { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; });
+  const nn = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const clear = () => { _adpData.forEach(p => { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; }); _adpSleeperExtra = []; };
   if (!k) { clear(); cb(); return; }
   const apply = (rows) => {
-    const nn = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
     const byId = {}, byName = {};
     rows.forEach(s => { if (s.sleeperId) byId[String(s.sleeperId)] = s; byName[nn(s.name)] = s; });
+    const haveId = new Set(), haveName = new Set();
     _adpData.forEach(p => {
+      if (p.sleeperId) haveId.add(String(p.sleeperId));
+      haveName.add(nn(p.name));
       const s = (p.sleeperId && byId[String(p.sleeperId)]) || byName[nn(p.name)];
       if (s) { p.adpSleeper = s.adp; p.adpSleeperN = s.n; p.adpSleeperD14 = (s.adpDelta14 != null ? s.adpDelta14 : null); }
       else   { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; }
     });
+    // Widen the universe: Sleeper players the main file (top ~200) never included.
+    // Rendered only when the Sleeper source is active (see _adpActiveList).
+    _adpSleeperExtra = rows
+      .filter(s => !(s.sleeperId && haveId.has(String(s.sleeperId))) && !haveName.has(nn(s.name)))
+      .map(s => ({
+        name: s.name, pos: s.pos, team: s.team, sleeperId: String(s.sleeperId || ''),
+        years_of_experience: s.years_exp, positionRank: s.positionRank,
+        adp: undefined, value: 0,
+        adpSleeper: s.adp, adpSleeperN: s.n, adpSleeperD14: (s.adpDelta14 != null ? s.adpDelta14 : null),
+        _sleeperOnly: true,
+      }));
     cb();
   };
   if (_adpSleeperCache[k]) { apply(_adpSleeperCache[k]); return; }
-  fetch(`data/adp_sleeper_dynasty_${k}.json`)
+  fetch(`data/adp_sleeper_${k}.json`)
     .then(r => r.ok ? r.json() : { players: [] })
     .then(j => { _adpSleeperCache[k] = j.players || []; apply(_adpSleeperCache[k]); })
     .catch(() => { _adpSleeperCache[k] = []; apply([]); });
+}
+/* When the Sleeper source is active, render the full Sleeper universe (main rows +
+   the extra rows above); every other source stays on the main file's rows. */
+function _adpActiveList(base) {
+  base = base || _adpData;
+  return (_adpSource === 'sl' && _adpSleeperExtra.length) ? base.concat(_adpSleeperExtra) : base;
 }
 
 /* ── load ── */
@@ -30348,6 +30371,7 @@ function _adpRenderMovers(players) {
 
 /* ── render table ── */
 function _adpRenderTable(players) {
+  players = _adpActiveList(players);   // widen to the full Sleeper universe when Sleeper is the source
   const q = _adpSearch.toLowerCase();
   let rows = q ? players.filter(p => p.name.toLowerCase().includes(q) || (p.team||'').toLowerCase().includes(q) || (p.pos||'').toLowerCase().includes(q)) : players;
 
@@ -30506,7 +30530,7 @@ function _adpRenderBoard() {
   const norm  = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 
   // players only (exclude rookie-pick placeholders)
-  let list = _adpData.filter(p => p.pos && p.pos !== 'PICK' && p.pos !== 'DEF');
+  let list = _adpActiveList().filter(p => p.pos && p.pos !== 'PICK' && p.pos !== 'DEF');
 
   // ordering
   const hasMy = _adpHasMyRankings();
@@ -30637,8 +30661,8 @@ function _adpRender() {
     slBtn.disabled = !slOk;
     slBtn.style.opacity = slOk ? '' : '.4';
     slBtn.style.cursor = slOk ? '' : 'not-allowed';
-    slBtn.title = slOk ? 'Real dynasty startup ADP aggregated from thousands of live Sleeper drafts'
-                       : 'Sleeper real-draft ADP is dynasty-only — pick Dynasty or Superflex above';
+    slBtn.title = slOk ? 'Real ADP aggregated from thousands of live Sleeper drafts'
+                       : 'Sleeper real-draft ADP for this format is still collecting';
   }
   if ((_adpSource === 'ffc' && !ffcOk) || (_adpSource === 'espn' && !espnOk) || (_adpSource === 'sl' && !slOk)) { _adpSource = 'fc'; _adpSort = 'adp'; _adpOrder = 'adp'; }
   // reflect current source on the buttons + header each render

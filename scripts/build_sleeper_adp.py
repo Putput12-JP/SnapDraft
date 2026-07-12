@@ -58,6 +58,7 @@ USER_AGENT = "Vault-Fantasy/1.0 (+https://putput12-jp.github.io/Vault-Fantasy)"
 DEFAULT_SEED = "972151901896687616"          # Sleeper user "Putput"
 SEASONS = ["2024", "2025", "2026"]            # seasons to look for startups in
 DYNASTY_TYPE = 2                              # league.settings.type: 0 redraft,1 keeper,2 dynasty
+REDRAFT_TYPE = 0
 
 # startup vs rookie split on draft rounds (no explicit Sleeper flag exists)
 STARTUP_MIN_ROUNDS = 12                       # >= this = startup (fills full rosters)
@@ -140,6 +141,7 @@ def new_state(seed):
         "seen_users": [seed],     # user_ids already processed (BFS visited)
         "seen_leagues": [],       # league_ids already classified
         "dynasty_leagues": [],    # dynasty league_ids discovered
+        "redraft_leagues": [],    # redraft league_ids discovered
         "processed_drafts": [],   # draft_ids already pulled
         "last_run": None,
         "stats": {},
@@ -149,6 +151,15 @@ def new_state(seed):
 # ---- classification helpers ---------------------------------------------
 def league_is_dynasty(lg):
     return (lg.get("settings") or {}).get("type") == DYNASTY_TYPE
+
+def league_mode(lg):
+    """'dyn' for dynasty leagues, 'rdr' for redraft, None for keeper/other (skipped)."""
+    t = (lg.get("settings") or {}).get("type")
+    if t == DYNASTY_TYPE:
+        return 'dyn'
+    if t == REDRAFT_TYPE:
+        return 'rdr'
+    return None
 
 def league_format(lg):
     """'sf' if the league starts 2 QBs (superflex), else '1qb'."""
@@ -174,6 +185,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     seen_users = set(state["seen_users"])
     seen_leagues = set(state["seen_leagues"])
     dynasty_leagues = set(state["dynasty_leagues"])
+    redraft_leagues = set(state.get("redraft_leagues", []))
     processed_drafts = set(state["processed_drafts"])
     drafts = corpus["drafts"]
     players = corpus["players"]
@@ -181,13 +193,14 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     users_done = 0
     drafts_done = 0
     new_dyn = 0
+    new_rdr = 0
 
     def push_user(uid):
         if uid and uid not in seen_users and uid not in frontier:
             frontier.append(uid)
 
-    def ingest_draft(did, lg_format):
-        """Pull one completed startup dynasty draft's picks into the corpus."""
+    def ingest_draft(did, lg_format, mode):
+        """Pull one completed startup draft's picks into the corpus (mode: 'dyn'|'rdr')."""
         nonlocal drafts_done
         if did in processed_drafts or did in drafts:
             return
@@ -226,7 +239,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
             if pu:
                 push_user(pu)               # every pick is more crawl fuel
         drafts[did] = {"s": d.get("season"), "ts": draft_ts(d),
-                       "t": teams, "f": lg_format, "p": pmap}
+                       "t": teams, "f": lg_format, "m": mode, "p": pmap}
         processed_drafts.add(did)
 
     while frontier and users_done < user_budget:
@@ -241,16 +254,17 @@ def crawl(state, corpus, user_budget, draft_budget, log):
                 lid = lg.get("league_id")
                 if not lid:
                     continue
-                is_dyn = league_is_dynasty(lg)
+                mode = league_mode(lg)   # 'dyn' | 'rdr' | None (skip keeper/other)
                 if lid not in seen_leagues:
                     seen_leagues.add(lid)
-                    if is_dyn:
-                        dynasty_leagues.add(lid)
-                        new_dyn += 1
-                if not is_dyn:
+                    if mode == 'dyn':
+                        dynasty_leagues.add(lid); new_dyn += 1
+                    elif mode == 'rdr':
+                        redraft_leagues.add(lid); new_rdr += 1
+                if mode is None:
                     continue
                 fmt = league_format(lg)
-                # harvest leaguemates from rosters (owner_ids)
+                # harvest leaguemates from rosters (owner_ids) — fuel for the snowball
                 for rs in (_get(f"league/{lid}/rosters") or []):
                     push_user(rs.get("owner_id"))
                 # pull this league's completed startup drafts
@@ -258,7 +272,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
                     for d in (_get(f"league/{lid}/drafts") or []):
                         if drafts_done >= draft_budget:
                             break
-                        ingest_draft(d.get("draft_id"), fmt)
+                        ingest_draft(d.get("draft_id"), fmt, mode)
         if drafts_done >= draft_budget and users_done >= 1:
             # draft budget spent — stop discovering more this run
             break
@@ -267,8 +281,9 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     state["seen_users"] = sorted(seen_users)
     state["seen_leagues"] = sorted(seen_leagues)
     state["dynasty_leagues"] = sorted(dynasty_leagues)
+    state["redraft_leagues"] = sorted(redraft_leagues)
     state["processed_drafts"] = sorted(processed_drafts)
-    log(f"crawl: +{users_done} users, +{drafts_done} drafts, +{new_dyn} dynasty leagues "
+    log(f"crawl: +{users_done} users, +{drafts_done} drafts, +{new_dyn} dynasty / +{new_rdr} redraft leagues "
         f"| frontier={len(frontier)} corpus_drafts={len(drafts)}")
 
 
@@ -290,13 +305,13 @@ def _norm_pick(pick_no, teams):
         return pick_no
     return (pick_no - 1) * (NORM_TEAMS / teams) + 1
 
-def compute_adp(corpus, fmt):
-    """Aggregate startup dynasty picks for one format -> sorted player list."""
+def compute_adp(corpus, mode, fmt):
+    """Aggregate one mode+format's startup picks -> sorted player list. mode: 'dyn'|'rdr'."""
     players = corpus["players"]
     samples = {}   # player_id -> [normalized_pick, ...]
     ndrafts = 0
     for d in corpus["drafts"].values():
-        if d.get("f") != fmt:
+        if d.get("m", "dyn") != mode or d.get("f") != fmt:   # legacy drafts default to 'dyn'
             continue
         teams = d.get("t") or NORM_TEAMS
         ndrafts += 1
@@ -361,23 +376,31 @@ def update_history(fmt, rows, log):
     _save(f"sleeper_adp_history_{fmt}.json", hist)
     return hist
 
+# (mode, fmt) -> (output bucket name, source noun, human label)
+BUCKETS = [
+    ("dyn", "1qb", "dynasty_1qb", "dynasty startup",  "Dynasty Startup (1QB)"),
+    ("dyn", "sf",  "dynasty_sf",  "dynasty startup",  "Dynasty Startup (Superflex)"),
+    ("rdr", "1qb", "redraft_1qb", "redraft",          "Redraft (1QB)"),
+    ("rdr", "sf",  "redraft_sf",  "redraft",          "Redraft (Superflex)"),
+]
+
 def write_outputs(corpus, log):
-    for fmt, label in (("1qb", "Dynasty Startup (1QB)"), ("sf", "Dynasty Startup (Superflex)")):
-        rows, ndrafts = compute_adp(corpus, fmt)
-        update_history(fmt, rows, log)
+    for mode, fmt, bucket, noun, label in BUCKETS:
+        rows, ndrafts = compute_adp(corpus, mode, fmt)
+        update_history(bucket, rows, log)
         out = {
-            "format": f"sleeper_dynasty_{fmt}",
+            "format": f"sleeper_{bucket}",
             "format_label": label,
             "norm_teams": NORM_TEAMS,
-            "source": "aggregated real Sleeper dynasty startup drafts",
+            "source": f"aggregated real Sleeper {noun} drafts",
             "drafts": ndrafts,
             "total_drafts_corpus": len(corpus["drafts"]),
             "count": len(rows),
             "updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "players": rows,
         }
-        _save(f"adp_sleeper_dynasty_{fmt}.json", out)
-        log(f"output {fmt}: {len(rows)} players from {ndrafts} startups")
+        _save(f"adp_sleeper_{bucket}.json", out)
+        log(f"output {bucket}: {len(rows)} players from {ndrafts} drafts")
 
 
 # ---- main ---------------------------------------------------------------
@@ -405,6 +428,7 @@ def main():
             "seen_users": len(state["seen_users"]),
             "frontier": len(state["frontier"]),
             "dynasty_leagues": len(state["dynasty_leagues"]),
+            "redraft_leagues": len(state.get("redraft_leagues", [])),
             "corpus_drafts": len(corpus["drafts"]),
             "run_seconds": round(time.time() - t0, 1),
         }
