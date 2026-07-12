@@ -497,6 +497,13 @@ header{
 .plist-thead th:first-child{text-align:right;padding-right:8px}
 @media(max-width:700px){.plist-thead{display:none}}
 .plist{padding:0 24px 110px;display:block;width:100%;overflow-x:hidden;max-width:1760px;margin:0 auto}
+/* Cap the player list to ~viewport height with its own internal scroll, so the whole
+   list stays continuously scrollable but the Draft Board below never gets buried. */
+.plist-scroll{max-height:min(72vh,1180px);overflow-y:auto;overflow-x:hidden;border:1px solid var(--border);border-radius:12px;background:var(--s1);scrollbar-width:thin;scrollbar-color:var(--border3) transparent}
+.plist-scroll::-webkit-scrollbar{width:9px}
+.plist-scroll::-webkit-scrollbar-thumb{background:var(--border3);border-radius:6px;border:2px solid var(--s1)}
+.plist-scroll::-webkit-scrollbar-track{background:transparent}
+@media(max-width:700px){.plist-scroll{max-height:74vh;border:none;background:transparent;border-radius:0}}
 /* Draft Vault page: lock every section to the same wide container (near full-bleed, matching the app header's 24px gutters) so header, summary, list, and board all align edge-to-edge */
 #page-draft #intel-bar, #page-draft .pstrip, #page-draft .search-bar-wrap, #page-draft .suggest-bar, #page-draft .controls, #page-draft .draft-summary, #page-draft .ld-page{
   max-width:1760px;margin-left:auto;margin-right:auto;padding-left:24px;padding-right:24px;box-sizing:border-box;
@@ -890,24 +897,26 @@ header{
 .board-title{font-family:var(--font-sans);font-weight:900;font-size:var(--t-title);letter-spacing:2px;margin-bottom:14px}
 .board-title em{color:var(--accent2);font-style:normal}
 .board-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:1100px;margin:0 auto}
-.board-table{border-collapse:collapse;width:100%;min-width:auto;table-layout:fixed}
-.board-table th{padding:6px 3px;text-align:center;font-size:var(--t-nano);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border2);background:var(--s1);font-family:var(--font-mono);white-space:nowrap;min-width:64px;width:64px;position:sticky;top:0;z-index:2;overflow:hidden;text-overflow:ellipsis}
-.board-table td{padding:2px 1px;border:1px solid var(--border);vertical-align:top;min-width:64px;width:64px;overflow:hidden}
-.board-table tr:nth-child(odd) td{background:#1f2a4a44}
-.board-cell{padding:4px 3px;min-height:58px;display:flex;flex-direction:column;justify-content:center;gap:1px;border-radius:4px;transition:background .15s;cursor:default;overflow:hidden}
-.board-cell:hover{background:var(--s3)}
-.board-cell.me{background:#5b8dee10;border-left:2px solid var(--accent)}
-.board-cell.empty{opacity:.3}
-.bc-round{font-size:8px;color:var(--muted);font-family:var(--font-mono);margin-bottom:1px}
-.bc-pill{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;font-family:var(--font-mono);display:inline-block;margin-bottom:2px}
-.bc-pill.QB{background:#ff709620;color:var(--qb)}
-.bc-pill.RB{background:#3de8a020;color:var(--rb)}
-.bc-pill.WR{background:#5bc5ff20;color:var(--wr)}
-.bc-pill.TE{background:#ffd16620;color:var(--te)}
-.bc-name{font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.board-table{border-collapse:separate;border-spacing:4px;width:100%;min-width:auto;table-layout:fixed}
+.board-table th{padding:6px 3px 8px;text-align:center;font-size:var(--t-nano);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border2);background:var(--bg);font-family:var(--font-mono);white-space:nowrap;min-width:92px;width:92px;position:sticky;top:0;z-index:2;overflow:hidden;text-overflow:ellipsis}
+.board-table td{padding:0;vertical-align:top;min-width:92px;width:92px;overflow:hidden}
+/* Snake-board cells match the ADP board card look (pos-colored rail + player photo) */
+.board-cell{position:relative;background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--pc,var(--border2));border-radius:8px;padding:5px 6px 6px;min-height:58px;display:flex;flex-direction:column;gap:3px;overflow:hidden;cursor:pointer;transition:background .12s,border-color .12s}
+.board-cell.filled:hover{background:var(--s2);border-color:var(--border3)}
+.board-cell.me{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.board-cell.empty{background:transparent;border-style:dashed;border-left-color:var(--border);justify-content:center;align-items:center;cursor:default;opacity:.55}
+.board-cell.traded{border-left-style:dashed;border-left-color:var(--te)}
+.bc-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.bc-posrk{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--pc,var(--muted))}
+.bc-pick{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+.bc-body{display:flex;align-items:flex-end;justify-content:space-between;gap:5px;flex:1}
+.bc-txt{min-width:0;flex:1}
+.bc-name{font-size:11px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-meta{font-size:9px;color:var(--muted);font-family:var(--font-mono);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-tradedtag{color:var(--te)}
+.bc-round{font-size:9px;color:var(--muted);font-family:var(--font-mono);text-align:center}
 .bc-rank{font-size:9px;color:var(--muted);font-family:var(--font-mono)}
-.board-cell.traded{border-left:2px dashed var(--te);background:#ffd1660a}
-.bc-traded{font-size:10px;color:var(--te);font-family:var(--font-mono)}
+.bc-traded{font-size:9px;color:var(--te);font-family:var(--font-mono);text-align:center;margin-top:2px}
 @media(max-width:700px){
   .board-scroll,.board-table{display:none}
   .board-mobile{display:block}
@@ -5002,6 +5011,9 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       <span class="dfk-item dfk-scale-item" tabindex="0"><span class="dfk-scale">how the grade adds up ⓘ</span>
         <span class="dfk-pop"><span class="dfk-pop-h">Player grade &amp; team grade</span>A player's overall grade = <b>mean(Upside, Floor, 11−Risk, Situational)</b> on a 0–10 scale. Your <b>Draft Grade</b> averages that across your best starting lineup (QB / 2RB / 2WR / TE / 2FLEX by grade, bench excluded) and maps it to 0–100 + a letter. All factors are built from nflverse data (last-season PPG · boom% · bust% · weekly floor/ceiling, plus 3-season durability) and your league's scoring and roster settings.<span class="dfk-pop-s">skill positions only · K/DST not scored</span></span></span>
     </div>
+    <!-- Capped-height scroll region: keeps the full player list continuously scrollable
+         but bounded to ~viewport height so the Draft Board below stays reachable -->
+    <div class="plist-scroll">
     <table class="plist-table">
       <colgroup>
         <col class="col-rk"><col class="col-name"><col class="col-dynasty"><col class="col-redraft"><col class="col-adp"><col class="col-my"><col class="col-fup"><col class="col-ffl"><col class="col-frk"><col class="col-fsi"><col class="col-watch2">
@@ -5032,6 +5044,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
     </div>
     <!-- Mobile: div rows injected here by renderList -->
     <div id="plist-mobile"></div>
+    </div><!-- /.plist-scroll -->
   </div>
   <!-- Roster bar moved to global (just before #bottom-tab-bar) so it persists across all pages -->
 
@@ -13546,6 +13559,13 @@ function renderBoard(){
   const g=document.getElementById('bgrid');
   if(!g||!TEAMS.length) return;
 
+  const POSCOL={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+  // Local avatar builder (mirrors the ADP board's _bdAvatar, which is out of scope here)
+  const _bdAv=(name,sid,pos)=>{
+    const u=(typeof vaultHeadshot==='function')?vaultHeadshot(name,sid||'',26):'';
+    return u?`<img class="adp-bd-av" src="${u}" onerror="this.outerHTML='<div class=\\'adp-bd-av-fb\\'>${pos||'?'}</div>'" loading="lazy" alt="">`:`<div class="adp-bd-av-fb">${pos||'?'}</div>`;
+  };
+
   
   
   const pickLookup={};
@@ -13556,7 +13576,8 @@ function renderBoard(){
     
     const col = v.slot!==undefined ? v.slot-1 : v.teamIdx;
     if(r>0){
-      pickLookup[`${col}-${r}`]={name,pos:findPlayer(name)?.pos||'?',r0:findPlayer(name)?.r0||'',ownerIdx:v.teamIdx};
+      const _fp=findPlayer(name);
+      pickLookup[`${col}-${r}`]={name,pos:_fp?.pos||'?',r0:_fp?.r0||'',sid:_fp?.sleeperId||'',ownerIdx:v.teamIdx};
     }
   });
 
@@ -13565,7 +13586,8 @@ function renderBoard(){
   Object.entries(draftState).forEach(([name,v])=>{
     if(v.teamIdx<0||v.round>0) return;
     if(!manualByTeam[v.teamIdx]) manualByTeam[v.teamIdx]=[];
-    manualByTeam[v.teamIdx].push({name,pos:findPlayer(name)?.pos||'?',r0:findPlayer(name)?.r0||'',ownerIdx:v.teamIdx});
+    const _fpm=findPlayer(name);
+    manualByTeam[v.teamIdx].push({name,pos:_fpm?.pos||'?',r0:_fpm?.r0||'',sid:_fpm?.sleeperId||'',ownerIdx:v.teamIdx});
   });
   Object.entries(manualByTeam).forEach(([ti,arr])=>{
     const tidx=parseInt(ti);
@@ -13588,17 +13610,17 @@ function renderBoard(){
   
   const colCount=NUM_TEAMS;
 
-  const thStyle=`background:var(--s1);position:sticky;top:0;z-index:2;padding:6px 3px;font-size:9px;font-weight:600;border-bottom:1px solid var(--border2);font-family:var(--font-sans);white-space:nowrap;min-width:64px;width:64px;text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis`;
+  const thStyle=`background:var(--bg);position:sticky;top:0;z-index:2;padding:6px 3px 8px;font-size:9px;font-weight:600;border-bottom:1px solid var(--border2);font-family:var(--font-sans);white-space:nowrap;min-width:92px;width:92px;text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis`;
   const hdr='<thead><tr>'+
     `<th style="${thStyle};position:sticky;left:0;z-index:3;min-width:26px;width:26px;color:var(--muted)">RND</th>`+
     TEAMS.map((n,i)=>`<th style="${thStyle};color:${i===myTeam?COLORS[i%COLORS.length]:'var(--text2)'}${i===myTeam?';border-bottom:2px solid '+COLORS[i%COLORS.length]:''}">${n}</th>`).join('')+
     '</tr></thead>';
 
-  const tdBase=`padding:2px;vertical-align:top;border:1px solid var(--border)`;
+  const tdBase=`padding:0;vertical-align:top`;
   let rows='';
   for(let r=1;r<=NUM_ROUNDS;r++){
     rows+=`<tr>`;
-    rows+=`<td style="${tdBase};background:var(--s1);text-align:center;font-size:10px;font-weight:700;color:var(--muted);font-family:Space Mono,monospace;position:sticky;left:0;z-index:1;min-width:26px;width:26px">${r}</td>`;
+    rows+=`<td style="${tdBase};background:var(--bg);text-align:center;font-size:10px;font-weight:700;color:var(--muted);font-family:Space Mono,monospace;position:sticky;left:0;z-index:1;min-width:26px;width:26px">${r}</td>`;
     for(let col=0;col<colCount;col++){
       const key=`${col}-${r}`;
       const pk=pickLookup[key];
@@ -13607,14 +13629,21 @@ function renderBoard(){
       const c=COLORS[origTeamIdx%COLORS.length];
 
       if(pk){
-        
+
         const ownerC=COLORS[pk.ownerIdx%COLORS.length];
         const isTraded=pk.ownerIdx!==origTeamIdx;
+        const pkC=POSCOL[pk.pos]||'var(--border2)';
+        const pkSn=pk.name.replace(/'/g,"\\'");
         rows+=`<td style="${tdBase};background:${isMyCol?'#5b8dee0d':''}">
-          <div class="board-cell${isMyCol?' me':''}">
-            <span class="bc-pill ${pk.pos}">${pk.pos}</span>
-            <div class="bc-name" style="color:${ownerC}">${pk.name.split(' ').pop()}</div>
-            <div class="bc-rank">#${pk.r0||'—'}${isTraded?` <span style="color:var(--te);font-size:8px">↗</span>`:''}</div>
+          <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${pk.name.replace(/"/g,'&quot;')}${isTraded?' · traded to '+(TEAMS[pk.ownerIdx]||'').replace(/"/g,'&quot;'):''}">
+            <div class="bc-top"><span class="bc-posrk">${pk.pos}</span><span class="bc-pick">#${pk.r0||'—'}</span></div>
+            <div class="bc-body">
+              <div class="bc-txt">
+                <div class="bc-name" style="color:${ownerC}">${pk.name.split(' ').pop()}</div>
+                ${isTraded?`<div class="bc-meta bc-tradedtag">↗ ${(TEAMS[pk.ownerIdx]||'').slice(0,7)}</div>`:''}
+              </div>
+              ${_bdAv(pk.name,pk.sid,pk.pos)}
+            </div>
           </div>
         </td>`;
       } else {
