@@ -27121,14 +27121,26 @@ function _rrpLineupProj(pids, proj, slots, scoring){
 }
 function _rrpUserAv(u){ if(!u) return ''; var m=u.metadata||{}; if(m.avatar && /^https?:/.test(m.avatar)) return m.avatar; if(u.avatar) return 'https://sleepercdn.com/avatars/thumbs/'+u.avatar; return ''; }
 function _rrpAvCell(url,name){ var ini=_rdvInitials(name||'?'); return '<div class="rrp-wk-av">'+ini+(url?'<img src="'+url+'" alt="" onerror="this.style.display=\'none\'">':'')+'</div>'; }
+/* Shared tile + card renderers so Sleeper and ESPN paths produce identical UI. */
+function _rrpRaceTile(w, curWk, r){
+  var col=_rrpWkColor(r.wp); var nowCls=(w===curWk)?' now':'';
+  var proj=(r.basis==='proj')?('<div class="rrp-wk-proj">'+Math.round(r.myP)+'–'+Math.round(r.opP)+'</div>'):'';
+  return '<div class="rrp-wk'+nowCls+'"><div class="w">WK '+w+'</div>'+_rrpAvCell(r.av,r.name)+'<div class="o">'+_rrpEsc((r.name||'').length>14?r.name.slice(0,13)+'…':r.name)+'</div><div class="p" style="color:'+col+'">'+r.wp+'%</div>'+proj+'<div class="bar"><i style="width:'+r.wp+'%;background:'+col+'"></i></div></div>';
+}
+function _rrpRaceRender(el, weeks, curWk, wpr, playoffStart, basisLabel){
+  var tiles=weeks.map(function(w,i){ return _rrpRaceTile(w, curWk, wpr[i]); }).join('');
+  var avgWp=Math.round(wpr.reduce(function(a,r){return a+r.wp;},0)/(wpr.length||1));
+  el.innerHTML='<div class="rrp-sched">'+tiles+'</div>'
+    + '<div class="rrp-legend"><span>WIN % from '+basisLabel+' vs each opponent · playoffs Wk '+playoffStart+'</span><span>AVG <b>'+avgWp+'%</b> vs remaining slate</span></div>';
+}
 async function _ovRenderRedraftRace(){
   var ctx=window._rdvCtx, el=document.getElementById('rrp-race'); if(!el||!ctx) return;
   try{
     var lid=ctx.leagueId;
     var _lg=myTeamsData.find(function(l){return l.league_id===lid;});
-    // ESPN schedule isn't wired here yet — keep the projected note.
-    if(_lg && typeof vpPlat==='function' && vpPlat(_lg)==='espn'){ el.innerHTML='<div class="rrp-empty">Weekly win-probability schedule is Sleeper-only for now.</div>'; return; }
     var playoffStart=(_lg&&_lg.settings&&_lg.settings.playoff_week_start)||15;
+    // ESPN leagues: same schedule + projected-score win % via ESPN's own projections.
+    if(_lg && typeof vpPlat==='function' && vpPlat(_lg)==='espn'){ return _ovRenderRedraftRaceEspn(ctx, _lg, el, playoffStart); }
     var st; try{ st=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); }catch(e){ st={week:1}; }
     var curWk=Math.max(1, st.week||1);
     var rosters=await fetch('https://api.sleeper.app/v1/league/'+lid+'/rosters').then(function(r){return r.json();}).catch(function(){return [];});
@@ -27167,21 +27179,55 @@ async function _ovRenderRedraftRace(){
       return {wp:_rrpValWinProb(myVal,o.val,avgVal), name:o.name, av:o.av, basis:'value'};
     }
     var wpr=weeks.map(function(_,i){ return _wpFor(mus[i], i); });
-    var tiles=weeks.map(function(w,i){
-      var r=wpr[i]; var col=_rrpWkColor(r.wp); var nowCls=(w===curWk)?' now':'';
-      var proj=(r.basis==='proj')?('<div class="rrp-wk-proj">'+Math.round(r.myP)+'–'+Math.round(r.opP)+'</div>'):'';
-      return '<div class="rrp-wk'+nowCls+'"><div class="w">WK '+w+'</div>'+_rrpAvCell(r.av,r.name)+'<div class="o">'+_rrpEsc(r.name.length>14?r.name.slice(0,13)+'…':r.name)+'</div><div class="p" style="color:'+col+'">'+r.wp+'%</div>'+proj+'<div class="bar"><i style="width:'+r.wp+'%;background:'+col+'"></i></div></div>';
-    }).join('');
-    var avgWp=Math.round(wpr.reduce(function(a,r){return a+r.wp;},0)/wpr.length);
-    var basis=usedProj?'projected weekly scores (Sleeper projections)':'your power ranking (roster value)';
-    el.innerHTML='<div class="rrp-sched">'+tiles+'</div>'
-      + '<div class="rrp-legend"><span>WIN % from '+basis+' vs each opponent · playoffs Wk '+playoffStart+'</span><span>AVG <b>'+avgWp+'%</b> vs remaining slate</span></div>';
+    _rrpRaceRender(el, weeks, curWk, wpr, playoffStart, usedProj?'projected weekly scores (Sleeper projections)':'your power ranking (roster value)');
   }catch(e){
     console.warn('[Vault] redraft race failed:', e);
     el.innerHTML='<div class="rrp-empty">Couldn\'t load your remaining schedule right now.</div>';
   }
 }
 window._ovRenderRedraftRace=_ovRenderRedraftRace;
+
+/* ── The Race for ESPN leagues: same tiles, using ESPN's own weekly projections
+   (statSourceId 1) exactly like the ESPN gamecast/next-up. ── */
+async function _ovRenderRedraftRaceEspn(ctx, lg, el, playoffStart){
+  try{
+    var myTid=(typeof espnSelectedTeam==='function')&&espnSelectedTeam(ctx.leagueId);
+    if(!lg._espnId || !myTid){ el.innerHTML='<div class="rrp-empty">Pick your ESPN team to see the win-probability schedule.</div>'; return; }
+    myTid=String(myTid);
+    var apiBase='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+lg.season+'/segments/0/leagues/'+lg._espnId;
+    var BENCH=(typeof ESPN_BENCH!=='undefined')?ESPN_BENCH:new Set([20,21,24]);
+    function projOf(e,per){ var pl=(e.playerPoolEntry&&e.playerPoolEntry.player)||{}; var ss=(pl.stats||[]).filter(function(s){return s.statSourceId===1&&s.scoringPeriodId===per;}); var s=ss.find(function(x){return x.statSplitTypeId===1;})||ss[0]; return s&&s.appliedTotal!=null?s.appliedTotal:null; }
+    function teamProj(side,per){ var ents=(side&&side.rosterForCurrentScoringPeriod&&side.rosterForCurrentScoringPeriod.entries)||[]; return ents.filter(function(e){return !BENCH.has(e.lineupSlotId);}).reduce(function(s,e){ var p=projOf(e,per); return s+(p!=null?p:0); },0); }
+    var base=await fetch(apiBase+'?view=mSettings&view=mTeam&view=mMatchupScore',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
+    if(!base){ el.innerHTML='<div class="rrp-empty">ESPN didn\'t return schedule data (the league may be private).</div>'; return; }
+    var curWk=(base.status&&base.status.currentMatchupPeriod)||base.scoringPeriodId||1; if(curWk<1) curWk=1;
+    var mpc=(base.settings&&base.settings.scheduleSettings&&base.settings.scheduleSettings.matchupPeriodCount)||0;
+    var lastReg=playoffStart>1?(playoffStart-1):(mpc||14); if(mpc && mpc<lastReg) lastReg=mpc;
+    var teamInfo={}; (base.teams||[]).forEach(function(t){ teamInfo[t.id]={name:(typeof espnTeamName==='function'?espnTeamName(t):('Team '+t.id)), logo:t.logo||''}; });
+    var weeks=[]; for(var w=curWk; w<=lastReg && weeks.length<7; w++) weeks.push(w);
+    if(!weeks.length){ el.innerHTML='<div class="rrp-empty">Regular season is complete — playoffs are set.</div>'; return; }
+    var datas=await Promise.all(weeks.map(function(w){ return fetch(apiBase+'?view=mMatchupScore&view=mRoster&view=mTeam&scoringPeriodId='+w,{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}); }));
+    var usedProj=false;
+    var wpr=weeks.map(function(w,i){
+      var d=datas[i]; if(!d) return {wp:50,name:'—',av:'',basis:'—'};
+      (d.teams||[]).forEach(function(t){ if(!teamInfo[t.id]||!teamInfo[t.id].name){ teamInfo[t.id]={name:(typeof espnTeamName==='function'?espnTeamName(t):('Team '+t.id)), logo:t.logo||''}; } });
+      var per=d.scoringPeriodId||w;
+      var mine=(d.schedule||[]).find(function(m){ return m.matchupPeriodId===w && ((m.home&&String(m.home.teamId)===myTid)||(m.away&&String(m.away.teamId)===myTid)); });
+      if(!mine || !mine.home || !mine.away) return {wp:50,name:'—',av:'',basis:'—'};
+      var isHome=String(mine.home.teamId)===myTid;
+      var meSide=isHome?mine.home:mine.away, opSide=isHome?mine.away:mine.home;
+      var oi=teamInfo[isHome?mine.away.teamId:mine.home.teamId]||{name:'Opp',logo:''};
+      var myP=teamProj(meSide,per), opP=teamProj(opSide,per);
+      if(myP>0 && opP>0){ usedProj=true; return {wp:_rrpProjWinProb(myP-opP), name:oi.name, av:oi.logo, basis:'proj', myP:myP, opP:opP}; }
+      return {wp:50, name:oi.name, av:oi.logo, basis:'—'};
+    });
+    _rrpRaceRender(el, weeks, curWk, wpr, playoffStart, usedProj?'projected weekly scores (ESPN projections)':'your ESPN matchup schedule');
+  }catch(e){
+    console.warn('[Vault] redraft ESPN race failed:', e);
+    el.innerHTML='<div class="rrp-empty">Couldn\'t load your ESPN schedule right now.</div>';
+  }
+}
+window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
 </script>
 <script>
 /* ── UI Enhancers: count-up values + bar fills animate on each My Team / League render ── */
