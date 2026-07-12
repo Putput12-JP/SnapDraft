@@ -4651,6 +4651,24 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
       <p>FantasyCalc market data, updated daily.</p>
     </div>
 
+    <!-- Sleeper real-draft corpus: live-pool headline + connectivity funnel (Users → Leagues → Drafts → Picks) -->
+    <div class="adp-slstats" id="adp-slstats" style="display:none" title="Aggregated from real Sleeper drafts. We crawl the public Sleeper league graph — each user reveals their leagues, each league its drafts and more users — so this pool grows as the crawl compounds.">
+      <div class="adp-slstats-main">
+        <span class="adp-slstats-dot"></span>
+        <span class="adp-slstats-line"><b id="sls-picks">—</b> picks from <b id="sls-drafts">—</b> real Sleeper drafts</span>
+        <span class="adp-slstats-sub" id="sls-sub"></span>
+      </div>
+      <div class="adp-slstats-funnel" aria-label="how the data connects">
+        <div class="slf-node"><span class="slf-n" id="sls-users">—</span><span class="slf-l">Users</span></div>
+        <span class="slf-arw">→</span>
+        <div class="slf-node"><span class="slf-n" id="sls-leagues">—</span><span class="slf-l">Leagues</span></div>
+        <span class="slf-arw">→</span>
+        <div class="slf-node"><span class="slf-n" id="sls-fdrafts">—</span><span class="slf-l">Drafts</span></div>
+        <span class="slf-arw">→</span>
+        <div class="slf-node"><span class="slf-n" id="sls-fpicks">—</span><span class="slf-l">Picks</span></div>
+      </div>
+    </div>
+
     <!-- biggest movers -->
     <div class="adp-movers" id="adp-movers">
       <button class="adp-movers-head" type="button" onclick="adpToggleMovers()" aria-expanded="true" aria-controls="adp-movers-cols">
@@ -29985,6 +30003,19 @@ body .page,body .page.on{background:transparent!important}
 .adp-hero p{font-size:13px;color:var(--muted);margin:0}
 
 /* movers */
+/* Sleeper real-draft corpus strip: live-pool headline + connectivity funnel */
+.adp-slstats{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.adp-slstats-main{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+.adp-slstats-dot{width:7px;height:7px;border-radius:50%;background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.14);align-self:center;flex-shrink:0}
+.adp-slstats-line{font-family:var(--font-sans);font-size:14.5px;color:var(--text2);letter-spacing:-.01em}
+.adp-slstats-line b{font-family:var(--font-mono);font-weight:800;color:#facc15;font-size:15.5px}
+.adp-slstats-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.03em}
+.adp-slstats-funnel{display:flex;align-items:center;gap:11px}
+.slf-node{display:flex;flex-direction:column;align-items:center;min-width:44px}
+.slf-n{font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--text);line-height:1.05}
+.slf-l{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.slf-arw{color:var(--border3);font-size:12px}
+@media(max-width:700px){.adp-slstats{gap:12px;padding:12px 14px}.adp-slstats-line{font-size:13px}.adp-slstats-funnel{gap:8px}.slf-node{min-width:38px}.slf-n{font-size:13px}}
 .adp-movers{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:20px}
 .adp-movers-head{width:100%;appearance:none;background:transparent;border:none;text-align:left;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px;cursor:pointer;padding:0;transition:color .12s}
 .adp-movers-head:hover{color:var(--text)}
@@ -30173,7 +30204,38 @@ window.dvShowADP = function() {
   document.getElementById('page-draft').classList.add('adp-mode');
   document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'adp-explorer'));
   _adpLoad();
+  _adpLoadSleeperStats();
 };
+
+/* Sleeper real-draft corpus stats → the provenance strip + connectivity funnel. */
+let _adpStatsFetched = false;
+function _adpLoadSleeperStats() {
+  const el = document.getElementById('adp-slstats');
+  if (!el || _adpStatsFetched) return;
+  _adpStatsFetched = true;
+  const fmt = n => Number(n || 0).toLocaleString();
+  const short = n => { n = Number(n || 0);
+    return n >= 1e6 ? +(n/1e6).toFixed(1) + 'M' : n >= 1e4 ? +(n/1e3).toFixed(1) + 'K' : fmt(n); };
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  fetch('data/sleeper_adp_stats.json')
+    .then(r => r.ok ? r.json() : null)
+    .then(s => {
+      if (!s || !s.drafts) { el.style.display = 'none'; _adpStatsFetched = false; return; }
+      set('sls-picks', fmt(s.picks));
+      set('sls-drafts', fmt(s.drafts));
+      set('sls-users', fmt(s.users_crawled));
+      set('sls-leagues', fmt(s.leagues && s.leagues.total));
+      set('sls-fdrafts', fmt(s.drafts));
+      set('sls-fpicks', short(s.picks));
+      const bm = s.drafts_by_mode || {}, parts = [];
+      if (bm.dyn) parts.push(bm.dyn + ' dynasty');
+      if (bm.rdr) parts.push(bm.rdr + ' redraft');
+      if (s.players) parts.push(fmt(s.players) + ' players');
+      set('sls-sub', parts.length ? '· ' + parts.join(' · ') : '');
+      el.style.display = 'flex';
+    })
+    .catch(() => { el.style.display = 'none'; _adpStatsFetched = false; });
+}
 
 /* ── Draft Vault nav dropdown (same pattern as Portfolio / My Team) ── */
 (function(){

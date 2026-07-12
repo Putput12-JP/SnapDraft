@@ -416,6 +416,35 @@ def write_outputs(corpus, log):
         log(f"output {bucket}: {len(rows)} players from {ndrafts} drafts")
 
 
+def write_stats(corpus, state, log):
+    """Small public stats file for the ADP Explorer's provenance strip + funnel.
+    Numbers describe the LIVE ADP pool (current window) and the crawl connectivity."""
+    drafts = corpus["drafts"]
+    by_mode = {}
+    picks = 0
+    for d in drafts.values():
+        m = d.get("m", "dyn")
+        by_mode[m] = by_mode.get(m, 0) + 1
+        picks += len(d.get("p", {}))
+    stats = {
+        "picks": picks,
+        "drafts": len(drafts),
+        "drafts_by_mode": by_mode,
+        "players": len(corpus["players"]),
+        "users_crawled": len(state.get("seen_users", [])),
+        "frontier": len(state.get("frontier", [])),
+        "leagues": {
+            "dynasty": len(state.get("dynasty_leagues", [])),
+            "redraft": len(state.get("redraft_leagues", [])),
+            "total": len(state.get("dynasty_leagues", [])) + len(state.get("redraft_leagues", [])),
+        },
+        "window_days": WINDOW_DAYS,
+        "updated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    _save("sleeper_adp_stats.json", stats)
+    log(f"stats: {picks} picks / {len(drafts)} drafts / {stats['users_crawled']} users / {stats['leagues']['total']} leagues")
+
+
 # ---- main ---------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
@@ -450,6 +479,7 @@ def main():
         log(f"state: {state['stats']}")
 
     write_outputs(corpus, log)
+    write_stats(corpus, state, log)
     log("done")
 
 
