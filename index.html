@@ -25789,7 +25789,7 @@ function pickYear(year) {
 /* 1 · The Race */
 .rrp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:640px){.rrp-stats{grid-template-columns:1fr;gap:8px}}
-.rrp-stat{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+.rrp-stat{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:88px}
 .rrp-stat .k{font-family:var(--font-mono);font-size:var(--t-nano,9px);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .rrp-stat .v{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.1;color:var(--text)}
 .rrp-stat .v small{font-size:var(--t-label,11px);color:var(--muted);font-weight:600}
@@ -25808,6 +25808,7 @@ function pickYear(year) {
 .rrp-wk-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .rrp-wk .o{font-size:var(--t-label,11px);font-weight:700;margin:0 0 6px;line-height:1.2;min-height:16px;display:flex;align-items:center;justify-content:center;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rrp-wk .p{font-family:var(--font-mono);font-size:var(--t-secondary,13px);font-weight:800}
+.rrp-wk-proj{font-family:var(--font-mono);font-size:var(--t-nano,9px);color:var(--muted);margin-top:1px}
 .rrp-wk .bar{height:4px;border-radius:999px;background:rgba(127,140,163,.18);margin-top:6px;overflow:hidden}
 .rrp-wk .bar i{display:block;height:100%;border-radius:999px}
 .rrp-flag{position:absolute;top:-7px;right:-5px;font-size:10px}
@@ -25872,6 +25873,23 @@ function pickYear(year) {
 /* bottom pair: pin trade CTA to the card floor so it bottom-aligns with status */
 .rrp-pin>.cc-card{display:flex;flex-direction:column}
 .rrp-pin .rrp-tr-cta{margin-top:auto;align-self:flex-start}
+
+/* manager-rail hero stats: separate bordered cards to match the rest of the view */
+.rrp-wrap .mth-hero-stats{grid-template-columns:repeat(3,1fr);gap:10px;background:none;border:none;border-radius:0;overflow:visible}
+.rrp-wrap .mth-hero-stat{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 8px}
+
+/* compact Trade Angles: a few options as tight rows */
+.rrp-tro{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.rrp-tro:last-of-type{border-bottom:none}
+.rrp-tro-ph{width:34px;height:34px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0;position:relative}
+.rrp-tro-ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.rrp-tro-main{flex:1;min-width:0}
+.rrp-tro-nm{font-size:var(--t-secondary,13px);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrp-tro-why{font-size:var(--t-nano,9px);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.rrp-tro-arrow{font-family:var(--font-mono);font-size:var(--t-nano,9px);color:var(--muted);flex-shrink:0}
+.rrp-tro-need{flex-shrink:0;font-family:var(--font-mono);font-size:var(--t-label,11px);font-weight:800;padding:4px 9px;border-radius:7px}
+.rrp-tro-foot{margin-top:11px;font-size:var(--t-micro,10px);font-family:var(--font-mono);color:var(--muted);line-height:1.6}
+.rrp-tro-foot b{color:var(--text2)}
 
 /* two-column wrapper mirrors dynasty .mth-wrap */
 .rrp-wrap{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start;min-width:0;max-width:100%}
@@ -26529,25 +26547,35 @@ function _buildRedraftPreview(d){
   })();
   var statusCard='<div class="cc-card"><div class="rrp-sechd"><span class="cc-lab">Player Status</span><span class="rrp-chip amber">THIS WEEK</span></div>'+statusHtml+'</div>';
 
-  // Trade angles (sync, from positional surplus/need)
+  // Trade angles (sync): compact list of a few "shop from surplus → fill a need" options
   var tradeCard=(function(){
-    var pr=d.posRankInfo||{}; var arr=['QB','RB','WR','TE'].map(function(p){ return {pos:p, rank:(pr[p]&&pr[p].rank)||teams, n:byPos[p].length, starters:(d.starters||[]).filter(function(s){return s.pos===p;}).length}; });
-    var surplus=arr.slice().filter(function(a){return a.n>a.starters+1;}).sort(function(a,b){return a.rank-b.rank;})[0];
+    var prI=d.posRankInfo||{};
+    var arr=['QB','RB','WR','TE'].map(function(p){ return {pos:p, rank:(prI[p]&&prI[p].rank)||teams, n:byPos[p].length, starters:(d.starters||[]).filter(function(s){return s.pos===p;}).length}; });
     var need=arr.slice().sort(function(a,b){return b.rank-a.rank;})[0];
+    var surplusPos=arr.slice().filter(function(a){return a.n>a.starters+1 && a.pos!==need.pos;}).sort(function(a,b){return a.rank-b.rank;});
+    // shoppable = highest-value bench players from surplus positions
+    var shop=[];
+    surplusPos.forEach(function(sp){
+      byPos[sp.pos].slice().filter(function(p){return !p.isStarter;})
+        .sort(function(a,b){return (_rdvVal(b.name)||0)-(_rdvVal(a.name)||0);})
+        .slice(0,2).forEach(function(p){ shop.push({p:p, pos:sp.pos, rank:sp.rank}); });
+    });
+    shop=shop.sort(function(a,b){return (_rdvVal(b.p.name)||0)-(_rdvVal(a.p.name)||0);}).slice(0,3);
     var body;
-    if(surplus && need && surplus.pos!==need.pos){
-      var sellList=byPos[surplus.pos].slice().filter(function(p){return !p.isStarter;}).sort(function(a,b){return (_rdvVal(b.name)||0)-(_rdvVal(a.name)||0);});
-      var sell=sellList[0]||byPos[surplus.pos].slice().sort(function(a,b){return (_rdvVal(a.name)||0)-(_rdvVal(b.name)||0);})[0];
-      body='<div class="rrp-tr-angle">'
-        + '<div class="rrp-tr-side"><div class="rrp-tr-ph">'+(sell?_rrpImg(sell.name,sell.sleeperId,40,_rdvInitials(sell.name)):'')+'</div><div><div class="rrp-tr-k ship">Ship · from surplus</div><div class="rrp-tr-nm">'+_rrpEsc(sell?sell.name:surplus.pos+' depth')+'</div><div class="rrp-tr-sub">'+surplus.pos+' is your deepest spot (#'+surplus.rank+')</div></div></div>'
-        + '<span class="rrp-tr-arrow">⇄</span>'
-        + '<div class="rrp-tr-side"><div class="rrp-tr-ph" style="display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;color:'+(posC[need.pos]||'var(--muted)')+'">'+need.pos+'</div><div><div class="rrp-tr-k get">Target · buy</div><div class="rrp-tr-nm">A starting '+need.pos+'</div><div class="rrp-tr-sub">'+need.pos+' is your thinnest spot (#'+need.rank+')</div></div></div>'
-        + '</div>'
-        + '<div class="rrp-tr-match">Your <b>'+surplus.pos+'</b> surplus can buy up your <b>'+need.pos+'</b> hole. <span class="up">Deal from strength</span> before the trade deadline.</div>';
+    if(shop.length){
+      var needC=posC[need.pos]||'var(--muted)';
+      var rows=shop.map(function(s){
+        return '<div class="rrp-tro" onclick="openPlayerProfile(\''+ppArg(s.p.name)+'\',\''+(s.p.sleeperId||'')+'\',\''+(s.p.pos||'')+'\',\''+(s.p.team||'')+'\')">'
+          + '<div class="rrp-tro-ph">'+_rrpImg(s.p.name,s.p.sleeperId,34,_rdvInitials(s.p.name))+'</div>'
+          + '<div class="rrp-tro-main"><div class="rrp-tro-nm">'+_rrpEsc(s.p.name)+'</div><div class="rrp-tro-why">'+s.pos+' depth ('+s.p.team+') · shop from strength</div></div>'
+          + '<span class="rrp-tro-arrow">for a</span>'
+          + '<span class="rrp-tro-need" style="color:'+needC+';background:color-mix(in srgb,'+needC+' 14%,transparent)">'+need.pos+'</span></div>';
+      }).join('');
+      body=rows+'<div class="rrp-tro-foot">Your <b>'+shop[0].pos+'</b> depth can buy up <b>'+need.pos+'</b> (your #'+need.rank+' spot).</div>';
     } else {
-      body='<div class="rrp-tr-match" style="padding:6px 0">Roster is balanced across positions — no obvious surplus-for-need swap right now. Trade Center has live values if you want to explore.</div>';
+      body='<div class="rrp-tro-foot" style="padding:8px 0">Roster is balanced — no obvious surplus-for-need swap right now.</div>';
     }
-    return '<div class="cc-card"><div class="rrp-sechd"><span class="cc-lab">Trade Angles</span><span class="rrp-chip steel">SURPLUS → NEED</span></div>'+body+'<span class="rrp-tr-cta" onclick="_rrpOpenTrades()">OPEN TRADE CENTER →</span></div>';
+    return '<div class="cc-card"><div class="rrp-sechd"><span class="cc-lab">Trade Angles</span><span class="rrp-chip steel">SHOP → '+need.pos+' NEED</span></div>'+body+'<span class="rrp-tr-cta" onclick="_rrpOpenTrades()">OPEN TRADE CENTER →</span></div>';
   })();
   var pair2='<div class="cc-two rrp-pin" style="margin-top:16px">'+statusCard+tradeCard+'</div>';
 
@@ -27043,6 +27071,24 @@ window._ovRenderRedraftWaiver=_ovRenderRedraftWaiver;
 function _rrpWkColor(p){ return p>=60?'var(--value)':p>=52?'var(--accent2)':p>=46?'#f5a623':'var(--red2)'; }
 /* Win prob from roster-value differential (same rankings source as the League tab). */
 function _rrpValWinProb(a,b,avg){ var K=Math.max(1,(avg||1)*0.14); var p=1/(1+Math.exp(-((a||0)-(b||0))/K)); return Math.max(3,Math.min(97,Math.round(p*100))); }
+/* Win prob from a projected point margin. Gentler than the single-week gamecast curve
+   because weekly fantasy scoring has ~25-pt combined variance across a whole season. */
+function _rrpProjWinProb(diff){ return Math.max(4,Math.min(96,Math.round(1/(1+Math.exp(-(diff||0)/25))*100))); }
+/* Best-lineup projected points for a roster in a given week (real Sleeper projections). */
+function _rrpSlotElig(base,pos){ pos=(pos==='DST')?'DEF':pos;
+  if(base==='SUPER_FLEX') return pos==='QB'||pos==='RB'||pos==='WR'||pos==='TE';
+  if(base==='FLEX') return pos==='RB'||pos==='WR'||pos==='TE';
+  return base===pos; }
+function _rrpLineupProj(pids, proj, slots, scoring){
+  if(!proj || !slots || !slots.length) return 0;
+  var players=(pids||[]).map(function(pid){ var pr=proj[String(pid)]; if(!pr) return null; var pts=_rdvProjPts(pr.stats, scoring); return {pos:pr.pos, pts:(typeof pts==='number'?pts:0)}; }).filter(Boolean);
+  if(!players.length) return 0;
+  players.sort(function(a,b){return b.pts-a.pts;});
+  var used=new Array(players.length); var total=0;
+  slots.forEach(function(slot){ var base=(slot==='SUPER_FLEX')?'SUPER_FLEX':_rdvSlotBase(slot);
+    for(var i=0;i<players.length;i++){ if(!used[i] && _rrpSlotElig(base, players[i].pos)){ used[i]=true; total+=players[i].pts; break; } } });
+  return total;
+}
 function _rrpUserAv(u){ if(!u) return ''; var m=u.metadata||{}; if(m.avatar && /^https?:/.test(m.avatar)) return m.avatar; if(u.avatar) return 'https://sleepercdn.com/avatars/thumbs/'+u.avatar; return ''; }
 function _rrpAvCell(url,name){ var ini=_rdvInitials(name||'?'); return '<div class="rrp-wk-av">'+ini+(url?'<img src="'+url+'" alt="" onerror="this.style.display=\'none\'">':'')+'</div>'; }
 async function _ovRenderRedraftRace(){
@@ -27069,17 +27115,37 @@ async function _ovRenderRedraftRace(){
     });
     var avgVal=valsArr.length?valsArr.reduce(function(a,b){return a+b;},0)/valsArr.length:1;
     var myVal=(val[myRid]&&val[myRid].val)||0;
+    // Lineup projections (Sleeper) drive win prob per week; roster value is the fallback
+    // when a week has no projections (far-off weeks / API gaps).
+    var scoring=(_lg&&_lg.scoring_settings)||ctx.scoring;
+    var slots=((_lg&&_lg.roster_positions)||ctx.rosterPositions||[]).filter(function(s){return s!=='BN'&&s!=='IR'&&s!=='TAXI';});
+    var season=ctx.season||(new Date().getFullYear()+'');
+    var rPlayers={}; (rosters||[]).forEach(function(r){ rPlayers[r.roster_id]=[].concat(r.players||[]); });
     var weeks=[]; for(var w=curWk; w<playoffStart && weeks.length<7; w++) weeks.push(w);
     if(!weeks.length){ el.innerHTML='<div class="rrp-empty">Regular season is complete — playoffs are set.</div>'; return; }
     var mus=await Promise.all(weeks.map(function(w){ return fetch('https://api.sleeper.app/v1/league/'+lid+'/matchups/'+w).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}); }));
-    function _wpFor(mw){ var mine=(mw||[]).find(function(m){return m.roster_id===myRid;}); if(!mine) return {wp:50,name:'—',av:''}; var opp=(mw||[]).find(function(m){return m.roster_id!==myRid && m.matchup_id===mine.matchup_id;}); if(!opp) return {wp:50,name:'Bye',av:''}; var o=val[opp.roster_id]||{val:0,name:'Opp',av:''}; return {wp:_rrpValWinProb(myVal,o.val,avgVal),name:o.name,av:o.av}; }
+    var projs=await Promise.all(weeks.map(function(w){ return _rdvFetchProjections(season, w).catch(function(){return {};}); }));
+    var usedProj=false;
+    function _wpFor(mw, i){
+      var mine=(mw||[]).find(function(m){return m.roster_id===myRid;}); if(!mine) return {wp:50,name:'—',av:'',basis:'—'};
+      var opp=(mw||[]).find(function(m){return m.roster_id!==myRid && m.matchup_id===mine.matchup_id;}); if(!opp) return {wp:50,name:'Bye',av:'',basis:'bye'};
+      var o=val[opp.roster_id]||{val:0,name:'Opp',av:''};
+      var proj=projs[i]||{};
+      var myP=_rrpLineupProj(rPlayers[myRid], proj, slots, scoring);
+      var opP=_rrpLineupProj(rPlayers[opp.roster_id], proj, slots, scoring);
+      if(myP>0 && opP>0){ usedProj=true; return {wp:_rrpProjWinProb(myP-opP), name:o.name, av:o.av, basis:'proj', myP:myP, opP:opP}; }
+      return {wp:_rrpValWinProb(myVal,o.val,avgVal), name:o.name, av:o.av, basis:'value'};
+    }
+    var wpr=weeks.map(function(_,i){ return _wpFor(mus[i], i); });
     var tiles=weeks.map(function(w,i){
-      var r=_wpFor(mus[i]); var col=_rrpWkColor(r.wp); var nowCls=(w===curWk)?' now':'';
-      return '<div class="rrp-wk'+nowCls+'"><div class="w">WK '+w+'</div>'+_rrpAvCell(r.av,r.name)+'<div class="o">'+_rrpEsc(r.name.length>14?r.name.slice(0,13)+'…':r.name)+'</div><div class="p" style="color:'+col+'">'+r.wp+'%</div><div class="bar"><i style="width:'+r.wp+'%;background:'+col+'"></i></div></div>';
+      var r=wpr[i]; var col=_rrpWkColor(r.wp); var nowCls=(w===curWk)?' now':'';
+      var proj=(r.basis==='proj')?('<div class="rrp-wk-proj">'+Math.round(r.myP)+'–'+Math.round(r.opP)+'</div>'):'';
+      return '<div class="rrp-wk'+nowCls+'"><div class="w">WK '+w+'</div>'+_rrpAvCell(r.av,r.name)+'<div class="o">'+_rrpEsc(r.name.length>14?r.name.slice(0,13)+'…':r.name)+'</div><div class="p" style="color:'+col+'">'+r.wp+'%</div>'+proj+'<div class="bar"><i style="width:'+r.wp+'%;background:'+col+'"></i></div></div>';
     }).join('');
-    var avgWp=Math.round(weeks.reduce(function(a,_,i){ return a+_wpFor(mus[i]).wp; },0)/weeks.length);
+    var avgWp=Math.round(wpr.reduce(function(a,r){return a+r.wp;},0)/wpr.length);
+    var basis=usedProj?'projected weekly scores (Sleeper projections)':'your power ranking (roster value)';
     el.innerHTML='<div class="rrp-sched">'+tiles+'</div>'
-      + '<div class="rrp-legend"><span>WIN % from your power ranking (roster value) vs each opponent · playoffs Wk '+playoffStart+'</span><span>AVG <b>'+avgWp+'%</b> vs remaining slate</span></div>';
+      + '<div class="rrp-legend"><span>WIN % from '+basis+' vs each opponent · playoffs Wk '+playoffStart+'</span><span>AVG <b>'+avgWp+'%</b> vs remaining slate</span></div>';
   }catch(e){
     console.warn('[Vault] redraft race failed:', e);
     el.innerHTML='<div class="rrp-empty">Couldn\'t load your remaining schedule right now.</div>';
