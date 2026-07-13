@@ -531,7 +531,7 @@ header{
 .plist-table col.col-act  {width:180px}
 .plist-table col.col-fill {width:auto}
 /* 4-factor grade columns (replace the old Status column) */
-.plist-table col.col-fup,.plist-table col.col-ffl,.plist-table col.col-frk,.plist-table col.col-fsi{width:52px}
+.plist-table col.col-fup,.plist-table col.col-ffl,.plist-table col.col-frk,.plist-table col.col-fsi{width:39px}
 .plist-table col.col-watch2{width:38px}
 .plist-table .fhdr{text-align:center!important;padding:0 2px!important}
 .plist-table .fhdr svg{width:14px;height:14px;vertical-align:middle}
@@ -540,7 +540,7 @@ header{
 #page-draft #hdr-ffl svg{stroke:var(--rb)}
 #page-draft #hdr-frk svg{stroke:var(--red)}
 #page-draft #hdr-fsi svg{stroke:var(--wr)}
-.plist-table td.fcell{text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;letter-spacing:-.01em}
+.plist-table td.fcell{text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;letter-spacing:-.01em;cursor:help}
 .plist-table td.td-watch2{text-align:center}
 .plist-table .dv-grdchip{display:inline-block;font-family:var(--font-mono);font-weight:800;font-size:12.5px;padding:3px 7px;border-radius:7px;border:1.5px solid}
 /* cockpit Draft Grade card (replaces Roster count) */
@@ -1179,8 +1179,7 @@ header{
   .pf-v2-section-hint{display:none}  /* hide instructional text on mobile to save space */
   .pf-v2-th, .pf-v2-td-name, .pf-v2-td-num{padding-top:10px;padding-bottom:10px}
 
-  /* --- Draft controls: denser, hide redundant freshness line --- */
-  #ds-summary{display:none!important}  /* per-button "(58s ago)" already shows freshness */
+  /* --- Draft controls: denser --- */
   .controls{padding:6px 10px;gap:5px;flex-wrap:wrap}
   /* Fix 1: sort-mode group becomes a full-width segmented control that FITS (no scroll).
      The mode buttons share width equally; Settings is a compact fixed icon at the end. */
@@ -4900,14 +4899,8 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
         <button class="fbtn TE" onclick="setF('TE')">TE</button>
       </div>
     </div>
-    <div class="dv-grp dvg-sort2">
-      <span class="dv-ctl-label">Sort</span>
-      <div class="dvc-seg sort2-seg">
-        <button class="sbtn dv-sort2" id="dvs-value" onclick="setSort((window._dvMode==='redraft')?'redraft-col':'dynasty-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Dynasty</button>
-        <button class="sbtn dv-sort2" onclick="setSort('adp-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">ADP</button>
-        <button class="sbtn dv-sort2" onclick="setSort('my-col');this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===this)},this)">Mine</button>
-      </div>
-    </div>
+    <!-- Sort segment removed: the Dynasty/ADP/Mine column headers are click-to-sort
+         (setSort + sort-arrow indicators), so a separate Sort control was redundant. -->
     <div class="dv-spacer"></div>
     <div class="dvc-search">
       <span class="dvc-search-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"/><path d="m20.5 20.5-4-4"/></svg></span>
@@ -4999,14 +4992,6 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
           <button onclick="clearImportRankings()" style="padding:9px 14px;border-radius:7px;background:transparent;color:var(--muted);border:1px solid var(--border2);font-size:12px;cursor:pointer">Reset to Default</button>
         </div>
       </div>
-    </div>
-    <!-- A10: Data source freshness summary, updates every 30s via _fcAgeTicker -->
-    <div id="ds-summary" class="ds-summary" style="display:none">
-      <span class="ds-summary-item"><span class="ds-summary-dot fc"></span>FC <span id="ds-fc-age">—</span></span>
-      <span class="ds-summary-sep">·</span>
-      <span class="ds-summary-item"><span class="ds-summary-dot ra"></span>RA <span id="ds-ra-age">—</span></span>
-      <span class="ds-summary-sep">·</span>
-      <span class="ds-summary-item"><span class="ds-summary-dot adp"></span>ADP <span id="ds-adp-label">—</span></span>
     </div>
     <!-- Fix 2: Mobile-only sort bar, doubles as a header (shows what the values are) and sort control -->
     <div class="pm-sortbar" id="pm-sortbar">
@@ -10156,8 +10141,53 @@ function dvComputeFactors(p, needOverride){
 
   upside=clamp(upside,0,10); floor=clamp(floor,0,10); sit=clamp(sit,0,10);
   const composite = Math.round(((upside + floor + (11-risk) + sit)/4)*10)/10;
+
+  // ── Per-player "why" strings (hover tooltips on each grade cell) ──
+  // Plain-language read of the biggest drivers behind each number, straight
+  // from the same inputs the score used — so a hover explains THIS player.
+  const topPct = v => 'top ' + Math.max(1, Math.round((1 - v) * 100)) + '%';
+  const pprLabel = ppr >= 1 ? 'Full-PPR' : ppr >= 0.5 ? 'Half-PPR' : 'Standard scoring';
+  const why = {};
+  if (has){
+    // Percentile clauses only when the pool actually has that stat (else _dvPct
+    // returns a meaningless 0.5 default — don't surface it as a real read).
+    const ceilTxt = (po.ceil.length && pr.ceiling != null) ? `${topPct(_dvPct(po.ceil, pr.ceiling))} weekly ceiling vs ${pos}s` : null;
+    const flTxt   = (po.floor.length && pr.floor  != null) ? `${topPct(_dvPct(po.floor, pr.floor))} weekly floor vs ${pos}s` : null;
+    why.upside = `Upside ${Math.round(upside)}/10 — ceiling & boom potential. `
+      + [pr.boomPct!=null ? `${Math.round(pr.boomPct)}% boom weeks` : null, ceilTxt].filter(Boolean).join(', ')
+      + (dyn && age!=null && age<=24 ? `; young (age ${age}) adds multi-year runway` : '')
+      + (trend > 40 ? '; rising fast in drafts' : '') + '.';
+    why.floor = `Floor ${Math.round(floor)}/10 — week-to-week safety. `
+      + [pr.bustPct!=null ? `${Math.round(pr.bustPct)}% bust weeks` : null, flTxt,
+         `${pr.games}/17 games played`].filter(Boolean).join(', ') + '.';
+    const riskBits = [];
+    const missed = Math.max(0, 17 - pr.games);
+    if (missed > 0) riskBits.push(`missed ${missed} game${missed===1?'':'s'} last season`);
+    if (window.VaultDurability && VaultDurability.priorRisk(p.name) > 0.4) riskBits.push('injury history in prior seasons');
+    if (age != null && vaultAgeRisk(pos, age, dyn) > 0.5) riskBits.push(`age ${age} ${pos} on the ${dyn?'dynasty ':''}decline curve`);
+    if ((pr.bustPct||0) >= 25) riskBits.push('high bust rate');
+    if (trend < -60) riskBits.push('falling in drafts');
+    why.risk = `Risk ${Math.round(risk)}/10 — higher = riskier. `
+      + (riskBits.length ? riskBits.join(', ') + '.' : 'No major injury, age, or bust flags.');
+  } else {
+    const est = `estimated from draft position (ADP ~${Math.round(adp)}) — no recent stats yet`;
+    why.upside = `Upside ${Math.round(upside)}/10 — ${est}.`;
+    why.floor  = `Floor ${Math.round(floor)}/10 — ${est}.`;
+    why.risk   = `Risk ${Math.round(risk)}/10 — higher = riskier. Limited track record${yoe===0?' (rookie)':''}; graded from ADP.`;
+  }
+  const needTxt = rosterNeed != null
+    ? (rosterNeed >= 0.66 ? 'fills a clear need on your roster'
+       : rosterNeed >= 0.4 ? 'a moderate fit for your roster'
+       : "you're already deep here")
+    : (scarcity >= 0.66 ? 'scarce at this position' : 'plenty of depth at the position');
+  why.situational = `Situational ${Math.round(sit)}/10 — fit to your league & roster. `
+    + `${pprLabel} favors ${pos}`
+    + (tOff && tOff.rank ? `, #${tOff.rank} team offense` : '')
+    + `, ${needTxt}`
+    + (sf && pos === 'QB' ? '; superflex lifts QB value' : '') + '.';
+
   return { upside:Math.round(upside), floor:Math.round(floor), risk:Math.round(risk),
-           situational:Math.round(sit), composite, hasData:has, teamOffRank: tOff?tOff.rank:null };
+           situational:Math.round(sit), composite, hasData:has, teamOffRank: tOff?tOff.rank:null, why };
 }
 // Build/refresh the per-player factor index used by the Draft Vault board.
 // Cheap enough to rebuild each render (situational tracks your live roster).
@@ -13089,7 +13119,8 @@ function renderList(){
       <td class="td-my" style="font-family:var(--font-mono);font-size:12px;font-weight:500;text-align:right;padding-right:8px">${myHtml}</td>
       ${(()=>{
         const F = (window._dvFactors && window._dvFactors[nn]) || null;
-        const cell = (k) => F ? `<td class="fcell td-f${k==='upside'?'up':k==='floor'?'fl':k==='risk'?'rk':'si'}" style="color:${DVF_COL[k]}">${F[k]}</td>` : `<td class="fcell" style="color:var(--dim)">–</td>`;
+        const _esc = s => String(s||'').replace(/"/g,'&quot;');
+        const cell = (k) => F ? `<td class="fcell td-f${k==='upside'?'up':k==='floor'?'fl':k==='risk'?'rk':'si'}" style="color:${DVF_COL[k]}" title="${_esc(F.why && F.why[k])}">${F[k]}</td>` : `<td class="fcell" style="color:var(--dim)" title="No recent stats for this player yet — grade unavailable.">–</td>`;
         return cell('upside')+cell('floor')+cell('risk')+cell('situational')
           + `<td class="td-watch2"><span class="dvrow-star${inWatchlist?' on':''}" onclick="event.stopPropagation();toggleWatch('${sn}')" title="${inWatchlist?'Remove from watchlist':'Add to watchlist'}">${inWatchlist?'★':'☆'}</span></td>`;
       })()}
@@ -15421,28 +15452,6 @@ if (!window._fcAgeTicker) {
     if (el) {
       const f = fmtAge(window._fcFetchedAt);
       el.textContent = f ? `(${f})` : '';
-    }
-    // A10: Update the data-source summary line above the table
-    const sum = document.getElementById('ds-summary');
-    if (sum) {
-      const fcAge = fmtAge(window._fcFetchedAt);
-      const raAge = fmtAge(window._raFetchedAt);
-      const fcEl = document.getElementById('ds-fc-age');
-      const raEl = document.getElementById('ds-ra-age');
-      const adpEl = document.getElementById('ds-adp-label');
-      if (fcEl) fcEl.textContent = fcAge || '—';
-      if (raEl) raEl.textContent = raAge || 'preloading';
-      if (adpEl) {
-        // ADP files are bundled (no live timestamp). Show the active selection label instead.
-        const sel = window._adpSelection || {};
-        const fmt = sel.format ? sel.format.replace(/_/g,' ').toUpperCase() : '';
-        const teams = sel.teams ? `${sel.teams}T` : '';
-        adpEl.textContent = [fmt, teams].filter(Boolean).join(' · ') || 'loaded';
-      }
-      // Show the summary once any source has data
-      if (window._fcFetchedAt || window._raFetchedAt) {
-        sum.style.display = 'flex';
-      }
     }
   };
   window._fcAgeTicker = setInterval(updateFcAge, 30000);
@@ -27395,7 +27404,10 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
 #page-draft .plist-table #hdr-status,
 #page-draft .plist-table .td-status{ display:table-cell!important; }
 #page-draft .plist-table col.col-status{ width:13%!important; }
-#page-draft .plist-table col.col-name{ width:30%; }
+/* Name is the flexible fill column: this draft-mode colgroup has no col-fill, so
+   without an auto column the fixed grade columns absorb the leftover width and
+   spread apart. Letting name take the slack keeps the four grade numbers tight. */
+#page-draft .plist-table col.col-name{ width:auto; min-width:30%; }
 #page-draft .plist-table #hdr-status{ text-align:right!important; padding-right:18px!important; }
 #page-draft .td-status .prow-status-cell{ display:flex; align-items:center; justify-content:flex-end!important; gap:8px; padding-right:10px; }
 #page-draft .dvrow-star{ opacity:.4; font-size:15px; }
@@ -30196,6 +30208,7 @@ let _adpView    = 'list';  // list | board
 let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
 let _adpSource  = 'fc';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | my (My Rankings)
+let _adpSourceUserSet = false; // true once the user clicks a source button — stops the live-draft platform default from overriding their choice
 let _adpBoardPos= '';      // '' | QB | RB | WR | TE  (board highlight)
 
 /* ── board / ADP toggle ── */
@@ -30652,6 +30665,18 @@ function _adpDraftConnected() {
   catch(e) { return false; }
 }
 
+/* Platform of the connected live draft ('espn' | 'sleeper' | null) — ESPN takes
+   precedence since connecting one clears the other's id. Used to pick the default
+   ADP source (Sleeper draft → Sleeper ADP, ESPN draft → ESPN ADP). These are bare
+   script-scope globals (never mirrored onto window), so reference them directly. */
+function _adpDraftPlatform() {
+  try {
+    if (typeof espnDraftLid !== 'undefined' && espnDraftLid) return 'espn';
+    if (typeof sleeperDraftId !== 'undefined' && sleeperDraftId) return 'sleeper';
+  } catch(e) {}
+  return null;
+}
+
 /* ── first-name → initial abbreviation ("Bijan Robinson" → "B. Robinson") ── */
 function _adpAbbrevName(n) {
   const parts = String(n||'').trim().split(/\s+/);
@@ -30768,6 +30793,18 @@ function _adpRenderBoard() {
 /* ── full render ── */
 function _adpRender() {
   if (!_adpData.length) return;
+  // Live-draft default: match the ADP source to the connected draft's platform
+  // (Sleeper draft → Sleeper ADP, ESPN draft → ESPN ADP) until the user picks a
+  // source themselves. Only applies when that source has data for the loaded
+  // format; otherwise the FC default stands. Runs before movers so they follow suit.
+  if (!_adpSourceUserSet) {
+    const _plat = _adpDraftPlatform();
+    if (_plat === 'espn' && _adpSource !== 'espn' && _adpEspnHasData()) {
+      _adpSource = 'espn'; _adpSort = 'espnadp'; _adpOrder = 'adp'; _adpSortDir = 1;
+    } else if (_plat === 'sleeper' && _adpSource !== 'sl' && _adpSleeperHasData()) {
+      _adpSource = 'sl'; _adpSort = 'sladp'; _adpOrder = 'adp'; _adpSortDir = 1;
+    }
+  }
   _adpRenderMovers(_adpData);
   _adpApplyMoversState();
   const fmtLabel = {
@@ -30881,6 +30918,7 @@ window.adpSetOrder = function(o) {
   if (o === 'ffc' && !_adpFfcHasData()) return;
   if (o === 'espn' && !_adpEspnHasData()) return;
   if (o === 'sl' && !_adpSleeperHasData()) return;
+  _adpSourceUserSet = true;   // manual choice — stop the live-draft platform default from overriding it
   _adpSource = o;
   _adpOrder = (o === 'my') ? 'my' : 'adp';
   document.querySelectorAll('.adp-seg button[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === o));
