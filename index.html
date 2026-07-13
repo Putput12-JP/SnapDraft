@@ -8850,7 +8850,11 @@ async function syncSleeper() {
       Array(_ds.slots_qb|0).fill('QB'), Array(_ds.slots_rb|0).fill('RB'),
       Array(_ds.slots_wr|0).fill('WR'), Array(_ds.slots_te|0).fill('TE'),
       Array(_ds.slots_flex|0).fill('FLEX'), Array(_ds.slots_super_flex|0).fill('SUPER_FLEX'),
-      Array(_ds.slots_wrrb_flex|0).fill('WRRB_FLEX'), Array(_ds.slots_rec_flex|0).fill('REC_FLEX'));
+      Array(_ds.slots_wrrb_flex|0).fill('WRRB_FLEX'), Array(_ds.slots_rec_flex|0).fill('REC_FLEX'),
+      // K / team-defense / IDP slots, so the ADP tool can tell whether the league starts them
+      Array(_ds.slots_k|0).fill('K'), Array(_ds.slots_def|0).fill('DEF'),
+      Array(_ds.slots_dl|0).fill('DL'), Array(_ds.slots_lb|0).fill('LB'),
+      Array(_ds.slots_db|0).fill('DB'), Array(_ds.slots_idp_flex|0).fill('IDP_FLEX'));
     const isSuperflex = rosterPositions.includes('SUPER_FLEX') || (_ds.slots_qb|0) > 1;
     const isDynasty = (_ds.rounds||0) >= 15;
 
@@ -9077,7 +9081,8 @@ async function syncEspnDraft(){
     window._draftRosterPositions = [].concat(
       Array((slotCounts[0]|0)).fill('QB'), Array((slotCounts[2]|0)).fill('RB'),
       Array((slotCounts[4]|0)).fill('WR'), Array((slotCounts[6]|0)).fill('TE'),
-      Array((slotCounts[7]|0)).fill('SUPER_FLEX'), Array((slotCounts[23]|0)).fill('FLEX'));
+      Array((slotCounts[7]|0)).fill('SUPER_FLEX'), Array((slotCounts[23]|0)).fill('FLEX'),
+      Array((slotCounts[17]|0)).fill('K'), Array((slotCounts[16]|0)).fill('DEF'));
     const dtype = String(data.settings?.draftSettings?.type||'SNAKE').toUpperCase().includes('AUCTION') ? 'linear' : 'snake';
     // team names + draft-slot order (round-1 picks are authoritative; else pickOrder; else team order)
     const nameByTeam = {}; teams.forEach(t => nameByTeam[t.id] = espnTeamName(t));
@@ -30324,7 +30329,31 @@ let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
 let _adpSource  = 'fc';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | my (My Rankings)
 let _adpSourceUserSet = false; // true once the user clicks a source button — stops the live-draft platform default from overriding their choice
+let _adpScoringUserSet = false; // true once the user picks a format — stops the league-based Superflex default from overriding it
 let _adpBoardPos= '';      // '' | QB | RB | WR | TE  (board highlight)
+
+// K / team-defense / IDP appear in the ADP tool only when the connected league
+// actually starts them; skill positions (QB/RB/WR/TE) always show. No league info
+// (browsing unconnected) → skill only.
+const _ADP_TEAMDEF = new Set(['DEF','DST','D/ST']);
+const _ADP_IDP_POS = new Set(['DL','LB','DB','DE','DT','CB','S','SS','FS','NT','OLB','ILB','EDGE','IDP']);
+function _adpLeagueNeeds() {
+  const rp = (window._draftRosterPositions || []).map(s => String(s).toUpperCase());
+  const any = arr => arr.some(x => rp.includes(x));
+  return {
+    k:   rp.includes('K'),
+    def: any(['DEF','DST','D/ST']),
+    idp: any(['DL','LB','DB','IDP_FLEX','IDP','DE','DT','CB','S','SS','FS','EDGE','OLB','ILB','NT']),
+  };
+}
+function _adpPosAllowed(pos, needs) {
+  const P = String(pos || '').toUpperCase();
+  if (P === 'P') return false;   // punters are never a fantasy-relevant ADP row
+  if (P === 'K') return needs.k;
+  if (_ADP_TEAMDEF.has(P)) return needs.def;
+  if (_ADP_IDP_POS.has(P)) return needs.idp;
+  return true;   // QB / RB / WR / TE / PICK / unknown always show
+}
 
 /* ── board / ADP toggle ── */
 window.dvShowBoard = function() {
@@ -30334,6 +30363,7 @@ window.dvShowBoard = function() {
 window.dvShowADP = function() {
   document.getElementById('page-draft').classList.add('adp-mode');
   document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'adp-explorer'));
+  _adpApplyLeagueDefaults();   // 2QB league → default to Superflex ADP
   _adpLoad();
   _adpLoadSleeperStats();
 };
@@ -30520,7 +30550,21 @@ function _adpMergeSleeper(cb) {
    the extra rows above); every other source stays on the main file's rows. */
 function _adpActiveList(base) {
   base = base || _adpData;
-  return (_adpSource === 'sl' && _adpSleeperExtra.length) ? base.concat(_adpSleeperExtra) : base;
+  const full = (_adpSource === 'sl' && _adpSleeperExtra.length) ? base.concat(_adpSleeperExtra) : base;
+  const needs = _adpLeagueNeeds();
+  return full.filter(p => _adpPosAllowed(p.pos, needs));   // hide K/DEF/IDP the league doesn't start
+}
+
+// Default the ADP format to the connected league's QB rules: a 2QB / Superflex
+// dynasty league should open on Superflex ADP, not 1QB. Applies once, until the
+// user picks a format themselves.
+function _adpApplyLeagueDefaults() {
+  if (_adpScoringUserSet) return;
+  if (window._draftIsSuperflex && _adpScoring === 'dynasty') {
+    _adpScoring = 'superflex';
+    const sel = document.getElementById('adp-sel-type');
+    if (sel) sel.value = 'superflex';
+  }
 }
 
 /* ── load ── */
@@ -30988,7 +31032,7 @@ function _adpRender() {
 window.adpSelChange = function() {
   const typeEl  = document.getElementById('adp-sel-type');
   const teamsEl = document.getElementById('adp-sel-teams');
-  if (typeEl)  _adpScoring = typeEl.value;
+  if (typeEl)  { _adpScoring = typeEl.value; _adpScoringUserSet = true; }  // manual pick wins over the league default
   if (teamsEl) _adpTeams   = parseInt(teamsEl.value, 10);
   _adpLoad();
 };
