@@ -4657,6 +4657,7 @@ window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElemen
         <span class="adp-slstats-dot"></span>
         <span class="adp-slstats-line"><b id="sls-picks">—</b> picks from <b id="sls-drafts">—</b> real Sleeper drafts</span>
         <span class="adp-slstats-sub" id="sls-sub"></span>
+        <span class="adp-slstats-ago" id="sls-ago"></span>
       </div>
       <div class="adp-slstats-funnel" aria-label="how the data connects">
         <div class="slf-node"><span class="slf-n" id="sls-users">—</span><span class="slf-l">Users</span></div>
@@ -30010,6 +30011,8 @@ body .page,body .page.on{background:transparent!important}
 .adp-slstats-line{font-family:var(--font-sans);font-size:14.5px;color:var(--text2);letter-spacing:-.01em}
 .adp-slstats-line b{font-family:var(--font-mono);font-weight:800;color:#facc15;font-size:15.5px}
 .adp-slstats-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.03em}
+.adp-slstats-ago{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);letter-spacing:.03em;display:inline-flex;align-items:center;gap:5px}
+.adp-slstats-ago::before{content:"";width:5px;height:5px;border-radius:50%;background:#3DCC7A;box-shadow:0 0 0 2px rgba(61,204,122,.18)}
 .adp-slstats-funnel{display:flex;align-items:center;gap:11px}
 .slf-node{display:flex;flex-direction:column;align-items:center;min-width:44px}
 .slf-n{font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--text);line-height:1.05}
@@ -30209,30 +30212,56 @@ window.dvShowADP = function() {
 
 /* Sleeper real-draft corpus stats → the provenance strip + connectivity funnel. */
 let _adpStatsFetched = false;
+const _slFmt = n => Number(n || 0).toLocaleString();
+const _slShort = n => { n = Number(n || 0);
+  return n >= 1e6 ? +(n/1e6).toFixed(1) + 'M' : n >= 1e4 ? +(n/1e3).toFixed(1) + 'K' : _slFmt(n); };
+function _slAgo(iso) {
+  if (!iso) return '';
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 90) return 'just now';
+  if (d < 5400) return Math.round(d/60) + 'm ago';
+  if (d < 129600) return Math.round(d/3600) + 'h ago';
+  return Math.round(d/86400) + 'd ago';
+}
+/* count numbers up on first reveal (skipped when the user prefers reduced motion) */
+function _slCountUp(el, target, fmt, dur = 900) {
+  if (!el) return;
+  target = Number(target || 0);
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || target < 2) { el.textContent = fmt(target); return; }
+  const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3);
+  (function tick(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    el.textContent = fmt(Math.round(target * ease(p)));
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
 function _adpLoadSleeperStats() {
   const el = document.getElementById('adp-slstats');
   if (!el || _adpStatsFetched) return;
   _adpStatsFetched = true;
-  const fmt = n => Number(n || 0).toLocaleString();
-  const short = n => { n = Number(n || 0);
-    return n >= 1e6 ? +(n/1e6).toFixed(1) + 'M' : n >= 1e4 ? +(n/1e3).toFixed(1) + 'K' : fmt(n); };
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const setC = (id, v, f) => _slCountUp(document.getElementById(id), v, f);
   fetch('data/sleeper_adp_stats.json')
     .then(r => r.ok ? r.json() : null)
     .then(s => {
       if (!s || !s.drafts) { el.style.display = 'none'; _adpStatsFetched = false; return; }
-      set('sls-picks', fmt(s.picks));
-      set('sls-drafts', fmt(s.drafts));
-      set('sls-users', fmt(s.users_crawled));
-      set('sls-leagues', fmt(s.leagues && s.leagues.total));
-      set('sls-fdrafts', fmt(s.drafts));
-      set('sls-fpicks', short(s.picks));
+      el.style.display = 'flex';
+      setC('sls-picks', s.picks, _slFmt);
+      setC('sls-drafts', s.drafts, _slFmt);
+      setC('sls-users', s.users_crawled, _slFmt);
+      setC('sls-leagues', s.leagues && s.leagues.total, _slFmt);
+      setC('sls-fdrafts', s.drafts, _slFmt);
+      setC('sls-fpicks', s.picks, _slShort);
       const bm = s.drafts_by_mode || {}, parts = [];
       if (bm.dyn) parts.push(bm.dyn + ' dynasty');
       if (bm.rdr) parts.push(bm.rdr + ' redraft');
-      if (s.players) parts.push(fmt(s.players) + ' players');
-      set('sls-sub', parts.length ? '· ' + parts.join(' · ') : '');
-      el.style.display = 'flex';
+      if (bm.rookie) parts.push(bm.rookie + ' rookie');
+      if (s.players) parts.push(_slFmt(s.players) + ' players');
+      const ago = _slAgo(s.updated);
+      const subEl = document.getElementById('sls-sub');
+      if (subEl) subEl.textContent = parts.length ? '· ' + parts.join(' · ') : '';
+      const agoEl = document.getElementById('sls-ago');
+      if (agoEl) agoEl.textContent = ago ? 'updated ' + ago : '';
     })
     .catch(() => { el.style.display = 'none'; _adpStatsFetched = false; });
 }
@@ -30321,7 +30350,8 @@ function _adpSleeperKey() {
   if (_adpScoring === 'dynasty')   return 'dynasty_1qb';
   if (_adpScoring === 'superflex') return 'dynasty_sf';
   if (_adpScoring === 'ppr' || _adpScoring === 'halfppr' || _adpScoring === 'standard') return 'redraft_1qb';
-  return null;   // rookie: no Sleeper bucket (rookie drafts are excluded from the corpus)
+  if (_adpScoring === 'rookie') return 'rookie';
+  return null;
 }
 function _adpMergeSleeper(cb) {
   const k = _adpSleeperKey();
@@ -30412,11 +30442,18 @@ function _adpPickFmt(adp) {
    3. While history is still collecting: estimated rank movement from FC's
       30-day value trend (strip the trend, re-rank, diff). */
 function _adpRenderMovers(players) {
+  players = _adpActiveList(players);
   const range = _adpRange;
   const pool = players.filter(p => p.pos !== 'PICK' && p.pos !== 'DEF');
 
   let mode, deltaOf, headNote;
-  if (pool.some(p => p['adpRealDelta' + range] != null)) {
+  if (_adpSource === 'sl' && pool.some(p => p.adpSleeperD14 != null)) {
+    // Real Sleeper draft-pick movement from our daily snapshots (single 14-day window).
+    // adpDelta14 is new−old; negate so + = moved to an earlier pick (riser).
+    mode = 'sl';
+    deltaOf = p => (p.adpSleeperD14 != null ? -p.adpSleeperD14 : 0);
+    headNote = 'Sleeper real draft ADP · past 14 days';
+  } else if (pool.some(p => p['adpRealDelta' + range] != null)) {
     mode = 'ffc';
     deltaOf = p => p['adpRealDelta' + range] || 0;
     headNote = `FFC real ADP · past ${range} days`;
@@ -30440,7 +30477,7 @@ function _adpRenderMovers(players) {
   // ranks swing wildly and would otherwise drown out the picks that matter
   const lim = (_adpTeams || 12) * 15;
   const inRange = p => {
-    const cur = (mode === 'ffc' ? p.adpReal : p.adp) || 9999;
+    const cur = (mode === 'ffc' ? p.adpReal : mode === 'sl' ? p.adpSleeper : p.adp) || 9999;
     return Math.min(cur, cur + deltaOf(p)) <= lim;
   };
   const valid = pool.filter(p => deltaOf(p) && (mode !== 'est' || p.trend30Day) && inRange(p));
@@ -30449,6 +30486,7 @@ function _adpRenderMovers(players) {
 
   function fromTo(p, d) {
     if (mode === 'ffc') return `${_adpPickFmt(p.adpReal + d)} → ${_adpPickFmt(p.adpReal)}`;
+    if (mode === 'sl')  return `${_adpPickFmt(p.adpSleeper + d)} → ${_adpPickFmt(p.adpSleeper)}`;
     const cur = Math.round(p.adp || 0), past = Math.round((p.adp || 0) + d);
     return `${mode==='est'?'≈ ':''}#${past} → #${cur}`;
   }
@@ -30834,7 +30872,8 @@ window.adpSetRange = function(r) {
 
 function _adpUpdateChangeHeader() {
   const th = document.getElementById('adp-th-change');
-  if (th) th.textContent = `${_adpRange}D ↕`;
+  // Sleeper movement is a fixed 14-day snapshot window, not the 7/30/90 toggle.
+  if (th) th.textContent = (_adpSource === 'sl' ? '14D' : `${_adpRange}D`) + ' ↕';
 }
 
 window.adpSetOrder = function(o) {
@@ -30853,6 +30892,9 @@ window.adpSetOrder = function(o) {
   // ADP value column header reflects the source
   const adpLbl = document.getElementById('adp-th-adp-lbl');
   if (adpLbl) adpLbl.textContent = (o === 'my') ? 'MY RANK' : (o === 'ffc') ? 'FFC ADP' : (o === 'espn') ? 'ESPN ADP' : (o === 'sl') ? 'SLEEPER ADP' : 'FC ADP';
+  // change column + movers follow the source (Sleeper = its own 14-day window)
+  _adpUpdateChangeHeader();
+  if (_adpData.length) _adpRenderMovers(_adpData);
   if (_adpView === 'board') { _adpRenderBoard(); return; }
   document.querySelectorAll('.adp-tbl thead th').forEach(th => th.classList.toggle('sorted', th.dataset.sort === _adpSort));
   _adpRenderTable(_adpData);
@@ -30866,7 +30908,7 @@ function _adpEspnHasData() { return _adpData.some(p => p.adpEspn != null); }
 function _adpDeltaVal(p) {
   if (_adpSource === 'ffc')  return p['adpRealDelta' + _adpRange];
   if (_adpSource === 'espn') return p['adpEspnDelta' + _adpRange];
-  if (_adpSource === 'sl')   return p.adpSleeperD14;   // Sleeper snapshots a single 14-day window
+  if (_adpSource === 'sl')   return p.adpSleeperD14 != null ? -p.adpSleeperD14 : null;   // 14-day window; negate so + = riser
   return p['adpDelta' + _adpRange];
 }
 // Sleeper real-draft ADP only exists for dynasty/superflex formats (adpSleeper on matched players).

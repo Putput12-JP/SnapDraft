@@ -62,7 +62,8 @@ REDRAFT_TYPE = 0
 
 # startup vs rookie split on draft rounds (no explicit Sleeper flag exists)
 STARTUP_MIN_ROUNDS = 12                       # >= this = startup (fills full rosters)
-ROOKIE_MAX_ROUNDS = 7                         # <= this = rookie draft (excluded here)
+ROOKIE_MIN_ROUNDS = 2                         # rookie draft round bounds (dynasty only)
+ROOKIE_MAX_ROUNDS = 7                         # <= this (and dynasty) = rookie draft
 
 # which team sizes to pool, and the size we normalize pick numbers to
 TEAMS_MIN, TEAMS_MAX = 8, 16
@@ -192,7 +193,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     players = corpus["players"]
 
     users_done = 0
-    done = {"dyn": 0, "rdr": 0}   # per-mode draft budgets — dynasty can't starve redraft
+    done = {"dyn": 0, "rdr": 0, "rookie": 0}   # per-kind budgets so none starves the others
     new_dyn = 0
     new_rdr = 0
     t0 = time.time()
@@ -211,7 +212,8 @@ def crawl(state, corpus, user_budget, draft_budget, log):
             frontier.append(uid)
 
     def ingest_draft(did, lg_format, mode):
-        """Pull one completed startup draft's picks into the corpus (mode: 'dyn'|'rdr')."""
+        """Pull one completed draft's picks into the corpus. `mode` is the league type
+        ('dyn'|'rdr'); the stored KIND is a startup ('dyn'/'rdr') or a dynasty 'rookie' draft."""
         if did in processed_drafts or did in drafts:
             return
         d = _get(f"draft/{did}")
@@ -222,14 +224,21 @@ def crawl(state, corpus, user_budget, draft_budget, log):
             return  # revisit later once it completes (don't mark processed)
         rounds = (d.get("settings") or {}).get("rounds") or 0
         teams = (d.get("settings") or {}).get("teams") or 0
-        if rounds < STARTUP_MIN_ROUNDS:
-            processed_drafts.add(did)       # rookie / partial draft — skip, done
+        # classify: full-roster startup, or a dynasty rookie draft (short)
+        if rounds >= STARTUP_MIN_ROUNDS:
+            kind = mode
+        elif mode == "dyn" and ROOKIE_MIN_ROUNDS <= rounds <= ROOKIE_MAX_ROUNDS:
+            kind = "rookie"
+        else:
+            processed_drafts.add(did)       # in-between / partial — skip, done
             return
         if not (TEAMS_MIN <= teams <= TEAMS_MAX):
             processed_drafts.add(did)
             return
+        if done[kind] >= draft_budget:
+            return  # this kind's budget is spent — leave unmarked to revisit next run
         picks = _get(f"draft/{did}/picks") or []
-        done[mode] += 1
+        done[kind] += 1
         pmap = {}
         for pk in picks:
             pid = pk.get("player_id")
@@ -249,7 +258,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
             if pu:
                 push_user(pu)               # every pick is more crawl fuel
         drafts[did] = {"s": d.get("season"), "ts": draft_ts(d),
-                       "t": teams, "f": lg_format, "m": mode, "p": pmap}
+                       "t": teams, "f": lg_format, "m": kind, "p": pmap}
         processed_drafts.add(did)
 
     while frontier and users_done < user_budget:
@@ -279,15 +288,17 @@ def crawl(state, corpus, user_budget, draft_budget, log):
                 # harvest leaguemates from rosters (owner_ids) — fuel for the snowball
                 for rs in (_get(f"league/{lid}/rosters") or []):
                     push_user(rs.get("owner_id"))
-                # pull this league's completed startup drafts (per-mode budget)
-                if done[mode] < draft_budget:
+                # pull this league's drafts — a dynasty league yields both a startup
+                # and rookie drafts, so consider both budgets before skipping it
+                relevant = [mode] + (["rookie"] if mode == "dyn" else [])
+                if any(done[k] < draft_budget for k in relevant):
                     for d in (_get(f"league/{lid}/drafts") or []):
-                        if done[mode] >= draft_budget:
+                        if all(done[k] >= draft_budget for k in relevant):
                             break
                         ingest_draft(d.get("draft_id"), fmt, mode)
-        # stop only when BOTH modes are satisfied — never let abundant dynasty
-        # drafts end the run before redraft leagues have been harvested
-        if done["dyn"] >= draft_budget and done["rdr"] >= draft_budget:
+        # stop only when EVERY kind's budget is spent — never let abundant dynasty
+        # startups end the run before redraft/rookie drafts have been harvested
+        if all(v >= draft_budget for v in done.values()):
             break
 
     state["frontier"] = frontier
@@ -296,7 +307,7 @@ def crawl(state, corpus, user_budget, draft_budget, log):
     state["dynasty_leagues"] = sorted(dynasty_leagues)
     state["redraft_leagues"] = sorted(redraft_leagues)
     state["processed_drafts"] = sorted(processed_drafts)
-    log(f"crawl: +{users_done} users, +{done['dyn']} dyn / +{done['rdr']} rdr drafts, "
+    log(f"crawl: +{users_done} users, +{done['dyn']} dyn / +{done['rdr']} rdr / +{done['rookie']} rookie drafts, "
         f"+{new_dyn} dynasty / +{new_rdr} redraft leagues | frontier={len(frontier)} corpus_drafts={len(drafts)}")
 
 
@@ -324,7 +335,8 @@ def compute_adp(corpus, mode, fmt):
     samples = {}   # player_id -> [normalized_pick, ...]
     ndrafts = 0
     for d in corpus["drafts"].values():
-        if d.get("m", "dyn") != mode or d.get("f") != fmt:   # legacy drafts default to 'dyn'
+        # legacy drafts default to 'dyn'; fmt=None pools every format (used for rookie)
+        if d.get("m", "dyn") != mode or (fmt is not None and d.get("f") != fmt):
             continue
         teams = d.get("t") or NORM_TEAMS
         ndrafts += 1
@@ -395,6 +407,7 @@ BUCKETS = [
     ("dyn", "sf",  "dynasty_sf",  "dynasty startup",  "Dynasty Startup (Superflex)"),
     ("rdr", "1qb", "redraft_1qb", "redraft",          "Redraft (1QB)"),
     ("rdr", "sf",  "redraft_sf",  "redraft",          "Redraft (Superflex)"),
+    ("rookie", None, "rookie",    "dynasty rookie",   "Rookie Draft"),
 ]
 
 def write_outputs(corpus, log):
