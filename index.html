@@ -8825,6 +8825,7 @@ async function syncSleeper() {
       id: sleeperDraftId,
       name: draft.metadata?.name || draft.metadata?.scoring_type || ('Draft ' + String(sleeperDraftId).slice(-6)),
       type: draft.type || 'snake',
+      reversalRound: draft.settings?.reversal_round || 0,   // 3 = third-round reversal (league-dependent)
       season: draft.season || '',
       status: draft.status || '',
       pickTimer: draft.settings?.pick_timer || 0,
@@ -9182,7 +9183,12 @@ function buildSlots(teams,rounds,type,revRound){
   PICK_ORDER=[];
   slotOwner={};
   for(let r=1;r<=rounds;r++){
-    let rev=(type==='snake'&&r%2===0)||(revRound>0&&r===revRound);
+    // snake, with an optional reversal round (3RR): the reversal flips the order from
+    // that round on, so parity follows revRound's parity for r >= revRound.
+    let rev;
+    if(type!=='snake') rev=false;
+    else if(!revRound) rev=(r%2===0);
+    else rev=(r<revRound)?(r%2===0):(r%2===revRound%2);
     const order=rev?Array.from({length:teams},(_,i)=>teams-1-i):Array.from({length:teams},(_,i)=>i);
     order.forEach((tidx,pos)=>{
       PICK_SLOTS[tidx].push(`${r}.${pos+1}`);
@@ -30842,17 +30848,27 @@ function _adpRenderBoard() {
   const draftConnected = _adpDraftConnected();
   const rounds = Math.min(24, Math.max(1, Math.ceil(list.length / teams)));
 
+  // Draft-order shape from the connected league: snake, or snake with a third-round
+  // reversal (reversal_round, usually 3) which flips the order from that round on —
+  // e.g. 3.01 lands on the opposite side of the board. Linear = every round T1→T12.
+  const _adInfo  = window._activeDraft || {};
+  const revRound = (+_adInfo.reversalRound) || 0;
+  const linear   = _adInfo.type === 'linear';
+  // true → this round runs T(last)→T1 (pick 1 on the right side)
+  const _revRow = (R) => linear ? false : (R < revRound ? (R % 2 === 0) : (R % 2 === revRound % 2));
+
   // header row: corner + team columns
   let html = '<div class="adp-bd-th adp-bd-corner"></div>';
   for (let c = 0; c < teams; c++) html += `<div class="adp-bd-th">T${c+1}</div>`;
 
   for (let r = 0; r < rounds; r++) {
     html += `<div class="adp-bd-rnd">R${r+1}</div>`;
+    const rev = _revRow(r + 1);
     for (let c = 0; c < teams; c++) {
-      const pInRound = (r % 2 === 0) ? c : (teams - 1 - c);      // snake
+      const pInRound = rev ? (teams - 1 - c) : c;               // snake + 3RR
       const k = r * teams + pInRound;
       const p = list[k];
-      const pickNo = (r % 2 === 0) ? (c + 1) : (teams - c);
+      const pickNo = rev ? (teams - c) : (c + 1);
       const pick = `${r+1}.${String(pickNo).padStart(2,'0')}`;
       if (!p) { html += `<div class="adp-bd-cell empty"></div>`; continue; }
 
