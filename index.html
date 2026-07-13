@@ -916,6 +916,11 @@ header{
 .bc-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .bc-posrk{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--pc,var(--muted))}
 .bc-pick{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+.bc-topr{display:flex;align-items:center;gap:4px;min-width:0}
+.bc-grade{font-family:var(--font-mono);font-size:8.5px;font-weight:800;line-height:1.3;letter-spacing:.02em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,currentColor 14%,transparent);cursor:help}
+.bth-grade{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.03em;margin-top:2px;text-transform:none;cursor:help}
+.bth-grade span{color:var(--muted);font-weight:600}
+.bm-grade{font-size:10px;font-weight:800;font-family:var(--font-mono);padding:2px 6px;border-radius:5px;background:color-mix(in srgb,currentColor 14%,transparent);flex-shrink:0}
 .bc-body{display:flex;align-items:flex-end;justify-content:space-between;gap:5px;flex:1}
 .bc-txt{min-width:0;flex:1}
 .bc-name{font-size:11px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -10246,8 +10251,8 @@ function dvGradeColor(c){ return c>=8?'var(--rb)':c>=6.5?'var(--wr)':c>=5?'var(-
     if (top < 8) top = r.bottom + 8;            // flip below when near the top edge
     t.style.left = left + 'px'; t.style.top = top + 'px';
   }
-  document.addEventListener('mouseover', e => { const c = e.target.closest && e.target.closest('.fcell[data-tip]'); if (c) show(c); });
-  document.addEventListener('mouseout',  e => { const c = e.target.closest && e.target.closest('.fcell[data-tip]'); if (c) hide(); });
+  document.addEventListener('mouseover', e => { const c = e.target.closest && e.target.closest('[data-tip]'); if (c) show(c); });
+  document.addEventListener('mouseout',  e => { const c = e.target.closest && e.target.closest('[data-tip]'); if (c) hide(); });
   document.addEventListener('scroll', hide, true);
 })();
 
@@ -10310,7 +10315,65 @@ function dvUpdateGradeCard(){
   letterEl.textContent = g.letter; letterEl.style.color = g.color;
   if(scoreEl) scoreEl.textContent = g.score + '/100';
   const r = n => Math.round(n);
-  if(card) card.title = `${g.desc} · grading your ${g.nStarters}-man starting lineup — Upside ${r(g.factors.upside)} · Floor ${r(g.factors.floor)} · Risk ${r(g.factors.risk)} · Situational ${r(g.factors.situational)}`;
+  if(card){
+    card.title = `${g.desc} · grading your ${g.nStarters}-man starting lineup — Upside ${r(g.factors.upside)} · Floor ${r(g.factors.floor)} · Risk ${r(g.factors.risk)} · Situational ${r(g.factors.situational)}`;
+    // Fold in the pick-by-pick rollup from the live board, so the card and the
+    // board column grades tell one story.
+    const agg = (window._bdTeamAgg && typeof myTeam !== 'undefined' && myTeam !== null) ? window._bdTeamAgg[myTeam] : null;
+    if (agg && agg.n) card.title += ` · Pick-by-pick: ${dvPickLetter(agg.sum / agg.n)} average across ${agg.n} graded picks`;
+  }
+}
+
+/* ── Per-pick draft grades (live board) ──
+   Every made pick gets a 0-10 score from (a) slot value — where the player
+   went vs his market ADP, same platform-matched source as the ADP column —
+   tilted by (b) player quality from the 4-factor engine (upside/floor/risk
+   only; situational is my-roster-specific and every team gets one yardstick).
+   A team's average of these is its board grade, so pick-by-pick grades roll
+   straight up into each team's overall draft grade. */
+const DV_PICK_BANDS = [[8.4,'A+'],[7.7,'A'],[7.1,'A-'],[6.5,'B+'],[5.9,'B'],[5.3,'B-'],[4.7,'C+'],[4.1,'C'],[3.5,'C-'],[2.7,'D']];
+function dvPickLetter(s){ for (const [t,l] of DV_PICK_BANDS) if (s >= t) return l; return 'F'; }
+// Same letter→color families as dvGradeBand: A blue, B green, C yellow, D/F red.
+function dvPickColor(s){ return s>=7.1?'var(--rb)':s>=5.9?'var(--wr)':s>=4.1?'var(--te)':'var(--red2)'; }
+function dvPickScore(name, pos, overall){
+  if (!overall || !DVF_POS[pos]) return null;
+  let adp = null;
+  try { adp = _boardAdpSortVal(name); } catch(e){}
+  if (!adp || adp >= 9000) adp = null;
+  // Rank side of the baseline: your My Rankings board when the player is on it
+  // (a reach by ADP isn't a bad pick if YOUR board likes him), else the active
+  // source rank. Same yardstick for every team.
+  let rank = null;
+  try{
+    const fmt = (window._dvMode === 'redraft') ? 'redraft' : 'dynasty';
+    let mi = window.MyRankings && MyRankings.getRankInfo(name, fmt);
+    if (mi && mi.myRank) rank = mi.myRank;
+  }catch(e){}
+  if (!rank){ const fp = findPlayer(name); rank = (fp && fp.r0) || null; }
+  if (!adp && !rank) return null;
+  let f = window._dvFactors && window._dvFactors[normName(name)];
+  if (!f){ try{ const fp = findPlayer(name); f = fp ? dvComputeFactors(fp) : null; }catch(e){} }
+  // Blended baseline: market-led, rank as the sanity check. Either source
+  // carries full weight when the other is missing.
+  const base = (adp && rank) ? 0.65 * adp + 0.35 * rank : (adp || rank);
+  // Tolerance widens down the board — a 10-pick reach at 1.03 hurts more than at 8.07.
+  const delta = base - overall;                   // + = he fell past his blended price
+  const scale = 6 + overall * 0.24;
+  const val = Math.max(-1.6, Math.min(1.6, delta / scale));
+  const q = f ? (f.upside + f.floor + (11 - f.risk)) / 3 : null;
+  const s = Math.max(0, Math.min(10,
+    5.6 + val * 2.2 + (q != null ? Math.max(-1.3, Math.min(1.3, (q - 5.6) * 0.42)) : 0)));
+  return { s, letter: dvPickLetter(s), color: dvPickColor(s), delta: Math.round(delta),
+           base: Math.round(base), adp: adp != null ? Math.round(adp) : null, rank, q };
+}
+function dvPickWhy(g, name, slotLabel){
+  const last = name.split(' ').pop();
+  const v = g.delta >= 2 ? `${g.delta} picks of value vs his price ~${g.base}`
+        : g.delta <= -2 ? `${-g.delta}-pick reach vs his price ~${g.base}`
+        : `right at his price ~${g.base}`;
+  const src = [g.adp != null ? `ADP ${g.adp}` : null, g.rank != null ? `rank #${g.rank}` : null].filter(Boolean).join(' · ');
+  return `${g.letter} pick — ${last} at ${slotLabel}: ${v}${src ? ` (${src})` : ''}`
+       + (g.q != null ? `; player quality ${g.q.toFixed(1)}/10` : '') + '.';
 }
 
 function paGetPickAssist(){
@@ -13682,7 +13745,7 @@ function renderBoard(){
     const col = v.slot!==undefined ? v.slot-1 : v.teamIdx;
     if(r>0){
       const _fp=findPlayer(name);
-      pickLookup[`${col}-${r}`]={name,pos:_fp?.pos||'?',r0:_fp?.r0||'',sid:_fp?.sleeperId||'',ownerIdx:v.teamIdx};
+      pickLookup[`${col}-${r}`]={name,pos:_fp?.pos||'?',r0:_fp?.r0||'',sid:_fp?.sleeperId||'',ownerIdx:v.teamIdx,pickNo:v.pickNo||0};
     }
   });
 
@@ -13700,12 +13763,32 @@ function renderBoard(){
     arr.forEach((item,i)=>{
       const sl=slots[i];
       if(!sl) return;
-      const [rnd]=sl.split('.').map(Number);
-      
+      const [rnd,pp]=sl.split('.').map(Number);
+
       const key=`${tidx}-${rnd}`;
-      if(!pickLookup[key]) pickLookup[key]=item;
+      if(!pickLookup[key]){
+        // Manual picks carry no Sleeper pick_no — derive overall from the slot label.
+        if(!item.pickNo && rnd && pp) item.pickNo=(rnd-1)*NUM_TEAMS+pp;
+        pickLookup[key]=item;
+      }
     });
   });
+
+  // Per-pick grades + per-team rollup, attributed to the team that OWNS the pick
+  // (traded picks credit the drafter, not the original slot).
+  const teamAgg={};
+  if (typeof dvPickScore==='function'){
+    Object.values(pickLookup).forEach(pk=>{
+      const g=dvPickScore(pk.name,pk.pos,pk.pickNo);
+      if(!g) return;
+      pk.g=g;
+      const a=teamAgg[pk.ownerIdx]=teamAgg[pk.ownerIdx]||{sum:0,n:0,best:null,worst:null};
+      a.sum+=g.s; a.n++;
+      if(!a.best||g.s>a.best.g.s) a.best=pk;
+      if(!a.worst||g.s<a.worst.g.s) a.worst=pk;
+    });
+  }
+  window._bdTeamAgg=teamAgg;  // ds-grade-card tooltip reads the same rollup
 
   
   
@@ -13716,9 +13799,21 @@ function renderBoard(){
   const colCount=NUM_TEAMS;
 
   const thStyle=`background:var(--bg);position:sticky;top:0;z-index:2;padding:6px 3px 8px;font-size:9px;font-weight:600;border-bottom:1px solid var(--border2);font-family:var(--font-sans);white-space:nowrap;min-width:92px;width:92px;text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis`;
+  const _esc=s=>String(s).replace(/"/g,'&quot;');
   const hdr='<thead><tr>'+
     `<th style="${thStyle};position:sticky;left:0;z-index:3;min-width:26px;width:26px;color:var(--muted)">RND</th>`+
-    TEAMS.map((n,i)=>`<th style="${thStyle};color:${i===myTeam?COLORS[i%COLORS.length]:'var(--text2)'}${i===myTeam?';border-bottom:2px solid '+COLORS[i%COLORS.length]:''}">${n}</th>`).join('')+
+    TEAMS.map((n,i)=>{
+      const a=teamAgg[i];
+      let chip='';
+      if(a&&a.n){
+        const avg=a.sum/a.n;
+        const tip=`${n}: ${dvPickLetter(avg)} draft — average of ${a.n} graded pick${a.n===1?'':'s'}`
+          +(a.best?` · best: ${a.best.name.split(' ').pop()} (${a.best.g.letter})`:'')
+          +(a.worst&&a.worst!==a.best?` · toughest: ${a.worst.name.split(' ').pop()} (${a.worst.g.letter})`:'');
+        chip=`<div class="bth-grade" data-tip="${_esc(tip)}" style="color:${dvPickColor(avg)}">${dvPickLetter(avg)} <span>${avg.toFixed(1)}</span></div>`;
+      }
+      return `<th style="${thStyle};color:${i===myTeam?COLORS[i%COLORS.length]:'var(--text2)'}${i===myTeam?';border-bottom:2px solid '+COLORS[i%COLORS.length]:''}">${n}${chip}</th>`;
+    }).join('')+
     '</tr></thead>';
 
   const tdBase=`padding:0;vertical-align:top`;
@@ -13741,7 +13836,7 @@ function renderBoard(){
         const pkSn=pk.name.replace(/'/g,"\\'");
         rows+=`<td style="${tdBase};background:${isMyCol?'#5b8dee0d':''}">
           <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${pk.name.replace(/"/g,'&quot;')}${isTraded?' · traded to '+(TEAMS[pk.ownerIdx]||'').replace(/"/g,'&quot;'):''}">
-            <div class="bc-top"><span class="bc-posrk">${pk.pos}</span><span class="bc-pick">#${pk.r0||'—'}</span></div>
+            <div class="bc-top"><span class="bc-posrk">${pk.pos}</span><span class="bc-topr"><span class="bc-pick">#${pk.r0||'—'}</span>${pk.g?`<span class="bc-grade" data-tip="${dvPickWhy(pk.g,pk.name,_dvPickStr(pk.pickNo,NUM_TEAMS)).replace(/"/g,'&quot;')}" style="color:${pk.g.color}">${pk.g.letter}</span>`:''}</span></div>
             <div class="bc-body">
               <div class="bc-txt">
                 <div class="bc-name" style="color:${ownerC}">${pk.name.split(' ').pop()}</div>
@@ -13804,6 +13899,7 @@ function renderBoardMobile(pickLookup, manualByTeam) {
             <div class="bm-team-owner" style="color:${c}">${TEAMS[pk.ownerIdx]||''}</div>
           </div>
           ${rank?`<div class="bm-rank" style="color:${c}">#${rank}</div>`:''}
+          ${pk.g?`<div class="bm-grade" style="color:${pk.g.color}">${pk.g.letter}</div>`:''}
         </div>`);
       } else if (isTraded) {
         roundPicks.push(`<div class="bm-card traded-card">
@@ -18430,7 +18526,7 @@ function _dvEnsureSleeperAdp(){
   if (window._dvSleeperAdpCache[key]) { window._dvSleeperAdp = window._dvSleeperAdpCache[key]; return; }
   if (_dvSleeperAdpLoading === key) return;                               // in-flight
   _dvSleeperAdpLoading = key;
-  _dvLoadSleeperAdp(mode, sf).then(() => { _dvSleeperAdpLoading = null; _adpUpdateAdpHdr(mode, sf); try{ renderList(); }catch(e){} });
+  _dvLoadSleeperAdp(mode, sf).then(() => { _dvSleeperAdpLoading = null; _adpUpdateAdpHdr(mode, sf); try{ renderList(); }catch(e){} try{ renderBoard(); }catch(e){} });
 }
 // Overall pick value used to SORT the ADP column, matched to the active source so
 // the ordering agrees with the displayed numbers.
@@ -18470,6 +18566,7 @@ async function _adpSyncToValueMode(mode){            // 'dynasty' | 'redraft'
   }
   _adpUpdateAdpHdr(mode, sf);
   try { renderList(); } catch(e) {}
+  try { renderBoard(); } catch(e) {}   // pick grades blend ADP — refresh once it lands
 }
 function _adpUpdateAdpHdr(mode, sf){
   const el = document.getElementById('hdr-adp-src');
