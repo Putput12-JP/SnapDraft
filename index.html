@@ -541,6 +541,13 @@ header{
 #page-draft #hdr-frk svg{stroke:var(--red)}
 #page-draft #hdr-fsi svg{stroke:var(--wr)}
 .plist-table td.fcell{text-align:center;font-family:var(--font-mono);font-size:14px;font-weight:800;letter-spacing:-.01em;cursor:help}
+/* custom hover tooltip for the grade cells (instant + styled; native title is slow/easy to miss) */
+.dv-cell-tip{position:fixed;z-index:9999;pointer-events:none;opacity:0;transform:translateY(3px);max-width:300px;
+  background:var(--s2);border:1px solid var(--border3);border-radius:9px;padding:8px 11px;
+  font-family:var(--font-sans);font-size:11.5px;line-height:1.45;color:var(--text2);letter-spacing:0;
+  box-shadow:0 14px 34px -12px rgba(4,9,20,.85),0 1px 0 rgba(255,255,255,.05) inset;
+  transition:opacity .12s var(--ease-out),transform .12s var(--ease-out)}
+.dv-cell-tip.show{opacity:1;transform:translateY(0)}
 .plist-table td.td-watch2{text-align:center}
 .plist-table .dv-grdchip{display:inline-block;font-family:var(--font-mono);font-weight:800;font-size:12.5px;padding:3px 7px;border-radius:7px;border:1.5px solid}
 /* cockpit Draft Grade card (replaces Roster count) */
@@ -10211,6 +10218,28 @@ const DVF_ICON = {
 };
 function dvGradeColor(c){ return c>=8?'var(--rb)':c>=6.5?'var(--wr)':c>=5?'var(--te)':'var(--red2)'; }
 
+/* ── custom hover tooltip for grade cells (data-tip) ──
+   Native title tooltips are slow (~1s) and easy to miss; this shows an instant,
+   styled popover. Delegated so it survives every board re-render. */
+(function(){
+  if (window._dvCellTipInit) return; window._dvCellTipInit = true;
+  let tip = null;
+  const ensure = () => tip || (tip = document.body.appendChild(Object.assign(document.createElement('div'), { className:'dv-cell-tip', role:'tooltip' })));
+  const hide = () => { if (tip) tip.classList.remove('show'); };
+  function show(cell){
+    const txt = cell.getAttribute('data-tip'); if (!txt) return hide();
+    const t = ensure(); t.textContent = txt; t.classList.add('show');
+    const r = cell.getBoundingClientRect(), tw = t.offsetWidth, th = t.offsetHeight;
+    let left = Math.max(8, Math.min(r.left + r.width/2 - tw/2, innerWidth - tw - 8));
+    let top = r.top - th - 8;
+    if (top < 8) top = r.bottom + 8;            // flip below when near the top edge
+    t.style.left = left + 'px'; t.style.top = top + 'px';
+  }
+  document.addEventListener('mouseover', e => { const c = e.target.closest && e.target.closest('.fcell[data-tip]'); if (c) show(c); });
+  document.addEventListener('mouseout',  e => { const c = e.target.closest && e.target.closest('.fcell[data-tip]'); if (c) hide(); });
+  document.addEventListener('scroll', hide, true);
+})();
+
 /* ── Team draft grade (your live roster) ── */
 // Fill the league's starting slots from a roster by best composite (bench excluded).
 function dvPickStarters(list){
@@ -12802,10 +12831,10 @@ function sortedPlayers(){
     const hasFC = typeof getFCValue==='function';
     return bySortedKey(p => (hasFC && getFCValue(p.name)?.redraftValue) || 0, -1);
   }
-  // Column-header sort: ADP (asc, lowest pick number first)
+  // Column-header sort: ADP (asc, lowest pick number first). Uses the platform-matched
+  // source (Sleeper/ESPN/FantasyCalc) so the order agrees with the displayed values.
   if(sortKey==='adp-col'){
-    const hasADP = typeof getADP==='function';
-    return bySortedKey(p => (hasADP && getADP(p.name)) || 9999, 1);
+    return bySortedKey(p => _boardAdpSortVal(p.name) || 9999, 1);
   }
   // "my-col" sort = your My Rankings board order (rank asc), in the ACTIVE mode
   if(sortKey==='my-col'){
@@ -12856,6 +12885,7 @@ function renderList(){
   const tbody=document.getElementById('plist-body');
   const mobileContainer=document.getElementById('plist-mobile');
   if(!tbody) return;
+  try{ _dvEnsureSleeperAdp(); }catch(e){}   // Sleeper-draft: swap ADP column to Sleeper ADP once loaded
 
   
   if (!PLAYERS.length) {
@@ -13069,8 +13099,20 @@ function renderList(){
     // FantasyCalc value-rank → round.pick conversion (dynasty, or unmatched players).
     let adpHtml = '<span style="color:var(--dim)">—</span>';
     if (p.pos !== 'PICK') {
-      const _ad = ADP_LOOKUP[p.name] || ADP_LOOKUP[normName(p.name)] || null;
-      if (_ad && _ad.adpFmt) {
+      const _nn = normName(p.name);
+      const _ad = ADP_LOOKUP[p.name] || ADP_LOOKUP[_nn] || null;
+      const _plat = _dvDraftPlatform();
+      const _slA = (_plat === 'sleeper' && window._dvSleeperAdp) ? window._dvSleeperAdp.map[_nn] : null;
+      if (_slA && _slA.adp != null) {
+        // Sleeper draft → real Sleeper-draft ADP (matches the ADP Explorer's Sleeper source)
+        const teams = (window._dvSleeperAdp && window._dvSleeperAdp.teams) || _activeDraft?.teams || 12;
+        const n = _slA.n ? ` · ${_slA.n} drafts` : '';
+        adpHtml = `<span style="color:#a78bfa" title="Sleeper real-draft ADP · avg pick ${(+_slA.adp).toFixed(1)}${n}">${_dvPickStr(_slA.adp, teams)}</span>`;
+      } else if (_plat === 'espn' && _ad && _ad.adpEspn != null) {
+        // ESPN draft → ESPN live-draft ADP
+        const teams = _activeDraft?.teams || 12;
+        adpHtml = `<span style="color:#a78bfa" title="ESPN live-draft ADP · avg pick ${(+_ad.adpEspn).toFixed(1)}">${_dvPickStr(_ad.adpEspn, teams)}</span>`;
+      } else if (_ad && _ad.adpFmt) {
         const rng = (_ad.adpHigh && _ad.adpLow) ? ` · range ${_ad.adpHigh}–${_ad.adpLow}` : '';
         const drafts = _ad.adpDrafts ? ` · ${_ad.adpDrafts} drafts` : '';
         adpHtml = `<span style="color:#a78bfa" title="Real market ADP · avg pick ${_ad.adpReal}${rng}${drafts} (Fantasy Football Calculator)">${_ad.adpFmt}</span>`;
@@ -13120,7 +13162,8 @@ function renderList(){
       ${(()=>{
         const F = (window._dvFactors && window._dvFactors[nn]) || null;
         const _esc = s => String(s||'').replace(/"/g,'&quot;');
-        const cell = (k) => F ? `<td class="fcell td-f${k==='upside'?'up':k==='floor'?'fl':k==='risk'?'rk':'si'}" style="color:${DVF_COL[k]}" title="${_esc(F.why && F.why[k])}">${F[k]}</td>` : `<td class="fcell" style="color:var(--dim)" title="No recent stats for this player yet — grade unavailable.">–</td>`;
+        // data-tip (not title) drives the custom hover tooltip — native title is slow + easy to miss.
+        const cell = (k) => F ? `<td class="fcell td-f${k==='upside'?'up':k==='floor'?'fl':k==='risk'?'rk':'si'}" style="color:${DVF_COL[k]}" data-tip="${_esc(F.why && F.why[k])}">${F[k]}</td>` : `<td class="fcell" style="color:var(--dim)" data-tip="No recent stats for this player yet — grade unavailable.">–</td>`;
         return cell('upside')+cell('floor')+cell('risk')+cell('situational')
           + `<td class="td-watch2"><span class="dvrow-star${inWatchlist?' on':''}" onclick="event.stopPropagation();toggleWatch('${sn}')" title="${inWatchlist?'Remove from watchlist':'Add to watchlist'}">${inWatchlist?'★':'☆'}</span></td>`;
       })()}
@@ -18327,6 +18370,66 @@ function _dvIsSuperflex(){
   return false;
 }
 
+// ── Board ADP: match the connected draft's platform ──
+// Sleeper draft → real Sleeper-draft ADP, ESPN draft → ESPN ADP, else FantasyCalc.
+// Keeps the live-draft board's ADP column consistent with the ADP Explorer default.
+function _dvDraftPlatform(){
+  try{
+    if (typeof espnDraftLid !== 'undefined' && espnDraftLid) return 'espn';
+    if (typeof sleeperDraftId !== 'undefined' && sleeperDraftId) return 'sleeper';
+  }catch(e){}
+  return null;
+}
+function _dvSleeperAdpKey(mode, sf){
+  if (mode === 'redraft') return 'redraft_1qb';
+  return sf ? 'dynasty_sf' : 'dynasty_1qb';
+}
+// overall avg pick (e.g. 27.4) → "3.04" round.pick for a given team count
+function _dvPickStr(overall, teams){
+  const n = Math.max(1, Math.round(overall));
+  return (Math.floor((n - 1) / teams) + 1) + '.' + String(((n - 1) % teams) + 1).padStart(2, '0');
+}
+window._dvSleeperAdpCache = window._dvSleeperAdpCache || {};
+let _dvSleeperAdpLoading = null;
+async function _dvLoadSleeperAdp(mode, sf){
+  const key = _dvSleeperAdpKey(mode, sf);
+  if (window._dvSleeperAdpCache[key]) { window._dvSleeperAdp = window._dvSleeperAdpCache[key]; return window._dvSleeperAdp; }
+  let obj = { map:{}, teams:12, hasData:false, key };
+  try{
+    const dayBust = Math.floor(Date.now() / 86400000);
+    const r = await fetch(`${_adpDataBase()}/adp_sleeper_${key}.json?v=${dayBust}`);
+    const j = r.ok ? await r.json() : null;
+    const rows = (j && j.players) || [];
+    const map = {};
+    rows.forEach(s => { if (s.adp != null) map[normName(s.name)] = { adp:s.adp, n:s.n }; });
+    obj = { map, teams:(j && j.norm_teams) || 12, hasData: rows.length > 0, key };
+  }catch(e){}
+  window._dvSleeperAdpCache[key] = obj;
+  window._dvSleeperAdp = obj;
+  return obj;
+}
+// Lazily load the Sleeper ADP for the current mode when a Sleeper draft is connected,
+// then re-render once so the ADP column + its sort switch over. Cached, so it fetches once.
+function _dvEnsureSleeperAdp(){
+  if (_dvDraftPlatform() !== 'sleeper') return;
+  const mode = (window._dvMode === 'redraft') ? 'redraft' : 'dynasty';
+  const sf = (mode === 'dynasty') && _dvIsSuperflex();
+  const key = _dvSleeperAdpKey(mode, sf);
+  if (window._dvSleeperAdp && window._dvSleeperAdp.key === key) return;   // already active for this mode
+  if (window._dvSleeperAdpCache[key]) { window._dvSleeperAdp = window._dvSleeperAdpCache[key]; return; }
+  if (_dvSleeperAdpLoading === key) return;                               // in-flight
+  _dvSleeperAdpLoading = key;
+  _dvLoadSleeperAdp(mode, sf).then(() => { _dvSleeperAdpLoading = null; _adpUpdateAdpHdr(mode, sf); try{ renderList(); }catch(e){} });
+}
+// Overall pick value used to SORT the ADP column, matched to the active source so
+// the ordering agrees with the displayed numbers.
+function _boardAdpSortVal(name){
+  const plat = _dvDraftPlatform(), nn = normName(name);
+  if (plat === 'sleeper' && window._dvSleeperAdp){ const s = window._dvSleeperAdp.map[nn]; if (s) return s.adp; }
+  if (plat === 'espn'){ const ad = ADP_LOOKUP[name] || ADP_LOOKUP[nn]; if (ad && ad.adpEspn != null) return ad.adpEspn; }
+  return getADP(name) || 9999;
+}
+
 async function _adpSyncToValueMode(mode){            // 'dynasty' | 'redraft'
   if (mode !== 'redraft') mode = 'dynasty';
   const sf = (mode==='dynasty') && _dvIsSuperflex();
@@ -18359,8 +18462,14 @@ async function _adpSyncToValueMode(mode){            // 'dynasty' | 'redraft'
 }
 function _adpUpdateAdpHdr(mode, sf){
   const el = document.getElementById('hdr-adp-src');
-  if (el){ el.textContent = mode==='redraft' ? 'RDR' : (sf ? 'SF' : 'DYN');
-    el.style.color = mode==='redraft' ? 'var(--sky,#7bd0ff)' : '#facc15'; }
+  if (!el) return;
+  // When matched to the connected draft's platform, label the source (SL / ESPN)
+  // so it's obvious the column now reflects real Sleeper/ESPN draft ADP.
+  const plat = _dvDraftPlatform();
+  if (plat === 'sleeper' && window._dvSleeperAdp && window._dvSleeperAdp.hasData){ el.textContent = 'SL';   el.style.color = '#a78bfa'; return; }
+  if (plat === 'espn' && mode === 'redraft'){                                       el.textContent = 'ESPN'; el.style.color = '#e2483d'; return; }
+  el.textContent = mode==='redraft' ? 'RDR' : (sf ? 'SF' : 'DYN');
+  el.style.color = mode==='redraft' ? 'var(--sky,#7bd0ff)' : '#facc15';
 }
 // Back-compat: initial load picks the bucket matching the current sort.
 async function _adpAutoInit() {
