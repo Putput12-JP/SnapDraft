@@ -4437,6 +4437,14 @@ function openConnect(){
     <button class="vc-lg-switch" onclick="vcClose();setTimeout(function(){var t=document.querySelector('.vlg-trigger');if(t)t.click();},260)">Switch</button>
   </div>
 </div>
+
+<!-- PLAYER GRADE SHEET (mobile): tap a rankings row for the 4-factor Grade
+     Keys before committing; deep-links to the full profile -->
+<div class="vc-dim" id="pgs-dim" hidden onclick="pgsClose()"></div>
+<div class="vc-sheet" id="pgs-sheet" hidden role="dialog" aria-label="Player grade">
+  <div class="vc-grab"></div>
+  <div id="pgs-body"></div>
+</div>
 <script>
 /* Vault Command sheet, mobile dock shield */
 function vcToggle(){ var s=document.getElementById('vc-sheet'); if(!s) return; if(s.hidden){ vcOpen(); } else { vcClose(); } }
@@ -4488,6 +4496,65 @@ function vcRefreshLive(){
   var sub=document.getElementById('vc-sub-draft'); if(sub) sub.textContent = live ? 'DRAFT IN PROGRESS' : 'RANKINGS & BOARD';
 }
 window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!window.sleeperDraftId; }catch(e){} }, 5000);
+
+
+/* ── Player grade sheet: quick 4-factor look from a rankings row ── */
+function pgsClose(){
+  var s=document.getElementById('pgs-sheet'), d=document.getElementById('pgs-dim');
+  if(!s || s.hidden){ if(d) d.hidden=true; return; }
+  if(s._vcLeaving) return;
+  s._vcLeaving=true;
+  var rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  s.classList.add('vc-leaving'); if(d) d.classList.add('vc-leaving');
+  setTimeout(function(){
+    s.hidden=true; s.classList.remove('vc-leaving'); s._vcLeaving=false;
+    if(d){ d.hidden=true; d.classList.remove('vc-leaving'); }
+  }, rm?0:240);
+}
+function pgsOpen(name, pos, team){
+  try{
+    /* desktop, picks and no-data players go straight to the full profile */
+    if(!(window.matchMedia&&matchMedia('(max-width:700px)').matches)){ openPlayerProfile(name,'',pos,team); return; }
+    var nn=normName(name);
+    var F=(window._dvFactors&&window._dvFactors[nn])||null;
+    if(!F || !(F.composite>0)){ openPlayerProfile(name,'',pos,team); return; }
+    var pr=null; try{ pr=paStatProfile(name); }catch(e){}
+    var ad=(window.ADP_LOOKUP&&(ADP_LOOKUP[name]||ADP_LOOKUP[nn]))||{};
+    var hsUrl=null; try{ hsUrl=getPlayerHeadshotUrl(name); }catch(e){}
+    var posC={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[pos]||'var(--muted)';
+    var meta=[team,pos]; if(ad.age) meta.push(ad.age+' yrs');
+    var adp=null; try{ adp=(typeof getADP==='function')?getADP(name):null; }catch(e){}
+    if(adp) meta.push('ADP '+Math.round(adp));
+    var gCol=dvGradeColor(F.composite);
+    var bar=function(lbl,v,col){ return '<div class="pgs-bar"><label>'+lbl+'</label><div class="pgs-track"><i style="width:'+Math.max(4,Math.min(100,v*10))+'%;background:'+col+'"></i></div><b>'+v+'</b></div>'; };
+    var tile=function(l,v,col){ return '<div class="pgs-tile"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div></div>'; };
+    var esc=name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    var watched=false; try{ watched=window.watchlist&&watchlist.has(name); }catch(e){}
+    document.getElementById('pgs-body').innerHTML=
+      '<div class="pgs-head">'+
+        (hsUrl?'<div class="pgs-av"><img src="'+hsUrl+'" alt=""></div>':'<div class="pgs-av pgs-av-fb" style="color:'+posC+'">'+pos+'</div>')+
+        '<div style="flex:1;min-width:0"><div class="pgs-name">'+name+'</div><div class="pgs-meta">'+meta.join(' · ')+'</div></div>'+
+        '<div class="pgs-ring" style="color:'+gCol+';--p:'+Math.round(F.composite*10)+'">'+F.composite.toFixed(1)+'</div>'+
+      '</div>'+
+      '<div class="pgs-bars">'+
+        bar('UPSIDE',F.upside,'var(--value)')+
+        bar('FLOOR',F.floor,'var(--accent2)')+
+        bar('RISK',F.risk,'var(--red2)')+
+        bar('SITUATION',F.situational,'var(--value)')+
+      '</div>'+
+      '<div class="pgs-tiles">'+
+        tile('PPG',(pr&&pr.ppg!=null)?(+pr.ppg).toFixed(1):'—',null)+
+        tile('BOOM %',(pr&&pr.boomPct!=null)?Math.round(pr.boomPct):'—','var(--value)')+
+        tile('BUST %',(pr&&pr.bustPct!=null)?Math.round(pr.bustPct):'—',null)+
+      '</div>'+
+      '<div class="pgs-acts">'+
+        '<button class="pgs-btn ghost" onclick="pgsClose();openPlayerProfile(\''+esc+'\',\'\',\''+pos+'\',\''+team+'\')">Full profile</button>'+
+        '<button class="pgs-btn primary" onclick="toggleWatch(\''+esc+'\');pgsClose()">'+(watched?'★ Watching':'☆ Watchlist')+'</button>'+
+      '</div>';
+    document.getElementById('pgs-sheet').hidden=false;
+    document.getElementById('pgs-dim').hidden=false;
+  }catch(e){ try{ openPlayerProfile(name,'',pos,team); }catch(_){} }
+}
 
 /* ── MOBILE capsule strips ─────────────────────────────────────────
    1) Home: league switcher capsules mirroring the header league menu
@@ -13434,7 +13501,7 @@ function renderList(){
     const mobileRow = `<div class="prow-mobile ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
       <div class="pm-rank">${rank}</div>
       ${hs.replace('pimg-wrap','pm-photo pimg-wrap')}
-      <div class="pm-info" onclick="openPlayerProfile(this.dataset.n,'','${p.pos}','${p.team}')" data-n="${p.name.replace(/"/g,'&quot;')}" style="cursor:pointer;flex:1">
+      <div class="pm-info" onclick="pgsOpen(this.dataset.n,'${p.pos}','${p.team}')" data-n="${p.name.replace(/"/g,'&quot;')}" style="cursor:pointer;flex:1">
         <div class="pm-name">${p.name}</div>
         <div class="pm-meta">
           <span class="pm-team">${p.team}</span>
@@ -27946,6 +28013,30 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .vc-lg-main small{font-size:10px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.04em}
   .vc-lg-switch{flex:none;padding:8px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-size:12.5px;font-weight:700;font-family:var(--font-sans);cursor:pointer}
   .vc-lg-switch:active{transform:scale(.96);transition:transform 80ms ease}
+  /* player grade sheet */
+  .pgs-head{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
+  .pgs-av{width:50px;height:50px;border-radius:15px;overflow:hidden;flex:none;background:var(--s3);border:1px solid var(--border2)}
+  .pgs-av img{width:100%;height:100%;object-fit:cover}
+  .pgs-av-fb{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;font-size:14px}
+  .pgs-name{font-size:18px;font-weight:800;letter-spacing:-.01em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pgs-meta{font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--font-mono)}
+  .pgs-ring{width:54px;height:54px;border-radius:99px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;font-size:16px;position:relative}
+  .pgs-ring::before{content:"";position:absolute;inset:0;border-radius:99px;padding:3px;background:conic-gradient(currentColor calc(var(--p)*1%),var(--s3) 0);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+  .pgs-bars{display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
+  .pgs-bar{display:flex;align-items:center;gap:10px}
+  .pgs-bar label{width:78px;flex:none;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--muted)}
+  .pgs-track{flex:1;height:5px;border-radius:99px;background:var(--s3);overflow:hidden}
+  .pgs-track i{display:block;height:100%;border-radius:99px}
+  .pgs-bar b{width:30px;flex:none;text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--text)}
+  .pgs-tiles{display:flex;gap:10px;margin-bottom:14px}
+  .pgs-tile{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:13px;padding:11px 12px}
+  .pgs-tile .l{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+  .pgs-tile .v{font-family:var(--font-mono);font-weight:800;font-size:19px;margin-top:4px;color:var(--text)}
+  .pgs-acts{display:flex;gap:10px}
+  .pgs-btn{flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;padding:13px;font-size:15px;font-weight:700;font-family:var(--font-sans);cursor:pointer;border:none}
+  .pgs-btn.ghost{background:var(--s2);color:var(--text);border:1px solid var(--border2)}
+  .pgs-btn.primary{background:var(--accent2);color:var(--on-primary)}
+  .pgs-btn:active{transform:scale(.97);transition:transform 80ms ease}
 
   /* dock, 4 destinations + raised shield */
   .bottom-tab-bar{z-index:9001!important;overflow:visible!important;display:flex!important;align-items:center!important;justify-content:space-around!important;height:62px!important;min-height:62px!important;padding:0 6px!important}
