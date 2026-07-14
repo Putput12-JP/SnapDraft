@@ -13356,12 +13356,12 @@ function renderList(){
       const _slA = (_plat === 'sleeper' && window._dvSleeperAdp) ? window._dvSleeperAdp.map[_nn] : null;
       if (_slA && _slA.adp != null) {
         // Sleeper draft → real Sleeper-draft ADP (matches the ADP Explorer's Sleeper source)
-        const teams = (window._dvSleeperAdp && window._dvSleeperAdp.teams) || _activeDraft?.teams || 12;
+        const teams = (window._dvSleeperAdp && window._dvSleeperAdp.teams) || window._activeDraft?.teams || 12;
         const n = _slA.n ? ` · ${_slA.n} drafts` : '';
         adpHtml = `<span style="color:#a78bfa" title="Sleeper real-draft ADP · avg pick ${(+_slA.adp).toFixed(1)}${n}">${_dvPickStr(_slA.adp, teams)}</span>`;
       } else if (_plat === 'espn' && _ad && _ad.adpEspn != null) {
         // ESPN draft → ESPN live-draft ADP
-        const teams = _activeDraft?.teams || 12;
+        const teams = window._activeDraft?.teams || 12;
         adpHtml = `<span style="color:#a78bfa" title="ESPN live-draft ADP · avg pick ${(+_ad.adpEspn).toFixed(1)}">${_dvPickStr(_ad.adpEspn, teams)}</span>`;
       } else if (_ad && _ad.adpFmt) {
         const rng = (_ad.adpHigh && _ad.adpLow) ? ` · range ${_ad.adpHigh}–${_ad.adpLow}` : '';
@@ -13369,8 +13369,8 @@ function renderList(){
         adpHtml = `<span style="color:#a78bfa" title="Real market ADP · avg pick ${_ad.adpReal}${rng}${drafts} (Fantasy Football Calculator)">${_ad.adpFmt}</span>`;
       } else {
         const adpRank = typeof getADP === 'function' ? getADP(p.name) : null;
-        if (adpRank && adpRank > 0 && _activeDraft?.teams) {
-          const teams = _activeDraft.teams;
+        if (adpRank && adpRank > 0 && window._activeDraft?.teams) {
+          const teams = window._activeDraft.teams;
           const round = Math.floor((adpRank - 1) / teams) + 1;
           const slot = ((adpRank - 1) % teams) + 1;
           const slotStr = `${round}.${String(slot).padStart(2,'0')}`;
@@ -13422,6 +13422,15 @@ function renderList(){
 
     
     const posC = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[p.pos]||'var(--muted)';
+    /* mock-style mobile row: values live in a fixed right block (grade when
+       factors exist, market value otherwise) so the meta line stays short */
+    const _pmF = (window._dvFactors && window._dvFactors[nn]) || null;
+    const _pmv = _dvm==='redraft' ? redraftVal : dynastyVal;
+    const _pmvCol = _dvm==='redraft' ? redraftColor : dynastyColor;
+    const _pmGrade = (_pmF && _pmF.composite > 0) ? _pmF.composite : null;
+    const _pmRight = _pmGrade
+      ? `<div class="pm-grade" style="color:${dvGradeColor(_pmGrade)}">${_pmGrade.toFixed(1)}<small>GRADE</small></div>`
+      : (_pmv > 0 ? `<div class="pm-grade" style="color:${_pmvCol}">${_pmv.toLocaleString()}<small>${_dvm==='redraft'?'RDR':'DYN'}</small></div>` : '');
     const mobileRow = `<div class="prow-mobile ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
       <div class="pm-rank">${rank}</div>
       ${hs.replace('pimg-wrap','pm-photo pimg-wrap')}
@@ -13430,12 +13439,12 @@ function renderList(){
         <div class="pm-meta">
           <span class="pm-team">${p.team}</span>
           <span class="ppill ${p.pos}" style="font-size:8px;padding:1px 4px">${p.pos}${_posRankMap[nn]||''}</span>
-          ${_dvm!=='redraft' && dynastyVal > 0 ? `<span class="pm-val-wrap"><span class="pm-val-lbl">DYN</span><span class="pm-dynasty" style="color:${dynastyColor}">${dynastyVal.toLocaleString()}</span></span>` : ''}
-          ${_dvm==='redraft' && redraftVal > 0 ? `<span class="pm-val-wrap"><span class="pm-val-lbl">RDR</span><span class="pm-redraft" style="color:${redraftColor}">${redraftVal.toLocaleString()}</span></span>` : ''}
-          ${(()=>{ if(!(window.MyRankings && p.pos!=='PICK')) return ''; const _mi=MyRankings.getRankInfo(p.name, _dvm==='redraft'?'redraft':'dynasty'); return _mi?`<span class="pm-val-wrap"><span class="pm-val-lbl">MINE</span><span style="color:#3DCC7A;font-weight:700">#${_mi.myRank}</span></span>`:''; })()}
+          ${_pmGrade && _pmv > 0 ? `<span class="pm-mval" style="color:${_pmvCol}">${_pmv>=1000?(_pmv/1000).toFixed(1).replace(/\.0$/,'')+'k':_pmv}</span>` : ''}
+          ${(()=>{ if(!(window.MyRankings && p.pos!=='PICK')) return ''; const _mi=MyRankings.getRankInfo(p.name, _dvm==='redraft'?'redraft':'dynasty'); return _mi?`<span class="pm-mval" style="color:#3DCC7A">MY #${_mi.myRank}</span>`:''; })()}
           ${vbadgeHtml}
         </div>
       </div>
+      ${_pmRight}
       <div class="pm-status" style="display:flex;align-items:center;gap:4px">
         ${isDrafted&&ti>=0&&ti<TEAMS.length ? `<span style="font-size:9px;font-family:var(--font-mono);color:${COLORS[ti%COLORS.length]};font-weight:700">${ti===myTeam?'✦':TEAMS[ti].slice(0,6)}</span>` : ''}
         <span onclick="event.stopPropagation();toggleWatch('${sn}')" style="font-size:16px;cursor:pointer;user-select:none">${inWatchlist?'⭐':'☆'}</span>
@@ -30647,6 +30656,21 @@ body .page,body .page.on{background:transparent!important}
   .adp-slstats-funnel{display:none}
   .adp-slstats{gap:8px;padding:11px 13px}
   .adp-hero{padding:12px 0 10px}
+
+  /* Draft Vault rankings rows — mock treatment: taller rows, bigger photo,
+     name + one short meta line, grade/value block anchored on the right */
+  .prow-mobile{height:auto!important;min-height:64px!important;padding:10px!important;gap:8px!important;contain-intrinsic-size:auto 64px}
+  .pm-rank{width:22px!important;font-size:12px!important}
+  .pm-photo{width:34px!important;height:34px!important;font-size:11px}
+  .pm-name{font-size:15.5px!important;font-weight:700!important}
+  .pm-meta{flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:5px!important;white-space:nowrap;margin-top:2px}
+  .pm-meta::-webkit-scrollbar{display:none}
+  .pm-team{font-size:10.5px;color:var(--muted);font-family:var(--font-mono);font-weight:600}
+  .pm-mval{font-size:10px;font-family:var(--font-mono);font-weight:700;letter-spacing:-.01em}
+  .pm-grade{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-family:var(--font-mono);font-weight:800;font-size:18px;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
+  .pm-grade small{font-size:7.5px;font-weight:700;letter-spacing:.09em;color:var(--muted)}
+  .prow-mobile.gone{opacity:.45!important}
+  .prow-mobile.gone .pm-name{text-decoration:line-through;color:var(--muted)}
 }
 </style>
 
