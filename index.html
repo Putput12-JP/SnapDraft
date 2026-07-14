@@ -4380,52 +4380,112 @@ function openConnect(){
   <div class="vc-grab"></div>
   <div class="vc-head">
     <span class="vc-title">Vault Command</span>
-    <span class="vc-note">TAP SHIELD ANYTIME</span>
+    <span class="vc-acts">
+      <button class="vc-act" onclick="vcClose();toggleTheme()" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"></path></svg>
+      </button>
+      <button class="vc-act" onclick="vcClose();try{openSettingsDrawer()}catch(e){document.getElementById('setup').classList.remove('gone')}" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.06-.4.1-.8.1-1.2z"></path></svg>
+      </button>
+    </span>
   </div>
   <div class="vc-grid">
     <button class="vc-tile" id="vc-tile-draft" onclick="vcGo('draft')">
       <span class="vc-live" id="vc-live-badge" hidden>● LIVE</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 12h12M4 18h8"></path><path d="M20 6v8"></path><path d="M17 11l3 3 3-3"></path></svg>
-      <b>Draft Vault</b><small id="vc-sub-draft">RANKINGS &amp; ROOMS</small>
+      <b>Draft Vault</b><small id="vc-sub-draft">RANKINGS &amp; BOARD</small>
     </button>
-    <button class="vc-tile" onclick="vcGo('betting')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M21 7l-4 4-3-3-5 5"></path></svg>
-      <b>Betting</b><small>ODDS &amp; PROPS</small>
+    <button class="vc-tile" onclick="vcClose();showPage('draft');try{dvShowADP()}catch(e){}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M4 11h16"></path><rect x="4" y="5" width="16" height="16" rx="3"></rect></svg>
+      <b>ADP Explorer</b><small>MARKET MOVES</small>
+    </button>
+    <button class="vc-tile" onclick="vcGo('myrankings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="4" height="10" rx="1"></rect><rect x="10" y="4" width="4" height="16" rx="1"></rect><rect x="17" y="13" width="4" height="7" rx="1"></rect></svg>
+      <b>My Rankings</b><small>TIERS &amp; EDITS</small>
     </button>
     <button class="vc-tile" onclick="vcGo('trade')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3"></path><path d="M4 7h13"></path><path d="m17 20 3-3-3-3"></path><path d="M20 17H7"></path></svg>
       <b>Trade Calc</b><small>VALUE ANY DEAL</small>
     </button>
-    <button class="vc-tile" onclick="vcGo('myrankings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="4" height="10" rx="1"></rect><rect x="10" y="4" width="4" height="16" rx="1"></rect><rect x="17" y="13" width="4" height="7" rx="1"></rect></svg>
-      <b>My Rankings</b><small>REDRAFT · DYNASTY</small>
+    <button class="vc-tile" onclick="vcGo('seasonsim')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M3 12h18"></path></svg>
+      <b>Season Sim</b><small>PLAYOFF ODDS</small>
+    </button>
+    <button class="vc-tile" onclick="vcGo('research')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"></path></svg>
+      <b>Compare</b><small>HEAD TO HEAD</small>
     </button>
     <button class="vc-tile" onclick="vcGo('myteams')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a9 9 0 0 0-15-3L3 8"></path><path d="M3 5v3h3"></path><path d="M3 16a9 9 0 0 0 15 3l3-3"></path><path d="M21 19v-3h-3"></path></svg>
-      <b>Sync Leagues</b><small>SLEEPER · ESPN</small>
+      <b>Sleeper Sync</b><small>SLEEPER &middot; ESPN</small>
     </button>
-    <button class="vc-tile" onclick="vcClose();toggleTheme()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
-      <b>Theme</b><small>DARK · LIGHT</small>
+    <button class="vc-tile" onclick="vcGo('gamelogs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
+      <b>Game Logs</b><small>WEEKLY SPLITS</small>
     </button>
-    <button class="vc-tile" onclick="vcClose();try{openSettingsDrawer()}catch(e){document.getElementById('setup').classList.remove('gone')}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.06-.4.1-.8.1-1.2z"></path></svg>
-      <b>Settings</b><small>ACCOUNT · DATA</small>
+    <button class="vc-tile" onclick="vcGo('betting')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M21 7l-4 4-3-3-5 5"></path></svg>
+      <b>Betting</b><small>ODDS &amp; PROPS</small>
     </button>
+  </div>
+  <div class="vc-league" id="vc-league" hidden>
+    <span class="vc-lg-av" id="vc-lg-av">VF</span>
+    <span class="vc-lg-main">
+      <b id="vc-lg-name">League</b>
+      <small id="vc-lg-meta"></small>
+    </span>
+    <button class="vc-lg-switch" onclick="vcClose();setTimeout(function(){var t=document.querySelector('.vlg-trigger');if(t)t.click();},260)">Switch</button>
   </div>
 </div>
 <script>
 /* Vault Command sheet, mobile dock shield */
 function vcToggle(){ var s=document.getElementById('vc-sheet'); if(!s) return; if(s.hidden){ vcOpen(); } else { vcClose(); } }
-function vcOpen(){ var s=document.getElementById('vc-sheet'), d=document.getElementById('vc-dim'); if(s) s.hidden=false; if(d) d.hidden=false; vcRefreshLive(); }
-function vcClose(){ var s=document.getElementById('vc-sheet'), d=document.getElementById('vc-dim'); if(s) s.hidden=true; if(d) d.hidden=true; }
+function vcOpen(){ var s=document.getElementById('vc-sheet'), d=document.getElementById('vc-dim'); if(s) s.hidden=false; if(d) d.hidden=false; vcRefreshLive(); vcRefreshLeague(); }
+function vcClose(){
+  var s=document.getElementById('vc-sheet'), d=document.getElementById('vc-dim');
+  if(!s || s.hidden){ if(d) d.hidden=true; return; }
+  if(s._vcLeaving) return;
+  s._vcLeaving = true;
+  var rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  s.classList.add('vc-leaving'); if(d) d.classList.add('vc-leaving');
+  setTimeout(function(){
+    s.hidden=true; s.classList.remove('vc-leaving'); s._vcLeaving=false;
+    if(d){ d.hidden=true; d.classList.remove('vc-leaving'); }
+  }, rm ? 0 : 240);
+}
+/* league row at the sheet's foot: mirrors the active league; hidden until synced */
+function vcRefreshLeague(){
+  var row=document.getElementById('vc-league'); if(!row) return;
+  try{
+    var id=(typeof teamsLeagueId!=='undefined'&&teamsLeagueId)||window._currentLeagueId;
+    var all=window.myTeamsData||[];
+    var lg=all.find(function(l){return l.league_id===id;})||all[0];
+    var name, bits=[];
+    if(lg){
+      name=lg.name||'League';
+      if(lg.total_rosters) bits.push(lg.total_rosters+'-team');
+      if((lg.roster_positions||[]).indexOf('SUPER_FLEX')>=0) bits.push('SF');
+      if(lg.season) bits.push(lg.season);
+    } else {
+      /* sync data not loaded yet: mirror the header league pill */
+      var pill=document.querySelector('.vlg-name');
+      name=pill&&pill.textContent.trim();
+      if(!name){ row.hidden=true; return; }
+    }
+    document.getElementById('vc-lg-name').textContent=name;
+    document.getElementById('vc-lg-meta').textContent=bits.join(' · ');
+    var ini=(name||'VF').replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/).map(function(w){return w.charAt(0);}).join('').slice(0,2).toUpperCase();
+    document.getElementById('vc-lg-av').textContent=ini||'VF';
+    row.hidden=false;
+  }catch(e){ row.hidden=true; }
+}
 function vcGo(p){ vcClose(); showPage(p); }
 function vcRefreshLive(){
   var live = !!(window.sleeperDraftId);
   var b=document.getElementById('vc-live-badge'); if(b) b.hidden=!live;
   var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!live;
   var t=document.getElementById('vc-tile-draft'); if(t) t.classList.toggle('live', live);
-  var sub=document.getElementById('vc-sub-draft'); if(sub) sub.textContent = live ? 'DRAFT IN PROGRESS' : 'RANKINGS & ROOMS';
+  var sub=document.getElementById('vc-sub-draft'); if(sub) sub.textContent = live ? 'DRAFT IN PROGRESS' : 'RANKINGS & BOARD';
 }
 window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!window.sleeperDraftId; }catch(e){} }, 5000);
 </script>
@@ -27711,28 +27771,45 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
 /* ════ MOBILE OVERHAUL · floating dock + Vault Command (≤700px) ════ */
 .vc-dim,.vc-sheet,.tab-fab{display:none}
 @media(max-width:700px){
-  .vc-dim{display:block;position:fixed;inset:0;background:rgba(4,7,12,0.55);z-index:9000;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
-  .vc-sheet{display:block;position:fixed;left:12px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:9002;background:var(--glass-1);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);border:1px solid var(--border2);border-radius:24px;padding:10px 16px 16px;box-shadow:0 24px 70px rgba(0,0,0,0.55)}
+  .vc-dim{display:block;position:fixed;inset:0;background:rgba(4,7,12,0.55);z-index:9000;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:vcFade 200ms ease}
+  .vc-sheet{display:block;position:fixed;left:0;right:0;bottom:0;z-index:9002;background:var(--s1);border:1px solid var(--border2);border-bottom:none;border-radius:22px 22px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -24px 60px -18px rgba(0,0,0,0.8);animation:vcUp 420ms var(--ease-sheet)}
   .vc-dim[hidden],.vc-sheet[hidden]{display:none}
+  .vc-sheet.vc-leaving{transition:transform 240ms var(--ease-sheet),opacity 240ms ease;transform:translateY(40px);opacity:0}
+  .vc-dim.vc-leaving{transition:opacity 240ms ease;opacity:0}
+  @keyframes vcUp{from{transform:translateY(100%)}to{transform:none}}
+  @keyframes vcFade{from{opacity:0}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.vc-sheet,.vc-dim{animation:none}}
   .vc-grab{width:38px;height:4px;border-radius:2px;background:var(--border3);margin:2px auto 12px}
-  .vc-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .vc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
   .vc-title{font-size:17px;font-weight:800;letter-spacing:-0.02em;color:var(--text)}
-  .vc-note{font-family:var(--font-mono);font-size:8px;letter-spacing:.12em;color:var(--muted)}
-  .vc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .vc-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:13px 12px;cursor:pointer;color:var(--text);text-align:left;font-family:var(--font-sans)}
-  .vc-tile:active{transform:scale(.97)}
-  .vc-tile svg{width:19px;height:19px;color:var(--accent2)}
-  .vc-tile b{font-size:12.5px;font-weight:700}
-  .vc-tile small{font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;color:var(--muted)}
-  .vc-live{position:absolute;top:10px;right:10px;font-family:var(--font-mono);font-size:7.5px;font-weight:700;letter-spacing:.1em;color:var(--value);background:color-mix(in srgb,var(--value) 16%,transparent);padding:3px 7px;border-radius:10px}
+  .vc-acts{display:flex;gap:8px}
+  .vc-act{width:32px;height:32px;border-radius:10px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2);padding:0;cursor:pointer}
+  .vc-act svg{width:15px;height:15px}
+  .vc-act:active{transform:scale(.94);transition:transform 80ms ease}
+  .vc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .vc-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:13px 8px 11px;cursor:pointer;color:var(--text);text-align:center;font-family:var(--font-sans)}
+  .vc-tile:active{transform:scale(.97);transition:transform 80ms ease}
+  .vc-tile svg{width:20px;height:20px;color:var(--accent2)}
+  .vc-tile b{font-size:11.5px;font-weight:700;line-height:1.15}
+  .vc-tile small{font-family:var(--font-mono);font-size:7.5px;letter-spacing:.05em;color:var(--muted)}
+  .vc-live{position:absolute;top:8px;right:8px;font-family:var(--font-mono);font-size:7.5px;font-weight:700;letter-spacing:.1em;color:var(--value);background:color-mix(in srgb,var(--value) 16%,transparent);padding:3px 7px;border-radius:10px}
   .vc-tile.live{border-color:color-mix(in srgb,var(--value) 50%,transparent)}
+  .vc-league{display:flex;align-items:center;gap:11px;margin-top:13px;padding-top:13px;border-top:1px solid var(--border)}
+  .vc-league[hidden]{display:none}
+  .vc-lg-av{flex:none;width:34px;height:34px;border-radius:10px;background:var(--s3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--text)}
+  .vc-lg-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .vc-lg-main b{font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vc-lg-main small{font-size:10px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.04em}
+  .vc-lg-switch{flex:none;padding:8px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-size:12.5px;font-weight:700;font-family:var(--font-sans);cursor:pointer}
+  .vc-lg-switch:active{transform:scale(.96);transition:transform 80ms ease}
 
   /* dock, 4 destinations + raised shield */
   .bottom-tab-bar{z-index:9001!important;overflow:visible!important;display:flex!important;align-items:center!important;justify-content:space-around!important;height:62px!important;min-height:62px!important;padding:0 6px!important}
   .bottom-tab-bar .tab-btn{flex:0 1 64px!important;min-height:46px!important}
   .bottom-tab-bar .tab-label{font-family:var(--font-sans)!important;font-size:var(--t-nano)!important;letter-spacing:.08em;text-transform:uppercase}
-  .tab-fab{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 56px;width:56px;height:56px;margin-top:-26px;border-radius:50%;border:3px solid var(--accent);background:#f2f4f9;box-shadow:0 10px 26px color-mix(in srgb,var(--accent) 55%,transparent),0 0 0 3px var(--bg);cursor:pointer;padding:0}
-  .tab-fab img{width:32px;height:32px;object-fit:contain;display:block}
+  .tab-fab{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 56px;width:56px;height:56px;margin-top:-26px;border-radius:19px;border:1px solid var(--border3);background:linear-gradient(160deg,var(--s4),var(--s2));box-shadow:0 12px 28px -8px rgba(0,0,0,0.7),0 1px 0 rgba(255,255,255,0.10) inset,0 0 0 3px var(--bg);cursor:pointer;padding:0}
+  [data-theme="light"] .tab-fab{background:linear-gradient(160deg,#243352,#16233a);border-color:rgba(29,40,66,0.45)}
+  .tab-fab img{width:30px;height:30px;object-fit:contain;display:block}
   .tab-fab:active{transform:scale(.94)}
   .tab-fab-live{position:absolute;top:-4px;right:-10px;font-family:var(--font-mono);font-size:7px;font-weight:700;letter-spacing:.08em;background:var(--value);color:#06281a;padding:2px 6px;border-radius:8px;border:2px solid var(--bg)}
   .tab-fab-live[hidden]{display:none}
