@@ -30671,6 +30671,12 @@ body .page,body .page.on{background:transparent!important}
   .pm-grade small{font-size:7.5px;font-weight:700;letter-spacing:.09em;color:var(--muted)}
   .prow-mobile.gone{opacity:.45!important}
   .prow-mobile.gone .pm-name{text-decoration:line-through;color:var(--muted)}
+  /* rankings list runs full-bleed: cancel the page gutters (8px) and the
+     list's own 24px side padding, flatten the card into an edge-to-edge
+     list; row padding keeps content off the screen edge */
+  #page-draft #plist{margin-left:-8px;margin-right:-8px;width:calc(100% + 16px)!important;max-width:none!important;padding-left:0!important;padding-right:0!important}
+  #page-draft .plist-scroll{border-left:none;border-right:none;border-radius:0}
+  #page-draft .pm-sortbar{margin-left:0;margin-right:0}
 }
 </style>
 
