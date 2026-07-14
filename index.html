@@ -27896,9 +27896,9 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   /* draft section nav: in flow at the page top; a sentinel + IO flips it
      to fixed once scrolled past (sticky is dead inside the page's
      overflow:auto ancestor) */
-  #dv-secnav{padding:10px 16px 8px}
+  #dv-secnav{padding:10px 4px 8px}
   /* pinned = reparented to <body> (page-draft's transform traps fixed) */
-  #dv-secnav.pinned{position:fixed;top:0;left:0;right:0;z-index:800;background:linear-gradient(var(--bg) 82%,rgba(14,15,19,0));padding-bottom:14px}
+  #dv-secnav.pinned{position:fixed;top:0;left:0;right:0;z-index:800;background:linear-gradient(var(--bg) 82%,rgba(14,15,19,0));padding:10px 12px 14px}
   body>#dv-secnav{display:none}
   body:has(#page-draft.on)>#dv-secnav{display:flex}
 }
@@ -30617,6 +30617,36 @@ body .page,body .page.on{background:transparent!important}
   .adp-pl-name{font-size:13px}
   .adp-scoring-seg button{padding:5px 8px;font-size:9px}
   .adp-controls{gap:7px}
+}
+
+/* ════ MOBILE SWEEP · edge-to-edge cards + compact filter rows (≤700px)
+   Late in the file on purpose: outranks the equal-specificity !important
+   padding rules in the earlier mobile blocks. ════ */
+@media(max-width:700px){
+  /* pages hug the phone edge — cards carry their own inner padding */
+  .page,.page.on,#page-overview,#page-portfolio,#page-research,#page-draft,
+  #page-teams,#page-trade,#page-visual,#page-rankings,#page-myrankings,#page-myteams{
+    padding-left:8px!important;padding-right:8px!important}
+  #page-overview .proto-page,#page-overview > div{padding-left:4px!important;padding-right:4px!important}
+  #page-research .proto-page,#page-teams .proto-page{padding-left:4px!important;padding-right:4px!important}
+
+  /* ADP Explorer: the three stacked label rows collapse into one
+     horizontally scrollable strip; labels drop (controls self-describe) */
+  .adp-viewbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;justify-content:flex-start;padding:4px 2px 10px}
+  .adp-viewbar::-webkit-scrollbar{display:none}
+  .adp-viewbar-left{flex-wrap:nowrap;flex:none;gap:8px}
+  .adp-seg-group{flex:none}
+  .adp-seg-label,.adp-sel-label{display:none}
+  .adp-filter-row{gap:8px;margin-bottom:8px}
+  .adp-board-controls{flex:none}
+  /* "VIEWING …" caption duplicates the selects; keep only the LIVE badge */
+  .adp-draft-type{font-size:0;gap:0;padding:0 2px 6px}
+  .adp-draft-type b{display:none}
+  .adp-draft-type .adp-live-badge{font-size:9px}
+  /* provenance funnel is a desktop flourish */
+  .adp-slstats-funnel{display:none}
+  .adp-slstats{gap:8px;padding:11px 13px}
+  .adp-hero{padding:12px 0 10px}
 }
 </style>
 
