@@ -4488,6 +4488,123 @@ function vcRefreshLive(){
   var sub=document.getElementById('vc-sub-draft'); if(sub) sub.textContent = live ? 'DRAFT IN PROGRESS' : 'RANKINGS & BOARD';
 }
 window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!window.sleeperDraftId; }catch(e){} }, 5000);
+
+/* ── MOBILE capsule strips ─────────────────────────────────────────
+   1) Home: league switcher capsules mirroring the header league menu
+   2) Draft Vault: sticky Rankings / Board / ADP / Summary quick-nav
+   Both render into .vcaps strips that CSS shows only ≤700px.        */
+(function(){
+  /* Home league capsules mirror the native #header-league-select (the
+     canonical league list; the header pill menu is a skin over it).
+     Clicking a capsule routes through switchGlobalLeague like the select. */
+  function buildOvCaps(){
+    var page=document.getElementById('page-overview'); if(!page) return;
+    var sel=document.getElementById('header-league-select');
+    var strip=document.getElementById('ov-league-caps');
+    var opts=sel?[].slice.call(sel.options).filter(function(o){return o.value;}):[];
+    if(!opts.length){ if(strip) strip.remove(); return; }
+    if(!strip){
+      strip=document.createElement('div');
+      strip.id='ov-league-caps'; strip.className='vcaps';
+      page.insertBefore(strip, page.firstChild);
+    }
+    strip.innerHTML='';
+    opts.forEach(function(o){
+      var b=document.createElement('button');
+      b.className='vcap'+(o.value===sel.value?' on':'');
+      b.textContent=(o.textContent||'').replace(/^🟢\s*/,'').trim();
+      b.onclick=function(){
+        if(o.value===sel.value) return;
+        sel.value=o.value;
+        try{ switchGlobalLeague(o.value); }catch(e){}
+        buildOvCaps();
+      };
+      strip.appendChild(b);
+    });
+    /* keep the active league in view */
+    var on=strip.querySelector('.vcap.on');
+    if(on) on.scrollIntoView({block:'nearest',inline:'center'});
+  }
+  window._ovCapsRefresh = buildOvCaps;
+
+  /* Draft section nav */
+  function setDvActive(k){
+    var nav=document.getElementById('dv-secnav'); if(!nav) return;
+    nav.querySelectorAll('.vcap').forEach(function(x){ x.classList.toggle('on', x.dataset.k===k); });
+  }
+  function dvScrollTo(id){
+    requestAnimationFrame(function(){
+      var el=document.getElementById(id); if(!el) return;
+      var r=el.getBoundingClientRect(); if(!r.height && !r.width) return;
+      var rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({top:r.top+window.scrollY-58,behavior:rm?'instant':'smooth'});
+    });
+  }
+  function buildDvNav(){
+    var page=document.getElementById('page-draft');
+    if(!page || document.getElementById('dv-secnav')) return;
+    var nav=document.createElement('div'); nav.id='dv-secnav'; nav.className='vcaps';
+    [
+      {k:'rank', label:'Rankings', go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('plist'); }},
+      {k:'board',label:'Board',    go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('ld-board-section'); }},
+      {k:'adp',  label:'ADP',      go:function(){ try{dvShowADP()}catch(e){}   window.scrollTo({top:0,behavior:'instant'}); }},
+      {k:'sum',  label:'Summary',  go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('draft-summary'); }}
+    ].forEach(function(d,i){
+      var b=document.createElement('button');
+      b.className='vcap'+(i===0?' on':''); b.dataset.k=d.k; b.textContent=d.label;
+      b.onclick=function(){ d.go(); setDvActive(d.k); };
+      nav.appendChild(b);
+    });
+    page.insertBefore(nav, page.firstChild);
+    /* pin once the nav's natural spot scrolls off screen. page-draft has a
+       transform, which makes it the containing block for position:fixed,
+       so the nav is reparented to <body> while pinned and moved home once
+       the sentinel scrolls back into view. Passive + rAF-throttled. */
+    var sentinel=document.createElement('div');
+    sentinel.style.cssText='height:1px;margin-top:-1px';
+    page.insertBefore(sentinel, nav);
+    var _pinTick=false;
+    function _pinCheck(){
+      _pinTick=false;
+      if(!page.classList.contains('on')) return;
+      var pin=sentinel.getBoundingClientRect().top<0;
+      if(pin && nav.parentElement!==document.body){
+        nav.classList.add('pinned');
+        document.body.appendChild(nav);
+      } else if(!pin && nav.parentElement===document.body){
+        nav.classList.remove('pinned');
+        page.insertBefore(nav, sentinel.nextSibling);
+      }
+    }
+    window.addEventListener('scroll', function(){
+      if(_pinTick) return; _pinTick=true;
+      requestAnimationFrame(_pinCheck);
+    }, {passive:true});
+    /* external entries into ADP mode (Command sheet tile, desktop menu)
+       should light the ADP capsule; leaving it resets to Rankings */
+    ['dvShowADP','dvShowBoard'].forEach(function(fn){
+      var orig=window[fn];
+      if(typeof orig!=='function'||orig._capHooked) return;
+      var wrapped=function(){ var r=orig.apply(this,arguments); setDvActive(fn==='dvShowADP'?'adp':'rank'); return r; };
+      wrapped._capHooked=true; window[fn]=wrapped;
+    });
+  }
+
+  function init(){
+    buildDvNav();
+    buildOvCaps();
+    var sel=document.getElementById('header-league-select');
+    if(sel && !sel._capObserved){
+      sel._capObserved=true;
+      /* options are rewritten by populateHeaderLeague after connect and on
+         sync; value changes on every league switch */
+      new MutationObserver(buildOvCaps).observe(sel,{childList:true});
+      sel.addEventListener('change', function(){ setTimeout(buildOvCaps,0); });
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
 </script>
 
 <!-- MORE bottom sheet, secondary nav (League / Trade / Draft Room) -->
@@ -27766,6 +27883,24 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .glassnav .logo{margin-right:0}
   .glassnav .logo .t1{font-size:var(--t-secondary);letter-spacing:0}
   .glassnav .logo .t2{display:none}
+}
+
+/* ════ MOBILE · capsule strips (Home league switcher + Draft section nav) ════ */
+.vcaps{display:none}
+@media(max-width:700px){
+  .vcaps{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:10px 16px 4px}
+  .vcaps::-webkit-scrollbar{display:none}
+  .vcap{flex:none;font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--text2);background:var(--s2);border:1px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+  .vcap.on{color:var(--on-primary);background:var(--accent2);border-color:var(--accent2);font-weight:700}
+  .vcap:active{transform:scale(.97);transition:transform 80ms ease}
+  /* draft section nav: in flow at the page top; a sentinel + IO flips it
+     to fixed once scrolled past (sticky is dead inside the page's
+     overflow:auto ancestor) */
+  #dv-secnav{padding:10px 16px 8px}
+  /* pinned = reparented to <body> (page-draft's transform traps fixed) */
+  #dv-secnav.pinned{position:fixed;top:0;left:0;right:0;z-index:800;background:linear-gradient(var(--bg) 82%,rgba(14,15,19,0));padding-bottom:14px}
+  body>#dv-secnav{display:none}
+  body:has(#page-draft.on)>#dv-secnav{display:flex}
 }
 
 /* ════ MOBILE OVERHAUL · floating dock + Vault Command (≤700px) ════ */
