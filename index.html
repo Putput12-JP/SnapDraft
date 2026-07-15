@@ -5137,7 +5137,8 @@ function pgsOpen(name, pos, team){
   </div>
   <!-- INTELLIGENCE BAR, positional scarcity + run alerts + tier pressure -->
   <div id="intel-bar" style="display:none;background:var(--s2);border-bottom:1.5px solid var(--border2);padding:5px 14px;flex-wrap:wrap;gap:8px;align-items:center;overflow-x:visible">
-    <span style="font-size:8px;color:var(--accent3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;flex-shrink:0;font-weight:700">⚡ INTEL</span>
+    <button id="intel-toggle" onclick="intelToggle()" aria-expanded="true" title="Show / hide the live scarcity + run signal" style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;cursor:pointer;font-size:8px;color:var(--accent3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;font-weight:700">⚡ INTEL <span id="intel-chev" style="font-size:9px;transition:transform .15s">▾</span></button>
+    <div id="intel-summary" style="display:none;gap:6px;align-items:center;font-size:10px;font-family:var(--font-mono);color:var(--muted);flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></div>
     <div id="intel-chips" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"></div>
   </div>
 
@@ -16989,7 +16990,11 @@ function getScarcity() {
   ['QB','RB','WR','TE'].forEach(pos=>{
     let starters = (req[pos]||0) + (req.FLEX||0)*(flexShare[pos]||0);
     if (pos==='QB') starters += (req.SFLEX||0);
-    pool[pos] = Math.max(4, Math.round(starters*teams));   // ~ leaguewide startable count
+    // startable-CALIBER universe: starting slots + a streamer/bye buffer. Pure
+    // slots is too tight — in a 2QB league the top-24 QBs empty fast but QB25+
+    // are still legit starters (someone fills every slot), so counting only the
+    // slot tier reads "0 QB left" while startable QBs are clearly on the board.
+    pool[pos] = Math.max(6, Math.round(starters*teams*1.5));
   });
   const buckets = {QB:[],RB:[],WR:[],TE:[]};
   PLAYERS.forEach(p=>{
@@ -17097,7 +17102,32 @@ function renderIntelBar() {
   } catch(e){}
 
   chips.innerHTML = chipHtml + riskChip;
+
+  // Compact one-line summary shown when the bar is collapsed (scarcest first,
+  // RUN flagged) so a collapsed bar still tells you the headline at a glance.
+  const summaryEl = document.getElementById('intel-summary');
+  if (summaryEl){
+    summaryEl.innerHTML = scar.map(({pos,available,pct})=>{
+      const c = posColors[pos];
+      const run = runsByPos[pos] && available>0;
+      return `<span style="color:${c};font-weight:700">${pos} ${available}${run?' RUN':''}</span>`;
+    }).join('<span style="opacity:.4;margin:0 3px">·</span>');
+  }
+
+  // Restore persisted collapse state.
+  const collapsed = localStorage.getItem('vault-intel-collapsed') === '1';
+  bar.classList.toggle('intel-collapsed', collapsed);
+  const tog = document.getElementById('intel-toggle');
+  if (tog) tog.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   bar.style.display = 'flex';
+}
+function intelToggle(){
+  const bar = document.getElementById('intel-bar'); if(!bar) return;
+  const collapsed = !bar.classList.contains('intel-collapsed');
+  bar.classList.toggle('intel-collapsed', collapsed);
+  try { localStorage.setItem('vault-intel-collapsed', collapsed ? '1' : '0'); } catch(e){}
+  const tog = document.getElementById('intel-toggle');
+  if (tog) tog.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 }
 
 let _tiersCache = null;
@@ -30794,6 +30824,17 @@ body .page,body .page.on{background:transparent!important}
   .adp-pl-name{font-size:13px}
   .adp-scoring-seg button{padding:5px 8px;font-size:9px}
   .adp-controls{gap:7px}
+}
+
+/* Intel bar: collapse toggle (all sizes) + single-line scroll on mobile */
+#intel-bar.intel-collapsed #intel-chips{display:none!important}
+#intel-bar.intel-collapsed #intel-summary{display:flex!important}
+#intel-bar.intel-collapsed #intel-chev{transform:rotate(-90deg)}
+@media(max-width:700px){
+  /* one swipeable line instead of wrapping to 3 rows */
+  #intel-bar{flex-wrap:nowrap!important;padding:6px 10px!important}
+  #intel-chips{flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;min-width:0}
+  #intel-chips::-webkit-scrollbar{display:none}
 }
 
 /* ════ MOBILE SWEEP · edge-to-edge cards + compact filter rows (≤700px)
