@@ -532,6 +532,9 @@ header{
 .plist-table col.col-fill {width:auto}
 /* 4-factor grade columns (replace the old Status column) */
 .plist-table col.col-fup,.plist-table col.col-ffl,.plist-table col.col-frk,.plist-table col.col-fsi{width:39px}
+.plist-table col.col-pgrade{width:40px}
+.plist-table td.td-pg{border-left:1px solid var(--border);font-size:13px}
+.plist-table .fhdr#hdr-pgrade{border-left:1px solid var(--border)}
 .plist-table col.col-watch2{width:38px}
 .plist-table .fhdr{text-align:center!important;padding:0 2px!important}
 .plist-table .fhdr svg{width:14px;height:14px;vertical-align:middle}
@@ -5297,7 +5300,7 @@ function pgsOpen(name, pos, team){
     <div class="plist-scroll">
     <table class="plist-table">
       <colgroup>
-        <col class="col-rk"><col class="col-name"><col class="col-dynasty"><col class="col-redraft"><col class="col-adp"><col class="col-my"><col class="col-fup"><col class="col-ffl"><col class="col-frk"><col class="col-fsi"><col class="col-watch2">
+        <col class="col-rk"><col class="col-name"><col class="col-dynasty"><col class="col-redraft"><col class="col-adp"><col class="col-my"><col class="col-fup"><col class="col-ffl"><col class="col-frk"><col class="col-fsi"><col class="col-pgrade"><col class="col-watch2">
       </colgroup>
       <thead class="plist-thead" id="lhdr">
         <tr>
@@ -5311,6 +5314,7 @@ function pgsOpen(name, pos, team){
           <th class="fhdr" id="hdr-ffl" style="color:var(--rb)" title="Floor — weekly safety / consistency (low bust rate + weekly floor + availability)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg></th>
           <th class="fhdr" id="hdr-frk" style="color:var(--red)" title="Risk — injury / volatility / age (lower is safer)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg></th>
           <th class="fhdr" id="hdr-fsi" style="color:var(--wr)" title="Situational — fit to your roster + league settings (need, scoring, team offense)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></th>
+          <th class="fhdr" id="hdr-pgrade" style="color:var(--gold)" title="Pick grade — the letter this pick would earn at your next slot (value vs. his price, tilted by player quality). Fills in during a connected draft and recalculates after every pick. Hover a cell to see why."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M9 14.5 7.5 22 12 19l4.5 3-1.5-7.5"/></svg></th>
           <th id="hdr-watch2"></th>
         </tr>
       </thead>
@@ -13502,7 +13506,18 @@ function renderList(){
         const _esc = s => String(s||'').replace(/"/g,'&quot;');
         // data-tip (not title) drives the custom hover tooltip — native title is slow + easy to miss.
         const cell = (k) => F ? `<td class="fcell td-f${k==='upside'?'up':k==='floor'?'fl':k==='risk'?'rk':'si'}" style="color:${DVF_COL[k]}" data-tip="${_esc(F.why && F.why[k])}">${F[k]}</td>` : `<td class="fcell" style="color:var(--dim)" data-tip="No recent stats for this player yet — grade unavailable.">–</td>`;
-        return cell('upside')+cell('floor')+cell('risk')+cell('situational')
+        // Pick grade: the board grade this pick would earn at your next slot.
+        // Only for still-available skill players in a connected draft; recalcs
+        // every render (renderAll fires on each pick), so it moves with the draft.
+        const pgCell = (()=>{
+          if (!nextSlot || isDrafted || !DVF_POS[p.pos] || typeof dvPickScore!=='function')
+            return `<td class="fcell td-pg" style="color:var(--dim)" data-tip="Pick grade fills in during a connected draft, for players still on the board.">–</td>`;
+          let g=null; try{ g = dvPickScore(p.name, p.pos, overallPick); }catch(e){}
+          if(!g) return `<td class="fcell td-pg" style="color:var(--dim)">–</td>`;
+          let why=''; try{ why = dvPickWhy(g, p.name, _dvPickStr(overallPick, NUM_TEAMS)); }catch(e){}
+          return `<td class="fcell td-pg" style="color:${g.color};font-weight:800" data-tip="${_esc(why)}">${g.letter}</td>`;
+        })();
+        return cell('upside')+cell('floor')+cell('risk')+cell('situational') + pgCell
           + `<td class="td-watch2"><span class="dvrow-star${inWatchlist?' on':''}" onclick="event.stopPropagation();toggleWatch('${sn}')" title="${inWatchlist?'Remove from watchlist':'Add to watchlist'}">${inWatchlist?'★':'☆'}</span></td>`;
       })()}
     </tr>`;
