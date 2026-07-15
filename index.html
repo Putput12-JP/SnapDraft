@@ -18745,6 +18745,17 @@ window._adpActiveBucket = window._adpActiveBucket || null;
 // matches the QB weighting of the DYNASTY VALUES, FantasyCalc only publishes a
 // 1QB dynasty ADP, so for Superflex we fall back to the Superflex ADP (QBs early).
 function _dvIsSuperflex(){
+  // 0) The CONNECTED draft's own roster settings are authoritative. Every draft
+  //    loader (Sleeper/ESPN/manual) sets window._draftIsSuperflex from the real
+  //    SUPER_FLEX slot / 2-QB count — and the rest of the grade engine already
+  //    trusts it. Use it whenever a draft is connected so the board ADP matches
+  //    THIS league's QB context (a 2QB/SF league must use Superflex ADP, where
+  //    QBs go ~100 picks earlier). myTeamsData is often empty at draft time, so
+  //    it can't be the primary signal.
+  try{
+    if (typeof _dvDraftPlatform==='function' && _dvDraftPlatform() && typeof window._draftIsSuperflex==='boolean')
+      return window._draftIsSuperflex;
+  }catch(e){}
   // 1) Explicit league setting (Sleeper roster_positions)
   try{
     const lgs = (window.myTeamsData||[]);
