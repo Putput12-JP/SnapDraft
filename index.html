@@ -4530,6 +4530,25 @@ function pgsOpen(name, pos, team){
     var tile=function(l,v,col){ return '<div class="pgs-tile"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div></div>'; };
     var esc=name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     var watched=false; try{ watched=window.watchlist&&watchlist.has(name); }catch(e){}
+    /* per-pick board grade: what this pick would score at your next slot —
+       the same grade the board stamps on a pick, via dvPickScore. Only for
+       still-available players in a live draft. */
+    var draftRow='';
+    try{
+      var _avail=(typeof paIsAvail==='function')?paIsAvail({name:name}):true;
+      var _pa=(typeof paGetPickAssist==='function')?paGetPickAssist():null;
+      var _over=_pa&&_pa.myPick;
+      if(_avail && _over>0 && typeof dvPickScore==='function'){
+        var _pg=dvPickScore(name,pos,_over);
+        if(_pg){
+          var _teams=(window._activeDraft&&window._activeDraft.teams)||window.NUM_TEAMS||12;
+          var _slot=(typeof _dvPickStr==='function')?_dvPickStr(_over,_teams):('pick '+_over);
+          draftRow='<div class="pgs-draft"><span class="l">PICK GRADE AT '+_slot+'</span>'+
+            '<span class="r"><b style="color:'+_pg.color+'">'+_pg.letter+'</b>'+
+            '<span class="d" style="color:'+_pg.color+'">'+(+_pg.s).toFixed(1)+'</span></span></div>';
+        }
+      }
+    }catch(e){}
     document.getElementById('pgs-body').innerHTML=
       '<div class="pgs-head">'+
         (hsUrl?'<div class="pgs-av"><img src="'+hsUrl+'" alt=""></div>':'<div class="pgs-av pgs-av-fb" style="color:'+posC+'">'+pos+'</div>')+
@@ -4547,6 +4566,7 @@ function pgsOpen(name, pos, team){
         tile('BOOM %',(pr&&pr.boomPct!=null)?Math.round(pr.boomPct):'—','var(--value)')+
         tile('BUST %',(pr&&pr.bustPct!=null)?Math.round(pr.bustPct):'—',null)+
       '</div>'+
+      draftRow+
       '<div class="pgs-acts">'+
         '<button class="pgs-btn ghost" onclick="pgsClose();openPlayerProfile(\''+esc+'\',\'\',\''+pos+'\',\''+team+'\')">Full profile</button>'+
         '<button class="pgs-btn primary" onclick="toggleWatch(\''+esc+'\');pgsClose()">'+(watched?'★ Watching':'☆ Watchlist')+'</button>'+
@@ -10601,7 +10621,7 @@ function dvPickScore(name, pos, overall){
   // carries full weight when the other is missing.
   const base = (adp && rank) ? 0.65 * adp + 0.35 * rank : (adp || rank);
   // Tolerance widens down the board — a 10-pick reach at 1.03 hurts more than at 8.07.
-  const delta = base - overall;                   // + = he fell past his blended price
+  const delta = overall - base;                   // + = he fell past his blended price (value); - = reach
   const scale = 6 + overall * 0.24;
   const val = Math.max(-1.6, Math.min(1.6, delta / scale));
   const q = f ? (f.upside + f.floor + (11 - f.risk)) / 3 : null;
@@ -28032,6 +28052,12 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .pgs-tile{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:13px;padding:11px 12px}
   .pgs-tile .l{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
   .pgs-tile .v{font-family:var(--font-mono);font-weight:800;font-size:19px;margin-top:4px;color:var(--text)}
+  .pgs-draft{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--s2);border:1px solid var(--border);border-radius:13px;padding:11px 12px;margin-bottom:14px}
+  .pgs-draft .l{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.09em;color:var(--muted)}
+  .pgs-draft .r{display:flex;align-items:center;gap:7px}
+  .pgs-draft .r b{font-family:var(--font-mono);font-size:16px;font-weight:800}
+  .pgs-draft .arr{color:var(--muted);font-size:12px}
+  .pgs-draft .d{font-family:var(--font-mono);font-size:10px;font-weight:700}
   .pgs-acts{display:flex;gap:10px}
   .pgs-btn{flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;padding:13px;font-size:15px;font-weight:700;font-family:var(--font-sans);cursor:pointer;border:none}
   .pgs-btn.ghost{background:var(--s2);color:var(--text);border:1px solid var(--border2)}
