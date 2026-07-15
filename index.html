@@ -15718,6 +15718,7 @@ function renderAll(){
   requestAnimationFrame(() => {
     _renderAllPending = false;
     renderStrip(); renderList(); renderRoster(); renderSuggestions();
+    try { renderIntelBar(); } catch(e){}   // live positional run signal (draft only)
     initSwipe();
     const pg = document.querySelector('.page.on')?.id;
     if (pg==='page-teams') { const loaded=valueSource==='fc'?fcLoaded:raLoaded; if(!loaded){if(valueSource==='fc')fetchFantasyCalc();else fetchRosterAudit();}else renderTeams(); }
@@ -16974,24 +16975,42 @@ function detectRuns(windowSize=8) {
   return runs;
 }
 
+// Per-position live scarcity for the Intel bar. Uses each position's leaguewide
+// STARTABLE tier (starters + flex share, ×teams, superflex-aware) rather than a
+// flat top-60, so QB scarcity is right in 2QB leagues. Also returns `recent` =
+// how many of that position went in the last 6 picks (momentum), so the bar can
+// show a run building, not just a resting count.
 function getScarcity() {
-  const topN = 60; 
-  const topPlayers = [...PLAYERS].sort((a,b)=>(a.r0||999)-(b.r0||999)).slice(0,topN);
-  const counts = {QB:{total:0,gone:0},RB:{total:0,gone:0},WR:{total:0,gone:0},TE:{total:0,gone:0}};
-
-  topPlayers.forEach(p => {
-    if (!counts[p.pos]) return;
-    counts[p.pos].total++;
-    const gone = draftState[p.name] || _normDraftCache[normName(p.name)] || manualOverrides[p.name]==='gone';
-    if (gone) counts[p.pos].gone++;
+  const teams = (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || 12;
+  const req = (typeof paStarterReqs==='function') ? paStarterReqs()
+            : {QB:1,RB:2,WR:2,TE:1,FLEX:1,SFLEX:window._draftIsSuperflex?1:0};
+  const flexShare = {QB:0, RB:0.34, WR:0.34, TE:0.20};  // share of FLEX slots a position tends to win
+  const pool = {};
+  ['QB','RB','WR','TE'].forEach(pos=>{
+    let starters = (req[pos]||0) + (req.FLEX||0)*(flexShare[pos]||0);
+    if (pos==='QB') starters += (req.SFLEX||0);
+    pool[pos] = Math.max(4, Math.round(starters*teams));   // ~ leaguewide startable count
   });
-
-  return Object.entries(counts).map(([pos, {total, gone}]) => ({
-    pos,
-    available: total - gone,
-    total,
-    pct: total ? Math.round(gone/total*100) : 0
-  }));
+  const buckets = {QB:[],RB:[],WR:[],TE:[]};
+  PLAYERS.forEach(p=>{
+    if(!buckets[p.pos]) return;
+    const ad = ADP_LOOKUP[p.name] || ADP_LOOKUP[normName(p.name)] || {};
+    buckets[p.pos].push({name:p.name, rk: ad.positionRank || p.r0 || 999});
+  });
+  // recent positional pressure — last 6 picks by anyone
+  const recent = {QB:0,RB:0,WR:0,TE:0};
+  Object.values(draftState).filter(v=>v&&v.pickNo).sort((a,b)=>b.pickNo-a.pickNo).slice(0,6).forEach(pick=>{
+    const nm = Object.keys(draftState).find(k=>draftState[k]===pick);
+    const p = PLAYERS.find(x=>x.name===nm) || PLAYERS.find(x=>normName(x.name)===normName(nm||''));
+    if (p && recent[p.pos]!==undefined) recent[p.pos]++;
+  });
+  return ['QB','RB','WR','TE'].map(pos=>{
+    const top = buckets[pos].sort((a,b)=>a.rk-b.rk).slice(0, pool[pos]);
+    let gone=0;
+    top.forEach(x=>{ if (draftState[x.name]||_normDraftCache[normName(x.name)]||manualOverrides[x.name]==='gone') gone++; });
+    const total = top.length || pool[pos];
+    return { pos, available: total-gone, total, pct: total?Math.round(gone/total*100):0, recent: recent[pos] };
+  });
 }
 
 function getOpponentNeeds() {
@@ -17035,43 +17054,49 @@ function getBoardPressure() {
   }).slice(0,4);
 }
 
+// Live "run signal" bar: one glanceable chip per position showing how many of
+// its startable tier are LEFT, a green→amber→red urgency dot, a ↓N momentum tag
+// when the position is going fast, and a RUN emphasis when a run is detected.
+// Scarcest position sorts first. Recalculates every render (renderAll fires on
+// each synced pick), so it moves with the whole room, not just your picks.
 function renderIntelBar() {
   const bar = document.getElementById('intel-bar');
   const chips = document.getElementById('intel-chips');
-  if (!bar || !chips || !sleeperDraftId) { if(bar) bar.style.display='none'; return; }
-
-  const allChips = [];
+  const connected = (typeof _dvDraftPlatform==='function' && _dvDraftPlatform());
+  if (!bar || !chips || !connected) { if(bar) bar.style.display='none'; return; }
   const posColors = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
 
-  
-  getScarcity().forEach(({pos,available,total,pct}) => {
+  const runsByPos = {};
+  try { detectRuns().forEach(r => runsByPos[r.pos] = r); } catch(e){}
+
+  let scar; try { scar = getScarcity(); } catch(e){ scar = []; }
+  if (!scar.length) { bar.style.display='none'; return; }
+  // scarcest (most depleted) first, so the position to worry about is leftmost
+  scar.sort((a,b)=> b.pct - a.pct);
+
+  const chipHtml = scar.map(({pos, available, pct, recent}) => {
     const c = posColors[pos];
-    const urgency = reIcon('dot',{size:8,color: pct > 70 ? 'var(--qb)' : pct > 50 ? 'var(--gold)' : 'var(--rb)'});
-    allChips.push(`<span style="font-size:9px;font-family:var(--font-mono);padding:2px 6px;border-radius:4px;background:${c}15;color:${c};border:1px solid ${c}33;white-space:nowrap">
-      ${pos} ${urgency} ${available} left
-    </span>`);
-  });
+    const state = pct>=75 ? 'var(--red)' : pct>=50 ? 'var(--gold)' : 'var(--rb)';  // green→amber→red
+    const run = runsByPos[pos] && available > 0;   // no "run" once the tier is exhausted
+    const mom = (recent>=2 && available>0) ? `<span style="color:${state};font-weight:800">↓${recent}</span>` : '';
+    const runTag = run ? `<span style="font-weight:800;letter-spacing:.06em">RUN</span>` : '';
+    return `<span class="intel-chip${run?' run':''}" style="font-size:10px;font-family:var(--font-mono);padding:3px 9px;border-radius:7px;background:${c}14;color:${c};border:1px solid ${c}${run?'':'33'};white-space:nowrap;display:inline-flex;align-items:center;gap:6px${run?';box-shadow:0 0 0 1px '+c+' inset':''}">
+      <span style="width:7px;height:7px;border-radius:50%;background:${state};flex-shrink:0${run?';animation:hotpulse 1.4s infinite':''}"></span>
+      <b style="font-weight:800">${pos}</b><span style="opacity:.9">${available} left</span>${mom}${runTag}
+    </span>`;
+  }).join('');
 
-  
-  detectRuns().forEach(({pos,count,level}) => {
-    const c = posColors[pos];
-    allChips.push(`<span style="font-size:9px;font-family:var(--font-mono);padding:2px 7px;border-radius:4px;background:${c}25;color:${c};border:1.5px solid ${c};font-weight:700;white-space:nowrap;animation:hotpulse 1.5s infinite">
-      🏃 ${pos} RUN (${count})
-    </span>`);
-  });
+  // "At risk" — startable players likely gone before your next pick (slot-aware).
+  let riskChip = '';
+  try {
+    const danger = (getBoardPressure()||[]).filter(p=> p && DVF_POS[p.pos] && !/pick/i.test(p.name));
+    if (danger.length){
+      const names = danger.slice(0,3).map(p=>p.name.split(' ').pop()).join(', ');
+      riskChip = `<span style="font-size:10px;font-family:var(--font-mono);padding:3px 9px;border-radius:7px;background:var(--s3);color:var(--text2);border:1px solid var(--border2);white-space:nowrap">⚠ likely gone by your pick: <b style="color:var(--text)">${names}</b></span>`;
+    }
+  } catch(e){}
 
-  
-  const danger = getBoardPressure();
-  if (danger.length) {
-    const names = danger.map(p=>p.name.split(' ').pop()).join(', ');
-    allChips.push(`<span style="font-size:9px;font-family:var(--font-mono);padding:2px 7px;border-radius:4px;background:#ff709615;color:var(--qb);border:1px solid #ff709633;white-space:nowrap">
-      ⚠ At risk: ${names}
-    </span>`);
-  }
-
-  if (!allChips.length) { bar.style.display='none'; return; }
-
-  chips.innerHTML = allChips.join('');
+  chips.innerHTML = chipHtml + riskChip;
   bar.style.display = 'flex';
 }
 
