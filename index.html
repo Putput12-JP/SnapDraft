@@ -5136,7 +5136,7 @@ function pgsOpen(name, pos, team){
     <div class="ypb-suggestion" id="ypb-top-pick" onclick=""></div>
   </div>
   <!-- INTELLIGENCE BAR, positional scarcity + run alerts + tier pressure -->
-  <div id="intel-bar" style="display:none;background:var(--s2);border-bottom:1.5px solid var(--border2);padding:5px 14px;flex-wrap:wrap;gap:8px;align-items:center;overflow-x:visible">
+  <div id="intel-bar" style="display:none">
     <button id="intel-toggle" onclick="intelToggle()" aria-expanded="true" title="Show / hide the live scarcity + run signal" style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;background:none;border:none;padding:0;cursor:pointer;font-size:8px;color:var(--accent3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;font-weight:700">⚡ INTEL <span id="intel-chev" style="font-size:9px;transition:transform .15s">▾</span></button>
     <div id="intel-summary" style="display:none;gap:6px;align-items:center;font-size:10px;font-family:var(--font-mono);color:var(--muted);flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></div>
     <div id="intel-chips" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"></div>
@@ -10734,7 +10734,14 @@ function paGetPickAssist(){
       tag = 'Fair'; tagKind = 'calm';
     }
 
-    return {p, rank, valueScore, isNeed: need>=1, score, surv, goneProb, reason, tag, tagKind, tierNum, leftInTier, cliffDrop, prof:_prof, factors:_fSug};
+    // Projected pick grade — the same A+..F engine that grades completed picks
+    // on the board, run as if this player were taken right now at your slot.
+    let _grade = null;
+    if (p.pos !== 'PICK' && typeof dvPickScore === 'function'){
+      try { _grade = dvPickScore(p.name, p.pos, myPick); } catch(e){}
+    }
+
+    return {p, rank, valueScore, isNeed: need>=1, score, surv, goneProb, reason, tag, tagKind, tierNum, leftInTier, cliffDrop, prof:_prof, factors:_fSug, grade:_grade};
   });
 
   sugs.sort((a,b)=>b.score-a.score);
@@ -10794,10 +10801,17 @@ function renderSuggestions() {
 
   const pc = pos => ({QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[pos]||'var(--text)');
   const tagColors = {urgent:'var(--qb)', value:'var(--rb)', need:'var(--sky)', calm:'var(--muted)'};
-  chips.innerHTML = pa.suggestions.map(({p, rank, reason, tag, tagKind, prof, factors}) => {
+  chips.innerHTML = pa.suggestions.map(({p, rank, reason, tag, tagKind, prof, factors, grade}) => {
     const sn = p.name.replace(/'/g,"\\'");
     const pcol = pc(p.pos);
     const tagC = tagColors[tagKind] || 'var(--muted)';
+    // Projected pick grade — same A+..F engine as completed board picks, run
+    // against your current slot so you can compare candidates on one scale.
+    let gradeBadge = '';
+    if (grade){
+      let why = ''; try{ why = dvPickWhy(grade, p.name, slotNow); }catch(e){}
+      gradeBadge = `<span class="pg-badge" style="color:${grade.color}" data-tip="${why.replace(/"/g,'&quot;')}">${grade.letter}</span>`;
+    }
     // player photo (NFL.com crop via nflverse, Sleeper thumb fallback)
     const sid = p.sleeperId || (typeof sleeperPlayerMap!=='undefined' && sleeperPlayerMap[normName(p.name)]?.player_id) || '';
     const photo = p.pos!=='PICK' ? vaultHeadshot(p.name, sid, 34) : '';
@@ -10826,6 +10840,7 @@ function renderSuggestions() {
         ${facRow}
       </div>
       <div class="pa-right">
+        ${gradeBadge}
         <span class="stag" style="background:${tagC}22;color:${tagC}">${tag}</span>
       </div>
     </div>`;
@@ -17011,10 +17026,27 @@ function getScarcity() {
   });
   return ['QB','RB','WR','TE'].map(pos=>{
     const top = buckets[pos].sort((a,b)=>a.rk-b.rk).slice(0, pool[pos]);
-    let gone=0;
-    top.forEach(x=>{ if (draftState[x.name]||_normDraftCache[normName(x.name)]||manualOverrides[x.name]==='gone') gone++; });
+    let gone=0, bestGrade=null;
+    top.forEach(x=>{
+      const isGone = draftState[x.name]||_normDraftCache[normName(x.name)]||manualOverrides[x.name]==='gone';
+      if (isGone) { gone++; return; }
+      // Quality of what's actually left, not just the count — same letter scale
+      // as the Draft Grade card (composite → 0-100 → dvGradeBand), so "27 left"
+      // and "best B+" read off one consistent vocabulary.
+      if (!bestGrade && typeof dvComputeFactors==='function' && typeof dvGradeBand==='function'){
+        try{
+          const fp = (typeof findPlayer==='function') ? findPlayer(x.name) : null;
+          const f = fp ? ((window._dvFactors && window._dvFactors[normName(x.name)]) || dvComputeFactors(fp)) : null;
+          if (f){
+            const score = Math.max(0, Math.min(100, Math.round(11 + f.composite*11)));
+            const [letter,,color] = dvGradeBand(score);
+            bestGrade = { letter, color };
+          }
+        } catch(e){}
+      }
+    });
     const total = top.length || pool[pos];
-    return { pos, available: total-gone, total, pct: total?Math.round(gone/total*100):0, recent: recent[pos] };
+    return { pos, available: total-gone, total, pct: total?Math.round(gone/total*100):0, recent: recent[pos], bestGrade };
   });
 }
 
@@ -17066,6 +17098,13 @@ function getBoardPressure() {
 // each synced pick), so it moves with the whole room, not just your picks.
 function renderIntelBar() {
   const bar = document.getElementById('intel-bar');
+  // ── Intel strip SHELVED (2026-07-15) ──
+  // Even personalized (need-sorted chips, best-remaining grades) it didn't earn
+  // its row during a live draft. Keeping the full pipeline (getScarcity,
+  // detectRuns, needs sort, collapse toggle) intact — flip this flag to bring
+  // it back when we rethink what makes it decision-useful.
+  const INTEL_SHELVED = true;
+  if (INTEL_SHELVED) { if (bar) bar.style.display = 'none'; return; }
   const chips = document.getElementById('intel-chips');
   const connected = (typeof _dvDraftPlatform==='function' && _dvDraftPlatform());
   if (!bar || !chips || !connected) { if(bar) bar.style.display='none'; return; }
@@ -17076,18 +17115,36 @@ function renderIntelBar() {
 
   let scar; try { scar = getScarcity(); } catch(e){ scar = []; }
   if (!scar.length) { bar.style.display='none'; return; }
-  // scarcest (most depleted) first, so the position to worry about is leftmost
-  scar.sort((a,b)=> b.pct - a.pct);
 
-  const chipHtml = scar.map(({pos, available, pct, recent}) => {
+  // ── Personalize to YOUR roster ──
+  // Raw room-wide counts answer "what's happening", not "what should I do".
+  // Fold in paMyNeeds (1 = open starter slot, .8 = superflex QB, .5 = open flex)
+  // so the leftmost chip is the position that should change YOUR next pick:
+  // urgency = do-I-need-it (dominant) + how-fast-it's-vanishing + active run.
+  let myNeeds = null;
+  try { if (typeof myTeam !== 'undefined' && myTeam !== null) myNeeds = paMyNeeds(); } catch(e){}
+  scar.forEach(s => { s.need = myNeeds ? (myNeeds[s.pos] || 0) : null; });
+  scar.sort((a,b) => ((b.need||0)*200 + b.pct + (runsByPos[b.pos]?25:0))
+                   - ((a.need||0)*200 + a.pct + (runsByPos[a.pos]?25:0)));
+
+  const chipHtml = scar.map(({pos, available, pct, recent, bestGrade, need}) => {
     const c = posColors[pos];
     const state = pct>=75 ? 'var(--red)' : pct>=50 ? 'var(--gold)' : 'var(--rb)';  // green→amber→red
     const run = runsByPos[pos] && available > 0;   // no "run" once the tier is exhausted
     const mom = (recent>=2 && available>0) ? `<span style="color:${state};font-weight:800">↓${recent}</span>` : '';
     const runTag = run ? `<span style="font-weight:800;letter-spacing:.06em">RUN</span>` : '';
-    return `<span class="intel-chip${run?' run':''}" style="font-size:10px;font-family:var(--font-mono);padding:3px 9px;border-radius:7px;background:${c}14;color:${c};border:1px solid ${c}${run?'':'33'};white-space:nowrap;display:inline-flex;align-items:center;gap:6px${run?';box-shadow:0 0 0 1px '+c+' inset':''}">
+    // Quality of what's left, not just how much — same letter scale as the
+    // Draft Grade card, so a thin-but-elite position doesn't read the same as
+    // a thin-and-replaceable one.
+    const gradeTag = (bestGrade && available>0) ? `<span style="opacity:.5">·</span><span style="color:${bestGrade.color};font-weight:800">best ${bestGrade.letter}</span>` : '';
+    // Your-roster read: open starter slot = NEED, open flex/superflex = FLEX,
+    // filled = whole chip dims so the eye skips what doesn't concern you.
+    const filled = need !== null && need === 0;
+    const needTag = need >= 1 ? `<span style="font-weight:800;letter-spacing:.06em;padding:1px 5px;border-radius:4px;background:${c};color:var(--bg)" title="You have an open ${pos} starter slot">NEED</span>`
+                  : need > 0 ? `<span style="font-weight:800;letter-spacing:.06em;opacity:.85" title="${pos==='QB'?'Open superflex slot':'Open flex slot'}">FLEX</span>` : '';
+    return `<span class="intel-chip${run?' run':''}" style="font-size:10px;font-family:var(--font-mono);padding:3px 9px;border-radius:7px;background:${c}14;color:${c};border:1px solid ${c}${run?'':'33'};white-space:nowrap;display:inline-flex;align-items:center;gap:6px${run?';box-shadow:0 0 0 1px '+c+' inset':''}${filled?';opacity:.45':''}"${filled?` title="Your ${pos} starters are set"`:''}>
       <span style="width:7px;height:7px;border-radius:50%;background:${state};flex-shrink:0${run?';animation:hotpulse 1.4s infinite':''}"></span>
-      <b style="font-weight:800">${pos}</b><span style="opacity:.9">${available} left</span>${mom}${runTag}
+      <b style="font-weight:800">${pos}</b>${needTag}<span style="opacity:.9">${available} left</span>${mom}${runTag}${gradeTag}
     </span>`;
   }).join('');
 
@@ -17103,14 +17160,18 @@ function renderIntelBar() {
 
   chips.innerHTML = chipHtml + riskChip;
 
-  // Compact one-line summary shown when the bar is collapsed (scarcest first,
-  // RUN flagged) so a collapsed bar still tells you the headline at a glance.
+  // Compact one-line summary shown when the bar is collapsed (same
+  // urgency-to-you order as the chips; NEED flagged, filled positions dimmed)
+  // so a collapsed bar still tells you the headline at a glance.
   const summaryEl = document.getElementById('intel-summary');
   if (summaryEl){
-    summaryEl.innerHTML = scar.map(({pos,available,pct})=>{
+    summaryEl.innerHTML = scar.map(({pos,available,pct,bestGrade,need})=>{
       const c = posColors[pos];
       const run = runsByPos[pos] && available>0;
-      return `<span style="color:${c};font-weight:700">${pos} ${available}${run?' RUN':''}</span>`;
+      const g = (bestGrade && available>0) ? ` <span style="color:${bestGrade.color}">${bestGrade.letter}</span>` : '';
+      const filled = need !== null && need === 0;
+      const n = need >= 1 ? ' NEED' : '';
+      return `<span style="color:${c};font-weight:700${filled?';opacity:.45':''}">${pos}${n} ${available}${run?' RUN':''}</span>${g}`;
     }).join('<span style="opacity:.4;margin:0 3px">·</span>');
   }
 
@@ -27990,8 +28051,10 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
 #page-draft .tier-break .tb-lbl{ font-family:var(--font-mono); font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--accent3); text-transform:uppercase; white-space:nowrap; }
 #page-draft .tier-break::after{ content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--border2),transparent); }
 
-/* ── suggested label matches control labels ── */
-#page-draft .suggest-title span{ font-size:9.5px; letter-spacing:.12em; }
+/* ── suggested label matches control labels — kept small so the card row (the
+   actual content) gets the width, not the eyebrow label next to it ── */
+#page-draft .suggest-title span{ font-size:8px; letter-spacing:.06em; }
+#page-draft .suggest-bar{ gap:10px!important; }
 
 /* ── mobile ── */
 @media(max-width:700px){
@@ -30826,7 +30889,29 @@ body .page,body .page.on{background:transparent!important}
   .adp-controls{gap:7px}
 }
 
-/* Intel bar: collapse toggle (all sizes) + single-line scroll on mobile */
+/* Intel bar: liquid-glass strip instead of a flat slab. color-mix over theme
+   tokens so it self-adapts (light/dark/onyx) without per-theme overrides. */
+#intel-bar{
+  padding:5px 14px; flex-wrap:wrap; gap:8px; align-items:center; overflow-x:visible;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--text) 6%, transparent), transparent 65%),
+             color-mix(in srgb, var(--s2) 40%, transparent);
+  border-bottom:1px solid color-mix(in srgb, var(--border2) 55%, transparent);
+  backdrop-filter:blur(16px) saturate(150%);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+  box-shadow:inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+}
+/* Onyx has no vapor-field behind in-flow content (flat --bg), so blurring it here
+   would cost a per-scroll-frame GPU recomposite for zero visible frost — see
+   [[project_onyx_backdrop_blur_perf]]. Keep the tint, drop the blur — same
+   gradient+alpha+shadow recipe as the rest of the onyx glass-card family so the
+   strip reads as one piece with them despite carrying no blur. */
+[data-theme="onyx"] #intel-bar{
+  background:linear-gradient(177deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 30%, transparent 60%),
+             rgba(24,25,30,0.55);
+  border-bottom-color:rgba(255,255,255,0.12);
+  backdrop-filter:none; -webkit-backdrop-filter:none;
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.20), inset 0 -14px 20px -18px rgba(0,0,0,0.85);
+}
 #intel-bar.intel-collapsed #intel-chips{display:none!important}
 #intel-bar.intel-collapsed #intel-summary{display:flex!important}
 #intel-bar.intel-collapsed #intel-chev{transform:rotate(-90deg)}
@@ -33694,6 +33779,8 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft .schip .sfac i{ display:inline-flex; }
 #page-draft .schip .sfac svg{ width:12px; height:12px; }
 #page-draft .pa-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+/* Projected pick grade — same A+..F scale as completed board picks (dvPickScore) */
+#page-draft .pg-badge{ font-family:var(--font-mono); font-size:12px; font-weight:800; letter-spacing:.01em; padding:2px 7px; border-radius:6px; background:color-mix(in srgb, currentColor 16%, transparent); cursor:help; }
 #page-draft .pa-gone{ font-family:var(--font-mono); font-size:11px; font-weight:700; line-height:1; display:flex; align-items:baseline; gap:3px; }
 #page-draft .pa-gone em{ font-style:normal; font-size:8px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; opacity:.65; }
 #page-draft .pa-gone.pa-hot{ color:var(--qb); }
