@@ -18913,9 +18913,13 @@ function _dvPickStr(overall, teams){
 }
 window._dvSleeperAdpCache = window._dvSleeperAdpCache || {};
 let _dvSleeperAdpLoading = null;
-async function _dvLoadSleeperAdp(mode, sf){
+// Fetch one mode's Sleeper ADP into the cache WITHOUT touching _dvSleeperAdp.
+// Keeping "fetch" separate from "make active" is what lets My Rankings warm both
+// dynasty + redraft globally while the Draft Vault's ADP column stays pinned to
+// the connected draft's own mode.
+async function _slFetchAdp(mode, sf){
   const key = _dvSleeperAdpKey(mode, sf);
-  if (window._dvSleeperAdpCache[key]) { window._dvSleeperAdp = window._dvSleeperAdpCache[key]; return window._dvSleeperAdp; }
+  if (window._dvSleeperAdpCache[key]) return window._dvSleeperAdpCache[key];
   let obj = { map:{}, teams:12, hasData:false, key };
   try{
     const dayBust = Math.floor(Date.now() / 86400000);
@@ -18923,13 +18927,71 @@ async function _dvLoadSleeperAdp(mode, sf){
     const j = r.ok ? await r.json() : null;
     const rows = (j && j.players) || [];
     const map = {};
-    rows.forEach(s => { if (s.adp != null) map[normName(s.name)] = { adp:s.adp, n:s.n }; });
+    rows.forEach(s => {
+      if (s.adp == null) return;
+      const k = normName(s.name);
+      const prev = map[k];
+      // Same-name collisions (Justin Jefferson WR-MIN vs LB-CLE, two Antonio
+      // Williamses): keep the row seen in more drafts. Last-write-wins let a
+      // 4-draft IDP journeyman clobber the WR1's ADP with 405.5 — his round-2
+      // pick then graded as a 250-pick reach (F).
+      if (prev && (prev.n || 0) >= (s.n || 0)) return;
+      map[k] = { adp:s.adp, n:s.n };
+    });
     obj = { map, teams:(j && j.norm_teams) || 12, hasData: rows.length > 0, key };
   }catch(e){}
   window._dvSleeperAdpCache[key] = obj;
-  window._dvSleeperAdp = obj;
   return obj;
 }
+async function _dvLoadSleeperAdp(mode, sf){
+  const obj = await _slFetchAdp(mode, sf);
+  window._dvSleeperAdp = obj;     // this mode becomes the board's ADP source
+  return obj;
+}
+// Warm one mode's Sleeper ADP into the cache, then rebuild + repaint anything
+// mounted (the board ORDER blends off this data, not just the ADP column).
+const _slWarming = {};
+function _slWarmKey(mode, sf){
+  if (typeof _dvSleeperAdpKey !== 'function') return;
+  const key = _dvSleeperAdpKey(mode, sf);
+  if (window._dvSleeperAdpCache[key] || _slWarming[key]) return;
+  _slWarming[key] = true;
+  _slFetchAdp(mode, sf).then(() => {
+    _slWarming[key] = false;
+    try{ window.MyRankings && MyRankings.refresh(); }catch(e){}
+    try{ if (document.getElementById('page-myrankings')?.classList.contains('on')) MyRankings.render(); }catch(e){}
+    try{ if (typeof renderList === 'function') renderList(); }catch(e){}
+    try{ if (typeof renderBoard === 'function') renderBoard(); }catch(e){}
+  }).catch(() => { _slWarming[key] = false; });
+}
+// The right SL ADP file for a board format, read straight from the cache — NOT
+// from _dvSleeperAdp (which only ever holds the connected draft's mode). Lets
+// the dynasty and redraft boards each blend against their own ADP.
+//
+// Self-healing on miss: superflex can't be known at boot (it resolves from the
+// connected draft / league settings / FC values, all of which land later), so a
+// warm kicked off early can easily fetch dynasty_1qb for what turns out to be an
+// SF league. Rather than chase every "sf is known now" trigger, fetch on demand
+// here and let the arrival rebuild the board. fcSig() keys off the RESOLVED
+// key, so a superflex flip re-runs this even when both files are cached.
+function _slAdpFor(mode){
+  try{
+    const sf = (mode === 'dynasty') && _dvIsSuperflex();
+    const key = _dvSleeperAdpKey(mode, sf);
+    const o = window._dvSleeperAdpCache[key];
+    if (!o){ _slWarmKey(mode, sf); return null; }
+    return o.hasData ? o : null;
+  }catch(e){ return null; }
+}
+// Warm BOTH modes regardless of whether a draft is connected, so My Rankings
+// orders identically on the standalone page and mid-draft. Without this the
+// board silently re-ordered the moment you connected a Sleeper draft.
+function slWarmAdp(){
+  let sf = false; try{ sf = _dvIsSuperflex(); }catch(e){}
+  _slWarmKey('dynasty', sf);
+  _slWarmKey('redraft', false);
+}
+window.slWarmAdp = slWarmAdp;
 // Lazily load the Sleeper ADP for the current mode when a Sleeper draft is connected,
 // then re-render once so the ADP column + its sort switch over. Cached, so it fetches once.
 function _dvEnsureSleeperAdp(){
@@ -19827,13 +19889,17 @@ function pickYear(year) {
     trig.style.removeProperty('max-width'); // re-measure from the CSS baseline
     var nav=document.querySelector('.glassnav .desktop-nav');
     if(!nav||getComputedStyle(nav).display==='none') return; // mobile layout: CSS owns it
-    // The nav is flex:1 and stretches to the right block, so the free space
-    // lives INSIDE it: measure from its last visible tab (Betting) to its edge.
+    // How much the pill may grow = the nav's spare room, measured from the last
+    // visible tab (Betting) to the nav's own right edge. Every pixel the pill
+    // gains costs the nav one (nav is flex:1 1 auto, .gn-right is flex:0 0 auto)
+    // and the nav hides its overflow, so growing past this clips a tab.
+    // NB: nav.scrollWidth can't substitute here — it returns max(content,
+    // clientWidth), so it reads 0 spare even when the tabs have room.
     var btns=[].slice.call(nav.querySelectorAll('button')).filter(function(b){ return b.offsetParent!==null; });
     var last=btns[btns.length-1];
     if(!last) return;
     var slack=nav.getBoundingClientRect().right - last.getBoundingClientRect().right - 10;
-    if(slack<=0) return; // tabs need every pixel
+    if(slack<=0) return; // tabs need every pixel (or are already clipped)
     // scrollWidth under-reports (integer rounding, emoji glyphs), measure the
     // full name precisely with an unclipped clone instead.
     var cs=getComputedStyle(nameEl);
@@ -19893,6 +19959,32 @@ function pickYear(year) {
     [].slice.call(document.querySelectorAll('img')).forEach(function(im){ if(!im.getAttribute('src')) im.removeAttribute('src'); });
     ensureDD(); refreshDD(); watchSelect();
     var _fitT; window.addEventListener('resize', function(){ clearTimeout(_fitT); _fitT=setTimeout(fitTrigger, 120); });
+    // fitTrigger sizes the pill from the slack left after the LAST tab, so it is
+    // only right once the header has SETTLED. Several things land late and used
+    // to strand it oversized — clipping "Betting" to "Be":
+    //   • the JS-injected Season Sim tab widens the strip
+    //   • web fonts re-flow every label
+    //   • the right cluster grows when a draft connects (resync + LIVE appear),
+    //     which shrinks the nav 1:1 and eats the slack the pill was sized from
+    // Re-fit whenever the right cluster resizes or the tab strip changes.
+    // fitTrigger is deterministic for a given layout, so a re-fit that changes
+    // nothing resizes nothing and the observers go quiet — no feedback loop.
+    var _fitT2;
+    function scheduleFit(){ clearTimeout(_fitT2); _fitT2=setTimeout(fitTrigger, 80); }
+    // MutationObserver, not ResizeObserver: RO callbacks ride the rendering
+    // pipeline and never fire in a backgrounded tab, which would leave the pill
+    // stuck oversized exactly where nobody's looking. MO fires on a microtask.
+    // Mutations from inside the pill are ignored — fitTrigger writes the pill's
+    // own max-width, so reacting to that would spin a permanent re-fit loop.
+    function fromPill(m){ var t=document.getElementById('vlg-trigger'); return !!(t && (m.target===t || t.contains(m.target))); }
+    function onMut(muts){ for(var i=0;i<muts.length;i++){ if(!fromPill(muts[i])){ scheduleFit(); return; } } }
+    try{
+      var gnr=document.querySelector('.glassnav .gn-right');
+      if(gnr && window.MutationObserver) new MutationObserver(onMut).observe(gnr, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class','hidden'] });
+      var navEl=document.querySelector('.glassnav .desktop-nav');
+      if(navEl && window.MutationObserver) new MutationObserver(scheduleFit).observe(navEl, { childList:true });
+    }catch(err){}
+    try{ if(document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFit); }catch(err){}
     try{ if(typeof applyTheme==='function') applyTheme(currentTheme); }catch(err){}
     // Catch late-rendered chrome
     setTimeout(function(){ injectIcons(); refreshDD(); }, 400);
@@ -21410,7 +21502,17 @@ function pickYear(year) {
     const a = fcValues['Bijan Robinson'] || fcValues['bijanrobinson'] ||
               fcValues["Ja'Marr Chase"] || null;
     const r1 = (window._redraft1QB && Object.keys(window._redraft1QB).length) || 0;
-    return n + ':' + (a ? (a.value||0)+'/'+(a.redraftValue||0) : '0') + ':r1' + r1;
+    // SL ADP arriving must rebuild too — the board ORDER blends toward it
+    // (applySlBlend), not just the ADP column. Key off the RESOLVED file per
+    // mode, so this fires both when data lands AND when superflex detection
+    // flips (dynasty_1qb → dynasty_sf) with both already cached.
+    const c = window._dvSleeperAdpCache || {};
+    let sfNow = false; try{ sfNow = _dvIsSuperflex(); }catch(e){}
+    const sl = ['dynasty','redraft'].map(m => {
+      const k = _dvSleeperAdpKey(m, m === 'dynasty' && sfNow);
+      return (c[k] && c[k].hasData) ? k : '-';
+    }).join(',');
+    return n + ':' + (a ? (a.value||0)+'/'+(a.redraftValue||0) : '0') + ':r1' + r1 + ':sl' + sl;
   }
   function maybeRebuild(){
     const s = fcSig();
@@ -21444,11 +21546,46 @@ function pickYear(year) {
     }
   }
 
+  // ── SL-ADP blend ────────────────────────────────────────────────────
+  // The auto (unpinned) board tracks FantasyCalc, but FC routinely disagrees
+  // with where the room actually drafts people (a guy going at 10.11 sat #83
+  // on the board). When crawled Sleeper ADP for the matching mode is loaded,
+  // pull each auto rank toward his room price, weighted mostly to the room —
+  // this is a DRAFT board, and ADP is what predicts who's actually there.
+  //
+  // Blend in pick-space: ADP is a normalized overall pick in a 12-team draft,
+  // which is directly comparable to a board rank (the Nth pick is the Nth
+  // player off the board). Blending against a dense rank over only SL-covered
+  // players instead would compress the deep end whenever coverage is sparse.
+  //
+  // Only players with a real sample (n≥SL_MIN_N) move; the rest keep their FC
+  // rank and re-interleave around them. That interleaving is why measured error
+  // vs ADP floors at ~10 no matter the weight — ~600 FC-only players still
+  // occupy slots. Pins always win: this only reorders the market-tracking part.
+  // fcRank stays the pure FC market rank, so ▲/▼ chips still read "vs market".
+  const SL_W = 0.7;      // weight on the room's ADP (0 = pure FC, 1 = pure ADP)
+  const SL_MIN_N = 25;   // drafts a player must appear in before his ADP is trusted
+  function applySlBlend(list, mode){
+    // per-mode cache lookup (slWarmAdp keeps both warm, draft connected or not)
+    const sl = (typeof _slAdpFor === 'function') ? _slAdpFor(mode) : null;
+    if (!sl){
+      list.forEach(p=>{ p.blendRank = p.fcRank; });
+      return list;
+    }
+    list.forEach(p => {
+      const e = sl.map[norm(p.name)];
+      p.blendRank = (e && (e.n||0) >= SL_MIN_N)
+        ? (1 - SL_W) * p.fcRank + SL_W * e.adp
+        : p.fcRank;
+    });
+    return list.slice().sort((a,b) => a.blendRank - b.blendRank);
+  }
+
   function makeBoards(arr, live) {
     // Dynasty: sort by dyn value desc
     const dyn = arr.filter(p=>p.dyn>0).sort((a,b)=>b.dyn-a.dyn)
       .map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age, value:p.dyn, fcRank:i+1 }));
-    baseline.dynasty = dyn;
+    baseline.dynasty = applySlBlend(dyn, 'dynasty');
 
     // Redraft: live → use rdr value; fallback → derive rdr from dyn (age + QB reweight) then re-curve
     let rdrArr;
@@ -21466,7 +21603,7 @@ function pickYear(year) {
       rdrArr = scored.map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age,
         value: Math.round(9704 * Math.pow(0.962, i)), fcRank:i+1 }));
     }
-    baseline.redraft = rdrArr;
+    baseline.redraft = applySlBlend(rdrArr, 'redraft');
   }
 
   // ── Persistence ────────────────────────────────────────────────────
@@ -21508,14 +21645,15 @@ function pickYear(year) {
     if (!st.order) {
       order = base.map(p=>norm(p.name));
     } else {
-      // Pinned players hold their slot; unpinned re-flow by market rank.
+      // Pinned players hold their slot; unpinned re-flow by market rank
+      // (SL-ADP-blended when room data is loaded — see applySlBlend).
       const pinnedIds = new Set(Object.keys(st.pinned).filter(k=>st.pinned[k]).map(norm));
       const slots = st.order.slice();
       // ensure any new market players are appended
       base.forEach(p=>{ if(!slots.includes(norm(p.name))) slots.push(norm(p.name)); });
       // unpinned, sorted by market rank
       const unpinned = base.filter(p=>!pinnedIds.has(norm(p.name)))
-        .sort((a,b)=>a.fcRank-b.fcRank).map(p=>norm(p.name));
+        .sort((a,b)=>(a.blendRank??a.fcRank)-(b.blendRank??b.fcRank)).map(p=>norm(p.name));
       let ui = 0;
       order = slots.map(id => pinnedIds.has(id) ? id : null);
       order = order.map(id => id ? id : unpinned[ui++]);
@@ -21533,9 +21671,12 @@ function pickYear(year) {
     // board (the value curve is the live FC values sorted high→low, so slot #4 is
     // worth whatever the 4th-best player is worth today, re-pulled daily).
     // marketValue = the player's OWN live FC value, always shown for comparison.
+    // baseline order may be SL-ADP-blended, so derive the slot curve from the
+    // values sorted high→low (identical to base[i].value when unblended).
+    const curve = base.map(p=>p.value).sort((a,b)=>b-a);
     rows.forEach((r,i)=>{
       r.marketValue = r.value;
-      r.myValue = base[i] ? base[i].value : r.value;
+      r.myValue = curve[i] != null ? curve[i] : r.value;
     });
     // positional ranks from my order
     const pc = {};
@@ -21919,6 +22060,10 @@ function pickYear(year) {
     if (_booted) return; _booted = true;
     injectStyles();
     load();
+    // Warm both modes' Sleeper ADP before the first build. The board order
+    // blends toward it, so without this My Rankings would order one way
+    // standalone and another once a Sleeper draft connected.
+    try { window.slWarmAdp && slWarmAdp(); } catch(e){}
     buildBaseline();
     // Grade Keys columns appear once nflverse stats land (one-shot re-render)
     try { window.VaultGrades && VaultGrades.onReady(() => {
@@ -21928,7 +22073,12 @@ function pickYear(year) {
     if (typeof fcLoaded !== 'undefined' && !fcLoaded) {
       let tries=0; const t=setInterval(()=>{ tries++;
         if ((typeof fcLoaded!=='undefined' && fcLoaded) || tries>40){
-          clearInterval(t); buildBaseline(); invalidate();
+          clearInterval(t);
+          // _dvIsSuperflex() can only answer once FC values / league data exist,
+          // so re-warm here — a SF league needs dynasty_sf, not the 1qb file we
+          // may have guessed at boot. Cache-guarded, so this is free if unchanged.
+          try{ window.slWarmAdp && slWarmAdp(); }catch(e){}
+          buildBaseline(); invalidate();
           if (document.getElementById('page-myrankings')?.classList.contains('on')) render();
           try{ if(typeof renderList==='function') renderList(); }catch(e){}
         }
@@ -22424,7 +22574,7 @@ function pickYear(year) {
     const base = baseline[format];
     const matchedIds = matched.map(m=>m.id);
     const mset = new Set(matchedIds);
-    const rest = base.filter(p=>!mset.has(norm(p.name))).sort((a,b)=>a.fcRank-b.fcRank).map(p=>norm(p.name));
+    const rest = base.filter(p=>!mset.has(norm(p.name))).sort((a,b)=>(a.blendRank??a.fcRank)-(b.blendRank??b.fcRank)).map(p=>norm(p.name));
     state[format].order = matchedIds.concat(rest);
     const pinned = {}; matchedIds.forEach(id=>{ pinned[id]=true; });
     state[format].pinned = pinned;     // imported players hold their slots

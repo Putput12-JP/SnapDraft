@@ -71,6 +71,10 @@ NORM_TEAMS = 12                               # pick_no normalized to a 12-team 
 
 WINDOW_DAYS = 210                             # drop drafts older than this (freshness)
 MIN_SAMPLES = 3                               # a player needs >= N drafts to get an ADP
+# The app is skill-position only; IDP rows from the few IDP leagues in the crawl
+# are pure noise AND collide by name with real players (Justin Jefferson LB-CLE
+# vs the WR — the frontend name-keyed lookup served the LB's 405.5 ADP).
+IDP_POS = {"LB", "DB", "DL", "CB", "S", "DE", "DT", "EDGE", "IDP", "OLB", "ILB", "FS", "SS", "NT"}
 HISTORY_MAX = 160                             # snapshots kept per player in history file
 
 # per-run budgets (keep a cron run comfortably inside a few minutes)
@@ -351,6 +355,8 @@ def compute_adp(corpus, mode, fmt):
         mean = sum(arr) / n
         var = sum((x - mean) ** 2 for x in arr) / n
         meta = players.get(pid, {})
+        if (meta.get("pos") or "") in IDP_POS:
+            continue
         rows.append({
             "name": meta.get("n") or pid,
             "pos": meta.get("pos") or "",
