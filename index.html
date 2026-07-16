@@ -19460,12 +19460,16 @@ function pickYear(year) {
   #page-draft .plist-table col.col-name{ width:36%; }
   #page-draft .plist-table col.col-dynasty{ width:13%; }
   #page-draft .plist-table col.col-redraft{ width:13%; }
-  #page-draft .plist-table col.col-adp{ width:8%; }
-  /* Sized to its content (header ~79px, widest cell ~71px) rather than a % of the
-     table: the cells are right-aligned, so every surplus pixel became a gap between
-     ADP and Mine (11% = 170px on a wide board = ~90px of dead space). px keeps it
-     tight at any width — a % this small would clip the header on a narrow board.
-     col-name is the auto fill column, so it absorbs what's freed here. */
+  /* ADP + Mine are sized to their CONTENT rather than a % of the table. Both are
+     right-aligned, so every surplus pixel lands to the LEFT of the number and reads
+     as a gap: at 8%/11% on a wide board that was ~39px between Dynasty and ADP and
+     ~90px between ADP and Mine. Widths are the widest header + 12px padding, since
+     the header is always wider than the value it sits over —
+     ADP: 78px at its widest chip ("ESPN"; SL/SF/RDR/DYN are narrower) + 12 + slack.
+     Mine: 79px + 12 + slack.
+     px, not a smaller %: a % this tight would clip the header on a narrow board.
+     col-name is the auto fill column, so it absorbs whatever these give back. */
+  #page-draft .plist-table col.col-adp{ width:94px; }
   #page-draft .plist-table col.col-my{ width:96px; }
   #page-draft .plist-table col.col-status{ width:14%; }
   #page-draft .plist-thead{ background:var(--s2); }
