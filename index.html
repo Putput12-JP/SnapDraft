@@ -10355,7 +10355,10 @@ function _dvContext(){
   const teamOff = {};
   for (const k in statMap){
     const s = statMap[k]; if (!DVF_POS[s.pos]) continue;
-    pools[s.pos].ppg.push(s.ppg); if(s.ceil!=null)pools[s.pos].ceil.push(s.ceil); if(s.floor!=null)pools[s.pos].floor.push(s.floor);
+    // NB: _paBuildStatMap emits `ceiling`, not `ceil`. Reading s.ceil left every
+    // ceiling pool empty, so _dvPct fell back to its 0.5 default for everyone —
+    // silently flat-lining the ceiling term (34% of Upside) at a constant.
+    pools[s.pos].ppg.push(s.ppg); if(s.ceiling!=null)pools[s.pos].ceil.push(s.ceiling); if(s.floor!=null)pools[s.pos].floor.push(s.floor);
     if (s.team){ (teamOff[s.team]=teamOff[s.team]||{list:[]}).list.push(s.ppg||0); }
   }
   for (const p in pools){ pools[p].ppg.sort((a,b)=>a-b); pools[p].ceil.sort((a,b)=>a-b); pools[p].floor.sort((a,b)=>a-b); }
@@ -10603,20 +10606,37 @@ function dvUpdateGradeCard(){
 const DV_PICK_BANDS = [[8.4,'A+'],[7.7,'A'],[7.1,'A-'],[6.5,'B+'],[5.9,'B'],[5.3,'B-'],[4.7,'C+'],[4.1,'C'],[3.5,'C-'],[2.7,'D']];
 function dvPickLetter(s){ for (const [t,l] of DV_PICK_BANDS) if (s >= t) return l; return 'F'; }
 // Same letter→color families as dvGradeBand: A blue, B green, C yellow, D/F red.
-function dvPickColor(s){ return s>=7.1?'var(--rb)':s>=5.9?'var(--wr)':s>=4.1?'var(--te)':'var(--red2)'; }
+// Derive each family's floor FROM the bands rather than restating them — the
+// hand-written thresholds had drifted, painting B- with the C colour and C- with
+// the D/F red, so a pick's letter and its colour told the user different stories.
+// DV_PICK_BANDS runs high→low, so the last write per family is that family's floor
+// (A→A- 7.1, B→B- 5.3, C→C- 3.5).
+const _DV_FAM_FLOOR = (() => { const f = {}; for (const [t, l] of DV_PICK_BANDS) f[l[0]] = t; return f; })();
+function dvPickColor(s){
+  return s >= _DV_FAM_FLOOR.A ? 'var(--rb)'
+       : s >= _DV_FAM_FLOOR.B ? 'var(--wr)'
+       : s >= _DV_FAM_FLOOR.C ? 'var(--te)'
+       : 'var(--red2)';
+}
 function dvPickScore(name, pos, overall){
   if (!overall || !DVF_POS[pos]) return null;
   let adp = null;
   try { adp = _boardAdpSortVal(name); } catch(e){}
   if (!adp || adp >= 9000) adp = null;
-  // Rank side of the baseline: your My Rankings board when the player is on it
-  // (a reach by ADP isn't a bad pick if YOUR board likes him), else the active
-  // source rank. Same yardstick for every team.
+  // Rank side of the baseline: your opinion, as a check the ADP side can't see
+  // (a reach by ADP isn't a bad pick if YOUR board likes him).
+  //
+  // Only a PINNED player carries your opinion. An unpinned rank auto-tracks the
+  // market and is itself blended toward Sleeper ADP (applySlBlend), so feeding it
+  // back here would price the pick ~90% off ADP — collapsing the independent
+  // check into the thing it's supposed to check. Unpinned falls back to the pure
+  // FantasyCalc market rank, restoring the intended 0.65 ADP / 0.35 market split.
   let rank = null;
   try{
     const fmt = (window._dvMode === 'redraft') ? 'redraft' : 'dynasty';
     let mi = window.MyRankings && MyRankings.getRankInfo(name, fmt);
-    if (mi && mi.myRank) rank = mi.myRank;
+    if (mi && mi.pinned && mi.myRank) rank = mi.myRank;
+    else if (mi && mi.marketRank) rank = mi.marketRank;
   }catch(e){}
   if (!rank){ const fp = findPlayer(name); rank = (fp && fp.r0) || null; }
   if (!adp && !rank) return null;
