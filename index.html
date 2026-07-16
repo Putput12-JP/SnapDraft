@@ -13161,8 +13161,20 @@ function getDisplayValue(p){
 }
 
 function sortedPlayers(){
-  // Source array: filter out picks if hide-picks toggle is on
-  const src = window._hidePicks ? PLAYERS.filter(p => p.pos !== 'PICK') : PLAYERS;
+  // Source array: drop picks when the hide-picks toggle is on, then drop any
+  // position the connected league doesn't actually start (K / team DEF / IDP).
+  // Reuses the ADP Explorer's rule so both surfaces answer this the same way.
+  // Without it, kickers sort straight to the top of an ADP-sorted board — their
+  // ADP is a low pick NUMBER (Dicker 8.06) even in a league with no K slot —
+  // carrying empty value and grade cells with them. No draft connected → skill
+  // only, matching the ADP tool.
+  let src = window._hidePicks ? PLAYERS.filter(p => p.pos !== 'PICK') : PLAYERS;
+  try{
+    if (typeof window.vaultLeaguePosFilter === 'function'){
+      const allowed = window.vaultLeaguePosFilter();
+      src = src.filter(p => allowed(p.pos));
+    }
+  }catch(e){}
   // Decorate-sort-undecorate: compute each player's sort key ONCE rather than
   // recomputing value/ADP lookups inside every comparison (O(n) instead of O(n log n) lookups).
   const bySortedKey = (keyFn, dir) => {
@@ -31167,6 +31179,14 @@ function _adpPosAllowed(pos, needs) {
   if (_ADP_IDP_POS.has(P)) return needs.idp;
   return true;   // QB / RB / WR / TE / PICK / unknown always show
 }
+// Exported for the Draft Vault player list, which lives in another script scope
+// and must answer "does this league start that position?" identically — one rule,
+// two surfaces. Resolves the league's needs once and hands back a predicate, so
+// a list filter doesn't re-read roster_positions per player.
+window.vaultLeaguePosFilter = function () {
+  const needs = _adpLeagueNeeds();
+  return pos => _adpPosAllowed(pos, needs);
+};
 
 /* ── board / ADP toggle ── */
 window.dvShowBoard = function() {
