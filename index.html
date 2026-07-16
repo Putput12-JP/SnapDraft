@@ -564,7 +564,10 @@ header{
 #page-draft .dv-factor-key .dfk-item b{font-family:var(--font-sans);font-weight:700;color:var(--text);font-size:11.5px}
 #page-draft .dv-factor-key .dfk-item i{font-style:normal;color:var(--muted);font-size:10px}
 #page-draft .dv-factor-key .dfk-item em{font-style:normal;color:var(--text2)}
-#page-draft .dv-factor-key .dfk-scale{font-size:9.5px;color:var(--dim);letter-spacing:.04em}
+/* --dim is a SURFACE token (aliases --s3 in every theme), so it renders this
+   label at ~1:1 contrast on the page background. It's a help affordance — match
+   the --muted its .dfk-title/.dfk-item siblings already use. */
+#page-draft .dv-factor-key .dfk-scale{font-size:9.5px;color:var(--muted);letter-spacing:.04em}
 #page-draft .dv-factor-key .dfk-scale-item{margin-left:auto;cursor:help}
 #page-draft .dv-factor-key .dfk-item{position:relative;cursor:help}
 /* hover popover with the full calculation — shared by the draft key + My Rankings legend */
@@ -19458,7 +19461,12 @@ function pickYear(year) {
   #page-draft .plist-table col.col-dynasty{ width:13%; }
   #page-draft .plist-table col.col-redraft{ width:13%; }
   #page-draft .plist-table col.col-adp{ width:8%; }
-  #page-draft .plist-table col.col-my{ width:11%; }
+  /* Sized to its content (header ~79px, widest cell ~71px) rather than a % of the
+     table: the cells are right-aligned, so every surplus pixel became a gap between
+     ADP and Mine (11% = 170px on a wide board = ~90px of dead space). px keeps it
+     tight at any width — a % this small would clip the header on a narrow board.
+     col-name is the auto fill column, so it absorbs what's freed here. */
+  #page-draft .plist-table col.col-my{ width:96px; }
   #page-draft .plist-table col.col-status{ width:14%; }
   #page-draft .plist-thead{ background:var(--s2); }
   #page-draft .plist-thead th{ font-family:var(--font-mono)!important; font-size:9px!important; color:var(--muted)!important; text-transform:uppercase!important; letter-spacing:.12em!important; font-weight:600!important; padding:9px 4px!important; }
