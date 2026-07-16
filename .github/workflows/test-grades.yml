@@ -1,0 +1,50 @@
+name: Test grade math
+
+# Guards the 4-factor grade engine (Upside / Floor / Risk / Situational).
+#
+# The engine is the one number users are asked to trust most, and it has an
+# unusually quiet failure mode: a `s.ceil` vs `s.ceiling` typo once emptied
+# every ceiling pool, froze 34% of the Upside weight at a constant, threw no
+# error, and shipped — the grades just quietly stopped meaning what they said.
+# Nothing here re-implements the formula; the test loads the real engine out of
+# index.html, so it always tests what actually ships.
+#
+# Runs on any push/PR that touches the engine, the stats it reads, or the test.
+
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'data/nflverse_stats.json'
+      - 'scripts/test-grades.mjs'
+      - '.github/workflows/test-grades.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'data/nflverse_stats.json'
+      - 'scripts/test-grades.mjs'
+  workflow_dispatch:
+
+# A later push supersedes an in-flight run of the same branch.
+concurrency:
+  group: test-grades-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  grade-math:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run grade-math regression
+        run: node scripts/test-grades.mjs
