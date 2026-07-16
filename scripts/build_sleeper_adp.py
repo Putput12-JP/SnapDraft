@@ -21,14 +21,26 @@ Sleeper's HTTP API is public + read-only + keyless, but there is NO
   5. Persist a checkpoint so each cron run CONTINUES the snowball instead of
      restarting — that accretion is how the corpus grows to tens of thousands.
 
-Each pick carries metadata (name/pos/team/years_exp), so we never need the
-5MB /players/nfl file.
+Each pick carries metadata (name/pos/team/years_exp), which is what the corpus
+stores. That metadata is a snapshot of the player AS OF THAT DRAFT, though, so
+it can't answer "is this player still relevant today?" — see ELIGIBILITY.
+
+ELIGIBILITY
+-----------
+Real dynasty startups run 25-30+ rounds, and those late rounds are full of
+players the app has no pool for: kickers/DEF, retired vets (Vinatieri, Golden
+Tate), and college/devy fliers. So at output time every player is checked
+against the live /players/nfl DB and kept only if they are a skill position on
+an actual NFL roster. Sleeper's `status` field is useless for this (Golden Tate
+reads "Active"); `team` is the honest signal.
 
 OUTPUTS (data/)
 ---------------
   sleeper_crawl_state.json    frontier + seen-sets (bookkeeping, grows slowly)
   sleeper_adp_corpus.json     the growing DB: per-draft compact picks, pruned
                               to a recency window so ADP stays fresh
+  sleeper_player_meta.json    slim live player DB (pos/team) for the eligibility
+                              filter, so --rebuild-only works without a fetch
   adp_sleeper_dynasty_1qb.json / _sf.json   served ADP (schema mirrors adp_*.json)
   sleeper_adp_history_1qb.json / _sf.json   daily ADP snapshots -> movers
 
@@ -46,6 +58,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -71,10 +84,12 @@ NORM_TEAMS = 12                               # pick_no normalized to a 12-team 
 
 WINDOW_DAYS = 210                             # drop drafts older than this (freshness)
 MIN_SAMPLES = 3                               # a player needs >= N drafts to get an ADP
-# The app is skill-position only; IDP rows from the few IDP leagues in the crawl
-# are pure noise AND collide by name with real players (Justin Jefferson LB-CLE
-# vs the WR — the frontend name-keyed lookup served the LB's 405.5 ADP).
-IDP_POS = {"LB", "DB", "DL", "CB", "S", "DE", "DT", "EDGE", "IDP", "OLB", "ILB", "FS", "SS", "NT"}
+# The app's player pool is skill positions on NFL rosters. Everything else that
+# gets drafted in deep startups (K/DEF, IDP, retired vets, devy/college fliers)
+# is filtered at output time — see is_eligible(). IDP also collides by name with
+# real players (Justin Jefferson LB-CLE vs the WR — the frontend name-keyed
+# lookup served the LB's 405.5 ADP).
+SKILL_POS = {"QB", "RB", "WR", "TE"}
 HISTORY_MAX = 160                             # snapshots kept per player in history file
 
 # per-run budgets (keep a cron run comfortably inside a few minutes)
@@ -86,6 +101,7 @@ REQ_MIN_INTERVAL = 0.08                       # ~750 req/min ceiling (Sleeper as
 DATA_DIR = "data"
 STATE_FILE = "sleeper_crawl_state.json"
 CORPUS_FILE = "sleeper_adp_corpus.json"
+META_FILE = "sleeper_player_meta.json"        # slim live player DB (eligibility + fresh pos/team)
 
 # ---- tiny rate-limited HTTP client --------------------------------------
 _last_req = [0.0]
@@ -315,6 +331,64 @@ def crawl(state, corpus, user_budget, draft_budget, log):
         f"+{new_dyn} dynasty / +{new_rdr} redraft leagues | frontier={len(frontier)} corpus_drafts={len(drafts)}")
 
 
+# ---- player eligibility (live /players/nfl) -----------------------------
+def refresh_player_meta(corpus, log):
+    """Fetch the live player DB and keep a slim record for every player in the corpus.
+
+    This is the one place the 5MB /players/nfl file is worth paying for: pick
+    metadata is frozen at draft time, so it can't tell a current starter from a
+    vet who has since retired. Persisted slim so --rebuild-only needs no network.
+    On a failed fetch we keep the last good file rather than filtering blind.
+    """
+    meta = _load(META_FILE, {})
+    db = _get("players/nfl")
+    if not db:
+        log(f"meta: fetch failed — reusing {len(meta)} cached records")
+        return meta
+    ids = set(corpus["players"])
+    fresh = {}
+    for pid in ids:
+        q = db.get(pid)
+        if not q:
+            continue
+        fresh[pid] = {
+            "n": q.get("full_name") or "",
+            "pos": q.get("position") or "",
+            "tm": q.get("team") or "",       # "" = not on an NFL roster
+            "exp": q.get("years_exp"),
+        }
+    log(f"meta: {len(fresh)}/{len(ids)} corpus players matched in the live DB")
+    _save(META_FILE, fresh)
+    return fresh
+
+def _nkey(s):
+    """Mirror of the frontend's normName() — the key every name-join uses.
+    Kept in sync so `aka` is only emitted when the two names really would miss
+    each other (index.html: normName)."""
+    s = (s or "").lower()
+    s = re.sub(r"['‘’`]", "", s)
+    s = s.replace(".", "")
+    s = re.sub(r"[^a-z0-9 ]", "", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+def is_eligible(pid, meta):
+    """True if the player is in the app's pool: skill position, on an NFL roster.
+
+    Drops K/DEF/P/LS, IDP, retired vets, and college/devy fliers in one rule —
+    all of them lack an NFL team (or a skill position) in the live DB. Players
+    the live DB has never heard of are dropped too: they can't be in the pool.
+
+    NOTE: incoming rookies are team-less until the NFL draft, so between roughly
+    January and late April a fresh class is not eligible yet. Dynasty rookie
+    drafts overwhelmingly run after the NFL draft, so the rookie board fills in
+    on the same schedule the real drafts do.
+    """
+    q = meta.get(pid)
+    if not q:
+        return False
+    return q.get("pos") in SKILL_POS and bool(q.get("tm"))
+
+
 # ---- corpus -> ADP outputs ----------------------------------------------
 def prune_corpus(corpus, log):
     cutoff = (time.time() - WINDOW_DAYS * 86400) * 1000
@@ -333,7 +407,7 @@ def _norm_pick(pick_no, teams):
         return pick_no
     return (pick_no - 1) * (NORM_TEAMS / teams) + 1
 
-def compute_adp(corpus, mode, fmt):
+def compute_adp(corpus, mode, fmt, meta):
     """Aggregate one mode+format's startup picks -> sorted player list. mode: 'dyn'|'rdr'."""
     players = corpus["players"]
     samples = {}   # player_id -> [normalized_pick, ...]
@@ -351,25 +425,39 @@ def compute_adp(corpus, mode, fmt):
         n = len(arr)
         if n < MIN_SAMPLES:
             continue
+        if not is_eligible(pid, meta):
+            continue
         arr.sort()
         mean = sum(arr) / n
         var = sum((x - mean) ** 2 for x in arr) / n
-        meta = players.get(pid, {})
-        if (meta.get("pos") or "") in IDP_POS:
-            continue
-        rows.append({
-            "name": meta.get("n") or pid,
-            "pos": meta.get("pos") or "",
-            "team": meta.get("tm") or "",
+        # live DB wins over the pick's frozen snapshot (a player traded since the
+        # draft should read with his current team); fall back if the DB is thin.
+        live = meta.get(pid, {})
+        stale = players.get(pid, {})
+        name = live.get("n") or stale.get("n") or pid
+        row = {
+            "name": name,
+            "pos": live.get("pos") or stale.get("pos") or "",
+            "team": live.get("tm") or stale.get("tm") or "",
             "sleeperId": pid,
-            "years_exp": meta.get("exp") or "",
+            "years_exp": live.get("exp") if live.get("exp") is not None else (stale.get("exp") or ""),
             "adp": round(mean, 1),               # normalized overall pick (12-team)
             "adpRound": round(mean / NORM_TEAMS + 0.5, 1),
             "n": n,
             "stdev": round(var ** 0.5, 1),
             "hi": round(arr[0], 1),
             "lo": round(arr[-1], 1),
-        })
+        }
+        # Consumers join these rows to FantasyCalc + nflverse BY NAME, and the
+        # three sources disagree on a handful of players (FC "Kenneth Gainwell"
+        # vs Sleeper "Kenny Gainwell"; nflverse "Mitchell Tinsley" vs "Mitch").
+        # No single spelling wins, so ship the other one too and let the
+        # frontend index both keys — otherwise picking a name silently drops a
+        # player out of the ADP blend.
+        alt = stale.get("n") or ""
+        if alt and _nkey(alt) != _nkey(name):
+            row["aka"] = alt
+        rows.append(row)
     rows.sort(key=lambda r: r["adp"])
     poscount = {}
     for i, r in enumerate(rows, 1):
@@ -416,9 +504,9 @@ BUCKETS = [
     ("rookie", None, "rookie",    "dynasty rookie",   "Rookie Draft"),
 ]
 
-def write_outputs(corpus, log):
+def write_outputs(corpus, meta, log):
     for mode, fmt, bucket, noun, label in BUCKETS:
-        rows, ndrafts = compute_adp(corpus, mode, fmt)
+        rows, ndrafts = compute_adp(corpus, mode, fmt, meta)
         update_history(bucket, rows, log)
         out = {
             "format": f"sleeper_{bucket}",
@@ -435,7 +523,7 @@ def write_outputs(corpus, log):
         log(f"output {bucket}: {len(rows)} players from {ndrafts} drafts")
 
 
-def write_stats(corpus, state, log):
+def write_stats(corpus, meta, state, log):
     """Small public stats file for the ADP Explorer's provenance strip + funnel.
     Numbers describe the LIVE ADP pool (current window) and the crawl connectivity."""
     drafts = corpus["drafts"]
@@ -449,7 +537,8 @@ def write_stats(corpus, state, log):
         "picks": picks,
         "drafts": len(drafts),
         "drafts_by_mode": by_mode,
-        "players": len(corpus["players"]),
+        # the pool the boards actually serve, not every id ever drafted
+        "players": sum(1 for pid in corpus["players"] if is_eligible(pid, meta)),
         "users_crawled": len(state.get("seen_users", [])),
         "frontier": len(state.get("frontier", [])),
         "leagues": {
@@ -497,8 +586,9 @@ def main():
         _save(CORPUS_FILE, corpus)
         log(f"state: {state['stats']}")
 
-    write_outputs(corpus, log)
-    write_stats(corpus, state, log)
+    meta = refresh_player_meta(corpus, log)
+    write_outputs(corpus, meta, log)
+    write_stats(corpus, meta, state, log)
     log("done")
 
 

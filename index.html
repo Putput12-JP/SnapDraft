@@ -18856,17 +18856,21 @@ async function _slFetchAdp(mode, sf){
     const j = r.ok ? await r.json() : null;
     const rows = (j && j.players) || [];
     const map = {};
-    rows.forEach(s => {
-      if (s.adp == null) return;
-      const k = normName(s.name);
+    const put = (k, s) => {
+      if (!k) return;
       const prev = map[k];
-      // Same-name collisions (Justin Jefferson WR-MIN vs LB-CLE, two Antonio
-      // Williamses): keep the row seen in more drafts. Last-write-wins let a
-      // 4-draft IDP journeyman clobber the WR1's ADP with 405.5 — his round-2
-      // pick then graded as a 250-pick reach (F).
+      // Same-name collisions (two Antonio Williamses): keep the row seen in more
+      // drafts. Last-write-wins let a 4-draft journeyman clobber a WR1's ADP with
+      // 405.5 — his round-2 pick then graded as a 250-pick reach (F).
       if (prev && (prev.n || 0) >= (s.n || 0)) return;
       map[k] = { adp:s.adp, n:s.n };
-    });
+    };
+    // Index the primary name first, then any `aka` — the builder emits the other
+    // source's spelling when Sleeper disagrees with FantasyCalc/nflverse (FC says
+    // "Kenneth Gainwell", Sleeper says "Kenny"). Both keys point at one row, so
+    // the blend joins whichever spelling the caller happens to hold.
+    rows.forEach(s => { if (s.adp != null) put(normName(s.name), s); });
+    rows.forEach(s => { if (s.adp != null && s.aka) put(normName(s.aka), s); });
     obj = { map, teams:(j && j.norm_teams) || 12, hasData: rows.length > 0, key };
   }catch(e){}
   window._dvSleeperAdpCache[key] = obj;
@@ -31419,6 +31423,9 @@ function _adpMergeSleeper(cb) {
   const apply = (rows) => {
     const byId = {}, byName = {};
     rows.forEach(s => { if (s.sleeperId) byId[String(s.sleeperId)] = s; byName[nn(s.name)] = s; });
+    // `aka` = the other source's spelling (see _slFetchAdp). Register it only where
+    // no real row already owns that key, so an alias can never shadow a player.
+    rows.forEach(s => { if (s.aka && !byName[nn(s.aka)]) byName[nn(s.aka)] = s; });
     const haveId = new Set(), haveName = new Set();
     _adpData.forEach(p => {
       if (p.sleeperId) haveId.add(String(p.sleeperId));
