@@ -19471,6 +19471,18 @@ function pickYear(year) {
      col-name is the auto fill column, so it absorbs whatever these give back. */
   #page-draft .plist-table col.col-adp{ width:94px; }
   #page-draft .plist-table col.col-my{ width:96px; }
+  /* Break the grade keys off the value columns — they're a different kind of number
+     (0-10 factors, not ranks/dollars). Proximity has to do the work: the icons sit
+     ~28px apart, so a boundary tighter than that just reads as more of the same
+     rhythm (it was 21px, i.e. the group looked like one run). ~42px reads as a break.
+     table-layout:fixed makes the col width the WHOLE box, so the column has to grow
+     by the same amount the padding does or the icon loses its room. The trailing
+     columns are anchored right, so this pushes Dynasty/ADP/Mine left rather than
+     moving the icons. !important only on the header — .fhdr/.plist-thead th set
+     padding with !important; the body cell takes it cleanly. */
+  #page-draft .plist-table col.col-fup{ width:63px; }
+  #page-draft .plist-table .fhdr#hdr-fup{ padding-left:24px!important; }
+  #page-draft .plist-table td.fcell.td-fup{ padding-left:24px; }
   #page-draft .plist-table col.col-status{ width:14%; }
   #page-draft .plist-thead{ background:var(--s2); }
   #page-draft .plist-thead th{ font-family:var(--font-mono)!important; font-size:9px!important; color:var(--muted)!important; text-transform:uppercase!important; letter-spacing:.12em!important; font-weight:600!important; padding:9px 4px!important; }
