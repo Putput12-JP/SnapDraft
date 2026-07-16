@@ -10325,20 +10325,16 @@ window.vaultAgeRisk = function(pos, age, dynasty){
   return 0;
 };
 
-/* ══════════════ 4-FACTOR DRAFT GRADES ENGINE ══════════════
-   Per-player Upside / Floor / Risk / Situational, each 0-10
-   (risk: higher = riskier). Composite = mean(up, fl, 11-rk, si).
-   Reuses paStatProfile (last-season PPG/boom/bust/floor/ceiling) +
-   ADP_LOOKUP (adp/age/exp/trend/posRank) + paMyNeeds + league settings.
+/* ══════════════ 4-FACTOR DRAFT GRADES — Draft Vault adapter ══════════════
+   The engine itself lives in ONE place: window.VaultGrades (search
+   "THE grade engine"). This file used to carry a second copy, and the two
+   drifted — different scoring tiers, a stubbed-out bonus, a mismatched risk
+   baseline, and a different percentile pool — so the same player graded
+   differently on My Rankings and the Draft Vault. This adapter now only
+   translates the live draft into league context and hands it to that engine.
    Skill positions only (QB/RB/WR/TE); K/DST have no nflverse data. */
 const DVF_POS = { QB:1, RB:1, WR:1, TE:1 };
 const DVF_SLOTS = { QB:1, RB:2, WR:2, TE:1, FLEX:2 };  // sensible default lineup
-function _dvPct(sorted, x){
-  if (!sorted.length || x == null) return 0.5;
-  let lo=0, hi=sorted.length;
-  while(lo<hi){ const m=(lo+hi)>>1; if(sorted[m]<x) lo=m+1; else hi=m; }
-  return sorted.length>1 ? lo/(sorted.length-1) : 0.5;
-}
 function _dvIsPPR(){
   try{
     const sc = (window._activeDraft && (window._activeDraft.scoring||(window._activeDraft.metadata&&window._activeDraft.metadata.scoring_type)))||'';
@@ -10346,149 +10342,50 @@ function _dvIsPPR(){
   }catch(e){}
   return 1; // default PPR
 }
-// positional stat pools + team-offense strength, memoised per stat-map build
-function _dvContext(){
-  const statMap = _paBuildStatMap();
-  if (!statMap) return null;
-  if (window._dvCtx && window._dvCtx._map === statMap) return window._dvCtx;
-  const pools = { QB:{ppg:[],ceil:[],floor:[]}, RB:{ppg:[],ceil:[],floor:[]}, WR:{ppg:[],ceil:[],floor:[]}, TE:{ppg:[],ceil:[],floor:[]} };
-  const teamOff = {};
-  for (const k in statMap){
-    const s = statMap[k]; if (!DVF_POS[s.pos]) continue;
-    // NB: _paBuildStatMap emits `ceiling`, not `ceil`. Reading s.ceil left every
-    // ceiling pool empty, so _dvPct fell back to its 0.5 default for everyone —
-    // silently flat-lining the ceiling term (34% of Upside) at a constant.
-    pools[s.pos].ppg.push(s.ppg); if(s.ceiling!=null)pools[s.pos].ceil.push(s.ceiling); if(s.floor!=null)pools[s.pos].floor.push(s.floor);
-    if (s.team){ (teamOff[s.team]=teamOff[s.team]||{list:[]}).list.push(s.ppg||0); }
-  }
-  for (const p in pools){ pools[p].ppg.sort((a,b)=>a-b); pools[p].ceil.sort((a,b)=>a-b); pools[p].floor.sort((a,b)=>a-b); }
-  const tr = Object.entries(teamOff);
-  tr.forEach(([t,o])=>{ o.list.sort((a,b)=>b-a); o.sum = o.list.slice(0,7).reduce((a,b)=>a+b,0); });
-  tr.sort((a,b)=>b[1].sum-a[1].sum);
-  tr.forEach(([t,o],i)=>{ o.rank=i+1; o.pct = 1 - i/((tr.length-1)||1); });
-  return (window._dvCtx = { _map:statMap, pools, teamOff, teamCount: tr.length });
+// The Draft Vault's league context: real scoring, superflex, and YOUR open
+// starter slots. Everything the shared engine needs to specialise Situational.
+function _dvGradeCtx(rosterNeed){
+  return {
+    dynasty: !!window._draftIsDynasty,
+    ppr: _dvIsPPR(),
+    teams: (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || 12,
+    slots: DVF_SLOTS,
+    superflex: !!window._draftIsSuperflex,
+    rosterNeed: (rosterNeed != null) ? rosterNeed : null,
+    why: true,           // the board renders these as hover tooltips
+  };
 }
 function dvComputeFactors(p, needOverride){
   const pos = p && p.pos;
   if (!DVF_POS[pos]) return null;
-  if (window.VaultDurability) VaultDurability.ensure();  // 3yr injury history (0 until loaded)
-  const ctx = _dvContext(); if (!ctx) return null;
-  const nm = normName(p.name);
-  const pr = paStatProfile(p.name);
-  const po = ctx.pools[pos];
-  const ad = ADP_LOOKUP[p.name] || ADP_LOOKUP[nm] || {};
-  const adp = ad.adp || (typeof getADP==='function' && getADP(p.name)) || 200;
-  const age = ad.age, yoe = ad.years_of_experience, trend = ad.trend30Day||0;
-  const posRank = ad.positionRank || 99;
-  const tOff = ad.team ? ctx.teamOff[ad.team] : (pr && pr.team ? ctx.teamOff[pr.team] : null);
-  const has = !!(pr && pr.games >= 3);
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const dyn = !!window._draftIsDynasty;
-
-  // UPSIDE
-  let upside;
-  if (has){
-    const boom01 = clamp((pr.boomPct||0)/55,0,1), ceilP=_dvPct(po.ceil,pr.ceiling), ppgP=_dvPct(po.ppg,pr.ppg);
-    let u = .46*boom01 + .34*ceilP + .20*ppgP;
-    if (dyn) u += clamp((25-(age!=null?age:27))*.03, -.06, .12);  // dynasty: multi-year runway
-    else if (yoe!=null && yoe<=2) u += .06;
-    if (trend > 40) u += .05;
-    upside = u*10;
-  } else upside = clamp(9.2 - Math.log2(Math.max(1,adp))*.95, 3, 9) + .4;
-
-  // FLOOR
-  let floor;
-  if (has){
-    const safe = 1 - clamp((pr.bustPct||0)/45,0,1), flP=_dvPct(po.floor,pr.floor), av=clamp(pr.games/17,0,1);
-    floor = (.40*safe + .40*flP + .20*av)*10;
-  } else floor = clamp(7.5 - Math.log2(Math.max(1,adp))*.9, 2, 6.5);
-
-  // RISK (higher = riskier)
-  let risk = 0;
-  if (has){
-    risk += clamp((17-pr.games)*.42,0,4);
-    risk += window.VaultDurability ? VaultDurability.priorRisk(p.name) : 0;  // games missed 2 seasons prior
-    risk += clamp((pr.bustPct||0)/15,0,3);
-    risk += vaultAgeRisk(pos, age, dyn);  // age curve (dynasty: earlier + steeper)
-    if (trend < -60) risk += 1.2;
-    risk += .6;
-  } else { risk = 5.2 - clamp((60-Math.min(60,adp))/60*1.6,0,1.6); if (yoe===0) risk += .6; }
-  risk = clamp(risk,0,10);
-
-  // SITUATIONAL (fit to your roster + league settings)
-  const ppr = _dvIsPPR();
-  const scoreFit = ppr>=1 ? ({WR:.86,TE:.80,RB:.66,QB:.50}[pos])
-                 : ppr>=0.5 ? ({WR:.78,TE:.73,RB:.72,QB:.51}[pos])
-                 : ({WR:.70,TE:.66,RB:.78,QB:.52}[pos]);
-  let recBonus = (ppr>=0.5 && has && pos==='RB' && (pr.ppg!=null)) ? 0 : 0; // reserved
-  const offPct = tOff ? tOff.pct : .5;
-  const teams = (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || 12;
-  const sf = !!window._draftIsSuperflex;
-  let demand = (DVF_SLOTS[pos]||0) + (['RB','WR','TE'].includes(pos) ? DVF_SLOTS.FLEX*0.34 : 0);
-  if (sf && pos==='QB') demand += 1;
-  const scarcity = clamp(1 - (posRank-1)/(demand*teams*1.35), .25, 1);
-  let rosterNeed = null;
-  if (needOverride != null) rosterNeed = needOverride;
-  else { try{ const n = paMyNeeds(); rosterNeed = n[pos]; }catch(e){} }
-  const need = (rosterNeed!=null) ? clamp(0.55*rosterNeed + 0.45*scarcity, 0, 1) : scarcity;
-  let sit = (dyn ? .40*scoreFit + .12*offPct + .48*need    // dynasty: this-season offense matters less
-                 : .34*scoreFit + .28*offPct + .38*need)*10;
-
-  upside=clamp(upside,0,10); floor=clamp(floor,0,10); sit=clamp(sit,0,10);
-  const composite = Math.round(((upside + floor + (11-risk) + sit)/4)*10)/10;
-
-  // ── Per-player "why" strings (hover tooltips on each grade cell) ──
-  // Plain-language read of the biggest drivers behind each number, straight
-  // from the same inputs the score used — so a hover explains THIS player.
-  const topPct = v => 'top ' + Math.max(1, Math.round((1 - v) * 100)) + '%';
-  const pprLabel = ppr >= 1 ? 'Full-PPR' : ppr >= 0.5 ? 'Half-PPR' : 'Standard scoring';
-  const why = {};
-  if (has){
-    // Percentile clauses only when the pool actually has that stat (else _dvPct
-    // returns a meaningless 0.5 default — don't surface it as a real read).
-    const ceilTxt = (po.ceil.length && pr.ceiling != null) ? `${topPct(_dvPct(po.ceil, pr.ceiling))} weekly ceiling vs ${pos}s` : null;
-    const flTxt   = (po.floor.length && pr.floor  != null) ? `${topPct(_dvPct(po.floor, pr.floor))} weekly floor vs ${pos}s` : null;
-    why.upside = `Upside ${Math.round(upside)}/10 — ceiling & boom potential. `
-      + [pr.boomPct!=null ? `${Math.round(pr.boomPct)}% boom weeks` : null, ceilTxt].filter(Boolean).join(', ')
-      + (dyn && age!=null && age<=24 ? `; young (age ${age}) adds multi-year runway` : '')
-      + (trend > 40 ? '; rising fast in drafts' : '') + '.';
-    why.floor = `Floor ${Math.round(floor)}/10 — week-to-week safety. `
-      + [pr.bustPct!=null ? `${Math.round(pr.bustPct)}% bust weeks` : null, flTxt,
-         `${pr.games}/17 games played`].filter(Boolean).join(', ') + '.';
-    const riskBits = [];
-    const missed = Math.max(0, 17 - pr.games);
-    if (missed > 0) riskBits.push(`missed ${missed} game${missed===1?'':'s'} last season`);
-    if (window.VaultDurability && VaultDurability.priorRisk(p.name) > 0.4) riskBits.push('injury history in prior seasons');
-    if (age != null && vaultAgeRisk(pos, age, dyn) > 0.5) riskBits.push(`age ${age} ${pos} on the ${dyn?'dynasty ':''}decline curve`);
-    if ((pr.bustPct||0) >= 25) riskBits.push('high bust rate');
-    if (trend < -60) riskBits.push('falling in drafts');
-    why.risk = `Risk ${Math.round(risk)}/10 — higher = riskier. `
-      + (riskBits.length ? riskBits.join(', ') + '.' : 'No major injury, age, or bust flags.');
-  } else {
-    const est = `estimated from draft position (ADP ~${Math.round(adp)}) — no recent stats yet`;
-    why.upside = `Upside ${Math.round(upside)}/10 — ${est}.`;
-    why.floor  = `Floor ${Math.round(floor)}/10 — ${est}.`;
-    why.risk   = `Risk ${Math.round(risk)}/10 — higher = riskier. Limited track record${yoe===0?' (rookie)':''}; graded from ADP.`;
+  if (window.VaultDurability) VaultDurability.ensure();   // 3yr injury history (0 until loaded)
+  if (!window.VaultGrades || !VaultGrades.ready()){
+    try{ window.VaultGrades && VaultGrades.ensure(); }catch(e){}
+    return null;                                          // grades fill in once stats land
   }
-  const needTxt = rosterNeed != null
-    ? (rosterNeed >= 0.66 ? 'fills a clear need on your roster'
-       : rosterNeed >= 0.4 ? 'a moderate fit for your roster'
-       : "you're already deep here")
-    : (scarcity >= 0.66 ? 'scarce at this position' : 'plenty of depth at the position');
-  why.situational = `Situational ${Math.round(sit)}/10 — fit to your league & roster. `
-    + `${pprLabel} favors ${pos}`
-    + (tOff && tOff.rank ? `, #${tOff.rank} team offense` : '')
-    + `, ${needTxt}`
-    + (sf && pos === 'QB' ? '; superflex lifts QB value' : '') + '.';
-
-  return { upside:Math.round(upside), floor:Math.round(floor), risk:Math.round(risk),
-           situational:Math.round(sit), composite, hasData:has, teamOffRank: tOff?tOff.rank:null, why };
+  let rosterNeed = needOverride;
+  if (rosterNeed == null){ try{ const n = paMyNeeds(); rosterNeed = n[pos]; }catch(e){} }
+  // factorsFor fills market rank/age from the universe. Pass r0 as a fallback
+  // for the rare player who has no FantasyCalc value and so isn't in it —
+  // without a hint he'd default to rank 999 and grade as a deep-bench flyer.
+  return VaultGrades.factorsFor({ name:p.name, pos:pos, ovrRank:p.r0 || undefined }, _dvGradeCtx(rosterNeed));
 }
 // Build/refresh the per-player factor index used by the Draft Vault board.
 // Cheap enough to rebuild each render (situational tracks your live roster).
 function dvBuildFactors(){
   window._dvFactors = {};
-  if (typeof PLAYERS==='undefined' || !Array.isArray(PLAYERS) || !_dvContext()) return window._dvFactors;
+  if (typeof PLAYERS==='undefined' || !Array.isArray(PLAYERS)) return window._dvFactors;
+  if (!window.VaultGrades || !VaultGrades.ready()){
+    // Stats not in yet — warm them and repaint once, so grades appear without
+    // a manual refresh (the board renders "–" until then).
+    try{
+      if (window.VaultGrades && !window._dvGradeWarm){
+        window._dvGradeWarm = true;
+        VaultGrades.onReady(() => { try{ renderList(); }catch(e){} try{ renderBoard(); }catch(e){} try{ dvUpdateGradeCard(); }catch(e){} });
+      }
+    }catch(e){}
+    return window._dvFactors;
+  }
   let need = null; try{ need = paMyNeeds(); }catch(e){}
   PLAYERS.forEach(p=>{
     if (!DVF_POS[p.pos]) return;
@@ -21348,11 +21245,22 @@ function pickYear(year) {
              games: ssn.games || wk.length, floor: q(0.2), ceil: q(0.85), tgt: ssn.avg_tgt || 0 };
   }
 
-  /* p: {name,pos,team,age,ovrRank,posRank}  ovrRank = market overall rank (ADP proxy) */
+  /* ── THE grade engine. One implementation, both surfaces. ──────────
+     p:   {name,pos,team,age,ovrRank,posRank}  ovrRank = market overall rank
+     ctx: { dynasty, ppr (0 | 0.5 | 1), teams, slots, superflex,
+            rosterNeed (0-1 | null), why }
+     Everything league- or roster-specific arrives through ctx, so the Draft
+     Vault (roster-aware, real scoring) and My Rankings (format-level) can share
+     one formula instead of two copies that silently drift apart.
+     Upside/Floor/Risk are intrinsic — ctx only steers Situational (plus the
+     dynasty age curve), so the same player grades the same everywhere. */
   function computeFactors(p, pr, pool, tOff, ctx) {
     const pos = p.pos, po = pool[pos];
     const hasData = !!pr;
     const dyn = !!ctx.dynasty;
+    // ppr is a NUMBER: 1 full / 0.5 half / 0 standard. Legacy callers passing
+    // `true` still coerce to full-PPR, `false` to standard.
+    const ppr = +ctx.ppr || 0;
     const trend30 = (typeof getPlayerTrend === 'function' ? Math.round(getPlayerTrend(p.name) || 0) : 0);
 
     // ---------- UPSIDE (ceiling / breakout) ----------
@@ -21389,54 +21297,172 @@ function pickYear(year) {
       risk += 0.6;                                                       // baseline uncertainty
     } else {
       risk = 5.2 - clamp((60 - Math.min(60, p.ovrRank)) / 60 * 1.6, 0, 1.6);
-      risk += 0.6;
+      risk += 0.6;   // same baseline uncertainty the has-data branch adds — it
+                     // applies to everyone, and a player with no recent tape is
+                     // strictly less certain, not more. (The Draft Vault copy
+                     // used to charge this only to rookies, which made a veteran
+                     // with no recent stats look SAFER than a rookie.)
     }
     risk = clamp(risk, 0, 10);
 
-    // ---------- SITUATIONAL (scoring fit + offense quality + positional scarcity) ----------
-    const scoreFit = ctx.ppr
-      ? ({ WR: 0.86, TE: 0.80, RB: 0.66, QB: 0.50 })[pos]
-      : ({ WR: 0.70, TE: 0.66, RB: 0.78, QB: 0.52 })[pos];
+    // ---------- SITUATIONAL (scoring fit + offense quality + scarcity + your need) ----------
+    // Half-PPR is its own tier — it is not "basically PPR", and rounding it to
+    // one moved RB/WR fit by ~0.1 of the whole factor.
+    const scoreFit = (ppr >= 1   ? { WR: 0.86, TE: 0.80, RB: 0.66, QB: 0.50 }
+                    : ppr >= 0.5 ? { WR: 0.78, TE: 0.73, RB: 0.72, QB: 0.51 }
+                                 : { WR: 0.70, TE: 0.66, RB: 0.78, QB: 0.52 })[pos];
+    // Pass-catching RBs gain real value once receptions score.
     let recBonus = 0;
-    if (ctx.ppr && hasData && pos === 'RB' && pr.tgt >= 3) recBonus = clamp((pr.tgt - 3) / 6, 0, 1) * 0.14;
+    if (ppr >= 0.5 && hasData && pos === 'RB' && pr.tgt >= 3) recBonus = clamp((pr.tgt - 3) / 6, 0, 1) * 0.14;
     const offPct = tOff ? tOff.pct : 0.5;
-    const demand = (ctx.slots[pos] || 0) + (['RB', 'WR', 'TE'].includes(pos) ? ctx.slots.FLEX * 0.34 : 0);
+    let demand = (ctx.slots[pos] || 0) + (['RB', 'WR', 'TE'].includes(pos) ? ctx.slots.FLEX * 0.34 : 0);
+    if (ctx.superflex && pos === 'QB') demand += 1;      // SF starts a second QB
     const startersLeague = demand * ctx.teams;
-    const need = clamp(1 - ((p.posRank || 1) - 1) / (startersLeague * 1.35), 0.25, 1);
+    const scarcity = clamp(1 - ((p.posRank || 1) - 1) / (startersLeague * 1.35), 0.25, 1);
+    // With a live roster (Draft Vault) blend YOUR open slots with market
+    // scarcity; without one (My Rankings) scarcity alone is the honest answer.
+    const need = (ctx.rosterNeed != null)
+      ? clamp(0.55 * ctx.rosterNeed + 0.45 * scarcity, 0, 1)
+      : scarcity;
     let sit = (dyn
       ? 0.40 * scoreFit + 0.12 * offPct + 0.48 * need   // dynasty: this-season offense matters less
       : 0.34 * scoreFit + 0.28 * offPct + 0.38 * need) * 10 + recBonus * 10;
 
     upside = clamp(upside, 0, 10); floor = clamp(floor, 0, 10); sit = clamp(sit, 0, 10);
     const composite = (upside + floor + (11 - risk) + sit) / 4;
-    return { upside: Math.round(upside), floor: Math.round(floor), risk: Math.round(risk),
-             situational: Math.round(sit), composite: Math.round(composite * 10) / 10 };
+    const out = { upside: Math.round(upside), floor: Math.round(floor), risk: Math.round(risk),
+                  situational: Math.round(sit), composite: Math.round(composite * 10) / 10,
+                  hasData, teamOffRank: tOff ? tOff.rank : null };
+    if (ctx.why) out.why = buildWhy(p, pr, po, ctx, { upside, floor, risk, sit, ppr, tOff, dyn, scarcity, hasData, trend30 });
+    return out;
   }
 
-  /* Batch: players [{name,pos,team,age,ovrRank,posRank}] → Map(normName → factors) */
-  function gradesFor(players, ctx) {
-    if (!_data) return null;
-    ctx = Object.assign({ teams: 12, ppr: true, slots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 }, dynasty: false }, ctx || {});
+  /* Plain-language read of what drove each number, from the same inputs the
+     score used. Opt-in via ctx.why — only the Draft Vault renders tooltips, and
+     building four strings per player per board render isn't free. */
+  function buildWhy(p, pr, po, ctx, m) {
+    const pos = p.pos, why = {};
+    const topPct = v => 'top ' + Math.max(1, Math.round((1 - v) * 100)) + '%';
+    const pprLabel = m.ppr >= 1 ? 'Full-PPR' : m.ppr >= 0.5 ? 'Half-PPR' : 'Standard scoring';
+    if (m.hasData) {
+      // Only claim a percentile when the pool actually carries that stat.
+      const ceilTxt = (po.ceil.length && pr.ceil != null) ? `${topPct(pctRank(po.ceil, pr.ceil))} weekly ceiling vs ${pos}s` : null;
+      const flTxt   = (po.floor.length && pr.floor != null) ? `${topPct(pctRank(po.floor, pr.floor))} weekly floor vs ${pos}s` : null;
+      why.upside = `Upside ${Math.round(m.upside)}/10 — ceiling & boom potential. `
+        + [pr.boom != null ? `${Math.round(pr.boom)}% boom weeks` : null, ceilTxt].filter(Boolean).join(', ')
+        + (m.dyn && p.age != null && p.age <= 24 ? `; young (age ${p.age}) adds multi-year runway` : '')
+        + (m.trend30 > 40 ? '; rising fast in drafts' : '') + '.';
+      why.floor = `Floor ${Math.round(m.floor)}/10 — week-to-week safety. `
+        + [pr.bust != null ? `${Math.round(pr.bust)}% bust weeks` : null, flTxt,
+           `${pr.games}/17 games played`].filter(Boolean).join(', ') + '.';
+      const bits = [];
+      const missed = Math.max(0, 17 - pr.games);
+      if (missed > 0) bits.push(`missed ${missed} game${missed === 1 ? '' : 's'} last season`);
+      if (window.VaultDurability && VaultDurability.priorRisk(p.name) > 0.4) bits.push('injury history in prior seasons');
+      if (p.age != null && vaultAgeRisk(pos, p.age, m.dyn) > 0.5) bits.push(`age ${p.age} ${pos} on the ${m.dyn ? 'dynasty ' : ''}decline curve`);
+      if ((pr.bust || 0) >= 25) bits.push('high bust rate');
+      if (m.trend30 < -60) bits.push('falling in drafts');
+      why.risk = `Risk ${Math.round(m.risk)}/10 — higher = riskier. `
+        + (bits.length ? bits.join(', ') + '.' : 'No major injury, age, or bust flags.');
+    } else {
+      const est = `estimated from market rank (~#${Math.round(p.ovrRank || 0)}) — no recent stats yet`;
+      why.upside = `Upside ${Math.round(m.upside)}/10 — ${est}.`;
+      why.floor  = `Floor ${Math.round(m.floor)}/10 — ${est}.`;
+      why.risk   = `Risk ${Math.round(m.risk)}/10 — higher = riskier. Limited track record; graded from market rank.`;
+    }
+    const needTxt = ctx.rosterNeed != null
+      ? (ctx.rosterNeed >= 0.66 ? 'fills a clear need on your roster'
+         : ctx.rosterNeed >= 0.4 ? 'a moderate fit for your roster'
+         : "you're already deep here")
+      : (m.scarcity >= 0.66 ? 'scarce at this position' : 'plenty of depth at the position');
+    why.situational = `Situational ${Math.round(m.sit)}/10 — fit to your league & roster. `
+      + `${pprLabel} favors ${pos}`
+      + (m.tOff && m.tOff.rank ? `, #${m.tOff.rank} team offense` : '')
+      + `, ${needTxt}`
+      + (ctx.superflex && pos === 'QB' ? '; superflex lifts QB value' : '') + '.';
+    return why;
+  }
+
+  const DEFAULT_CTX = { teams: 12, ppr: 1, slots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 },
+                        dynasty: false, superflex: false, rosterNeed: null, why: false };
+
+  /* ── The single grading pool ───────────────────────────────────────
+     Percentiles are measured against the DRAFTABLE market — every player
+     FantasyCalc prices in this format — never against "anyone who took a snap".
+     A grade is a comparison, and the comparison a drafter needs is against the
+     players they could actually take. The old all-stats pool padded each
+     position with undraftable depth, and unevenly: it roughly doubled the WR
+     pool but nearly tripled TE, so it inflated replacement-level tight ends
+     against replacement-level quarterbacks and corrupted every cross-position
+     read (team grade, suggestions).
+     Deliberately league-INDEPENDENT: Upside/Floor/Risk are intrinsic traits, so
+     the same player must not grade differently in two of your leagues. Only
+     Situational takes league context, via ctx.
+     Keyed on the universe array's identity — MyRankings hands back a cached
+     array and invalidates it with the board, so this rebuilds only on real
+     market moves rather than once per player. */
+  const _poolCache = { dynasty: null, redraft: null };   // per format: the Draft
+  // Vault can sit in dynasty while My Rankings shows redraft, and a single slot
+  // would thrash between them.
+  function poolFor(dynasty) {
+    const f = dynasty ? 'dynasty' : 'redraft';
+    let uni = null;
+    try { if (window.MyRankings && MyRankings.marketUniverse) uni = MyRankings.marketUniverse(f); } catch (e) {}
+    if (!uni || !uni.length) return null;
+    if (_poolCache[f] && _poolCache[f].uni === uni) return _poolCache[f];
     const pool = { QB: { ppg: [], ceil: [], floor: [] }, RB: { ppg: [], ceil: [], floor: [] },
                    WR: { ppg: [], ceil: [], floor: [] }, TE: { ppg: [], ceil: [], floor: [] } };
-    const profs = new Map();
-    players.forEach(p => {
+    const profs = new Map(), meta = new Map();
+    uni.forEach(p => {
       if (!pool[p.pos]) return;
+      meta.set(_norm(p.name), p);
       const pr = profileFor(p.name);
       profs.set(_norm(p.name), pr);
       if (pr) { pool[p.pos].ppg.push(pr.ppg); if (pr.ceil != null) pool[p.pos].ceil.push(pr.ceil); if (pr.floor != null) pool[p.pos].floor.push(pr.floor); }
     });
     Object.values(pool).forEach(o => { o.ppg.sort((a, b) => a - b); o.ceil.sort((a, b) => a - b); o.floor.sort((a, b) => a - b); });
+    return (_poolCache[f] = { uni, pool, profs, meta });
+  }
+
+  /* One player → factors. `p` may carry only {name,pos}; market rank/age are
+     filled from the universe so every caller grades off the same inputs. */
+  function factorsFor(p, ctx) {
+    if (!_data || !p || !p.pos) return null;
+    ctx = Object.assign({}, DEFAULT_CTX, ctx || {});
+    const pc = poolFor(ctx.dynasty);
+    if (!pc || !pc.pool[p.pos]) return null;
+    const key = _norm(p.name);
+    const m = pc.meta.get(key);
+    // The universe's MARKET rank wins. A caller's ovrRank/posRank is only a
+    // fallback for someone the market doesn't price — otherwise a caller passing
+    // its own rank (the Draft Vault sends r0, the active source rank) would grade
+    // no-data players off a different yardstick than My Rankings, reintroducing
+    // the exact split this refactor removes.
+    const full = { name: p.name, pos: p.pos, team: p.team || (m && m.team), age: (p.age != null ? p.age : (m && m.age)),
+                   ovrRank: (m && m.ovrRank) || p.ovrRank || 999, posRank: (m && m.posRank) || p.posRank || 99 };
+    const pr = pc.profs.has(key) ? pc.profs.get(key) : profileFor(p.name);
+    return computeFactors(full, pr, pc.pool, _data.teamOff[full.team], ctx);
+  }
+
+  /* Batch: players [{name,pos,...}] → Map(normName → factors).
+     NB: `players` is what gets GRADED; the pool is always the market universe,
+     so passing a subset can never change anyone's grade. */
+  function gradesFor(players, ctx) {
+    if (!_data) return null;
+    ctx = Object.assign({}, DEFAULT_CTX, ctx || {});
+    const pc = poolFor(ctx.dynasty);
+    if (!pc) return null;
     const out = new Map();
     players.forEach(p => {
-      if (!pool[p.pos]) return;
-      out.set(_norm(p.name), computeFactors(p, profs.get(_norm(p.name)), pool, _data.teamOff[p.team], ctx));
+      if (!pc.pool[p.pos]) return;
+      const f = factorsFor(p, ctx);
+      if (f) out.set(_norm(p.name), f);
     });
     return out;
   }
 
   window.VaultGrades = {
-    ensure, gradesFor,
+    ensure, gradesFor, factorsFor,
     ready: () => !!_data,
     onReady(f) { if (_data) { try { f(); } catch (e) {} } else { _subs.push(f); ensure(); } }
   };
@@ -21748,16 +21774,38 @@ function pickYear(year) {
   //  PUBLIC API (Draft Vault column + global "Mine" source)
   // ════════════════════════════════════════════════════════════════
   const _cache = { dynasty:null, redraft:null };
-  function invalidate(){ _cache.dynasty=null; _cache.redraft=null; }
+  const _uniCache = { dynasty:null, redraft:null };
+  function invalidate(){ _cache.dynasty=null; _cache.redraft=null; _uniCache.dynasty=null; _uniCache.redraft=null; }
   function boardFor(f){
     const save_=format; format=f;
     const r = computeBoard(); format=save_;
     const m = new Map(); r.forEach(x=>m.set(norm(x.name), x));
     return { rows:r, map:m };
   }
+  // ── The draftable-market universe (single grading pool) ────────────
+  // Every player FantasyCalc prices in this format — i.e. the players you could
+  // actually draft. Built from `baseline` (the market board) and ordered by
+  // fcRank, NOT from the user's `rows`: pins reorder your board, and a grade
+  // must never move because you dragged someone. Membership is identical either
+  // way, but sourcing it here makes that guarantee structural rather than
+  // dependent on each caller remembering to sort by fcRank.
+  // Cached and invalidated with the board, so VaultGrades can pool off array
+  // identity instead of rebuilding per player.
+  function marketUniverse(f){
+    f = (f === 'redraft') ? 'redraft' : 'dynasty';
+    if (!_booted) init();
+    maybeRebuild();
+    if (_uniCache[f]) return _uniCache[f];
+    const pc = {};
+    return (_uniCache[f] = [...(baseline[f] || [])]
+      .sort((a, b) => (a.fcRank || 9e9) - (b.fcRank || 9e9))
+      .map(p => ({ name:p.name, pos:p.pos, team:p.team, age:p.age,
+                   ovrRank: p.fcRank, posRank: (pc[p.pos] = (pc[p.pos] || 0) + 1) })));
+  }
   window.MyRankings = {
     init: init,
     render: render,
+    marketUniverse: marketUniverse,   // the single grading pool (see VaultGrades)
     isCustomized: () => customCount()>0,
     // for Draft Vault MINE column (dynasty context)
     getRankInfo(name, f){
@@ -22145,15 +22193,14 @@ function pickYear(year) {
     ensureManualBreaks(rows);
     invalidate();
 
-    // Grade Keys 4-factor map; market pos rank feeds the scarcity term
+    // Grade Keys 4-factor map. Market rank + the grading pool both come from
+    // marketUniverse inside the engine now, so we only say WHO to grade — no
+    // roster context here, so Situational reads pure positional scarcity.
     _gk = null;
     try {
       if (window.VaultGrades && VaultGrades.ready()) {
-        const pc = {};
-        const mkt = [...rows].sort((a,b)=>(a.fcRank||9e9)-(b.fcRank||9e9))
-          .map(r => ({ name:r.name, pos:r.pos, team:r.team, age:r.age,
-                       ovrRank:r.fcRank||r.myRank, posRank:(pc[r.pos]=(pc[r.pos]||0)+1) }));
-        _gk = VaultGrades.gradesFor(mkt, { dynasty: format === 'dynasty' });
+        _gk = VaultGrades.gradesFor(rows.map(r => ({ name:r.name, pos:r.pos })),
+                                    { dynasty: format === 'dynasty' });
       } else if (window.VaultGrades) VaultGrades.ensure();
     } catch(e){}
 
