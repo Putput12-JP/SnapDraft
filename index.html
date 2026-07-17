@@ -10625,7 +10625,12 @@ function paGetPickAssist(){
   const oppNeeds = paOppNeedCounts(cur, horizon);
   const horizonSlot = paSlotLabel(horizon);
 
-  const avail = PLAYERS.filter(p => paIsAvail(p) && !(window._hidePicks && p.pos==='PICK'))
+  // Only suggest positions the connected league actually starts. K / team DEF /
+  // IDP rank near the tail of the board, so at late picks they look like huge
+  // "value" and float to the top of the suggestions even in leagues that don't
+  // roster them. One rule, shared with the ADP tool + Draft Vault list.
+  const _posOK = (typeof window.vaultLeaguePosFilter === 'function') ? window.vaultLeaguePosFilter() : (() => true);
+  const avail = PLAYERS.filter(p => paIsAvail(p) && (p.pos==='PICK' ? !window._hidePicks : _posOK(p.pos)))
     .sort((a,b)=>getRankByMode(a,suggestMode)-getRankByMode(b,suggestMode))
     .slice(0, 40);
 
@@ -10652,13 +10657,18 @@ function paGetPickAssist(){
 
     const need = needs[p.pos] || 0;
 
-    let score = Math.max(-25, Math.min(25, value));
-    score += goneProb * 18;
-    if (tierDepleted && leftInTier===1 && tierNum<=5) score += 14;
-    else if (tierDepleted && leftInTier===2 && tierNum<=5) score += 6;
-    score += need * 14;
-    if (tierDepleted && cliffDrop>=12 && leftInTier<=2) score += Math.min(10, cliffDrop*0.5);
-    if (rank > myPick + 14) score -= (rank - myPick - 14);   // reaches sink
+    // ── Rankings- & grade-led weighting ──────────────────────────────
+    // Your board position (value = where he ranks vs this slot) and his grade
+    // are the dominant terms; live-draft context (urgency / tier runs / need)
+    // is halved so it only breaks ties between similarly-ranked, similarly-
+    // graded players instead of pulling a lesser board guy to the top.
+    let score = Math.max(-34, Math.min(34, value * 1.15));  // rankings: wider band, top of board no longer flattened
+    score += goneProb * 9;                                  // urgency (was 18)
+    if (tierDepleted && leftInTier===1 && tierNum<=5) score += 8;   // (was 14)
+    else if (tierDepleted && leftInTier===2 && tierNum<=5) score += 4;  // (was 6)
+    score += need * 9;                                      // roster need (was 14)
+    if (tierDepleted && cliffDrop>=12 && leftInTier<=2) score += Math.min(6, cliffDrop*0.3);  // (was 10 / *0.5)
+    if (rank > myPick + 14) score -= (rank - myPick - 14) * 1.4;   // reaches sink harder — stay on-board
     // ── the tool's 4-factor math now drives suggestion quality ──
     // Composite (Upside/Floor/Risk/Situational, situational already folds in your
     // roster need + scoring) is the dominant quality signal; availability/value/
@@ -10667,11 +10677,11 @@ function paGetPickAssist(){
     const _fSug = (typeof dvComputeFactors==='function') ? dvComputeFactors(p, need) : null;
     let _prof = null;
     if (_fSug){
-      score += (_fSug.composite - 5.5) * 5;   // elite ~+22, replacement ~-12
+      score += (_fSug.composite - 5.5) * 9;   // grades lead: elite ~+40, replacement ~-22 (was *5)
       try{ _prof = paStatProfile(p.name); }catch(e){}
     } else {
       const q = paQualityAdjust(p, need);
-      score += q.delta; _prof = q.prof;
+      score += q.delta * 1.6; _prof = q.prof;
     }
 
     const gonePct = Math.round(goneProb*100);
