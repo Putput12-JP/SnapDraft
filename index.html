@@ -919,6 +919,15 @@ header{
 .board-cell.me{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .board-cell.empty{background:transparent;border-style:dashed;border-left-color:var(--border);justify-content:center;align-items:center;cursor:default;opacity:.55}
 .board-cell.traded{border-left-style:dashed;border-left-color:var(--te)}
+/* Pick-landing: a just-drafted cell settles in with a brief position-colored
+   ring flash — a discrete "it's in" beat, no bounce (Vault stays precise).
+   Auto-neutralized under prefers-reduced-motion by the global rule. */
+@keyframes bcLand{from{opacity:0;transform:translateY(-6px) scale(.965)}to{opacity:1;transform:none}}
+@keyframes bcLandRing{from{opacity:.85}to{opacity:0}}
+.board-cell.filled.just-picked{animation:bcLand 240ms var(--ease-out) both}
+.board-cell.filled.just-picked::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1.5px var(--pc,var(--accent));animation:bcLandRing 900ms var(--ease-out) both}
+.bm-card.just-picked{position:relative;animation:bcLand 240ms var(--ease-out) both}
+.bm-card.just-picked::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1.5px var(--pc,var(--accent));animation:bcLandRing 900ms var(--ease-out) both}
 .bc-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .bc-posrk{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--pc,var(--muted))}
 .bc-pick{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
@@ -9273,6 +9282,18 @@ async function syncSleeper() {
     buildADPFromDraft();
     setSyncStatus('live');
   lastPickTime = Date.now();
+    // ── Pick-landing: flag picks that arrived since the last poll so the board
+    // animates them in (renderBoard → .board-cell.just-picked). Skipped on the
+    // first sync so an already-in-progress board doesn't pop every cell at once. ──
+    const _maxPick = picks.reduce((m,p)=>Math.max(m, p.pick_no||0), 0);
+    if (window._bdLastMaxPick !== undefined && _maxPick > window._bdLastMaxPick) {
+      const _jp = {};
+      picks.forEach(pk=>{ if ((pk.pick_no||0) > window._bdLastMaxPick && pk.draft_slot) _jp[`${pk.draft_slot-1}-${pk.round}`] = true; });
+      window._bdJustPicked = _jp;
+    } else {
+      window._bdJustPicked = null;
+    }
+    window._bdLastMaxPick = _maxPick;
     // Re-evaluate poll cadence now that we know this draft's pick clock
     scheduleSync();
     renderAll();
@@ -14183,8 +14204,9 @@ function renderBoard(){
         const isTraded=pk.ownerIdx!==origTeamIdx;
         const pkC=POSCOL[pk.pos]||'var(--border2)';
         const pkSn=pk.name.replace(/'/g,"\\'");
+        const justCls=(window._bdJustPicked && window._bdJustPicked[key])?' just-picked':'';
         rows+=`<td style="${tdBase};background:${isMyCol?'#5b8dee0d':''}">
-          <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${pk.name.replace(/"/g,'&quot;')}${isTraded?' · traded to '+(TEAMS[pk.ownerIdx]||'').replace(/"/g,'&quot;'):''}">
+          <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}${justCls}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${pk.name.replace(/"/g,'&quot;')}${isTraded?' · traded to '+(TEAMS[pk.ownerIdx]||'').replace(/"/g,'&quot;'):''}">
             <div class="bc-top"><span class="bc-posrk">${pk.pos}</span><span class="bc-topr"><span class="bc-pick">#${pk.r0||'—'}</span>${pk.g?`<span class="bc-grade" data-tip="${dvPickWhy(pk.g,pk.name,_dvPickStr(pk.pickNo,NUM_TEAMS)).replace(/"/g,'&quot;')}" style="color:${pk.g.color}">${pk.g.letter}</span>`:''}</span></div>
             <div class="bc-body">
               <div class="bc-txt">
@@ -14216,6 +14238,9 @@ function renderBoard(){
 
   
   renderBoardMobile(pickLookup, manualByTeam);
+  // Consume the pick-landing flag — the class is now in the DOM (animation
+  // playing); clearing it keeps the next poll's re-render from re-triggering.
+  window._bdJustPicked = null;
 }
 
 function renderBoardMobile(pickLookup, manualByTeam) {
@@ -14239,7 +14264,8 @@ function renderBoardMobile(pickLookup, manualByTeam) {
         const hsHtml = hsUrl
           ? `<img class="bm-img" src="${hsUrl}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : '';
-        roundPicks.push(`<div class="bm-card ${isMyCol?'me-card':''}">
+        const justClsM=(window._bdJustPicked && window._bdJustPicked[key])?' just-picked':'';
+        roundPicks.push(`<div class="bm-card ${isMyCol?'me-card':''}${justClsM}" style="--pc:var(--${(pk.pos||'').toLowerCase()})">
           ${hsHtml}
           <div class="bm-slot">${slotLabel}</div>
           <span class="bm-pill ${pk.pos}">${pk.pos}</span>
