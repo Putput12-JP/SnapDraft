@@ -34426,6 +34426,35 @@ else { _ssInjectPage();_ssInjectNav(); }
 /* ── autocomplete ── */
 .rh-scope .rh-ac{ border-radius:10px!important; }
 .rh-scope .rh-ac-av{ border-radius:8px!important; }
+
+/* ════ FUNCTIONAL FIXES (latent base bugs surfaced on the Compare page) ════
+   1) The head-to-head header avatars (.rh-cmp-ph-av) were position:static, so
+      their absolutely-positioned .rh-ini (inset:0) escaped to the .rh-cmp
+      container and stretched into a ~1160×1247 invisible layer covering the
+      slot cards, the "Add player" search, and the Clear-all button — killing
+      every click in that region. Containing the avatar fixes it.
+   2) The compare <img>s had no size/object-fit rule (the base rule only lists
+      .rh-av/.rh-ac-av/.rh-head-av), so photos rendered as un-cropped slivers. */
+.rh-scope .rh-cmp-av,
+.rh-scope .rh-cmp-ph-av{ position:relative!important; }
+.rh-scope .rh-cmp-av img,
+.rh-scope .rh-cmp-ph-av img{
+  position:absolute!important; inset:0!important; width:100%!important; height:100%!important;
+  object-fit:cover!important; object-position:top center!important; z-index:2!important;
+}
+/* the initials are decorative — never let them intercept pointer events */
+.rh-scope .rh-ini{ pointer-events:none!important; }
+
+/* ── bigger, clearer player cards (per request) ── */
+@media(min-width:761px){
+  .rh-scope .rh-cmp-slot{ min-height:104px!important; padding:18px 20px!important; gap:16px!important; }
+  .rh-scope .rh-cmp-av{ width:64px!important; height:64px!important; border-radius:12px!important; }
+  .rh-scope .rh-cmp-sname{ font-size:17px!important; }
+  .rh-scope .rh-cmp-smeta{ font-size:11.5px!important; }
+  .rh-scope .rh-cmp-spts{ font-size:26px!important; }
+  .rh-scope .rh-cmp-ph-av{ width:44px!important; height:44px!important; border-radius:11px!important; }
+  .rh-scope .rh-cmp-ph-name{ font-size:15px!important; }
+}
 </style>
 </body>
 </html>
