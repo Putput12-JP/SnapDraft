@@ -34349,5 +34349,83 @@ else { _ssInjectPage();_ssInjectNav(); }
 
 }/* /min-width:701px */
 </style>
+<style id="rh-shadcn-restyle">
+/* ════ ADVANCED STATS · shadcn-structure restyle (Vault onyx tokens) ════
+   Same language as the Draft Vault layer: quiet 1px borders, pill tab
+   segments with a flat steel active, joined/tinted position toggles,
+   mono-uppercase micro labels, calmer table chrome, steel focus rings.
+   Skin-level only (colors/radii/borders), so it applies at all widths.
+   The page's own CSS is runtime-injected into <head> (#rh-vault-styles);
+   this block sits later in document order, with !important on props the
+   injected rules already set. */
+
+/* ── page head: no rule line, quieter sub ── */
+.rh-scope .rh-rule{ display:none!important; }
+.rh-scope .rh-sub{ font-size:12.5px; color:var(--muted); }
+.rh-scope .rh-head{ margin-bottom:16px!important; }
+
+/* ── Data/Compare mode seg: pill tabs, flat steel active ── */
+.rh-scope .rh-modeseg{ background:var(--s2)!important; border:1px solid var(--border)!important; border-radius:9px!important; padding:3px!important; gap:2px!important; }
+.rh-scope .rh-modeseg button{ border-radius:6px!important; padding:6px 14px!important; font-size:12.5px!important; }
+.rh-scope .rh-modeseg button.on{ background:var(--accent)!important; color:#fff!important; box-shadow:0 1px 3px rgba(0,0,0,.4)!important; }
+
+/* ── filters: quiet row instead of a bordered card ── */
+.rh-scope .rh-filters{ background:transparent!important; border:none!important; border-radius:0!important; padding:2px 0!important; gap:18px!important; margin-bottom:12px!important; }
+.rh-scope .rh-flabel{ font-family:var(--font-mono)!important; font-size:9.5px!important; font-weight:700!important; letter-spacing:.1em!important; text-transform:uppercase!important; color:var(--muted)!important; }
+.rh-scope .rh-seg{ background:var(--s2)!important; border:1px solid var(--border)!important; border-radius:9px!important; padding:3px!important; gap:2px!important; }
+.rh-scope .rh-segbtn{ border-radius:6px!important; padding:5px 14px!important; font-size:12.5px!important; font-weight:600!important; }
+.rh-scope .rh-segbtn.on{ background:var(--accent)!important; color:#fff!important; box-shadow:0 1px 3px rgba(0,0,0,.4)!important; }
+.rh-scope .rh-seg.pos .rh-segbtn.on{ background:var(--s4)!important; color:var(--pc)!important; box-shadow:none!important; }
+
+/* ── search / ask / tools: 1px borders, steel focus ring ── */
+.rh-scope .rh-search, .rh-scope .rh-cmp-search, .rh-scope .rh-ask-bar{
+  background:var(--s2)!important; border:1px solid var(--border2)!important; border-radius:8px!important;
+}
+.rh-scope .rh-search:focus-within, .rh-scope .rh-cmp-search:focus-within, .rh-scope .rh-ask-bar:focus-within{
+  border-color:var(--accent2)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent2) 16%,transparent)!important;
+}
+.rh-scope .rh-search{ padding:8px 14px!important; }
+.rh-scope .rh-tool{ background:var(--s1)!important; border:1px solid var(--border2)!important; border-radius:8px!important; }
+.rh-scope .rh-tool.on{
+  background:color-mix(in srgb,var(--accent2) 12%,transparent)!important;
+  border-color:var(--accent2)!important; color:var(--accent2)!important;
+}
+.rh-scope .rh-ask-go{ border-radius:7px!important; }
+
+/* ── compare: caption + clear button ── */
+.rh-scope .rh-cmp-cap{ font-size:9.5px!important; letter-spacing:.1em!important; color:var(--muted)!important; }
+.rh-scope .rh-cmp-clear{ background:var(--s1)!important; border:1px solid var(--border2)!important; border-radius:8px!important; font-size:12.5px!important; padding:6px 12px!important; }
+.rh-scope .rh-cmp-clear:hover{ background:var(--s2)!important; border-color:var(--border3)!important; }
+
+/* ── slot cards: flat quiet cards, pos rail kept, glow dropped ── */
+.rh-scope .rh-cmp-slot{ border-radius:11px!important; }
+.rh-scope .rh-cmp-slot.filled{ box-shadow:none!important; }
+.rh-scope .rh-cmp-slot.filled:hover{ background:var(--s2)!important; }
+.rh-scope .rh-cmp-av{ border-radius:9px!important; }
+.rh-scope .rh-cmp-swins.lead{ color:var(--value)!important; }
+.rh-scope .rh-cmp-x{ border-radius:6px!important; }
+.rh-scope .rh-cmp-x:hover{ background:var(--accent)!important; }
+
+/* ── head-to-head table: shadcn chrome ── */
+.rh-scope .rh-cmp-tablewrap{ border-radius:12px!important; }
+.rh-scope .rh-cmp-table th{ background:var(--s1)!important; border-bottom:1px solid var(--border2)!important; }
+.rh-scope .rh-cmp-mh{ font-size:9.5px!important; letter-spacing:.09em!important; color:var(--muted)!important; font-weight:700!important; }
+.rh-scope .rh-cmp-ph-name{ font-size:13.5px!important; }
+.rh-scope .rh-cmp-ph-av{ border-radius:9px!important; }
+.rh-scope .rh-cmp-grouprow td{ background:var(--s2)!important; color:var(--muted)!important; }
+.rh-scope .rh-cmp-grouprow .tick{ background:var(--accent2)!important; }
+.rh-scope .rh-cmp-row td{ border-bottom:1px solid var(--border)!important; }
+.rh-scope .rh-cmp-row:hover td{ background:rgba(255,255,255,.03)!important; }
+.rh-scope .rh-cmp-row:last-child td{ border-bottom:none!important; }
+.rh-scope .rh-cmp-cell.win{ color:var(--value)!important; background:color-mix(in srgb,var(--value) 6%,transparent)!important; }
+.rh-scope .rh-cmp-cell.win .rh-cmp-bar{ background:var(--value)!important; }
+.rh-scope .rh-cmp-crown{ color:var(--value)!important; }
+.rh-scope .rh-cmp-empty{ border-radius:12px!important; }
+
+/* ── autocomplete ── */
+.rh-scope .rh-ac{ border-radius:10px!important; }
+.rh-scope .rh-ac-av{ border-radius:8px!important; }
+</style>
 </body>
 </html>
