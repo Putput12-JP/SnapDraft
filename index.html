@@ -1143,7 +1143,7 @@ header{
 .vf-livechip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#3DCC7A;background:rgba(61,204,122,0.07);border:1px solid rgba(61,204,122,0.22);padding:2px 8px;border-radius:9999px;text-transform:uppercase}
 .vf-livechip .d{width:5px;height:5px;border-radius:50%;background:#3DCC7A;box-shadow:0 0 6px #3DCC7A;animation:vfpulse 2s infinite}
 @keyframes vfpulse{0%,100%{opacity:1}50%{opacity:.35}}
-@media(prefers-reduced-motion:reduce){.vf-livechip .d{animation:none}.mth-ps-fill,.cc-bar>div,.pr-bar-fill{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.vf-livechip .d{animation:none}.mth-ps-fill,.cc-bar>div,.pr-bar-fill,.rrp-wk .bar i,.rrp-odds .tr i{transition:none!important}}
 .cc-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--t-micro);font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:8px}
 .cc-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:0}
 .cc-two > *{min-width:0}
@@ -10740,6 +10740,42 @@ function setSuggestMode(mode) {
   renderSuggestions();
 }
 
+// ── Suggestion grades: hold-until-settled ─────────────────────────────
+// Projected pick grades (and the ordering they drive) depend on three async
+// inputs that stream in over the first ~1-2s on the draft page: nflverse
+// season stats, prior-season durability, and the ADP file the grade blends.
+// Rendering before they land makes the badges visibly snap (e.g. A → C+), so
+// the strip shows shimmer skeletons until all three are in — or a hard timeout
+// fires, so a slow/failed fetch never holds the strip forever.
+function _paGradeInputsReady(){
+  const statsIn = !!window._paStatCache || (() => {
+    const c = window._nflverseCache || {};
+    return Object.keys(c).some(s => c[s] && c[s].stats && Object.keys(c[s].stats).length);
+  })();
+  const durIn = !window.VaultDurability || (window.VaultDurability.ready && window.VaultDurability.ready());
+  const adpIn = (typeof ADP_DATA !== 'undefined' && ADP_DATA.length > 0) || window._adpAutoLoaded === true;
+  return statsIn && durIn && adpIn;
+}
+function _paWarmGradeData(){
+  if (window._paGradeDataSettled || window._paGradeWarming) return;
+  window._paGradeWarming = true;
+  const t0 = Date.now();
+  try { if (typeof initNflverse === 'function') initNflverse(); } catch(e){}
+  try { window.VaultDurability && window.VaultDurability.ensure && window.VaultDurability.ensure(); } catch(e){}
+  const tick = () => {
+    if (window._paGradeDataSettled) return;
+    if (_paGradeInputsReady() || Date.now() - t0 > 3500){
+      window._paGradeDataSettled = true;
+      window._paGradeWarming = false;
+      window._paStatCache = null;          // rebuild the stat map now the data is in
+      try { renderSuggestions(); } catch(e){}
+      return;
+    }
+    setTimeout(tick, 200);
+  };
+  tick();
+}
+
 function renderSuggestions() {
   const bar = document.getElementById('sbar');
   const chips = document.getElementById('schips');
@@ -10773,6 +10809,17 @@ function renderSuggestions() {
     : soon
       ? `Your pick in ${pa.picksAway}${slotNow ? ` · ${slotNow}` : ''}`
       : (pa.picksAway > 0 ? `Suggested · pick in ${pa.picksAway}` : 'Suggested');
+
+  // Hold the strip on shimmer skeletons until the async grade inputs settle,
+  // so the badges (and their ordering) don't snap as data streams in.
+  if (!window._paGradeDataSettled){
+    const skel = `<div class="schip pa-card pa-skel" aria-hidden="true"><div class="skel skel-av"></div><div class="schip-main"><div class="skel skel-line" style="width:56%"></div><div class="skel skel-line thin" style="width:86%;margin-top:7px"></div></div><div class="skel skel-pill"></div></div>`;
+    chips.innerHTML = skel.repeat(Math.max(1, Math.min(3, pa.suggestions.length)));
+    chips.style.opacity = '';
+    _paWarmGradeData();
+    paCheckWatchAlerts(pa);
+    return;
+  }
 
   const pc = pos => ({QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[pos]||'var(--text)');
   const tagColors = {urgent:'var(--qb)', value:'var(--rb)', need:'var(--sky)', calm:'var(--muted)'};
@@ -10971,6 +11018,16 @@ function hydrateReicons(root){
 })();
 // leading status glyph → themed reicon SVG (auto-upgrades existing toast call sites)
 const _TOAST_GLYPH={'✓':['check','var(--rb)'],'✅':['check','var(--rb)'],'⚠':['alert','var(--qb)'],'✕':['x','var(--qb)'],'❌':['x','var(--qb)']};
+/* Re-trigger the .val-update pop (180ms translateY+fade, keyframe val-pop) on an
+   element whose displayed value just changed. Reduced-motion safe. Used by the
+   trade verdict so a flip (Even → You Win → Fleece) registers as a state change. */
+function _vaultPop(el){
+  if(!el) return;
+  try{ if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
+  el.classList.remove('val-update');
+  void el.offsetWidth;            // force reflow so the animation can restart
+  el.classList.add('val-update');
+}
 function toast(msg, undoFn=null){
   const stack=document.getElementById('toast-stack');
   if(!stack) return;
@@ -20393,8 +20450,16 @@ function pickYear(year) {
     },
     /* count-up + bar fill after each render — interruptible, 350ms, reduced-motion aware */
     _numPrev:{},
+    _verdictPrev:null,
     _afterRender(){
       let rm=false; try{ rm=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+      // Verdict word: pop (180ms translateY+fade) only when the call actually flips
+      // (Dead even → You win → Overpay …), never on every keystroke as you build.
+      const wordEl=document.querySelector('#page-trade .tc-int-word');
+      if(wordEl){ const w=wordEl.textContent;
+        if(!rm && this._verdictPrev!=null && this._verdictPrev!==w) _vaultPop(wordEl);
+        this._verdictPrev=w;
+      }
       const bar=document.getElementById('tc-bal-anim');
       if(bar){ const w=parseFloat(bar.dataset.w)||50;
         if(rm){ bar.style.width=w+'%'; }
@@ -26820,7 +26885,7 @@ function pickYear(year) {
 .rrp-wk .p{font-family:var(--font-mono);font-size:var(--t-secondary,13px);font-weight:800}
 .rrp-wk-proj{font-family:var(--font-mono);font-size:var(--t-nano,9px);color:var(--muted);margin-top:1px}
 .rrp-wk .bar{height:4px;border-radius:999px;background:rgba(127,140,163,.18);margin-top:6px;overflow:hidden}
-.rrp-wk .bar i{display:block;height:100%;border-radius:999px}
+.rrp-wk .bar i{display:block;height:100%;border-radius:999px;transition:width 900ms cubic-bezier(.22,.8,.24,1)}
 .rrp-flag{position:absolute;top:-7px;right:-5px;font-size:10px}
 .rrp-legend{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--font-mono);font-size:var(--t-nano,9px);color:var(--muted);letter-spacing:.06em;margin-top:10px;flex-wrap:wrap}
 .rrp-legend b{color:var(--text2)}
@@ -26829,7 +26894,7 @@ function pickYear(year) {
 .rrp-odds{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .rrp-odds .k{font-size:var(--t-label,11px);color:var(--text2);width:96px;flex-shrink:0}
 .rrp-odds .tr{flex:1;height:8px;background:rgba(127,140,163,.16);border-radius:999px;overflow:hidden}
-.rrp-odds .tr i{display:block;height:100%;border-radius:999px}
+.rrp-odds .tr i{display:block;height:100%;border-radius:999px;transition:width 900ms cubic-bezier(.22,.8,.24,1)}
 .rrp-odds .v{font-family:var(--font-mono);font-size:var(--t-label,11px);font-weight:700;width:34px;text-align:right;flex-shrink:0}
 .rrp-tj{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 6px;margin-bottom:14px}
 
@@ -28229,11 +28294,11 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
   function sweep(root){
     if(!root) return;
     if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){
-      root.querySelectorAll('.vf-count,.mth-ps-fill,.cc-bar>div,.pr-bar-fill').forEach(function(e){ e.dataset.vfAnim='1'; });
+      root.querySelectorAll('.vf-count,.mth-ps-fill,.cc-bar>div,.pr-bar-fill,.rrp-wk .bar i,.rrp-odds .tr i').forEach(function(e){ e.dataset.vfAnim='1'; });
       return;
     }
     root.querySelectorAll('.vf-count').forEach(countUp);
-    root.querySelectorAll('.mth-ps-fill,.cc-bar>div,.pr-bar-fill').forEach(fillBar);
+    root.querySelectorAll('.mth-ps-fill,.cc-bar>div,.pr-bar-fill,.rrp-wk .bar i,.rrp-odds .tr i').forEach(fillBar);
   }
   var pend=null;
   function arm(id){
