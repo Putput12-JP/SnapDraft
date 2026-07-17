@@ -34175,8 +34175,7 @@ else { _ssInjectPage();_ssInjectNav(); }
   border:none!important; color:var(--accent2)!important;
   font-size:9.5px!important; letter-spacing:.08em; padding:4px 9px; border-radius:6px;
 }
-#page-draft .dvh-chip{ font-family:var(--font-mono); font-size:10.5px; color:var(--muted); }
-#page-draft .dvh-chip .dot{ background:var(--value); box-shadow:0 0 0 3px color-mix(in srgb,var(--value) 15%,transparent); }
+#page-draft .dvh-meta{ display:none!important; }
 #page-draft .dv-abtn{
   height:34px; padding:0 13px!important; border-radius:8px!important;
   border:1px solid var(--border2)!important; background:var(--s1)!important;
@@ -34197,8 +34196,10 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft .dsc-pickblock, #page-draft .dsc-stat, #page-draft .dsc-clockwrap{
   background:transparent!important; border:none!important; border-radius:0!important;
   border-left:1px solid var(--border)!important; padding:16px 20px!important;
-  display:flex; flex-direction:column; justify-content:center; gap:3px;
+  display:flex; flex-direction:column; justify-content:center; align-items:center; gap:3px;
+  text-align:center;
 }
+#page-draft .dsc-pickrow{ justify-content:center; }
 #page-draft .dsc-pickblock{ border-left:none!important; }
 #page-draft .dsc-pickblock::before{ display:none!important; }
 #page-draft .dsc-clockwrap{ background:var(--s2)!important; flex-direction:row!important; align-items:center; }
@@ -34212,7 +34213,8 @@ else { _ssInjectPage();_ssInjectNav(); }
 }
 #page-draft .dsc .ds-pick-away{ font-family:var(--font-sans); font-size:11.5px; color:var(--muted); font-weight:500; }
 #page-draft .dsc-pickmeta{ font-size:11.5px; color:var(--muted); }
-#page-draft .dsc-stat{ align-items:flex-start!important; }
+#page-draft .dsc-clockwrap{ justify-content:center!important; }
+#page-draft .dsc-clock{ justify-content:center; }
 #page-draft .dsc-stat .ds-stat-val{
   font-family:var(--font-mono)!important; font-size:24px!important; font-weight:700!important;
   letter-spacing:-.02em!important; line-height:1.2;
@@ -34268,8 +34270,10 @@ else { _ssInjectPage();_ssInjectNav(); }
   height:32px!important; border:1px solid var(--border2)!important; border-radius:8px!important;
   font-size:12.5px!important; font-weight:600!important;
 }
+#page-draft .controls.dvc .dv-spacer{ display:none; }
 #page-draft .controls.dvc .dvc-search{
   height:32px!important; border:1px solid var(--border2)!important; border-radius:8px!important;
+  flex:1 1 auto!important; max-width:none!important; margin-left:6px;
 }
 #page-draft .controls.dvc .dvc-search:focus-within{
   border-color:var(--accent2)!important;
