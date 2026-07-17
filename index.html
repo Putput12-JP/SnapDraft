@@ -4536,23 +4536,23 @@ function pgsOpen(name, pos, team){
     var tile=function(l,v,col){ return '<div class="pgs-tile"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div></div>'; };
     var esc=name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     var watched=false; try{ watched=window.watchlist&&watchlist.has(name); }catch(e){}
-    /* per-pick board grade: what this pick would score at your next slot —
-       the same grade the board stamps on a pick, via dvPickScore. Only for
-       still-available players in a live draft. */
-    var draftRow='';
+    /* draft-grade tile: the letter this pick would earn at your next slot
+       (dvPickScore, same engine as the board stamps) during a live draft;
+       outside a draft, the player's overall letter from the 4-factor
+       composite (same bands via dvPickLetter). Always renders. */
+    var gradeTile='';
     try{
+      var _pg=null;
       var _avail=(typeof paIsAvail==='function')?paIsAvail({name:name}):true;
       var _pa=(typeof paGetPickAssist==='function')?paGetPickAssist():null;
       var _over=_pa&&_pa.myPick;
       if(_avail && _over>0 && typeof dvPickScore==='function'){
-        var _pg=dvPickScore(name,pos,_over);
-        if(_pg){
-          var _teams=(window._activeDraft&&window._activeDraft.teams)||window.NUM_TEAMS||12;
-          var _slot=(typeof _dvPickStr==='function')?_dvPickStr(_over,_teams):('pick '+_over);
-          draftRow='<div class="pgs-draft"><span class="l">PICK GRADE AT '+_slot+'</span>'+
-            '<span class="r"><b style="color:'+_pg.color+'">'+_pg.letter+'</b>'+
-            '<span class="d" style="color:'+_pg.color+'">'+(+_pg.s).toFixed(1)+'</span></span></div>';
-        }
+        try{ _pg=dvPickScore(name,pos,_over); }catch(e){}
+      }
+      if(_pg){
+        gradeTile=tile('PICK GRADE',_pg.letter,_pg.color);
+      } else if(typeof dvPickLetter==='function'){
+        gradeTile=tile('GRADE',dvPickLetter(F.composite),(typeof dvPickColor==='function')?dvPickColor(F.composite):gCol);
       }
     }catch(e){}
     document.getElementById('pgs-body').innerHTML=
@@ -4571,8 +4571,8 @@ function pgsOpen(name, pos, team){
         tile('PPG',(pr&&pr.ppg!=null)?(+pr.ppg).toFixed(1):'—',null)+
         tile('BOOM %',(pr&&pr.boomPct!=null)?Math.round(pr.boomPct):'—','var(--value)')+
         tile('BUST %',(pr&&pr.bustPct!=null)?Math.round(pr.bustPct):'—',null)+
+        gradeTile+
       '</div>'+
-      draftRow+
       '<div class="pgs-acts">'+
         '<button class="pgs-btn ghost" onclick="pgsClose();openPlayerProfile(\''+esc+'\',\'\',\''+pos+'\',\''+team+'\')">Full profile</button>'+
         '<button class="pgs-btn primary" onclick="toggleWatch(\''+esc+'\');pgsClose()">'+(watched?'★ Watching':'☆ Watchlist')+'</button>'+
