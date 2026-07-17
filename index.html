@@ -9899,6 +9899,27 @@ function _vhUpgradeImgs() {
 }
 window.vaultHeadshot = vaultHeadshot; window._vhUpgradeImgs = _vhUpgradeImgs;
 
+/* Non-destructive img error handler for vaultHeadshot avatars. A transient
+   load failure gets ONE retry — re-resolved through vaultHeadshot (in case the
+   name→NFL map warmed up since first paint) and cache-busted so the browser
+   actually re-requests rather than reusing the failed entry. Only if that
+   retry also fails do we hide the <img>, letting the initials underneath show.
+   Passive upgrades still flow through _vhUpgradeImgs() via the data-vh-* attrs. */
+function vhImgRetry(img) {
+  try {
+    const tries = +(img.dataset.vhTry || 0);
+    if (tries < 1) {
+      img.dataset.vhTry = tries + 1;
+      let u = '';
+      try { u = vaultHeadshot(img.dataset.vhN || '', img.dataset.vhSid || '', +img.dataset.vhPx || 64); } catch (e) {}
+      if (!u) u = img.dataset.vhSrc || img.src;
+      if (u) { img.src = u.split('#')[0] + (u.indexOf('?') < 0 ? '?' : '&') + '_vhr=' + Date.now(); return; }
+    }
+  } catch (e) {}
+  img.style.display = 'none';
+}
+window.vhImgRetry = vhImgRetry;
+
 /* Compact roster-row avatar (Team Review roster lists): face crop over
    position-tinted initials, so a failed photo degrades to initials. */
 function rpAvatarHtml(name, sid, pos, px) {
@@ -24462,10 +24483,17 @@ function pickYear(year) {
   function avatar(p, cls) {
     const col = POS_COLOR[p.pos] || 'var(--muted)';
     const ini = `<span class="rh-ini" style="color:${col}">${esc(initials(p.name))}</span>`;
-    // nflverse rows carry the full ~3400px NFL.com original; ask the CDN for a
-    // face-cropped 128px square instead of shipping megapixels per row.
-    const hs = p.headshot ? p.headshot.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_128,h_128,c_thumb,g_face/') : '';
-    const img = hs ? `<img src="${esc(hs)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+    // Route through the shared resolver (NFL.com face-crop map + sleepercdn
+    // fallback) so photos match the rest of the app; fall back to the row's own
+    // headshot when the vh map hasn't warmed yet, so the <img> still paints on
+    // first render. data-vh-* + vhImgRetry give the passive upgrade + one-shot
+    // retry; a genuine miss hides the img and the initials underneath show.
+    const sid = p.sleeperId || p.sid || '';
+    let ph = '';
+    try { ph = (typeof vaultHeadshot === 'function') ? vaultHeadshot(p.name, sid, 64) : ''; } catch (e) {}
+    if (!ph && p.headshot) ph = p.headshot.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_128,h_128,c_thumb,g_face/');
+    const nEsc = esc(p.name || '');
+    const img = ph ? `<img src="${esc(ph)}" alt="" loading="lazy" data-vh-n="${nEsc}" data-vh-sid="${esc(sid)}" data-vh-px="64" data-vh-src="${esc(ph)}" onerror="vhImgRetry(this)">` : '';
     return `<span class="${cls}" style="border-color:${col}55">${ini}${img}</span>`;
   }
 
