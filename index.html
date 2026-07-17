@@ -6713,6 +6713,11 @@ let hideGone = true;
 let cmpTeam = null;
 let sleeperDraftId = '';
 let syncTimer = null;
+// Sleeper player_ids of everyone drafted in the connected live draft. Name-based
+// drafted checks miss when a data source spells a player differently than the
+// draft's pick metadata (e.g. "Marvin Harrison Jr" vs "Marvin Harrison" — normName
+// doesn't strip suffixes), so the ADP board also matches on this id set.
+let _draftedSleeperIds = new Set();
 
 function getTotalPicksMade(){
   const seen = new Set();
@@ -9198,7 +9203,9 @@ async function syncSleeper() {
 
     
     const newState={};
+    const newDraftedIds=new Set();
     picks.forEach(pk=>{
+      if(pk.player_id) newDraftedIds.add(String(pk.player_id));
       const fn=pk.metadata?.first_name||'';
       const ln=pk.metadata?.last_name||'';
       const fullName=(fn+' '+ln).trim();
@@ -9232,8 +9239,9 @@ async function syncSleeper() {
     });
 
     draftState=newState;
+    _draftedSleeperIds=newDraftedIds;
 
-    
+
     
     const pickBasedADP = {};
     picks.forEach(pk => {
@@ -9320,6 +9328,18 @@ function _findPlayerLoose(nm){
     if (nm.endsWith(s.trim())||nm.endsWith(s)){ p=findPlayer(nm.replace(new RegExp(s.trim().replace('.','\\.')+'$','i'),'').trim()); if (p) return p; } }
   return null;
 }
+// Resolve a drafted name (+ optional matched PLAYERS row) to a Sleeper player_id so
+// platforms without native Sleeper ids (ESPN) can still feed _draftedSleeperIds and
+// get the same spelling-proof board dimming. Tries the canonical PLAYERS name first,
+// then the raw name, through the Sleeper universe map.
+function _draftSleeperId(nm, player){
+  const canon = (player && player.name) || nm;
+  return (player && player.sleeperId)
+    || sleeperPlayerMap[normName(canon)]?.player_id
+    || sleeperPlayerMap[normName(nm)]?.player_id
+    || PLAYER_IDS[canon] || PLAYER_IDS[nm]
+    || null;
+}
 async function connectEspnDraft(leagueId){
   const lg = myTeamsData.find(l=>l.league_id===leagueId);
   if (!lg || vpPlat(lg)!=='espn'){ if(typeof toast==='function') toast('Not an ESPN league'); return; }
@@ -9377,6 +9397,7 @@ async function syncEspnDraft(){
     buildSlots(NUM_TEAMS, NUM_ROUNDS, dtype, 0);
     const pmap = await espnPlayerMap(year);
     const newState = {};
+    const newDraftedIds = new Set();
     picks.forEach(pk=>{
       const nm = pmap[pk.playerId]; if (!nm) return;
       const teamIdx = (rosterToIdx[pk.teamId] ?? 0);
@@ -9384,8 +9405,11 @@ async function syncEspnDraft(){
       const player = _findPlayerLoose(nm);
       if (player){ newState[player.name]=pickData; if (player.name!==nm) newState[nm]=pickData; }
       else newState[nm]=pickData;
+      const sid = _draftSleeperId(nm, player);
+      if (sid) newDraftedIds.add(String(sid));
     });
     draftState = newState;
+    _draftedSleeperIds = newDraftedIds;
     Object.entries(manualOverrides).forEach(([name,o])=>{ if (o==='gone') draftState[name]={teamIdx:-1,round:0,pickNo:0}; });
     window._activeDraft = { id:espnDraftLid, name:(lg.name||'ESPN')+' · Draft', type:dtype, season:String(year),
       status: dd.inProgress ? 'drafting' : (dd.drafted ? 'complete' : 'pre_draft'), pickTimer:0, pickTimerType:'',
@@ -13905,6 +13929,7 @@ function disconnectDraft(){
   espnDraftLid = '';
   window._activeDraft = null;
   draftState = {};
+  _draftedSleeperIds = new Set();
   manualOverrides = {};
   window._completedDraftChoice = null;
   window._curSyncMs = null;
@@ -31767,6 +31792,8 @@ function _adpMyRankMap() {
 function _adpIsDrafted(p) {
   if (!p || !p.name) return false;
   try {
+    // sleeperId match is spelling-proof — prefer it when both sides have the id.
+    if (p.sleeperId && _draftedSleeperIds.has(String(p.sleeperId))) return true;
     if (typeof paIsAvail === 'function') return !paIsAvail(p);
     if (typeof draftState === 'object' && draftState) {
       if (draftState[p.name] !== undefined) return true;
