@@ -29,17 +29,27 @@
   var _ready = null;
   var _fns = null;
 
-  function loadScript(src) {
-    return new Promise(function (resolve, reject) {
-      // already present?
-      var existing = document.querySelector('script[src="' + src + '"]');
-      if (existing && existing.getAttribute('data-loaded') === '1') return resolve();
-      var s = existing || document.createElement('script');
+  // Ensure a script tag exists (append if missing). We do NOT rely on its
+  // load event — vault-auth.js may have already loaded the same SDK, in which
+  // case the event already fired and would never fire again. We gate on the
+  // SDK *global* becoming available instead (see waitFor).
+  function ensureScript(src) {
+    if (!document.querySelector('script[src="' + src + '"]')) {
+      var s = document.createElement('script');
       s.src = src;
-      s.async = true;
-      s.addEventListener('load', function () { s.setAttribute('data-loaded', '1'); resolve(); });
-      s.addEventListener('error', function () { reject(new Error('Failed to load ' + src)); });
-      if (!existing) document.head.appendChild(s);
+      s.async = false;
+      document.head.appendChild(s);
+    }
+  }
+
+  function waitFor(cond, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      if (cond()) return resolve();
+      var t0 = Date.now();
+      var iv = setInterval(function () {
+        if (cond()) { clearInterval(iv); resolve(); }
+        else if (Date.now() - t0 > timeoutMs) { clearInterval(iv); reject(new Error('Timed out loading Firebase SDK')); }
+      }, 50);
     });
   }
 
@@ -51,8 +61,10 @@
     if (_ready) return _ready;
     _ready = (async function () {
       if (!configured()) throw new Error('Firebase is not configured (auth/firebase-config.js).');
-      for (var i = 0; i < NEEDED.length; i++) await loadScript(SDK_BASE + NEEDED[i]);
-      if (!window.firebase) throw new Error('Firebase SDK failed to load.');
+      ensureScript(SDK_BASE + 'firebase-app-compat.js');
+      await waitFor(function () { return !!window.firebase; }, 10000);
+      ensureScript(SDK_BASE + 'firebase-functions-compat.js');
+      await waitFor(function () { return !!(window.firebase && window.firebase.functions); }, 10000);
       if (!window.firebase.apps || !window.firebase.apps.length) {
         window.firebase.initializeApp(window.VF_FIREBASE_CONFIG);
       }
