@@ -33591,28 +33591,46 @@ function _ssStartSlots(){
   const slots=rp.filter(s=>s!=='BN'&&s!=='IR'&&s!=='TAXI');
   return slots.length?slots:['QB','RB','RB','WR','WR','WR','TE','FLEX','FLEX'];
 }
-// greedily fill the league's starting slots with the highest-projected eligible players
-function _ssOptimalLineup(rosterObj){
-  const slots=_ssStartSlots();
-  const pool=[...(rosterObj.players||[])].map(String).map(pid=>{
-    const name=globalPidToName?.[pid]; if(!name) return null;
-    const pos=_ssPos(name); if(!pos) return null;
-    const pr=_ssProj(name,pos,pid);
-    return {pid,name,pos,proj:pr.pts,basis:pr.basis,used:false};
+// greedily fill a league's starting slots with the highest-projected eligible
+// players. PURE + LEAGUE-AGNOSTIC: pass the roster's player ids, the league's
+// roster_positions, and (optional) lookup fns. Returns the ordered `starters`
+// array ready to push to Sleeper (empty slots => "0"), the per-slot detail, the
+// projected total, and the projection basis. Used both by the active-league
+// optimizer and the multi-league Portfolio "Lineup Command" view.
+function optimalStartersFor(rosterPlayers, rosterPositions, opts){
+  opts = opts || {};
+  const posFn = opts.posFn || (typeof _ssPos==='function' ? _ssPos : null);
+  const projFn = opts.projFn || (typeof _ssProj==='function' ? _ssProj : null);
+  const pidToName = opts.pidToName || (typeof globalPidToName!=='undefined' ? globalPidToName : {});
+  const slots = (rosterPositions||[]).filter(s=>s!=='BN'&&s!=='IR'&&s!=='TAXI');
+  if(!slots.length || !posFn || !projFn) return {starters:[], slots:[], total:0, basis:'proj'};
+  const pool = [...(rosterPlayers||[])].map(String).map(pid=>{
+    const name = pidToName[pid]; if(!name) return null;
+    const pos = posFn(name); if(!pos) return null;
+    const pr = projFn(name, pos, pid) || {};
+    return {pid, name, pos, proj:pr.pts||0, basis:pr.basis, used:false};
   }).filter(Boolean);
   // fill most-restrictive slots first so flex/superflex don't steal a needed specialist
-  const order=slots.map((s,i)=>({s,i})).sort((a,b)=>(_SS_SLOT_ELIG[a.s]||[a.s]).length-(_SS_SLOT_ELIG[b.s]||[b.s]).length);
-  const filled=new Array(slots.length).fill(null);
+  const order = slots.map((s,i)=>({s,i})).sort((a,b)=>(_SS_SLOT_ELIG[a.s]||[a.s]).length-(_SS_SLOT_ELIG[b.s]||[b.s]).length);
+  const filled = new Array(slots.length).fill(null);
   order.forEach(({s,i})=>{
-    const elig=_SS_SLOT_ELIG[s]||[s];
-    const pick=pool.filter(p=>!p.used&&elig.includes(p.pos)).sort((a,b)=>b.proj-a.proj)[0];
-    if(pick){ pick.used=true; filled[i]={slot:s,...pick}; }
-    else filled[i]={slot:s,name:null,proj:0};
+    const elig = _SS_SLOT_ELIG[s]||[s];
+    const pick = pool.filter(p=>!p.used&&elig.includes(p.pos)).sort((a,b)=>b.proj-a.proj)[0];
+    if(pick){ pick.used=true; filled[i]={slot:s, pid:pick.pid, name:pick.name, pos:pick.pos, proj:pick.proj, basis:pick.basis}; }
+    else filled[i]={slot:s, pid:null, name:null, pos:null, proj:0};
   });
-  const total=filled.reduce((s,p)=>s+(p.proj||0),0);
-  const basis=pool.some(p=>p.basis==='sleeper')?'sleeper':pool.some(p=>p.basis==='l4w')?'l4w':'proj';
-  return {slots:filled, total, basis};
+  const total = filled.reduce((sum,p)=>sum+(p.proj||0),0);
+  const basis = pool.some(p=>p.basis==='sleeper')?'sleeper':pool.some(p=>p.basis==='l4w')?'l4w':'proj';
+  const starters = filled.map(f=>f.pid||'0');
+  return {starters, slots:filled, total, basis};
 }
+// Active-league wrapper — preserves the original signature/behavior.
+function _ssOptimalLineup(rosterObj){
+  return optimalStartersFor(rosterObj.players, _ssStartSlots(), {projFn:_ssProj, posFn:_ssPos, pidToName:globalPidToName});
+}
+// Exposed for the multi-league Portfolio "Lineup Command" view (may render in a
+// different script scope) and for verification.
+try { window.optimalStartersFor = optimalStartersFor; } catch(e){}
 function _ssNextOpp(){
   for(const wk of (_ssSchedule||[])){
     if(wk.played) continue;
