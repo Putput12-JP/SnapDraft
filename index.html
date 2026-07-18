@@ -3803,6 +3803,55 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
           " onmouseover="this.style.boxShadow='0 0 30px rgba(204,0,60,0.4)'" onmouseout="this.style.boxShadow='0 0 20px rgba(204,0,60,0.2)'">
             <span class="vp-cta-label">Connect Your Sleeper Account →</span>
           </button>
+
+          <!-- ═══ LINEUP CONTROL (write access) ═══ -->
+          <div id="vsw-card" style="margin-top:16px;padding:14px 15px;border:1px solid var(--line,rgba(255,255,255,0.09));border-radius:12px;background:rgba(255,255,255,0.02)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span data-reicon="bolt" data-rsize="14"></span>
+              <span style="font-family:var(--font-sans);font-size:13.5px;font-weight:600;letter-spacing:-0.01em">Lineup Control</span>
+              <span id="vsw-badge" style="margin-left:auto;font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--muted)">checking…</span>
+            </div>
+            <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--muted);margin:0 0 10px">
+              Let Vault set your starting lineups directly in Sleeper. Your Sleeper access token is stored <b>encrypted on our server</b> and never in your browser.
+            </p>
+
+            <!-- Disconnected state — passwordless verification-code flow -->
+            <div id="vsw-connect">
+              <!-- Step A: identifier + human check -->
+              <div id="vsw-step-id">
+                <input class="connect-input" id="vsw-identifier" placeholder="Sleeper username, email, or phone"
+                  autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                  style="width:100%;padding:11px 13px;font-size:13px;border-radius:9px">
+                <div id="vsw-hcaptcha" style="margin-top:10px;min-height:10px"></div>
+                <button class="connect-btn" id="vsw-sendcode-btn" onclick="vswSendCode()"
+                  style="margin-top:10px;width:100%;padding:11px 16px;border-radius:9px;font-size:13px">Send verification code</button>
+              </div>
+              <!-- Step B: code entry -->
+              <div id="vsw-step-code" style="display:none">
+                <p style="font-family:var(--font-sans);font-size:11.5px;color:var(--muted);margin:0 0 8px">Enter the 6-digit code Sleeper just sent to your account.</p>
+                <div style="display:flex;gap:8px">
+                  <input class="connect-input" id="vsw-code" placeholder="000000" inputmode="numeric" maxlength="6"
+                    autocomplete="one-time-code" spellcheck="false"
+                    style="flex:1;padding:11px 13px;font-size:15px;letter-spacing:3px;border-radius:9px;font-family:var(--font-mono);text-align:center"
+                    onkeydown="if(event.key==='Enter')vswVerify()">
+                  <button class="connect-btn" id="vsw-verify-btn" onclick="vswVerify()"
+                    style="padding:11px 16px;border-radius:9px;font-size:13px;white-space:nowrap">Connect</button>
+                </div>
+                <button onclick="vswResetCode()" style="margin-top:8px;background:none;border:none;color:var(--wr);font-size:11px;cursor:pointer;padding:0">← use a different account</button>
+              </div>
+              <div id="vsw-err" style="display:none;margin-top:8px;font-family:var(--font-mono);font-size:10.5px;line-height:1.5;color:var(--accent2,#ff5c7a);background:rgba(213,10,10,0.08);border:1px solid rgba(213,10,10,0.25);border-radius:8px;padding:8px 10px"></div>
+            </div>
+
+            <!-- Connected state -->
+            <div id="vsw-connected" style="display:none">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.25)">
+                <span style="width:8px;height:8px;border-radius:999px;background:#2ecc71;box-shadow:0 0 8px rgba(46,204,113,0.6)"></span>
+                <span style="font-family:var(--font-sans);font-size:12.5px">Connected as <b id="vsw-username">—</b></span>
+                <button id="vsw-disconnect-btn" onclick="vswDisconnect()"
+                  style="margin-left:auto;background:none;border:1px solid var(--line,rgba(255,255,255,0.15));color:var(--muted);font-family:var(--font-mono);font-size:10.5px;padding:5px 10px;border-radius:7px;cursor:pointer">Disconnect</button>
+              </div>
+            </div>
+          </div>
           </div><!-- /vp-panel-sleeper -->
 
           <!-- ═══ ESPN PANEL ═══ -->
@@ -8338,6 +8387,133 @@ async function setupConnect() {
   await findDrafts();
 }
 
+// ════════════════════════════════════
+// Lineup Control — Sleeper write access (VaultSleeper backend)
+// ════════════════════════════════════
+function vswShowErr(m){ const err=document.getElementById('vsw-err'); if(err){ err.textContent=m; err.style.display='block'; } }
+function vswMsg(e){
+  const m=(e&&e.message)||String(e);
+  if(/sign in/i.test(m)) return 'Sign in to Vault first, then connect Sleeper.';
+  if(/not found/i.test(m)) return 'That Sleeper username wasn’t found — double-check it.';
+  if(/captcha/i.test(m)) return 'Human-check failed — tick the box again and retry.';
+  if(/code|verification|invalid|incorrect|expired/i.test(m)) return 'That code didn’t work — check it or request a new one.';
+  if(/reconnect|token|unauth/i.test(m)) return 'Sleeper rejected the connection — try again.';
+  return m;
+}
+window.__vsw = window.__vsw || { captchaId:null, identifier:'', captcha:'' };
+function vswLoadHcaptcha(){
+  return new Promise((resolve,reject)=>{
+    if(window.hcaptcha&&window.hcaptcha.render) return resolve();
+    const ex=document.querySelector('script[data-vsw-hcaptcha]');
+    if(ex){ ex.addEventListener('load',()=>resolve()); ex.addEventListener('error',()=>reject(new Error('captcha load failed'))); return; }
+    const s=document.createElement('script');
+    s.src='https://js.hcaptcha.com/1/api.js?render=explicit';
+    s.async=true; s.defer=true; s.setAttribute('data-vsw-hcaptcha','1');
+    s.onload=()=>resolve(); s.onerror=()=>reject(new Error('captcha load failed'));
+    document.head.appendChild(s);
+  });
+}
+async function vswRenderCaptcha(){
+  const el=document.getElementById('vsw-hcaptcha');
+  if(!el||!window.VaultSleeper) return;
+  try{ await vswLoadHcaptcha(); }catch(e){ return; }
+  if(window.__vsw.captchaId!==null){ try{ window.hcaptcha.reset(window.__vsw.captchaId); }catch(e){} return; }
+  try{
+    window.__vsw.captchaId = window.hcaptcha.render(el, {
+      sitekey: VaultSleeper.HCAPTCHA_SITEKEY, theme:'dark',
+      'expired-callback':()=>{}, 'error-callback':()=>{}
+    });
+  }catch(e){}
+}
+async function vswRefreshStatus(){
+  const badge=document.getElementById('vsw-badge');
+  const connDiv=document.getElementById('vsw-connect');
+  const connectedDiv=document.getElementById('vsw-connected');
+  if(!badge||!connDiv||!connectedDiv) return;
+  const show=(connected)=>{
+    connDiv.style.display=connected?'none':'block';
+    connectedDiv.style.display=connected?'block':'none';
+    badge.textContent=connected?'on':'off';
+    badge.style.color=connected?'#2ecc71':'';
+    badge.style.background=connected?'rgba(46,204,113,0.12)':'rgba(255,255,255,0.06)';
+    if(!connected){ vswResetCode(); vswRenderCaptcha(); }
+  };
+  try{
+    if(!window.VaultSleeper){ badge.textContent='unavailable'; show(false); return; }
+    const s=await VaultSleeper.status();
+    if(s&&s.connected){ document.getElementById('vsw-username').textContent=s.sleeperUsername||'—'; show(true); }
+    else show(false);
+  }catch(e){ show(false); }
+}
+function _vswIdentifier(){
+  return (document.getElementById('vsw-identifier')?.value||'').trim()
+    || (document.getElementById('sleeper-username')?.value||'').trim()
+    || localStorage.getItem('dcmd-v5-username') || '';
+}
+function _vswUsername(id){
+  const u=(document.getElementById('sleeper-username')?.value||'').trim() || localStorage.getItem('dcmd-v5-username') || '';
+  if(u) return u;
+  return /@|^[+()\d]/.test(id) ? '' : id; // if identifier is a username, use it
+}
+async function vswSendCode(){
+  const err=document.getElementById('vsw-err'); if(err) err.style.display='none';
+  const btn=document.getElementById('vsw-sendcode-btn');
+  const identifier=_vswIdentifier();
+  let captcha=''; try{ captcha=window.hcaptcha.getResponse(window.__vsw.captchaId)||''; }catch(e){}
+  if(!identifier){ vswShowErr('Enter your Sleeper username, email, or phone.'); return; }
+  if(!captcha){ vswShowErr('Tick the “I am human” box first.'); return; }
+  const orig=btn.textContent; btn.textContent='Sending…'; btn.disabled=true;
+  try{
+    await VaultSleeper.requestCode(identifier, captcha);
+    window.__vsw.identifier=identifier; window.__vsw.captcha=captcha;
+    document.getElementById('vsw-step-id').style.display='none';
+    document.getElementById('vsw-step-code').style.display='block';
+    document.getElementById('vsw-code')?.focus();
+  }catch(e){
+    vswShowErr(vswMsg(e));
+    try{ window.hcaptcha.reset(window.__vsw.captchaId); }catch(_){}
+  }finally{ btn.textContent=orig; btn.disabled=false; }
+}
+async function vswVerify(){
+  const err=document.getElementById('vsw-err'); if(err) err.style.display='none';
+  const btn=document.getElementById('vsw-verify-btn');
+  const code=(document.getElementById('vsw-code')?.value||'').trim();
+  const id=window.__vsw.identifier||_vswIdentifier();
+  if(!code){ vswShowErr('Enter the 6-digit code.'); return; }
+  const orig=btn.textContent; btn.textContent='…'; btn.disabled=true;
+  try{
+    await VaultSleeper.verifyCode(id, code, window.__vsw.captcha, _vswUsername(id));
+    await vswRefreshStatus();
+  }catch(e){ vswShowErr(vswMsg(e)); }
+  finally{ btn.textContent=orig; btn.disabled=false; }
+}
+function vswResetCode(){
+  const idStep=document.getElementById('vsw-step-id');
+  const codeStep=document.getElementById('vsw-step-code');
+  if(idStep) idStep.style.display='block';
+  if(codeStep) codeStep.style.display='none';
+  const c=document.getElementById('vsw-code'); if(c) c.value='';
+  window.__vsw.identifier=''; window.__vsw.captcha='';
+}
+// Init: resolve status + render captcha on the connect screen, and again once auth settles.
+(function vswInit(){
+  function go(){ if(document.getElementById('vsw-card')){ try{ vswRefreshStatus(); }catch(e){} } }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(go,700));
+  else setTimeout(go,700);
+  var tries=0, t=setInterval(function(){
+    tries++;
+    if(window.firebase&&window.firebase.auth){ clearInterval(t); try{ window.firebase.auth().onAuthStateChanged(function(){ go(); }); }catch(e){} }
+    else if(tries>40) clearInterval(t);
+  },250);
+})();
+async function vswDisconnect(){
+  const btn=document.getElementById('vsw-disconnect-btn');
+  const orig=btn.textContent; btn.textContent='…'; btn.disabled=true;
+  try{ await VaultSleeper.disconnect(); await vswRefreshStatus(); }
+  catch(e){}
+  finally{ btn.textContent=orig; btn.disabled=false; }
+}
+
 function selectDraftAndAdvance(draftId, draftName, typeTags) {
   selectDraft(draftId, draftName, typeTags);
   useDefaultRankings();
@@ -11357,6 +11533,7 @@ function openSettingsDrawer(){
   _sdRefreshBehaviorToggles();
   _sdRefreshAges();
   _sdRenderAdpPicker();
+  try{ vswRefreshStatus(); }catch(e){}
 }
 function closeSettingsDrawer(){
   const ov = document.getElementById('settings-drawer-overlay');

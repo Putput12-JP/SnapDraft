@@ -80,6 +80,20 @@
       return call('connectSleeper', { token: token, username: username });
     },
 
+    // ── Passwordless verification-code onboarding (primary) ──
+    /** Ask Sleeper to text/email a 6-digit code. identifier = username/email/phone. */
+    requestCode: function (identifier, captcha) {
+      return call('sleeperRequestCode', { identifier: identifier, captcha: captcha });
+    },
+    /** Exchange the code for a stored token. username used for identity resolution. */
+    verifyCode: function (identifier, code, captcha, username) {
+      return call('sleeperVerifyCode', {
+        identifier: identifier, code: code, captcha: captcha, username: username
+      });
+    },
+    /** Sleeper's hCaptcha sitekey — render the widget with this. */
+    HCAPTCHA_SITEKEY: '3bb6d565-5eb0-425f-acf8-64374f8bbc7b',
+
     disconnect: function () { return call('disconnectSleeper'); },
 
     /** Single action, executed immediately (server-throttled). */

@@ -16,6 +16,12 @@
 //
 // See README.md for setup (Blaze plan, SLEEPER_ENC_KEY secret, indexes).
 
-export { connectSleeper, disconnectSleeper, sleeperStatus } from "./connection";
+export {
+  connectSleeper,
+  sleeperRequestCode,
+  sleeperVerifyCode,
+  disconnectSleeper,
+  sleeperStatus,
+} from "./connection";
 export { executeSleeperAction, enqueueSleeperActions } from "./actions";
 export { drainSleeperQueue } from "./queue";
