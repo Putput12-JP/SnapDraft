@@ -18142,9 +18142,90 @@ function pfComputeLineup(d){
 }
 try { window.pfComputeLineup = pfComputeLineup; } catch(e){}
 
+// ── Roster-validity guardrails (mirror Sleeper's own write blocks) ──
+// Sleeper rejects lineup writes while a roster is invalid: an IR slot holding
+// a player without a qualifying designation, an over-filled IR/taxi, a taxi
+// player past the league's experience limit, or more active players than
+// roster spots. Designations + years_exp come from the full Sleeper player
+// dump, kept as a compact 24h-cached map (statuses change daily).
+async function _pfEnsureRosterMeta(){
+  if(window._pfRosterMeta !== undefined) return window._pfRosterMeta;
+  const KEY='vault-roster-meta-v1';
+  try{
+    const c=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(c && Date.now()-c.t < 24*3600*1000){ return (window._pfRosterMeta=c.m); }
+  }catch(e){}
+  try{
+    const data = await fetch('https://api.sleeper.app/v1/players/nfl').then(r=>r.json());
+    const POS = new Set(['QB','RB','WR','TE','K','DEF']);
+    const m = { inj:{}, yrs:{} };
+    Object.entries(data).forEach(([pid,p])=>{
+      if(!POS.has(p.position)) return;
+      if(typeof p.years_exp==='number') m.yrs[pid]=p.years_exp;
+      if((p.status && p.status!=='Active') || p.injury_status) m.inj[pid]=[p.status||'', p.injury_status||''];
+    });
+    try{ localStorage.setItem(KEY, JSON.stringify({t:Date.now(), m})); }catch(e){}
+    return (window._pfRosterMeta=m);
+  }catch(e){ return (window._pfRosterMeta=null); } // unknown → skip eligibility checks
+}
+try { window._pfEnsureRosterMeta = _pfEnsureRosterMeta; } catch(e){}
+
+// Is this player allowed to sit in an IR slot under this league's settings?
+function _pfIrOk(pid, meta, st){
+  const dsg = meta && meta.inj && meta.inj[pid];
+  if(!dsg) return false;                        // Active, no designation
+  const status = dsg[0], inj = dsg[1];
+  if(status && status !== 'Active') return true; // NFL IR / PUP / NFI / etc.
+  if(inj === 'IR') return true;
+  if(inj === 'Out') return !!(st && st.reserve_allow_out);
+  if(inj === 'Doubtful') return !!(st && st.reserve_allow_doubtful);
+  if(inj === 'Sus') return !!(st && st.reserve_allow_sus);
+  if(inj === 'COV') return !!(st && st.reserve_allow_cov);
+  if(inj === 'NA') return !!(st && st.reserve_allow_na);
+  if(inj === 'DNR') return !!(st && st.reserve_allow_dnr);
+  return false;                                  // Questionable etc.
+}
+
+// All roster issues that would make Sleeper reject a lineup write for this
+// league. Structural checks always run; designation checks need meta.
+function pfRosterIssues(d, meta){
+  const issues = [];
+  const st = (d.lg && d.lg.settings) || {};
+  const nm = p => ((typeof globalPidToName!=='undefined' && globalPidToName[p]) || ('#'+p));
+  const resv = d.myReserve||[], taxi = d.myTaxi||[];
+  const irSlots = st.reserve_slots||0, taxiSlots = st.taxi_slots||0;
+  if(resv.length > irSlots) issues.push(`IR holds ${resv.length} player${resv.length!==1?'s':''} but this league allows ${irSlots} — remove ${resv.length-irSlots}`);
+  if(taxi.length > taxiSlots) issues.push(`Taxi holds ${taxi.length} player${taxi.length!==1?'s':''} but this league allows ${taxiSlots} — remove ${taxi.length-taxiSlots}`);
+  const cap = (d.rosterPositions||[]).length;
+  const active = (d.myPlayersCount||0) - resv.length - taxi.length;
+  if(cap && active > cap) issues.push(`${active} active players for ${cap} roster spots — drop ${active-cap}`);
+  if(meta){
+    resv.forEach(pid => { if(!_pfIrOk(pid, meta, st)) issues.push(`<b>${nm(pid)}</b> is in an IR slot without a qualifying injury designation — move them off IR`); });
+    if(!st.taxi_allow_vets && taxiSlots>0 && st.taxi_years>0){
+      taxi.forEach(pid => {
+        const y = meta.yrs && meta.yrs[pid];
+        if(typeof y==='number' && y > st.taxi_years) issues.push(`<b>${nm(pid)}</b> (${y} yrs exp) is past this league's taxi limit of ${st.taxi_years} — remove them from taxi`);
+      });
+    }
+  }
+  return issues;
+}
+try { window.pfRosterIssues = pfRosterIssues; } catch(e){}
+
+// Blocked-league detail: what's wrong and where to fix it.
+function _lcIssuesHtml(issues){
+  const rows = issues.map(i => `<div style="display:flex;gap:9px;padding:5px 0;font-size:12.5px;line-height:1.45"><span style="color:#ff6680;flex-shrink:0">⚠</span><span>${i}</span></div>`).join('');
+  return `<div style="border:1px solid rgba(255,102,128,0.25);border-radius:10px;overflow:hidden;margin-top:6px">
+    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Roster issues — fix in the Sleeper app</div>
+    <div style="padding:4px 12px 8px">${rows}</div>
+  </div>
+  <div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the Sleeper app, then hit Refresh.</div>`;
+}
+
 // ── Lineup Command UI: table of all leagues + optimize/push actions ──
 function _lcBadge(html, kind){
   const c = kind==='gain' ? 'background:rgba(61,204,122,0.14);color:#3DCC7A'
+          : kind==='warn' ? 'background:rgba(255,102,128,0.13);color:#ff6680'
           : kind==='muted' ? 'background:rgba(255,255,255,0.05);color:var(--muted)'
           : 'background:rgba(255,255,255,0.06);color:var(--muted)';
   return `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;${c}">${html}</span>`;
@@ -18170,38 +18251,52 @@ async function renderLineupCommand(){
   }
 
   try { await _pfEnsureProjections(); } catch(e){}
-  const rows = data.map(d => ({ d, lc: window.pfComputeLineup(d) }));
-  const actionable = rows.filter(r => r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
+  // Roster-validity meta loads lazily (14MB dump, 24h cache); render now with
+  // structural checks, re-render once designations arrive.
+  const meta = window._pfRosterMeta;
+  if(meta === undefined && data.some(d => (d.myReserve||[]).length || (d.myTaxi||[]).length)){
+    _pfEnsureRosterMeta().then(()=>{ try{ renderLineupCommand(); }catch(e){} });
+  }
+  const rows = data.map(d => ({ d, lc: window.pfComputeLineup(d), issues: pfRosterIssues(d, meta) }));
+  const actionable = rows.filter(r => !r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
   const totalGain = actionable.reduce((s,r)=>s+r.lc.gain,0);
+  const anyBlocked = rows.some(r => r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed);
 
   const expanded = window._lcExpanded || (window._lcExpanded = new Set());
-  const rowsHtml = rows.map(({d,lc})=>{
+  const rowsHtml = rows.map(({d,lc,issues})=>{
     const lid = d.lg && d.lg.league_id;
     const name = (d.lg && d.lg.name) || 'League';
     const gain = lc ? lc.gain : 0;
     const empty = !lc || (d.myStartable||[]).length===0;
-    const act = !empty && gain>0.1 && lc.changed;
+    const hasGain = !empty && gain>0.1 && lc.changed;
+    const blocked = hasGain && issues.length>0;
+    const act = hasGain && !blocked;
     const isOpen = expanded.has(lid);
-    const status = empty ? _lcBadge('No roster','muted')
-                 : act   ? _lcBadge('+'+_lcFmt(gain),'gain')
-                         : _lcBadge('✓ Optimized','ok');
+    const open = act || blocked;   // rows with something to show expand
+    const status = empty   ? _lcBadge('No roster','muted')
+                 : blocked ? _lcBadge('⚡ Fix in Sleeper','warn')
+                 : act     ? _lcBadge('+'+_lcFmt(gain),'gain')
+                           : _lcBadge('✓ Optimized','ok');
     const btn = act
       ? `<button onclick="event.stopPropagation();pfOptimizeLeague('${lid}')" data-lc-btn="${lid}" style="padding:6px 15px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Optimize</button>`
       : `<span style="color:var(--muted);font-size:12px">—</span>`;
-    const chev = act
+    const chev = open
       ? `<span style="display:inline-block;width:12px;color:var(--muted);margin-right:9px;transition:transform .15s ease;transform:rotate(${isOpen?90:0}deg)">›</span>`
       : `<span style="display:inline-block;width:12px;margin-right:9px"></span>`;
     const swapCount = act ? (lc.swaps.in.length) : 0;
-    const nameCell = `${chev}${name}${act?`<span style="color:var(--muted);font-size:11px;margin-left:8px">${swapCount} swap${swapCount!==1?'s':''}</span>`:''}`;
-    const mainRow = `<tr style="border-top:1px solid var(--border2);${act?'cursor:pointer':''}" ${act?`onclick="pfLcToggle('${lid}')"`:''}>
+    const tag = act ? `<span style="color:var(--muted);font-size:11px;margin-left:8px">${swapCount} swap${swapCount!==1?'s':''}</span>`
+              : blocked ? `<span style="color:#ff6680;font-size:11px;margin-left:8px">${issues.length} roster issue${issues.length!==1?'s':''}</span>`
+              : '';
+    const nameCell = `${chev}${name}${tag}`;
+    const mainRow = `<tr style="border-top:1px solid var(--border2);${open?'cursor:pointer':''}" ${open?`onclick="pfLcToggle('${lid}')"`:''}>
       <td style="padding:12px 18px;font-weight:600">${nameCell}</td>
       <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${_lcFmt(lc&&lc.currentPts)}</td>
       <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:${act?'#3DCC7A':'var(--text)'}">${_lcFmt(lc&&lc.optimalPts)}</td>
       <td style="padding:12px 12px;text-align:right">${status}</td>
       <td style="padding:12px 18px;text-align:right">${btn}</td>
     </tr>`;
-    const detailRow = (act && isOpen)
-      ? `<tr><td colspan="5" style="padding:2px 18px 16px;background:rgba(255,255,255,0.015)">${_lcSwapHtml(lc)}</td></tr>`
+    const detailRow = (open && isOpen)
+      ? `<tr><td colspan="5" style="padding:2px 18px 16px;background:rgba(255,255,255,0.015)">${blocked?_lcIssuesHtml(issues):_lcSwapHtml(lc)}</td></tr>`
       : '';
     return mainRow + detailRow;
   }).join('');
@@ -18218,6 +18313,7 @@ async function renderLineupCommand(){
           <button id="lc-optall" onclick="pfOptimizeAll()" ${actionable.length?'':'disabled'} style="padding:10px 18px;border-radius:9px;background:${actionable.length?'var(--accent)':'var(--s2)'};border:1px solid ${actionable.length?'var(--accent)':'var(--border2)'};color:${actionable.length?'#fff':'var(--muted)'};font-weight:700;font-size:13px;cursor:${actionable.length?'pointer':'default'};white-space:nowrap">⚡ Optimize All</button>
         </div>
       </div>
+      ${anyBlocked?`<div style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-bottom:1px solid var(--border2);background:rgba(255,102,128,0.03);font-size:11.5px;color:var(--muted)">${_lcBadge('⚡ Fix in Sleeper','warn')}<span>= a roster issue (IR / taxi / over-roster) is blocking optimization. Resolve it in the Sleeper app.</span></div>`:''}
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
           <th style="text-align:left;padding:9px 18px;font-weight:600">League</th>
@@ -18299,6 +18395,7 @@ function pfLcModal(opts){
 async function pfOptimizeLeague(leagueId){
   const d = (window._pfLeagueData||[]).find(x => x.lg && x.lg.league_id === leagueId);
   if(!d || !window.pfComputeLineup) return;
+  if(pfRosterIssues(d, window._pfRosterMeta).length) return; // Sleeper would reject the write
   const lc = window.pfComputeLineup(d);
   if(!lc || lc.gain<=0.1) return;
   pfLcModal({
@@ -18322,6 +18419,7 @@ async function pfOptimizeAll(){
   const data = (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
   const items = [];
   data.forEach(d => {
+    if(pfRosterIssues(d, window._pfRosterMeta).length) return; // blocked: Sleeper would reject
     const lc = window.pfComputeLineup(d);
     if(lc && lc.gain>0.1 && lc.changed && (d.myStartable||[]).length>0) items.push({ d, lc });
   });
@@ -18695,15 +18793,23 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
   }
 
   // ── Per-league data ──────────────────────────────────────
+  // Current NFL week: the real weekly lineup lives in /matchups/{week};
+  // roster.starters can lag behind lineup changes made in the Sleeper app.
+  if (window._pfNflWeek == null) {
+    window._pfNflWeek = await fetch('https://api.sleeper.app/v1/state/nfl')
+      .then(r=>r.json()).then(s=>s.week || s.display_week || 1).catch(()=>null);
+  }
+  const _pfWeek = window._pfNflWeek;
   const leagueData = await Promise.all(activeLeagues.map(async lg => {
     try {
       const _pfEspn = vpPlat(lg)==='espn';
-      let rosters, users, tradedPicks;
-      if (_pfEspn){ const ctx = await buildEspnContext(lg.league_id); rosters = ctx?ctx.rosters:[]; users = ctx?ctx.users:[]; tradedPicks = []; }
-      else [rosters, users, tradedPicks] = await Promise.all([
+      let rosters, users, tradedPicks, matchups;
+      if (_pfEspn){ const ctx = await buildEspnContext(lg.league_id); rosters = ctx?ctx.rosters:[]; users = ctx?ctx.users:[]; tradedPicks = []; matchups = null; }
+      else [rosters, users, tradedPicks, matchups] = await Promise.all([
         fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/rosters`).then(r=>r.json()).catch(()=>[]),
         fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/users`).then(r=>r.json()).catch(()=>[]),
         fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/traded_picks`).then(r=>r.json()).catch(()=>[]),
+        _pfWeek ? fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/matchups/${_pfWeek}`).then(r=>r.ok?r.json():null).catch(()=>null) : null,
       ]);
       const myRoster = _pfEspn
         ? rosters.find(r => String(r.roster_id) === espnSelectedTeam(lg.league_id))
@@ -18773,15 +18879,25 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
       // live lineup. ESPN leagues can't be written, so flag Sleeper-only.
       const _rsvSet = new Set([...(myRoster?.reserve||[]), ...(myRoster?.taxi||[])].map(String));
       const myStartable = [...new Set((myRoster?.players||[]).map(String))].filter(pid => !_rsvSet.has(pid));
+      // Prefer this week's matchup lineup over roster.starters (which lags
+      // behind lineup edits made in the Sleeper app).
+      const myMatch = Array.isArray(matchups) && myRosterIdx != null
+        ? matchups.find(m => m.roster_id === myRosterIdx) : null;
+      const _liveStarters = (myMatch?.starters||[]).map(String);
+      const _curStarters = _liveStarters.some(s => s && s !== '0')
+        ? _liveStarters : [...(myRoster?.starters||[])].map(String);
       return { lg, myValue, myRank, totalTeams, grade, gradeColor, myNames, posVals, isDynasty, isSF,
         myRosterId: (myRosterIdx==null?null:myRosterIdx),
-        myStarters: [...(myRoster?.starters||[])].map(String),
+        myStarters: _curStarters,
         myStartable,
+        myReserve: (myRoster?.reserve||[]).map(String),
+        myTaxi: (myRoster?.taxi||[]).map(String),
+        myPlayersCount: (myRoster?.players||[]).length,
         rosterPositions: lg.roster_positions || lg.settings?.roster_positions || [],
         canPush: !_pfEspn };
     } catch(e) {
       return { lg, myValue:0, myRank:'?', totalTeams:'?', grade:'?', gradeColor:'var(--muted)', myNames:[], posVals:{}, isDynasty:false, isSF:false,
-        myRosterId:null, myStarters:[], myStartable:[], rosterPositions:[], canPush:false };
+        myRosterId:null, myStarters:[], myStartable:[], myReserve:[], myTaxi:[], myPlayersCount:0, rosterPositions:[], canPush:false };
     }
   }));
 
