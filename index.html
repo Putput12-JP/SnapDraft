@@ -18043,6 +18043,53 @@ function _pfRenderEditor(lgId, d){
   </div>`;
 }
 
+// ════════════════ LINEUP COMMAND — multi-league optimize + push ════════════════
+// Portfolio-scope projection/position lookups (league-agnostic; preseason proxy
+// today, live weekly projections can be layered in-season). Feed the windowed
+// optimalStartersFor() so every league is optimized from one place.
+function _pfLcPos(name){
+  if(!name) return null;
+  const p = (window.PLAYERS||[]).find(x => x.name && x.name.toLowerCase() === String(name).toLowerCase());
+  if(p && p.pos) return p.pos;
+  const fc = (typeof getFCValue==='function') ? getFCValue(name) : null;
+  return (fc && fc.pos) || null;
+}
+function _pfLcProj(name, pos, pid){
+  if(typeof window.getNflversePlayer==='function'){
+    const p = window.getNflversePlayer(name);
+    const v = p && (p.l4w_avg || (p.season && p.season.avg_pts));
+    if(v && v>0) return {pts:v, basis:'l4w'};
+  }
+  const val = (typeof getPlayerValue==='function' ? (getPlayerValue(name)||0)
+             : (typeof getFCValue==='function' ? (getFCValue(name)?.value||0) : 0));
+  const base = {QB:18,RB:12,WR:11,TE:8,K:8,DEF:7}[pos] || 9;
+  return {pts: base + Math.min(12, val/700), basis:'proj'};
+}
+// Compute current vs optimal lineup + gain for one _pfLeagueData entry.
+function pfComputeLineup(d){
+  if(!d || !Array.isArray(d.rosterPositions) || !d.rosterPositions.length) return null;
+  if(typeof window.optimalStartersFor !== 'function') return null;
+  const projOf = (pid) => {
+    const nm = (typeof globalPidToName!=='undefined' && globalPidToName) ? globalPidToName[pid] : null;
+    if(!nm) return 0;
+    return (_pfLcProj(nm, _pfLcPos(nm), pid).pts) || 0;
+  };
+  const starterIds = (d.myStarters||[]).filter(s => s && s !== '0');
+  const currentPts = starterIds.reduce((s,pid) => s + projOf(pid), 0);
+  const opt = window.optimalStartersFor(d.myStartable||[], d.rosterPositions,
+    { posFn:_pfLcPos, projFn:_pfLcProj, pidToName:(typeof globalPidToName!=='undefined'?globalPidToName:{}) });
+  const gain = Math.max(0, opt.total - currentPts);
+  const optSet = JSON.stringify([...opt.starters].filter(x=>x!=='0').sort());
+  const curSet = JSON.stringify([...starterIds].sort());
+  return {
+    currentPts, optimalPts: opt.total, gain,
+    optimalStarters: opt.starters,
+    changed: optSet !== curSet,
+    ok: opt.starters.length > 0
+  };
+}
+try { window.pfComputeLineup = pfComputeLineup; } catch(e){}
+
 function renderPortfolioV2(){
   const stripEl = document.getElementById('pf-v2-strip');
   const tableWrap = document.getElementById('pf-v2-table-wrap');
@@ -18400,9 +18447,20 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
 
       const isSF = (lg.roster_positions||[]).includes('SUPER_FLEX');
 
-      return { lg, myValue, myRank, totalTeams, grade, gradeColor, myNames, posVals, isDynasty, isSF };
+      // Roster data for the Lineup Command view (optimize + push to Sleeper).
+      // Startable pool excludes IR (reserve) and taxi; current starters are the
+      // live lineup. ESPN leagues can't be written, so flag Sleeper-only.
+      const _rsvSet = new Set([...(myRoster?.reserve||[]), ...(myRoster?.taxi||[])].map(String));
+      const myStartable = [...new Set((myRoster?.players||[]).map(String))].filter(pid => !_rsvSet.has(pid));
+      return { lg, myValue, myRank, totalTeams, grade, gradeColor, myNames, posVals, isDynasty, isSF,
+        myRosterId: (myRosterIdx==null?null:myRosterIdx),
+        myStarters: [...(myRoster?.starters||[])].map(String),
+        myStartable,
+        rosterPositions: lg.roster_positions || lg.settings?.roster_positions || [],
+        canPush: !_pfEspn };
     } catch(e) {
-      return { lg, myValue:0, myRank:'?', totalTeams:'?', grade:'?', gradeColor:'var(--muted)', myNames:[], posVals:{}, isDynasty:false, isSF:false };
+      return { lg, myValue:0, myRank:'?', totalTeams:'?', grade:'?', gradeColor:'var(--muted)', myNames:[], posVals:{}, isDynasty:false, isSF:false,
+        myRosterId:null, myStarters:[], myStartable:[], rosterPositions:[], canPush:false };
     }
   }));
 
