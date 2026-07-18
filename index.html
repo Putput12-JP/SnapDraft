@@ -4911,8 +4911,8 @@ function pgsOpen(name, pos, team){
     <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <div>
-        <h1 style="font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.03em;margin:0 0 4px;font-family:var(--font-sans)">My Portfolio</h1>
-        <p style="font-size:13px;color:var(--muted);margin:0">All your leagues · dynasty values · buy-ins &amp; payouts</p>
+        <h1 id="pf-viewdd-title" style="font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.03em;margin:0 0 4px;font-family:var(--font-sans)">My Portfolio</h1>
+        <p id="pf-viewdd-sub" style="font-size:13px;color:var(--muted);margin:0">All your leagues · dynasty values · buy-ins &amp; payouts</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button onclick="openPortfolioLeaguePicker()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:var(--accent);border:1px solid var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);letter-spacing:-.01em">
@@ -4957,6 +4957,10 @@ function pgsOpen(name, pos, team){
           <div id="pf-v2-signals" class="pf-v2-section-body"></div>
         </div>
       </div>
+    </div>
+    <!-- Lineup Command — its own Portfolio view (toggled by the header dropdown) -->
+    <div id="pf-view-lineup" style="display:none">
+      <div id="pf-lineup-command"></div>
     </div>
   </div>
 </div>
@@ -18079,16 +18083,289 @@ function pfComputeLineup(d){
   const opt = window.optimalStartersFor(d.myStartable||[], d.rosterPositions,
     { posFn:_pfLcPos, projFn:_pfLcProj, pidToName:(typeof globalPidToName!=='undefined'?globalPidToName:{}) });
   const gain = Math.max(0, opt.total - currentPts);
-  const optSet = JSON.stringify([...opt.starters].filter(x=>x!=='0').sort());
+  const optIds = opt.starters.filter(x => x !== '0');
+  const optSet = JSON.stringify([...optIds].sort());
   const curSet = JSON.stringify([...starterIds].sort());
+  // Proposed swaps: who moves INTO the lineup (bench→start) and OUT (start→bench)
+  const pidToName = (typeof globalPidToName!=='undefined' && globalPidToName) ? globalPidToName : {};
+  const curSetIds = new Set(starterIds), optSetIds = new Set(optIds);
+  const mkP = pid => { const nm = pidToName[pid] || pid; const pos = _pfLcPos(nm); return { pid, name: nm, pos, proj: Math.round((_pfLcProj(nm,pos,pid).pts||0)*10)/10 }; };
+  const swapIn = optIds.filter(p => !curSetIds.has(p)).map(mkP).sort((a,b)=>b.proj-a.proj);
+  const swapOut = starterIds.filter(p => !optSetIds.has(p)).map(mkP).sort((a,b)=>b.proj-a.proj);
   return {
     currentPts, optimalPts: opt.total, gain,
     optimalStarters: opt.starters,
     changed: optSet !== curSet,
-    ok: opt.starters.length > 0
+    ok: opt.starters.length > 0,
+    swaps: { in: swapIn, out: swapOut }
   };
 }
 try { window.pfComputeLineup = pfComputeLineup; } catch(e){}
+
+// ── Lineup Command UI: table of all leagues + optimize/push actions ──
+function _lcBadge(html, kind){
+  const c = kind==='gain' ? 'background:rgba(61,204,122,0.14);color:#3DCC7A'
+          : kind==='muted' ? 'background:rgba(255,255,255,0.05);color:var(--muted)'
+          : 'background:rgba(255,255,255,0.06);color:var(--muted)';
+  return `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;${c}">${html}</span>`;
+}
+const _lcFmt = n => (n==null?'—':(Math.round(n*10)/10).toFixed(1));
+
+async function renderLineupCommand(){
+  const el = document.getElementById('pf-lineup-command');
+  if(!el) return;
+  const data = (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
+  if(!data.length){ el.innerHTML=''; return; }
+
+  let conn = {connected:false};
+  try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
+
+  if(!conn.connected){
+    el.innerHTML = `<div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:22px;text-align:center">
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px">⚡ Lineup Command</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto">Connect Sleeper for lineup control to optimize and push your starting lineups across every league — from one place.</div>
+      <button onclick="try{openSettingsDrawer()}catch(e){}" style="padding:10px 18px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;cursor:pointer">Connect Sleeper</button>
+    </div>`;
+    return;
+  }
+
+  const rows = data.map(d => ({ d, lc: window.pfComputeLineup(d) }));
+  const actionable = rows.filter(r => r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
+  const totalGain = actionable.reduce((s,r)=>s+r.lc.gain,0);
+
+  const expanded = window._lcExpanded || (window._lcExpanded = new Set());
+  const rowsHtml = rows.map(({d,lc})=>{
+    const lid = d.lg && d.lg.league_id;
+    const name = (d.lg && d.lg.name) || 'League';
+    const gain = lc ? lc.gain : 0;
+    const empty = !lc || (d.myStartable||[]).length===0;
+    const act = !empty && gain>0.1 && lc.changed;
+    const isOpen = expanded.has(lid);
+    const status = empty ? _lcBadge('No roster','muted')
+                 : act   ? _lcBadge('+'+_lcFmt(gain),'gain')
+                         : _lcBadge('✓ Optimized','ok');
+    const btn = act
+      ? `<button onclick="event.stopPropagation();pfOptimizeLeague('${lid}')" data-lc-btn="${lid}" style="padding:6px 15px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Optimize</button>`
+      : `<span style="color:var(--muted);font-size:12px">—</span>`;
+    const chev = act
+      ? `<span style="display:inline-block;width:12px;color:var(--muted);margin-right:9px;transition:transform .15s ease;transform:rotate(${isOpen?90:0}deg)">›</span>`
+      : `<span style="display:inline-block;width:12px;margin-right:9px"></span>`;
+    const swapCount = act ? (lc.swaps.in.length) : 0;
+    const nameCell = `${chev}${name}${act?`<span style="color:var(--muted);font-size:11px;margin-left:8px">${swapCount} swap${swapCount!==1?'s':''}</span>`:''}`;
+    const mainRow = `<tr style="border-top:1px solid var(--border2);${act?'cursor:pointer':''}" ${act?`onclick="pfLcToggle('${lid}')"`:''}>
+      <td style="padding:12px 18px;font-weight:600">${nameCell}</td>
+      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${_lcFmt(lc&&lc.currentPts)}</td>
+      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:${act?'#3DCC7A':'var(--text)'}">${_lcFmt(lc&&lc.optimalPts)}</td>
+      <td style="padding:12px 12px;text-align:right">${status}</td>
+      <td style="padding:12px 18px;text-align:right">${btn}</td>
+    </tr>`;
+    const detailRow = (act && isOpen)
+      ? `<tr><td colspan="5" style="padding:2px 18px 16px;background:rgba(255,255,255,0.015)">${_lcSwapHtml(lc)}</td></tr>`
+      : '';
+    return mainRow + detailRow;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border2)">
+        <div>
+          <div style="font-size:16px;font-weight:800;letter-spacing:-.02em">⚡ Lineup Command</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Optimal starters pushed straight to Sleeper · connected as <b>${conn.sleeperUsername||'you'}</b></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          ${actionable.length?`<div style="text-align:right"><div style="font-size:19px;font-weight:800;color:#3DCC7A;line-height:1">+${_lcFmt(totalGain)}</div><div style="font-size:10px;color:var(--muted);letter-spacing:.03em;text-transform:uppercase">${actionable.length} to optimize</div></div>`:''}
+          <button id="lc-optall" onclick="pfOptimizeAll()" ${actionable.length?'':'disabled'} style="padding:10px 18px;border-radius:9px;background:${actionable.length?'var(--accent)':'var(--s2)'};border:1px solid ${actionable.length?'var(--accent)':'var(--border2)'};color:${actionable.length?'#fff':'var(--muted)'};font-weight:700;font-size:13px;cursor:${actionable.length?'pointer':'default'};white-space:nowrap">⚡ Optimize All</button>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
+          <th style="text-align:left;padding:9px 18px;font-weight:600">League</th>
+          <th style="text-align:right;padding:9px 12px;font-weight:600">Current</th>
+          <th style="text-align:right;padding:9px 12px;font-weight:600">Optimal</th>
+          <th style="text-align:right;padding:9px 12px;font-weight:600">Status</th>
+          <th style="padding:9px 18px"></th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+try { window.renderLineupCommand = renderLineupCommand; } catch(e){}
+
+// Toggle a league row's proposed-swap detail open/closed.
+function pfLcToggle(lid){
+  const s = window._lcExpanded || (window._lcExpanded = new Set());
+  if(s.has(lid)) s.delete(lid); else s.add(lid);
+  renderLineupCommand();
+}
+try { window.pfLcToggle = pfLcToggle; } catch(e){}
+
+// Proposed-swap detail: who moves into the lineup, who sits, and the gain.
+function _lcSwapHtml(lc){
+  const row = (p, dir) => `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
+    <span style="width:16px;text-align:center;color:${dir==='in'?'#3DCC7A':'#ff6680'};font-weight:700">${dir==='in'?'▲':'▼'}</span>
+    <span style="flex:1">${p.name} <span style="color:var(--muted);font-size:11px;font-weight:600">${p.pos||''}</span></span>
+    <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${(p.proj||0).toFixed(1)} pts</span>
+  </div>`;
+  const ins = (lc.swaps.in||[]).map(p=>row(p,'in')).join('') || '<div style="padding:6px 0;color:var(--muted);font-size:12px">—</div>';
+  const outs = (lc.swaps.out||[]).map(p=>row(p,'out')).join('') || '<div style="padding:6px 0;color:var(--muted);font-size:12px">—</div>';
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:6px">
+    <div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+      <div style="padding:7px 12px;background:rgba(61,204,122,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#3DCC7A">Start</div>
+      <div style="padding:2px 12px 6px">${ins}</div>
+    </div>
+    <div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+      <div style="padding:7px 12px;background:rgba(255,102,128,0.06);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Bench</div>
+      <div style="padding:2px 12px 6px">${outs}</div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(61,204,122,0.08)">
+    <span style="font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Projected gain</span>
+    <span style="font-size:16px;font-weight:800;color:#3DCC7A">+${(lc.gain||0).toFixed(1)} pts</span>
+  </div>`;
+}
+
+// Reusable confirm modal.
+function pfLcModalClose(){ const ov=document.getElementById('pf-lc-modal'); if(ov) ov.remove(); }
+try { window.pfLcModalClose = pfLcModalClose; } catch(e){}
+function pfLcModal(opts){
+  pfLcModalClose();
+  const ov = document.createElement('div');
+  ov.id = 'pf-lc-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(4,7,14,0.62);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--s1);border:1px solid var(--border2);border-radius:16px;max-width:460px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.55);overflow:hidden">
+    <div style="padding:20px 22px 12px">
+      <div style="font-size:17px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px">${opts.title||''}</div>
+      ${opts.subtitle?`<div style="font-size:12.5px;color:var(--muted);line-height:1.5">${opts.subtitle}</div>`:''}
+    </div>
+    <div style="padding:0 22px 12px;max-height:52vh;overflow-y:auto">${opts.bodyHtml||''}</div>
+    ${opts.note?`<div style="margin:0 22px 14px;padding:10px 12px;border-radius:9px;background:rgba(255,196,0,0.07);border:1px solid rgba(255,196,0,0.18);font-size:11.5px;color:var(--muted);line-height:1.5;display:flex;gap:9px"><span style="flex-shrink:0">🛈</span><span>${opts.note}</span></div>`:''}
+    <div style="display:flex;gap:10px;padding:14px 22px 20px;border-top:1px solid var(--border2)">
+      <button onclick="pfLcModalClose()" style="flex:1;padding:11px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;cursor:pointer">Cancel</button>
+      <button id="pf-lc-modal-confirm" style="flex:1.5;padding:11px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;cursor:pointer">${opts.confirmLabel||'Confirm'}</button>
+    </div>
+  </div>`;
+  ov.addEventListener('click', e => { if(e.target===ov) pfLcModalClose(); });
+  document.body.appendChild(ov);
+  const cbtn = document.getElementById('pf-lc-modal-confirm');
+  cbtn.onclick = async function(){
+    this.textContent='Working…'; this.disabled=true;
+    try { await opts.onConfirm(); pfLcModalClose(); }
+    catch(e){ this.textContent=opts.confirmLabel||'Confirm'; this.disabled=false; try{ alert((e&&e.message)||e); }catch(_){} }
+  };
+}
+
+// Optimize one league — confirm the exact swap, then push.
+async function pfOptimizeLeague(leagueId){
+  const d = (window._pfLeagueData||[]).find(x => x.lg && x.lg.league_id === leagueId);
+  if(!d || !window.pfComputeLineup) return;
+  const lc = window.pfComputeLineup(d);
+  if(!lc || lc.gain<=0.1) return;
+  pfLcModal({
+    title: 'Optimize ' + (d.lg.name || 'lineup') + '?',
+    subtitle: `Set your best projected starters in this league · <b style="color:#3DCC7A">+${lc.gain.toFixed(1)} pts</b>`,
+    bodyHtml: _lcSwapHtml(lc),
+    confirmLabel: 'Push to Sleeper',
+    note: 'This updates your real starting lineup in Sleeper. You can change it any time in the Sleeper app.',
+    onConfirm: async () => {
+      await VaultSleeper.pushStarters(leagueId, d.myRosterId, lc.optimalStarters);
+      d.myStarters = lc.optimalStarters.filter(x=>x!=='0');
+      (window._lcExpanded||new Set()).delete(leagueId);
+      renderLineupCommand();
+    }
+  });
+}
+try { window.pfOptimizeLeague = pfOptimizeLeague; } catch(e){}
+
+// Optimize every actionable league — confirm the batch, then push via the throttled queue.
+async function pfOptimizeAll(){
+  const data = (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
+  const items = [];
+  data.forEach(d => {
+    const lc = window.pfComputeLineup(d);
+    if(lc && lc.gain>0.1 && lc.changed && (d.myStartable||[]).length>0) items.push({ d, lc });
+  });
+  if(!items.length) return;
+  const totalGain = items.reduce((s,i)=>s+i.lc.gain,0);
+  const listHtml = items.map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border2);font-size:13px">
+      <span style="font-weight:600">${i.d.lg.name}</span>
+      <span style="display:flex;gap:12px;align-items:center"><span style="color:var(--muted);font-size:11px">${i.lc.swaps.in.length} swap${i.lc.swaps.in.length!==1?'s':''}</span><span style="color:#3DCC7A;font-weight:700">+${i.lc.gain.toFixed(1)}</span></span>
+    </div>`).join('');
+  pfLcModal({
+    title: `Optimize ${items.length} lineup${items.length>1?'s':''}?`,
+    subtitle: `Push optimal starters to Sleeper across ${items.length} league${items.length>1?'s':''} · <b style="color:#3DCC7A">+${totalGain.toFixed(1)} pts</b> total`,
+    bodyHtml: `<div>${listHtml}</div>`,
+    confirmLabel: `Optimize ${items.length} lineup${items.length>1?'s':''}`,
+    note: 'Actions are submitted gradually to help protect your Sleeper account and avoid rate limits.',
+    onConfirm: async () => {
+      await VaultSleeper.pushStartersBatch(items.map(i => ({ leagueId:i.d.lg.league_id, rosterId:i.d.myRosterId, starters:i.lc.optimalStarters })));
+      items.forEach(i => { i.d.myStarters = i.lc.optimalStarters.filter(x=>x!=='0'); });
+      window._lcExpanded = new Set();
+      renderLineupCommand();
+    }
+  });
+}
+try { window.pfOptimizeAll = pfOptimizeAll; } catch(e){}
+
+// ── Portfolio view switcher: Overview ↔ Lineup Command ──
+window._pfView = window._pfView || 'overview';
+function pfSetView(v){
+  window._pfView = v;
+  const isLineup = v === 'lineup';
+  const ov = document.getElementById('portfolio-v2');
+  const lv = document.getElementById('pf-view-lineup');
+  if(ov) ov.style.display = isLineup ? 'none' : '';
+  if(lv) lv.style.display = isLineup ? '' : 'none';
+  const title = document.getElementById('pf-viewdd-title');
+  const sub = document.getElementById('pf-viewdd-sub');
+  if(title) title.textContent = isLineup ? 'Lineup Command' : 'My Portfolio';
+  if(sub) sub.textContent = isLineup
+    ? 'Optimize & push your starting lineups straight to Sleeper'
+    : 'All your leagues · dynasty values · buy-ins & payouts';
+  document.querySelectorAll('#pf-nav-menu .lc-mt-item').forEach(it => {
+    it.classList.toggle('active', it.dataset.pfview === v);
+  });
+  if(isLineup){ try { renderLineupCommand(); } catch(e){} }
+}
+try { window.pfSetView = pfSetView; } catch(e){}
+
+// Turn the top-nav "Portfolio" pill into a dropdown (My Portfolio ▾ / Lineup
+// Command), matching the existing My Team / Research nav dropdowns exactly.
+(function initPfNavDropdown(){
+  function build(){
+    const navBtn = document.getElementById('nb-portfolio');
+    if(!navBtn) return false;
+    if(navBtn.closest('.lc-mt-wrap')) return true;               // already wrapped
+    if(typeof pfSetView !== 'function') return false;
+    const icon = n => { try { return (typeof reIcon==='function') ? reIcon(n,{size:17}) : ''; } catch(e){ return ''; } };
+    const wrap = document.createElement('div'); wrap.className = 'lc-mt-wrap';
+    navBtn.parentNode.insertBefore(wrap, navBtn); wrap.appendChild(navBtn);
+    navBtn.insertAdjacentHTML('beforeend', '<span class="lc-caret">▼</span>');
+    const menu = document.createElement('div'); menu.className = 'lc-mt-menu'; menu.id = 'pf-nav-menu';
+    menu.innerHTML = `
+      <button class="lc-mt-item" data-pfview="overview"><span class="ic">${icon('folder')}</span><span><b>My Portfolio</b><small>All leagues · values · buy-ins</small></span></button>
+      <button class="lc-mt-item" data-pfview="lineup"><span class="ic">${icon('bolt')}</span><span><b>Lineup Command</b><small>Optimize &amp; push to Sleeper</small></span><span class="lc-newtag">NEW</span></button>`;
+    document.body.appendChild(menu);
+    let hideT;
+    const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
+    const show = () => { clearTimeout(hideT); place(); menu.classList.add('show'); };
+    const hide = () => { hideT = setTimeout(() => menu.classList.remove('show'), 120); };
+    wrap.addEventListener('mouseenter', show); wrap.addEventListener('mouseleave', hide);
+    menu.addEventListener('mouseenter', () => clearTimeout(hideT)); menu.addEventListener('mouseleave', hide);
+    window.addEventListener('resize', () => menu.classList.remove('show'));
+    menu.addEventListener('click', e => {
+      const it = e.target.closest('.lc-mt-item'); if(!it) return;
+      menu.classList.remove('show');
+      const v = it.dataset.pfview;
+      window._pfPendingView = v;
+      try { showPage('portfolio'); } catch(e){}
+      try { pfSetView(v); } catch(e){}
+    });
+    return true;
+  }
+  let tries = 0;
+  const iv = setInterval(() => { if(build() || ++tries > 60) clearInterval(iv); }, 200);
+  try { if(document.readyState !== 'loading') build(); } catch(e){}
+})();
 
 function renderPortfolioV2(){
   const stripEl = document.getElementById('pf-v2-strip');
@@ -18100,6 +18377,9 @@ function renderPortfolioV2(){
     tableWrap.innerHTML = '';
     return;
   }
+
+  // Lineup Command table (optimize + push to Sleeper across all leagues)
+  try { renderLineupCommand(); } catch(e){}
 
   // ── Top stat strip, money-aware (buy-ins are entered by the manager, stored per Sleeper account) ──
   const totalLeagues = data.length;
