@@ -18069,19 +18069,53 @@ function _pfLcProj(name, pos, pid){
   const base = {QB:18,RB:12,WR:11,TE:8,K:8,DEF:7}[pos] || 9;
   return {pts: base + Math.min(12, val/700), basis:'proj'};
 }
+// Load Sleeper's weekly projection stats once (cached), keyed by player id.
+// These are the SAME numbers Sleeper shows; scored per-league below.
+async function _pfEnsureProjections(){
+  if(window._pfProjMap && window._pfProjMapKey) return window._pfProjMap;
+  try{
+    const state = await fetch('https://api.sleeper.app/v1/state/nfl').then(r=>r.json()).catch(()=>({}));
+    const season = String(state.season || new Date().getFullYear());
+    const week = state.week || state.display_week || 1;
+    if(typeof _rdvFetchProjections === 'function'){
+      window._pfProjMap = await _rdvFetchProjections(season, week);
+      window._pfProjMapKey = season + '-' + week;
+    }
+  }catch(e){}
+  return window._pfProjMap;
+}
+try { window._pfEnsureProjections = _pfEnsureProjections; } catch(e){}
+// Per-league projection fn: Sleeper's projected stats × this league's exact
+// scoring_settings (matches Sleeper), falling back to the proxy when Sleeper
+// hasn't posted a projection for a player.
+function _pfProjFnFor(d){
+  const scoring = (d && d.lg && d.lg.scoring_settings) || null;
+  return function(name, pos, pid){
+    const projMap = window._pfProjMap;
+    if(projMap && pid){
+      const pm = projMap[String(pid)];
+      if(pm && pm.stats && typeof _rdvProjPts === 'function'){
+        const v = _rdvProjPts(pm.stats, scoring);
+        if(v != null) return { pts: Math.max(0, v), basis:'sleeper' };
+      }
+    }
+    return _pfLcProj(name, pos, pid);
+  };
+}
 // Compute current vs optimal lineup + gain for one _pfLeagueData entry.
 function pfComputeLineup(d){
   if(!d || !Array.isArray(d.rosterPositions) || !d.rosterPositions.length) return null;
   if(typeof window.optimalStartersFor !== 'function') return null;
+  const projFn = _pfProjFnFor(d);
   const projOf = (pid) => {
     const nm = (typeof globalPidToName!=='undefined' && globalPidToName) ? globalPidToName[pid] : null;
     if(!nm) return 0;
-    return (_pfLcProj(nm, _pfLcPos(nm), pid).pts) || 0;
+    return (projFn(nm, _pfLcPos(nm), pid).pts) || 0;
   };
   const starterIds = (d.myStarters||[]).filter(s => s && s !== '0');
   const currentPts = starterIds.reduce((s,pid) => s + projOf(pid), 0);
   const opt = window.optimalStartersFor(d.myStartable||[], d.rosterPositions,
-    { posFn:_pfLcPos, projFn:_pfLcProj, pidToName:(typeof globalPidToName!=='undefined'?globalPidToName:{}) });
+    { posFn:_pfLcPos, projFn:projFn, pidToName:(typeof globalPidToName!=='undefined'?globalPidToName:{}) });
   const gain = Math.max(0, opt.total - currentPts);
   const optIds = opt.starters.filter(x => x !== '0');
   const optSet = JSON.stringify([...optIds].sort());
@@ -18089,7 +18123,7 @@ function pfComputeLineup(d){
   // Proposed swaps: who moves INTO the lineup (bench→start) and OUT (start→bench)
   const pidToName = (typeof globalPidToName!=='undefined' && globalPidToName) ? globalPidToName : {};
   const curSetIds = new Set(starterIds), optSetIds = new Set(optIds);
-  const mkP = pid => { const nm = pidToName[pid] || pid; const pos = _pfLcPos(nm); return { pid, name: nm, pos, proj: Math.round((_pfLcProj(nm,pos,pid).pts||0)*10)/10 }; };
+  const mkP = pid => { const nm = pidToName[pid] || pid; const pos = _pfLcPos(nm); return { pid, name: nm, pos, proj: Math.round((projFn(nm,pos,pid).pts||0)*10)/10 }; };
   const swapIn = optIds.filter(p => !curSetIds.has(p)).map(mkP).sort((a,b)=>b.proj-a.proj);
   const swapOut = starterIds.filter(p => !optSetIds.has(p)).map(mkP).sort((a,b)=>b.proj-a.proj);
   return {
@@ -18129,6 +18163,7 @@ async function renderLineupCommand(){
     return;
   }
 
+  try { await _pfEnsureProjections(); } catch(e){}
   const rows = data.map(d => ({ d, lc: window.pfComputeLineup(d) }));
   const actionable = rows.filter(r => r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
   const totalGain = actionable.reduce((s,r)=>s+r.lc.gain,0);
