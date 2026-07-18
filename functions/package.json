@@ -1,0 +1,25 @@
+{
+  "name": "vault-sleeper-functions",
+  "version": "0.1.0",
+  "description": "Vault Fantasy — Sleeper write backend (Cloud Functions). Holds users' Sleeper tokens server-side and performs throttled roster/waiver/trade writes against Sleeper's private GraphQL API.",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "deploy": "npm run build && firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "private": true
+}

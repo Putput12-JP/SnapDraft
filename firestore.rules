@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Sleeper tokens ──────────────────────────────────────────
+    // Full account credentials. Written/read ONLY by Cloud Functions
+    // via the Admin SDK (which bypasses these rules). No client access.
+    match /sleeperTokens/{uid} {
+      allow read, write: if false;
+    }
+
+    // ── Per-user data ───────────────────────────────────────────
+    match /users/{uid} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      // The user profile doc.
+      allow read, write: if isOwner();
+
+      // Cross-device sync store (rankings, watchlist, notes, theme…).
+      match /kv/{key} {
+        allow read, write: if isOwner();
+      }
+
+      // Sleeper action queue: owner may READ job status for the UI,
+      // but only Cloud Functions may create/mutate jobs.
+      match /sleeperJobs/{jobId} {
+        allow read: if isOwner();
+        allow write: if false;
+      }
+
+      // NB: intentionally no recursive {document=**} rule — any other
+      // subcollection is denied by default. Add explicit matches if the
+      // app starts using new per-user subcollections.
+    }
+  }
+}

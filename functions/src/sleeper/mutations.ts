@@ -1,0 +1,238 @@
+// ═══════════════════════════════════════════════════════════════
+// Sleeper write-action registry.
+// ═══════════════════════════════════════════════════════════════
+// Every supported write is defined here as: how to validate its params,
+// how to build the exact GraphQL request, and which roster (if any) the
+// caller must own. GraphQL shapes were reverse-engineered 1:1 from the
+// Sleeper web client. Shapes marked "VERIFIED" have been executed live.
+
+import { GraphQLRequest } from "./client";
+
+// ── Action param types (discriminated union on `type`) ────────────
+export interface UpdateStartersAction {
+  type: "update_starters";
+  leagueId: string;
+  rosterId: number;
+  starters: string[]; // full ordered starting lineup (player ids, slot order)
+}
+export interface UpdateTaxiAction {
+  type: "update_taxi";
+  leagueId: string;
+  rosterId: number;
+  taxi: string[]; // player ids on the taxi squad
+}
+export interface UpdateDraftQueueAction {
+  type: "update_draft_queue";
+  draftId: string;
+  playerIds: string[];
+}
+export interface AcceptTradeAction {
+  type: "accept_trade";
+  leagueId: string;
+  transactionId: string;
+  leg: number;
+}
+export interface RejectTradeAction {
+  type: "reject_trade";
+  leagueId: string;
+  transactionId: string;
+  leg: number;
+}
+export interface SubmitWaiverAction {
+  type: "submit_waiver_claim";
+  leagueId: string;
+  rosterId: number;
+  // Sleeper encodes these as parallel key/value arrays. Adds/drops are
+  // player_id -> roster_id; settings carry e.g. {"waiver_bid": <faab>}.
+  adds?: Record<string, number>;
+  drops?: Record<string, number>;
+  settings?: Record<string, number>;
+}
+export interface ProposeTradeAction {
+  type: "propose_trade";
+  leagueId: string;
+  rosterId: number; // proposer roster (used for ownership check)
+  rosterIds: number[]; // all rosters party to the trade
+  adds?: Record<string, number>; // player_id -> destination roster_id
+  drops?: Record<string, number>; // player_id -> source roster_id
+  draftPicks?: unknown[]; // sleeper draft-pick objects
+  waiverBudget?: unknown[]; // faab transfers
+}
+
+export type SleeperAction =
+  | UpdateStartersAction
+  | UpdateTaxiAction
+  | UpdateDraftQueueAction
+  | AcceptTradeAction
+  | RejectTradeAction
+  | SubmitWaiverAction
+  | ProposeTradeAction;
+
+export type ActionType = SleeperAction["type"];
+
+export const SUPPORTED_ACTIONS: ActionType[] = [
+  "update_starters",
+  "update_taxi",
+  "update_draft_queue",
+  "accept_trade",
+  "reject_trade",
+  "submit_waiver_claim",
+  "propose_trade",
+];
+
+// ── helpers ───────────────────────────────────────────────────
+function kv(map?: Record<string, number>): { k: string[]; v: number[] } {
+  const k: string[] = [];
+  const v: number[] = [];
+  for (const [key, val] of Object.entries(map ?? {})) {
+    k.push(key);
+    v.push(val);
+  }
+  return { k, v };
+}
+
+function requireStr(x: unknown, name: string): string {
+  if (typeof x !== "string" || !x) throw new ValidationError(`${name} is required`);
+  return x;
+}
+function requireInt(x: unknown, name: string): number {
+  if (typeof x !== "number" || !Number.isInteger(x)) throw new ValidationError(`${name} must be an integer`);
+  return x;
+}
+function requireStrArray(x: unknown, name: string): string[] {
+  if (!Array.isArray(x) || x.some((s) => typeof s !== "string")) {
+    throw new ValidationError(`${name} must be an array of strings`);
+  }
+  return x as string[];
+}
+
+export class ValidationError extends Error {}
+
+/**
+ * The roster a caller must own for this action to be allowed, or null if
+ * ownership isn't roster-scoped (e.g. draft queue).
+ */
+export function ownershipTarget(a: SleeperAction): { leagueId: string; rosterId: number } | null {
+  switch (a.type) {
+    case "update_starters":
+    case "update_taxi":
+    case "submit_waiver_claim":
+    case "propose_trade":
+      return { leagueId: a.leagueId, rosterId: a.rosterId };
+    // accept/reject trade are authorized by Sleeper against the token's own
+    // rosters in that league; draft queue is user-scoped. No local check.
+    default:
+      return null;
+  }
+}
+
+/** Validate params and build the exact Sleeper GraphQL request. */
+export function buildAction(a: SleeperAction): GraphQLRequest {
+  switch (a.type) {
+    // ── VERIFIED live ──────────────────────────────────────────
+    case "update_starters": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const rosterId = requireInt(a.rosterId, "rosterId");
+      const starters = requireStrArray(a.starters, "starters");
+      return {
+        op: "roster_update_starters",
+        query: `mutation roster_update_starters {
+  roster_update_starters(league_id: "${leagueId}", roster_id: ${rosterId}, starters: ${JSON.stringify(
+          starters
+        )}) { league_id roster_id starters }
+}`,
+      };
+    }
+    case "update_taxi": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const rosterId = requireInt(a.rosterId, "rosterId");
+      const taxi = requireStrArray(a.taxi, "taxi");
+      return {
+        op: "roster_update_taxi",
+        query: `mutation roster_update_taxi {
+  roster_update_taxi(league_id: "${leagueId}", roster_id: ${rosterId}, taxi: ${JSON.stringify(
+          taxi
+        )}) { league_id roster_id taxi }
+}`,
+      };
+    }
+    case "update_draft_queue": {
+      const draftId = requireStr(a.draftId, "draftId");
+      const playerIds = requireStrArray(a.playerIds, "playerIds");
+      return {
+        op: "update_draft_queue",
+        query: `mutation update_draft_queue($draft_id: ID!, $player_ids: [String!]!) {
+  update_draft_queue(player_ids: $player_ids, draft_id: $draft_id)
+}`,
+        variables: { draft_id: draftId, player_ids: playerIds },
+      };
+    }
+    case "accept_trade": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const transactionId = requireStr(a.transactionId, "transactionId");
+      const leg = requireInt(a.leg, "leg");
+      return {
+        op: "accept_trade",
+        query: `mutation accept_trade {
+  accept_trade(league_id: "${leagueId}", transaction_id: "${transactionId}", leg: ${leg}) { transaction_id status leg }
+}`,
+      };
+    }
+    case "reject_trade": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const transactionId = requireStr(a.transactionId, "transactionId");
+      const leg = requireInt(a.leg, "leg");
+      return {
+        op: "reject_trade",
+        query: `mutation reject_trade {
+  reject_trade(league_id: "${leagueId}", transaction_id: "${transactionId}", leg: ${leg}) { transaction_id status leg }
+}`,
+      };
+    }
+    // ── Shapes confirmed from bundle; k/v semantics need a live dry-run
+    //    before wiring to a real "submit" button. ────────────────
+    case "submit_waiver_claim": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const adds = kv(a.adds);
+      const drops = kv(a.drops);
+      const settings = kv(a.settings);
+      return {
+        op: "submit_waiver_claim",
+        query: `mutation submit_waiver_claim($k_adds:[String],$v_adds:[Int],$k_drops:[String],$v_drops:[Int],$k_settings:[String],$v_settings:[Int]) {
+  submit_waiver_claim(league_id: "${leagueId}", k_adds:$k_adds, v_adds:$v_adds, k_drops:$k_drops, v_drops:$v_drops, k_settings:$k_settings, v_settings:$v_settings) { transaction_id status }
+}`,
+        variables: {
+          k_adds: adds.k, v_adds: adds.v,
+          k_drops: drops.k, v_drops: drops.v,
+          k_settings: settings.k, v_settings: settings.v,
+        },
+      };
+    }
+    case "propose_trade": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const rosterIds = a.rosterIds;
+      if (!Array.isArray(rosterIds) || rosterIds.some((n) => !Number.isInteger(n))) {
+        throw new ValidationError("rosterIds must be an array of integers");
+      }
+      const adds = kv(a.adds);
+      const drops = kv(a.drops);
+      const draftPicks = a.draftPicks ?? [];
+      const waiverBudget = a.waiverBudget ?? [];
+      return {
+        op: "propose_trade",
+        query: `mutation propose_trade($k_adds:[String],$v_adds:[Int],$k_drops:[String],$v_drops:[Int]) {
+  propose_trade(league_id: "${leagueId}", roster_ids: ${JSON.stringify(
+          rosterIds
+        )}, draft_picks: ${JSON.stringify(draftPicks)}, k_adds:$k_adds, v_adds:$v_adds, k_drops:$k_drops, v_drops:$v_drops, waiver_budget: ${JSON.stringify(
+          waiverBudget
+        )}) { transaction_id status }
+}`,
+        variables: { k_adds: adds.k, v_adds: adds.v, k_drops: drops.k, v_drops: drops.v },
+      };
+    }
+    default: {
+      const _exhaustive: never = a;
+      throw new ValidationError(`Unsupported action: ${(_exhaustive as any)?.type}`);
+    }
+  }
+}
