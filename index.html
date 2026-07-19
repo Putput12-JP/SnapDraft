@@ -18405,7 +18405,7 @@ async function pfOptimizeLeague(leagueId){
     confirmLabel: 'Push to Sleeper',
     note: 'This updates your real starting lineup in Sleeper. You can change it any time in the Sleeper app.',
     onConfirm: async () => {
-      await VaultSleeper.pushStarters(leagueId, d.myRosterId, lc.optimalStarters);
+      await VaultSleeper.pushStarters(leagueId, d.myRosterId, lc.optimalStarters, window._pfNflWeek);
       d.myStarters = lc.optimalStarters.filter(x=>x!=='0');
       (window._lcExpanded||new Set()).delete(leagueId);
       renderLineupCommand();
@@ -18436,7 +18436,7 @@ async function pfOptimizeAll(){
     confirmLabel: `Optimize ${items.length} lineup${items.length>1?'s':''}`,
     note: 'Actions are submitted gradually to help protect your Sleeper account and avoid rate limits.',
     onConfirm: async () => {
-      await VaultSleeper.pushStartersBatch(items.map(i => ({ leagueId:i.d.lg.league_id, rosterId:i.d.myRosterId, starters:i.lc.optimalStarters })));
+      await VaultSleeper.pushStartersBatch(items.map(i => ({ leagueId:i.d.lg.league_id, rosterId:i.d.myRosterId, starters:i.lc.optimalStarters, week:window._pfNflWeek })));
       items.forEach(i => { i.d.myStarters = i.lc.optimalStarters.filter(x=>x!=='0'); });
       window._lcExpanded = new Set();
       renderLineupCommand();

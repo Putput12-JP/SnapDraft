@@ -114,25 +114,31 @@
     /** Batch of actions, drained gradually by the server. */
     enqueue: function (actions) { return call('enqueueSleeperActions', { actions: actions }); },
 
-    /** Convenience: push a full ordered starters array for one roster. */
-    pushStarters: function (leagueId, rosterId, starters) {
-      return VaultSleeper.execute({
+    /** Convenience: push a full ordered starters array for one roster.
+     *  week (leg) targets the per-week matchup lineup the Sleeper app
+     *  displays; without it only roster.starters (the default) changes. */
+    pushStarters: function (leagueId, rosterId, starters, week) {
+      var action = {
         type: 'update_starters',
         leagueId: String(leagueId),
         rosterId: Number(rosterId),
         starters: starters
-      });
+      };
+      if (week != null && Number(week) >= 1) action.leg = Number(week);
+      return VaultSleeper.execute(action);
     },
 
     /** Convenience: push starters for many leagues at once (throttled queue). */
-    pushStartersBatch: function (items /* [{leagueId, rosterId, starters}] */) {
+    pushStartersBatch: function (items /* [{leagueId, rosterId, starters, week}] */) {
       return VaultSleeper.enqueue(items.map(function (it) {
-        return {
+        var action = {
           type: 'update_starters',
           leagueId: String(it.leagueId),
           rosterId: Number(it.rosterId),
           starters: it.starters
         };
+        if (it.week != null && Number(it.week) >= 1) action.leg = Number(it.week);
+        return action;
       }));
     },
 
