@@ -4914,7 +4914,7 @@ function pgsOpen(name, pos, team){
         <h1 id="pf-viewdd-title" style="font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.03em;margin:0 0 4px;font-family:var(--font-sans)">My Portfolio</h1>
         <p id="pf-viewdd-sub" style="font-size:13px;color:var(--muted);margin:0">All your leagues · dynasty values · buy-ins &amp; payouts</p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div id="pf-header-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button onclick="openPortfolioLeaguePicker()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:var(--accent);border:1px solid var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);letter-spacing:-.01em">
           <span data-reicon="folder" data-rsize="15"></span>Manage Leagues
         </button>
@@ -18330,6 +18330,174 @@ function _lcIssuesHtml(issues, fixPlan){
   ${footer}`;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Command Pages — shadcn redesign (scoped `.cx` styles + helpers)
+// Shared by Lineup Command / Trade Center / Waiver Command.
+// ═══════════════════════════════════════════════════════════════
+function _cxEnsureStyles(){
+  if(document.getElementById('cx-css')) return;
+  const s = document.createElement('style'); s.id = 'cx-css';
+  s.textContent = `
+  .cx{display:flex;flex-direction:column;gap:16px}
+  .cx svg.cx-ic{stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-2px}
+  .cx-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .cx-strip.c5{grid-template-columns:repeat(5,1fr)}
+  .cx-strip.c4{grid-template-columns:repeat(4,1fr)}
+  .cx-stat{position:relative;border-radius:14px;overflow:hidden;padding:1px;background:linear-gradient(150deg,rgba(143,180,224,.28),var(--border),rgba(0,0,0,0))}
+  .cx-stat.span2{grid-column:span 2}
+  .cx-si{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:7px;height:100%;min-height:112px;padding:15px 17px;border-radius:13px;background:radial-gradient(120% 140% at 50% 0%,rgba(143,180,224,.08),transparent 55%),linear-gradient(180deg,var(--s1),var(--bg));overflow:hidden}
+  .cx-halo{position:absolute;top:-30%;right:-10%;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,var(--glow,rgba(143,180,224,.22)),transparent 70%);filter:blur(14px);animation:cxHalo 14s ease-in-out infinite}
+  @keyframes cxHalo{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,16px)}}
+  .cx-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);position:relative}
+  .cx-val{font-size:32px;font-weight:700;letter-spacing:-.02em;font-family:var(--font-mono);line-height:1;position:relative;color:var(--vcolor,#8fb4e0)}
+  .cx-val small{font-size:14px;color:var(--muted);font-weight:600}
+  .cx-hero .cx-val{font-family:var(--font-sans);font-size:21px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cx-hint{font-size:10.5px;color:var(--muted);position:relative;display:flex;align-items:center;justify-content:center;gap:6px}
+  .cx-spark{position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,var(--vcolor,#8fb4e0),transparent);opacity:.5;animation:cxSpark 5s ease-in-out infinite}
+  @keyframes cxSpark{0%,100%{opacity:.2}50%{opacity:.7}}
+  .cx-card{background:var(--s1);border:1px solid var(--border);border-radius:14px}
+  .cx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .cx-title{font-size:14px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  .cx-title svg.cx-ic{width:15px;height:15px;color:var(--accent2)}
+  .cx-desc{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .cx-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .cx-conn{font-size:12px;color:var(--muted)} .cx-conn b{color:var(--text2)}
+  .cx-connpill{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px;border:1px solid rgba(61,204,122,.28);border-radius:999px;background:rgba(61,204,122,.08);font-size:11.5px;font-weight:600;color:var(--text2)}
+  .cx-connpill .d{width:7px;height:7px;border-radius:50%;background:#3DCC7A;box-shadow:0 0 0 3px rgba(61,204,122,.15)}
+  .cx-connpill.off{border-color:var(--border2);background:var(--s2);color:var(--muted)}
+  .cx-connpill.off .d{background:var(--muted);box-shadow:none}
+  .cx-btns{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .cx-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 14px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .16s,border-color .16s,color .16s,transform .1s;border:1px solid transparent;background:transparent;color:var(--text)}
+  .cx-btn:active{transform:translateY(1px)}
+  .cx-btn.sm{height:29px;padding:0 12px;font-size:12px;border-radius:8px}
+  .cx-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .cx-btn.outline{border-color:var(--border2);background:var(--s1)}
+  .cx-btn.outline:hover{background:var(--s2)}
+  .cx-btn.green{background:rgba(61,204,122,.14);border-color:rgba(61,204,122,.35);color:#3DCC7A}
+  .cx-btn.red{background:rgba(255,102,128,.12);border-color:rgba(255,102,128,.3);color:#ff5a6e}
+  .cx-btn:disabled{opacity:.5;cursor:default}
+  .cx-btn svg.cx-ic{width:14px;height:14px}
+  .cx-spin svg.cx-ic{animation:cxSpin .8s linear infinite}
+  @keyframes cxSpin{to{transform:rotate(360deg)}}
+  .cx-badge{display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-family:var(--font-mono);white-space:nowrap}
+  .cx-badge svg.cx-ic{width:11px;height:11px} .cx-badge .d{width:6px;height:6px;border-radius:50%}
+  .cx-b-muted{background:rgba(255,255,255,.05);color:var(--muted)}
+  .cx-b-steel{background:rgba(143,180,224,.14);color:var(--accent2)}
+  .cx-b-green{background:rgba(61,204,122,.14);color:#3DCC7A}
+  .cx-b-red{background:rgba(255,102,128,.13);color:#ff5a6e}
+  .cx-b-amber{background:rgba(245,200,66,.14);color:#f5c842}
+  .cx-b-sky{background:rgba(123,208,255,.13);color:var(--sky)}
+  .cx-twrap{overflow-x:auto}
+  table.cx-tbl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+  .cx-tbl thead th{height:38px;padding:0 14px;text-align:right;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+  .cx-tbl thead th.l{text-align:left}
+  .cx-tbl tbody td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .cx-tbl tbody tr:last-child td{border-bottom:none}
+  .cx-tbl tbody tr.cx-main:hover{background:rgba(255,255,255,.025)}
+  .cx-tbl tbody tr.cx-exp{cursor:pointer} .cx-tbl td.l{text-align:left}
+  .cx-lg{display:flex;align-items:center;gap:11px}
+  .cx-chev{width:12px;color:var(--muted);transition:transform .16s ease;display:inline-block;text-align:center}
+  .cx-chev.open{transform:rotate(90deg);color:var(--accent2)}
+  .cx-lgb{width:30px;height:30px;border-radius:9px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--accent2);font-family:var(--font-mono);flex-shrink:0}
+  .cx-lgn{font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+  .cx-lgm{font-size:11px;color:var(--muted);margin-top:1px}
+  .cx-num{font-family:var(--font-mono);font-weight:600} .cx-num.pos{color:#3DCC7A} .cx-num.big{font-weight:700}
+  .cx-mut{color:var(--muted)}
+  .cx-pos{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:5px;font-size:9px;font-weight:700;font-family:var(--font-mono);letter-spacing:.04em}
+  .cx-pos.QB{background:rgba(255,102,128,.15);color:#ff6680} .cx-pos.RB{background:rgba(61,204,122,.15);color:#3DCC7A}
+  .cx-pos.WR{background:rgba(123,208,255,.15);color:#7bd0ff} .cx-pos.TE{background:rgba(245,200,66,.15);color:#f5c842}
+  .cx-pos.PICK{background:rgba(143,180,224,.15);color:var(--accent2)}
+  .cx-detail td{padding:4px 18px 18px!important;background:rgba(255,255,255,.014)}
+  .cx-swap{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch;padding-top:8px}
+  .cx-scol{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg)}
+  .cx-sh{padding:8px 13px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-family:var(--font-mono);display:flex;align-items:center;gap:6px}
+  .cx-sh.in{background:rgba(61,204,122,.07);color:#3DCC7A} .cx-sh.out{background:rgba(255,102,128,.06);color:#ff5a6e}
+  .cx-sr{display:flex;align-items:center;gap:9px;padding:9px 13px;font-size:13px;border-top:1px solid var(--border)}
+  .cx-sr:first-child{border-top:none} .cx-sr .aw{width:15px;text-align:center;font-weight:800}
+  .cx-sr .nm{flex:1;font-weight:600;display:flex;align-items:center;gap:7px} .cx-sr .pt{font-family:var(--font-mono);color:var(--muted);font-size:11.5px}
+  .cx-smid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted)}
+  .cx-smid svg.cx-ic{width:18px;height:18px;color:var(--accent2)}
+  .cx-gain{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;border-radius:10px;background:rgba(61,204,122,.08);border:1px solid rgba(61,204,122,.18)}
+  .cx-gain .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:var(--font-mono)}
+  .cx-gain .v{font-size:17px;font-weight:800;color:#3DCC7A;font-family:var(--font-mono)}
+  .cx-banner{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:11px;background:rgba(255,102,128,.05);border:1px solid rgba(255,102,128,.16);font-size:12px;color:var(--text2)}
+  .cx-banner b{color:var(--text)} .cx-banner svg.cx-ic{width:16px;height:16px;color:#ff5a6e;flex-shrink:0}
+  .cx-tlist{display:flex;flex-direction:column;gap:12px}
+  .cx-trade{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .cx-ttop{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .cx-ttop .lft{display:flex;align-items:center;gap:10px} .cx-ttop .lg{font-size:13px;font-weight:700}
+  .cx-ttop .rgt{display:flex;align-items:center;gap:10px} .cx-ttop .when{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+  .cx-tbody{display:grid;grid-template-columns:1fr 44px 1fr;align-items:stretch}
+  .cx-tside{padding:15px 18px} .cx-tside.get{background:rgba(61,204,122,.03)}
+  .cx-tsl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between}
+  .cx-tsl .t{color:var(--text2)}
+  .cx-tmid{display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border);border-right:1px solid var(--border);color:var(--muted)}
+  .cx-tmid svg.cx-ic{width:18px;height:18px}
+  .cx-pchip{display:flex;align-items:center;gap:9px;padding:6px 0}
+  .cx-pchip img,.cx-pchip .pav{width:30px;height:30px;border-radius:8px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:var(--muted);font-family:var(--font-mono)}
+  .cx-pchip .pi{flex:1;min-width:0} .cx-pchip .pn{font-size:13px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+  .cx-pchip .pv{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text2)}
+  .cx-tfoot{display:flex;justify-content:flex-end;gap:9px;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg);align-items:center}
+  .cx-tfoot .note{font-size:11px;color:var(--muted);margin-right:auto}
+  .cx-faab{display:inline-flex;flex-direction:column;gap:5px;align-items:flex-end}
+  .cx-faab .bar{width:92px;height:5px;border-radius:999px;background:var(--s3);overflow:hidden}
+  .cx-faab .bar>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .cx-empty{border:1px dashed var(--border2);border-radius:14px;padding:38px;text-align:center;color:var(--muted);font-size:13px}
+  .cx-loading{text-align:center;padding:48px;color:var(--muted);font-size:13px;display:flex;align-items:center;justify-content:center;gap:9px}
+  .cx-connect{border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:26px;text-align:center}
+  .cx-notice{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:11px;background:rgba(123,208,255,.05);border:1px solid rgba(123,208,255,.18);font-size:12.5px;color:var(--muted)}
+  .cx-card.aged{border-color:rgba(255,90,110,.28)}
+  .cx-card .cx-head .cx-title .cx-lgb{margin-right:2px}
+  .cx-tx2{display:grid;grid-template-columns:1fr 1fr}
+  .cx-txcol{padding:14px 18px} .cx-txcol:first-child{border-right:1px solid var(--border)}
+  .cx-txh{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .cx-txr{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:13px}
+  .cx-txr img,.cx-txr .pav{width:28px;height:28px;border-radius:8px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0}
+  .cx-txr .nm{flex:1;min-width:0;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .cx-txr .vv{font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+  .cx-txr .yr{font-size:10.5px;color:var(--muted);font-family:var(--font-mono)}
+  .cx-aged{font-size:8.5px;font-weight:800;letter-spacing:.08em;color:#ff5a6e;background:rgba(255,90,110,.13);padding:1px 5px;border-radius:4px;font-family:var(--font-mono)}
+  @media (prefers-reduced-motion:reduce){.cx-halo,.cx-spark,.cx-spin svg.cx-ic{animation:none!important}}
+  @media (max-width:760px){
+    .cx-strip,.cx-strip.c5,.cx-strip.c4{grid-template-columns:repeat(2,1fr)}
+    .cx-stat.span2{grid-column:span 2}
+    .cx-swap{grid-template-columns:1fr} .cx-tbody{grid-template-columns:1fr} .cx-tmid{display:none}
+    .cx-tx2{grid-template-columns:1fr} .cx-txcol:first-child{border-right:none;border-bottom:1px solid var(--border)}
+  }`;
+  document.head.appendChild(s);
+}
+// tiny inline lucide set (self-contained, no reIcon dependency in these strings)
+function _cxIc(n,s){ s=s||15; const p={
+  bolt:'<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+  swap:'<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
+  alert:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'
+}[n]||''; return `<svg class="cx-ic" viewBox="0 0 24 24" style="width:${s}px;height:${s}px">${p}</svg>`; }
+// glow summary strip
+const _cxC = { steel:['#8fb4e0','rgba(143,180,224,.22)'], green:['#3DCC7A','rgba(61,204,122,.2)'], amber:['#f5c842','rgba(245,200,66,.22)'], sky:['#7bd0ff','rgba(123,208,255,.2)'], red:['#ff5a6e','rgba(255,90,110,.18)'], neutral:['#c9cdd6','rgba(201,205,214,.14)'] };
+function _cxStat(c,i){ const col=_cxC[c.c||'steel']; const span=c.span?' span2':''; const hero=c.hero?' cx-hero':''; const halo=c.hero?';width:150px;height:150px':'';
+  return `<div class="cx-stat${span}${hero}" style="--vcolor:${col[0]};--glow:${col[1]}"><div class="cx-si">`
+    +`<span class="cx-halo" style="animation-delay:-${i*2}s${halo}"></span>`
+    +`<span class="cx-lbl">${c.label}</span>`
+    +`<span class="cx-val"${c.vstyle?` style="${c.vstyle}"`:''}>${c.val}</span>`
+    +(c.hint?`<span class="cx-hint">${c.hint}</span>`:'')
+    +`<span class="cx-spark" style="animation-delay:-${(i*0.7).toFixed(1)}s"></span></div></div>`; }
+function _cxStrip(cards,cls){ return `<div class="cx-strip${cls?' '+cls:''}">${cards.map(_cxStat).join('')}</div>`; }
+// league initials for the square avatar
+function _cxInit(name){ return ((name||'').replace(/[^A-Za-z0-9 ]/g,'').split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase())||'LG'; }
+function _cxConnPill(conn){ const on = conn && conn.connected;
+  return `<span class="cx-connpill ${on?'':'off'}"><span class="d"></span>${on?`Sleeper connected · ${conn.sleeperUsername||'you'}`:'Sleeper not connected'}</span>`; }
+function _cxConnect(title, iconName, msg){ _cxEnsureStyles();
+  return `<div class="cx"><div class="cx-connect">
+    <div style="font-size:15px;font-weight:800;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px">${_cxIc(iconName,18)}${title}</div>
+    <div style="font-size:13px;color:var(--muted);margin:0 auto 16px;max-width:470px;line-height:1.5">${msg}</div>
+    <button class="cx-btn primary" style="margin:0 auto" onclick="try{openSettingsDrawer()}catch(e){}">Connect Sleeper</button>
+  </div></div>`; }
+
 // ── Lineup Command UI: table of all leagues + optimize/push actions ──
 function _lcBadge(html, kind){
   const c = kind==='gain' ? 'background:rgba(61,204,122,0.14);color:#3DCC7A'
@@ -18350,13 +18518,10 @@ async function renderLineupCommand(){
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
 
   if(!conn.connected){
-    el.innerHTML = `<div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:22px;text-align:center">
-      <div style="font-size:15px;font-weight:800;margin-bottom:6px">⚡ Lineup Command</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto">Connect Sleeper for lineup control to optimize and push your starting lineups across every league — from one place.</div>
-      <button onclick="try{openSettingsDrawer()}catch(e){}" style="padding:10px 18px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;cursor:pointer">Connect Sleeper</button>
-    </div>`;
+    el.innerHTML = _cxConnect('Lineup Command', 'bolt', 'Connect Sleeper for lineup control to optimize and push your starting lineups across every league — from one place.');
     return;
   }
+  _cxEnsureStyles();
 
   try { await _pfEnsureProjections(); } catch(e){}
   // Roster-validity meta loads lazily (14MB dump, 24h cache); render now with
@@ -18369,6 +18534,9 @@ async function renderLineupCommand(){
   const actionable = rows.filter(r => !r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
   const totalGain = actionable.reduce((s,r)=>s+r.lc.gain,0);
   const anyBlocked = rows.some(r => r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed);
+
+  const optimizedCount = rows.filter(r => { const empty=!r.lc||(r.d.myStartable||[]).length===0; const hg=!empty&&r.lc.gain>0.1&&r.lc.changed; return !empty && !hg; }).length;
+  const blockedCount = rows.filter(r => { const empty=!r.lc||(r.d.myStartable||[]).length===0; const hg=!empty&&r.lc.gain>0.1&&r.lc.changed; return hg && r.issues.length>0; }).length;
 
   const expanded = window._lcExpanded || (window._lcExpanded = new Set());
   const rowsHtml = rows.map(({d,lc,issues})=>{
@@ -18383,60 +18551,62 @@ async function renderLineupCommand(){
     const canFix = fixPlan && fixPlan.fixable;
     const isOpen = expanded.has(lid);
     const open = act || blocked;   // rows with something to show expand
-    const status = empty   ? _lcBadge('No roster','muted')
-                 : blocked ? _lcBadge('⚡ Fix in Sleeper','warn')
-                 : act     ? _lcBadge('+'+_lcFmt(gain),'gain')
-                           : _lcBadge('✓ Optimized','ok');
+    const badge = empty   ? '<span class="cx-badge cx-b-muted">No roster</span>'
+                : blocked ? '<span class="cx-badge cx-b-red"><span class="d" style="background:#ff5a6e"></span>Blocked</span>'
+                : act     ? '<span class="cx-badge cx-b-green"><span class="d" style="background:#3DCC7A"></span>Gain ready</span>'
+                          : `<span class="cx-badge cx-b-steel">${_cxIc('check',11)}Optimized</span>`;
     const btn = act
-      ? `<button onclick="event.stopPropagation();pfOptimizeLeague('${lid}')" data-lc-btn="${lid}" style="padding:6px 15px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Optimize</button>`
+      ? `<button class="cx-btn primary sm" data-lc-btn="${lid}" onclick="event.stopPropagation();pfOptimizeLeague('${lid}')">Optimize</button>`
       : canFix
-      ? `<button onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())" style="padding:6px 15px;border-radius:8px;background:rgba(61,204,122,0.14);border:1px solid rgba(61,204,122,0.35);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">⚡ Fix IR</button>`
-      : `<span style="color:var(--muted);font-size:12px">—</span>`;
-    const chev = open
-      ? `<span style="display:inline-block;width:12px;color:var(--muted);margin-right:9px;transition:transform .15s ease;transform:rotate(${isOpen?90:0}deg)">›</span>`
-      : `<span style="display:inline-block;width:12px;margin-right:9px"></span>`;
+      ? `<button class="cx-btn green sm" onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())">${_cxIc('bolt',13)}Fix IR</button>`
+      : `<span class="cx-mut" style="font-size:12px">${empty?'—':(blocked?'Fix in Sleeper':'Best ball')}</span>`;
     const swapCount = act ? (lc.swaps.in.length) : 0;
-    const tag = act ? `<span style="color:var(--muted);font-size:11px;margin-left:8px">${swapCount} swap${swapCount!==1?'s':''}</span>`
-              : blocked ? `<span style="color:#ff6680;font-size:11px;margin-left:8px">${issues.length} roster issue${issues.length!==1?'s':''}</span>`
-              : '';
-    const nameCell = `${chev}${name}${tag}`;
-    const mainRow = `<tr style="border-top:1px solid var(--border2);${open?'cursor:pointer':''}" ${open?`onclick="pfLcToggle('${lid}')"`:''}>
-      <td style="padding:12px 18px;font-weight:600">${nameCell}</td>
-      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${_lcFmt(lc&&lc.currentPts)}</td>
-      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:${act?'#3DCC7A':'var(--text)'}">${_lcFmt(lc&&lc.optimalPts)}</td>
-      <td style="padding:12px 12px;text-align:right">${status}</td>
-      <td style="padding:12px 18px;text-align:right">${btn}</td>
+    const meta2 = act ? `${swapCount} swap${swapCount!==1?'s':''}`
+                : blocked ? `<span style="color:#ff5a6e">${issues.length} roster issue${issues.length!==1?'s':''}</span>`
+                : '';
+    const chev = open ? `<span class="cx-chev${isOpen?' open':''}">›</span>` : `<span class="cx-chev" style="opacity:.3">›</span>`;
+    const mainRow = `<tr class="cx-main${open?' cx-exp':''}" ${open?`onclick="pfLcToggle('${lid}')"`:''}>
+      <td class="l"><div class="cx-lg">${chev}<span class="cx-lgb">${_cxInit(name)}</span><div><div class="cx-lgn">${name}</div>${meta2?`<div class="cx-lgm">${meta2}</div>`:''}</div></div></td>
+      <td><span class="cx-num cx-mut">${_lcFmt(lc&&lc.currentPts)}</span></td>
+      <td><span class="cx-num big${act?' pos':''}">${_lcFmt(lc&&lc.optimalPts)}</span></td>
+      <td>${act?`<span class="cx-num pos">+${_lcFmt(gain)}</span>`:'<span class="cx-mut">—</span>'}</td>
+      <td>${badge}</td>
+      <td>${btn}</td>
     </tr>`;
     const detailRow = (open && isOpen)
-      ? `<tr><td colspan="5" style="padding:2px 18px 16px;background:rgba(255,255,255,0.015)">${blocked?_lcIssuesHtml(issues, fixPlan):_lcSwapHtml(lc)}</td></tr>`
+      ? `<tr class="cx-detail"><td colspan="6">${blocked?_lcIssuesHtml(issues, fixPlan):_lcSwapHtml(lc)}</td></tr>`
       : '';
     return mainRow + detailRow;
   }).join('');
 
-  el.innerHTML = `
-    <div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);overflow:hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border2)">
-        <div>
-          <div style="font-size:16px;font-weight:800;letter-spacing:-.02em">⚡ Lineup Command</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Optimal starters pushed straight to Sleeper · connected as <b>${conn.sleeperUsername||'you'}</b></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:14px">
-          ${actionable.length?`<div style="text-align:right"><div style="font-size:19px;font-weight:800;color:#3DCC7A;line-height:1">+${_lcFmt(totalGain)}</div><div style="font-size:10px;color:var(--muted);letter-spacing:.03em;text-transform:uppercase">${actionable.length} to optimize</div></div>`:''}
-          <button id="lc-optall" onclick="pfOptimizeAll()" ${actionable.length?'':'disabled'} style="padding:10px 18px;border-radius:9px;background:${actionable.length?'var(--accent)':'var(--s2)'};border:1px solid ${actionable.length?'var(--accent)':'var(--border2)'};color:${actionable.length?'#fff':'var(--muted)'};font-weight:700;font-size:13px;cursor:${actionable.length?'pointer':'default'};white-space:nowrap">⚡ Optimize All</button>
-        </div>
+  const strip = _cxStrip([
+    { label:'Leagues', val:rows.length, hint:'with lineup control', c:'neutral' },
+    { label:'Optimized', val:optimizedCount, hint:'already best ball', c:'steel' },
+    { label:'Actionable', val:actionable.length, hint:'gains available', c:'green' },
+    { label:'Blocked', val:blockedCount, hint:blockedCount===1?'roster issue':'roster issues', c:'red' },
+    { label:'Projected gain', val:'+'+_lcFmt(totalGain), hint:`points across ${actionable.length} lineup${actionable.length!==1?'s':''} this week`, c:'green', span:true, vstyle:'font-size:38px' }
+  ]);
+
+  el.innerHTML = `<div class="cx">
+    <div class="cx-actions">
+      ${_cxConnPill(conn)}
+      <div class="cx-btns"><button class="cx-btn outline sm" onclick="renderLineupCommand()">${_cxIc('refresh',14)}Refresh</button></div>
+    </div>
+    ${strip}
+    <div class="cx-card">
+      <div class="cx-head">
+        <div><div class="cx-title">${_cxIc('bolt')}Your lineups</div><div class="cx-desc">Current vs. optimal projected points · click a row to preview the swap</div></div>
+        ${actionable.length
+          ? `<div class="cx-btns"><div style="text-align:right;margin-right:2px"><div style="font-size:17px;font-weight:800;color:#3DCC7A;line-height:1;font-family:var(--font-mono)">+${_lcFmt(totalGain)}</div><div class="cx-lbl">${actionable.length} to optimize</div></div><button id="lc-optall" class="cx-btn primary" onclick="pfOptimizeAll()">${_cxIc('bolt',14)}Optimize all</button></div>`
+          : `<span class="cx-badge cx-b-muted">${rows.length} league${rows.length!==1?'s':''}</span>`}
       </div>
-      ${anyBlocked?`<div style="display:flex;align-items:center;gap:8px;padding:9px 18px;border-bottom:1px solid var(--border2);background:rgba(255,102,128,0.03);font-size:11.5px;color:var(--muted)">${_lcBadge('⚡ Fix in Sleeper','warn')}<span>= a roster issue (IR / taxi / over-roster) is blocking optimization. Resolve it in the Sleeper app.</span></div>`:''}
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
-          <th style="text-align:left;padding:9px 18px;font-weight:600">League</th>
-          <th style="text-align:right;padding:9px 12px;font-weight:600">Current</th>
-          <th style="text-align:right;padding:9px 12px;font-weight:600">Optimal</th>
-          <th style="text-align:right;padding:9px 12px;font-weight:600">Status</th>
-          <th style="padding:9px 18px"></th>
-        </tr></thead>
+      <div class="cx-twrap"><table class="cx-tbl">
+        <thead><tr><th class="l">League</th><th>Current</th><th>Optimal</th><th>Gain</th><th>Status</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
-      </table>
-    </div>`;
+      </table></div>
+    </div>
+    ${anyBlocked?`<div class="cx-banner">${_cxIc('alert',16)}<span><b>Some lineups are blocked.</b> A roster issue (IR / taxi / over-roster) is blocking optimization — Vault can move IR players to your bench in one tap (Fix IR), or resolve it in the Sleeper app.</span></div>`:''}
+  </div>`;
 }
 try { window.renderLineupCommand = renderLineupCommand; } catch(e){}
 
@@ -18450,27 +18620,15 @@ try { window.pfLcToggle = pfLcToggle; } catch(e){}
 
 // Proposed-swap detail: who moves into the lineup, who sits, and the gain.
 function _lcSwapHtml(lc){
-  const row = (p, dir) => `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
-    <span style="width:16px;text-align:center;color:${dir==='in'?'#3DCC7A':'#ff6680'};font-weight:700">${dir==='in'?'▲':'▼'}</span>
-    <span style="flex:1">${p.name} <span style="color:var(--muted);font-size:11px;font-weight:600">${p.pos||''}</span></span>
-    <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${(p.proj||0).toFixed(2)} pts</span>
-  </div>`;
-  const ins = (lc.swaps.in||[]).map(p=>row(p,'in')).join('') || '<div style="padding:6px 0;color:var(--muted);font-size:12px">—</div>';
-  const outs = (lc.swaps.out||[]).map(p=>row(p,'out')).join('') || '<div style="padding:6px 0;color:var(--muted);font-size:12px">—</div>';
-  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:6px">
-    <div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
-      <div style="padding:7px 12px;background:rgba(61,204,122,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#3DCC7A">Start</div>
-      <div style="padding:2px 12px 6px">${ins}</div>
-    </div>
-    <div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
-      <div style="padding:7px 12px;background:rgba(255,102,128,0.06);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Bench</div>
-      <div style="padding:2px 12px 6px">${outs}</div>
-    </div>
+  const row = (p, dir) => `<div class="cx-sr"><span class="aw" style="color:${dir==='in'?'#3DCC7A':'#ff5a6e'}">${dir==='in'?'▲':'▼'}</span><span class="nm">${p.name}${p.pos?` <span class="cx-pos ${p.pos}">${p.pos}</span>`:''}</span><span class="pt">${(p.proj||0).toFixed(2)} pts</span></div>`;
+  const ins = (lc.swaps.in||[]).map(p=>row(p,'in')).join('') || '<div class="cx-sr cx-mut" style="font-size:12px">—</div>';
+  const outs = (lc.swaps.out||[]).map(p=>row(p,'out')).join('') || '<div class="cx-sr cx-mut" style="font-size:12px">—</div>';
+  return `<div class="cx-swap">
+    <div class="cx-scol"><div class="cx-sh in">${_cxIc('check',11)}Start</div>${ins}</div>
+    <div class="cx-smid">${_cxIc('swap',18)}<span class="cx-lbl">Swap</span></div>
+    <div class="cx-scol"><div class="cx-sh out">Bench</div>${outs}</div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(61,204,122,0.08)">
-    <span style="font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Projected gain</span>
-    <span style="font-size:16px;font-weight:800;color:#3DCC7A">+${(lc.gain||0).toFixed(2)} pts</span>
-  </div>`;
+  <div class="cx-gain"><span class="l">Projected gain from this move</span><span class="v">+${(lc.gain||0).toFixed(2)} pts</span></div>`;
 }
 
 // Reusable confirm modal.
@@ -18612,8 +18770,8 @@ function _tcClassify(t, myRosterId, myUserId){
   return t.status; // complete / rejected / failed / ...
 }
 
-// One side of a trade card: what a roster RECEIVES.
-function _tcSideHtml(t, rosterId, d, entry, highlight){
+// One side of a trade card: what a roster RECEIVES. kind: 'get' (mine) | 'give' (theirs)
+function _tcSide(t, rosterId, d, entry, kind){
   const lg = d.lg;
   const recvPids = Object.entries(t.adds||{}).filter(([,rid]) => rid===rosterId).map(([pid])=>pid);
   const recvPicks = (t.draft_picks||[]).filter(pk => pk.owner_id===rosterId);
@@ -18622,58 +18780,45 @@ function _tcSideHtml(t, rosterId, d, entry, highlight){
   const rows = recvPids.map(pid => {
     const nm = _tcName(pid), v = Math.round(_tcVal(nm, lg)); total += v;
     const pos = (typeof _pfLcPos==='function' && _pfLcPos(nm)) || '';
-    return `<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px">
-      <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,28):'')}" onerror="this.style.display='none'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s2)">
-      <span style="flex:1;font-weight:600">${nm} <span style="color:var(--muted);font-size:11px;font-weight:600">${pos}</span></span>
-      <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${v?v.toLocaleString():'—'}</span>
-    </div>`;
+    return `<div class="cx-pchip"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,30):'')}" onerror="this.style.visibility='hidden'"><div class="pi"><div class="pn">${nm}${pos?` <span class="cx-pos ${pos}">${pos}</span>`:''}</div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
   }).concat(recvPicks.map(pk => {
     const v = _tcPickVal[pk.round]||300; total += v;
-    return `<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px">
-      <span style="width:26px;height:26px;border-radius:50%;background:var(--s2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted)">${pk.round}</span>
-      <span style="flex:1;font-weight:600">${pk.season} Round ${pk.round}</span>
-      <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${v.toLocaleString()}</span>
-    </div>`;
-  })).concat(faab.map(w => `<div style="padding:5px 0;font-size:13px;font-weight:600">$${w.amount} FAAB</div>`));
-  const who = entry.nameByRoster[rosterId] || ('Team '+rosterId);
-  const isMe = rosterId === d.myRosterId;
-  return { total, html: `<div style="flex:1;min-width:230px;border:1px solid ${highlight?'rgba(61,204,122,0.35)':'var(--border2)'};border-radius:11px;padding:11px 13px;background:${highlight?'rgba(61,204,122,0.04)':'rgba(255,255,255,0.015)'}">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <span style="font-size:12px;font-weight:700">${isMe?'You':who} <span style="color:var(--muted);font-weight:500">receive${isMe?'':'s'}</span></span>
-      <span style="font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:${highlight?'#3DCC7A':'var(--text)'}">${total?total.toLocaleString():'—'}</span>
-    </div>
-    ${rows.join('') || '<div style="padding:5px 0;color:var(--muted);font-size:12px">Nothing</div>'}
+    return `<div class="cx-pchip"><span class="pav">${pk.round}</span><div class="pi"><div class="pn">${pk.season} Round ${pk.round} <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v.toLocaleString()}</span></div>`;
+  })).concat(faab.map(w => { total += (w.amount||0); return `<div class="cx-pchip"><span class="pav">$</span><div class="pi"><div class="pn">$${w.amount} FAAB</div></div></div>`; }));
+  const label = kind==='get' ? 'You get' : 'You give';
+  return { total, html: `<div class="cx-tside${kind==='get'?' get':''}">
+    <div class="cx-tsl"><span>${label}</span><span class="t"${kind==='get'?' style="color:#3DCC7A"':''}>${total?total.toLocaleString():'—'}</span></div>
+    ${rows.join('') || '<div class="cx-mut" style="font-size:12px;padding:6px 0">Nothing</div>'}
   </div>` };
 }
 
 function _tcCardHtml(t, d, entry, cls){
   const lg = d.lg;
   const others = (t.roster_ids||[]).filter(r => r!==d.myRosterId);
-  const mySide = _tcSideHtml(t, d.myRosterId, d, entry, false);
-  const theirSides = others.map(r => _tcSideHtml(t, r, d, entry, false));
-  const myT = mySide.total, thT = theirSides.reduce((s,x)=>s+x.total,0);
+  const my = _tcSide(t, d.myRosterId, d, entry, 'get');
+  const theirs = others.map(r => _tcSide(t, r, d, entry, 'give'));
+  const myT = my.total, thT = theirs.reduce((s,x)=>s+x.total,0);
   const edge = myT - thT;
-  const mySideH = _tcSideHtml(t, d.myRosterId, d, entry, edge>0).html;
-  const theirH = others.map(r => _tcSideHtml(t, r, d, entry, edge<0 && others.length===1).html).join('');
   const when = t.created ? new Date(t.created).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
-  const tag = cls==='incoming' ? `<span style="padding:3px 10px;border-radius:999px;background:rgba(255,196,0,0.13);color:#FFC400;font-size:11px;font-weight:700">Incoming</span>`
-            : cls==='outgoing' ? `<span style="padding:3px 10px;border-radius:999px;background:rgba(123,208,255,0.12);color:var(--sky);font-size:11px;font-weight:700">Outgoing</span>`
-            : `<span style="padding:3px 10px;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--muted);font-size:11px;font-weight:700">Waiting on others</span>`;
-  const edgeBadge = (myT||thT) ? `<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;${edge>=0?'background:rgba(61,204,122,0.12);color:#3DCC7A':'background:rgba(255,102,128,0.12);color:#ff6680'}">${edge>=0?'+':''}${edge.toLocaleString()} for you</span>` : '';
+  const tag = cls==='incoming' ? '<span class="cx-badge cx-b-amber">Incoming</span>'
+            : cls==='outgoing' ? '<span class="cx-badge cx-b-sky">Outgoing</span>'
+            : '<span class="cx-badge cx-b-muted">Waiting</span>';
+  const edgeBadge = (myT||thT) ? `<span class="cx-badge ${edge>=0?'cx-b-green':'cx-b-red'}">${edge>=0?'+':''}${edge.toLocaleString()} for you</span>` : '';
   const btns = cls==='incoming'
-    ? `<button onclick="tcCounter('${lg.league_id}','${t.transaction_id}')" style="padding:8px 15px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">⇄ Counter</button>
-       <button onclick="tcReject('${lg.league_id}','${t.transaction_id}',${t.leg||1})" style="padding:8px 15px;border-radius:8px;background:rgba(255,102,128,0.12);border:1px solid rgba(255,102,128,0.3);color:#ff6680;font-weight:700;font-size:12px;cursor:pointer">Reject</button>
-       <button onclick="tcAccept('${lg.league_id}','${t.transaction_id}',${t.leg||1})" style="padding:8px 18px;border-radius:8px;background:rgba(61,204,122,0.14);border:1px solid rgba(61,204,122,0.35);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer">✓ Accept</button>`
+    ? `<button class="cx-btn outline sm" onclick="tcCounter('${lg.league_id}','${t.transaction_id}')">${_cxIc('swap',14)}Counter</button>
+       <button class="cx-btn red sm" onclick="tcReject('${lg.league_id}','${t.transaction_id}',${t.leg||1})">Reject</button>
+       <button class="cx-btn green sm" onclick="tcAccept('${lg.league_id}','${t.transaction_id}',${t.leg||1})">${_cxIc('check',14)}Accept</button>`
     : cls==='outgoing'
-    ? `<button onclick="tcCancel('${lg.league_id}','${t.transaction_id}',${t.leg||1})" style="padding:8px 15px;border-radius:8px;background:rgba(255,102,128,0.1);border:1px solid rgba(255,102,128,0.25);color:#ff6680;font-weight:600;font-size:12px;cursor:pointer">Cancel offer</button>`
+    ? `<span class="note">Waiting on the other manager to respond</span><button class="cx-btn red sm" onclick="tcCancel('${lg.league_id}','${t.transaction_id}',${t.leg||1})">Cancel offer</button>`
     : '';
-  return `<div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:16px 18px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:10px">${tag}<span style="font-size:13.5px;font-weight:700">${lg.name||'League'}</span></div>
-      <div style="display:flex;align-items:center;gap:10px">${edgeBadge}<span style="font-size:11px;color:var(--muted)">${when}</span></div>
-    </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">${mySideH}${theirH}</div>
-    ${btns?`<div style="display:flex;justify-content:flex-end;gap:9px;margin-top:12px">${btns}</div>`:''}
+  const give = theirs.map(x=>x.html).join('');
+  const body = others.length===1
+    ? `<div class="cx-tbody">${give}<div class="cx-tmid">${_cxIc('swap',18)}</div>${my.html}</div>`
+    : `<div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px">${give}${my.html}</div>`;
+  return `<div class="cx-trade">
+    <div class="cx-ttop"><div class="lft">${tag}<span class="lg">${lg.name||'League'}</span></div><div class="rgt">${edgeBadge}<span class="when">${when}</span></div></div>
+    ${body}
+    ${btns?`<div class="cx-tfoot">${btns}</div>`:''}
   </div>`;
 }
 
@@ -18686,15 +18831,12 @@ async function renderTradeCenter(force){
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
   if(!conn.connected){
-    el.innerHTML = `<div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:22px;text-align:center">
-      <div style="font-size:15px;font-weight:800;margin-bottom:6px">⇄ Trade Center</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto">Connect Sleeper for lineup control to see pending offers and manage trades across every league from one inbox.</div>
-      <button onclick="try{openSettingsDrawer()}catch(e){}" style="padding:10px 18px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;cursor:pointer">Connect Sleeper</button>
-    </div>`;
+    el.innerHTML = _cxConnect('Trade Center', 'swap', 'Connect Sleeper for lineup control to see pending offers and manage trades across every league from one inbox.');
     return;
   }
+  _cxEnsureStyles();
 
-  el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Loading trades across your leagues…</div>';
+  el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Loading trades across your leagues…</div></div>`;
   const entries = await Promise.all(data.map(d => _tcLoadLeague(d, force).then(e=>({d, e})).catch(()=>null)));
   const loaded = entries.filter(Boolean);
 
@@ -18712,32 +18854,28 @@ async function renderTradeCenter(force){
   const open = [...buckets.incoming, ...buckets.outgoing, ...buckets.waiting]
     .sort((a,b)=>(b.t.created||0)-(a.t.created||0));
 
-  const kpi = (label, val, color) => `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:13px 16px;min-width:120px;flex:1">
-    <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${label}</div>
-    <div style="font-size:21px;font-weight:800;font-family:var(--font-mono);color:${color}">${val}</div>
-  </div>`;
+  const strip = _cxStrip([
+    { label:'Open', val:open.length, c:'steel', hint:'need a response' },
+    { label:'Incoming', val:buckets.incoming.length, c:'amber', hint:'offers for you' },
+    { label:'Outgoing', val:buckets.outgoing.length, c:'sky', hint:'sent by you' },
+    { label:'Waiting', val:buckets.waiting.length, c:'neutral', hint:'others deciding' },
+    { label:'Completed', val:buckets.complete, c:'green', hint:'this season' },
+    { label:'Rejected', val:buckets.rejected, c:'red', hint:"didn't land" }
+  ]);
 
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="font-size:12.5px;color:var(--muted)">Pending trade offers across all your leagues · connected as <b>${conn.sleeperUsername||'you'}</b></div>
-      <div style="display:flex;gap:9px">
-        <button onclick="renderTradeCenter(true)" style="padding:9px 15px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">↻ Refresh</button>
-        <button onclick="tcOpenComposer()" style="padding:9px 17px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer">+ Send offer</button>
+  el.innerHTML = `<div class="cx">
+    <div class="cx-actions">
+      ${_cxConnPill(conn)}
+      <div class="cx-btns">
+        <button class="cx-btn outline sm" onclick="renderTradeCenter(true)">${_cxIc('refresh',14)}Refresh</button>
+        <button class="cx-btn primary" onclick="tcOpenComposer()">${_cxIc('plus',14)}Send offer</button>
       </div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
-      ${kpi('Total open', open.length, 'var(--accent2)')}
-      ${kpi('Incoming', buckets.incoming.length, '#FFC400')}
-      ${kpi('Outgoing', buckets.outgoing.length, 'var(--sky)')}
-      ${kpi('Completed', buckets.complete, '#3DCC7A')}
-      ${kpi('Rejected', buckets.rejected, '#ff6680')}
-      ${kpi('All trades', buckets.all, 'var(--wr)')}
-    </div>
-    <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Open trades</div>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      ${open.length ? open.map(o => _tcCardHtml(o.t, o.d, o.e, o.cls)).join('')
-        : `<div style="border:1px dashed var(--border2);border-radius:14px;padding:38px;text-align:center;color:var(--muted);font-size:13px">No open trade offers right now. Send one with the button above.</div>`}
-    </div>`;
+    ${strip}
+    <div class="cx-title" style="padding:2px 2px 0">${_cxIc('activity')}Open trades <span class="cx-mut" style="font-weight:600;margin-left:4px">${open.length}</span></div>
+    <div class="cx-tlist">${open.length ? open.map(o => _tcCardHtml(o.t, o.d, o.e, o.cls)).join('')
+      : '<div class="cx-empty">No open trade offers right now. Send one with the button above.</div>'}</div>
+  </div>`;
 }
 try { window.renderTradeCenter = renderTradeCenter; } catch(e){}
 
@@ -18917,13 +19055,14 @@ function _wcDroppables(d, entry){
 async function renderWaiverCommand(force){
   const el = document.getElementById('pf-waiver-command');
   if(!el) return;
+  _cxEnsureStyles();
   const data = _tcLeagues();
-  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Loading leagues…</div>'; return; }
+  if(!data.length){ el.innerHTML = '<div class="cx"><div class="cx-loading">Loading leagues…</div></div>'; return; }
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
 
-  el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Scanning free agents across your leagues…</div>';
+  el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Scanning free agents across your leagues…</div></div>`;
   // Injury/eligibility designations power both the block detection and the
   // one-click IR fix — make sure they're loaded before computing rows.
   let meta = window._pfRosterMeta;
@@ -18956,11 +19095,6 @@ async function renderWaiverCommand(force){
   const priority = rows.filter(r => r.diff >= 300).length;
   const best = rows.reduce((b,r)=> (!b || (r.bestFA&&r.bestFA.val>(b.bestFA?b.bestFA.val:0))) ? r : b, null);
 
-  const kpi = (label, val, color) => `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:13px 16px;min-width:150px;flex:1">
-    <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${label}</div>
-    <div style="font-size:19px;font-weight:800;font-family:var(--font-mono);color:${color}">${val}</div>
-  </div>`;
-
   const anyBlocked = rows.some(r => r.issues.length);
   const rowHtml = rows.map(r => {
     const lid = r.d.lg.league_id;
@@ -18968,53 +19102,49 @@ async function renderWaiverCommand(force){
     const fixPlan = blocked ? _pfIrFixPlan(r.d, meta) : null;
     const canFix = fixPlan && fixPlan.fixable;
     const claimBtn = !conn.connected
-      ? `<span style="color:var(--muted);font-size:11px">Connect Sleeper</span>`
+      ? '<span class="cx-mut" style="font-size:11px">Connect Sleeper</span>'
       : canFix
-      ? `<button onclick="pfFixIr('${lid}', ()=>renderWaiverCommand(true))" title="Move ${fixPlan.moves.length} ineligible player(s) off IR onto your bench" style="padding:6px 13px;border-radius:8px;background:rgba(61,204,122,0.14);border:1px solid rgba(61,204,122,0.35);color:#3DCC7A;font-weight:700;font-size:11.5px;cursor:pointer;white-space:nowrap">⚡ Fix IR</button>`
+      ? `<button class="cx-btn green sm" title="Move ${fixPlan.moves.length} ineligible player(s) off IR onto your bench" onclick="pfFixIr('${lid}', ()=>renderWaiverCommand(true))">${_cxIc('bolt',13)}Fix IR</button>`
       : blocked
-      ? `<span title="${r.issues.length} roster issue(s) — resolve in the Sleeper app" style="padding:6px 13px;border-radius:8px;background:rgba(255,102,128,0.08);border:1px solid rgba(255,102,128,0.2);color:#ff6680;font-weight:600;font-size:11.5px;white-space:nowrap;opacity:.8">⚠ Fix</span>`
+      ? '<span class="cx-badge cx-b-red" title="'+r.issues.length+' roster issue(s) — resolve in the Sleeper app">Fix roster</span>'
       : r.bestFA
-      ? `<button onclick="wcClaimModal('${lid}','${(r.bestFA.name||'').replace(/'/g,"\\'")}')" style="padding:6px 14px;border-radius:8px;background:rgba(61,204,122,0.12);border:1px solid rgba(61,204,122,0.3);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">+ Claim</button>`
-      : '—';
-    return `<tr style="border-top:1px solid var(--border2)">
-      <td style="padding:12px 18px;font-weight:600">${r.d.lg.name}${blocked?' <span style="color:#ff6680;font-size:10.5px;margin-left:6px">'+r.issues.length+' issue'+(r.issues.length>1?'s':'')+'</span>':''}</td>
-      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums">${r.openSpots}</td>
-      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;color:${r.faabLeft>((r.budget||100)*0.5)?'#3DCC7A':'#FFC400'}">$${r.faabLeft}</td>
-      <td style="padding:12px 12px">${r.bestFA?`<b>${r.bestFA.name}</b> <span style="color:var(--muted);font-size:11px">${r.bestFA.pos} · ${r.bestFA.val.toLocaleString()}</span>`:'—'}</td>
-      <td style="padding:12px 12px">${r.worst?`${r.worst.name} <span style="color:var(--muted);font-size:11px">${r.worst.val.toLocaleString()}</span>`:'—'}</td>
-      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:${r.diff>0?'#3DCC7A':'var(--muted)'}">${r.diff>0?'+':''}${r.diff.toLocaleString()}</td>
-      <td style="padding:12px 12px;text-align:center">${claimBtn}</td>
-      <td style="padding:12px 18px;text-align:right"><button onclick="wcLeagueBrowser('${lid}')" style="padding:6px 13px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:11.5px;cursor:pointer;white-space:nowrap">Browse</button></td>
+      ? `<button class="cx-btn primary sm" onclick="wcClaimModal('${lid}','${(r.bestFA.name||'').replace(/'/g,"\\'")}')">Claim</button>`
+      : '<span class="cx-mut">—</span>';
+    const pct = Math.max(3, Math.round((r.faabLeft/(r.budget||100))*100));
+    const dropMeta = blocked ? `<span style="color:#ff5a6e">${r.issues.length} roster issue${r.issues.length>1?'s':''}</span>` : (r.worst?`drop ${r.worst.name}`:'');
+    return `<tr class="cx-main">
+      <td class="l"><div class="cx-lg"><span class="cx-lgb">${_cxInit(r.d.lg.name)}</span><div><div class="cx-lgn">${r.d.lg.name}</div>${dropMeta?`<div class="cx-lgm">${dropMeta}</div>`:''}</div></div></td>
+      <td class="l">${r.bestFA?`<div class="cx-lg"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(r.bestFA.name,r.bestFA.pid,30):'')}" onerror="this.style.visibility='hidden'" style="width:30px;height:30px;border-radius:8px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0"><div><div class="cx-lgn">${r.bestFA.name}${r.bestFA.pos?` <span class="cx-pos ${r.bestFA.pos}">${r.bestFA.pos}</span>`:''}</div><div class="cx-lgm">value ${r.bestFA.val.toLocaleString()}</div></div></div>`:'<span class="cx-mut">No upgrade available</span>'}</td>
+      <td>${r.diff>0?`<span class="cx-num pos">+${r.diff.toLocaleString()}</span>`:'<span class="cx-mut">—</span>'}</td>
+      <td>${r.openSpots>0?`<span class="cx-badge cx-b-green">${r.openSpots} spot${r.openSpots>1?'s':''}</span>`:'<span class="cx-badge cx-b-muted">roster full</span>'}</td>
+      <td><div class="cx-faab"><span class="cx-num">$${r.faabLeft}</span><span class="bar"><i style="width:${pct}%"></i></span></div></td>
+      <td><div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">${claimBtn}<button class="cx-btn outline sm" onclick="wcLeagueBrowser('${lid}')">Browse</button></div></td>
     </tr>`;
   }).join('');
 
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="font-size:12.5px;color:var(--muted)">Find waiver targets, compare availability, and claim across your teams${conn.connected?` · connected as <b>${conn.sleeperUsername}</b>`:''}</div>
-      <button onclick="renderWaiverCommand(true)" style="padding:9px 15px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">↻ Refresh</button>
+  const strip = _cxStrip([
+    { label:'Open spots', val:totalOpen, c:'neutral', hint:'across '+rows.length+' leagues' },
+    { label:'Avg FAAB left', val:avgFaab+'<small>%</small>', c:'steel', hint:'across leagues' },
+    { label:'Priority', val:priority, c:'amber', hint:'high-value adds' },
+    { label:'Top target', val:(best&&best.bestFA?best.bestFA.name:'—'), c:'steel', hero:true, span:true,
+      hint:(best&&best.bestFA?`${best.bestFA.pos?`<span class="cx-pos ${best.bestFA.pos}">${best.bestFA.pos}</span>`:''} free in ${best.d.lg.name}`:'') }
+  ], 'c5');
+
+  el.innerHTML = `<div class="cx">
+    <div class="cx-actions">
+      ${_cxConnPill(conn)}
+      <div class="cx-btns"><button class="cx-btn outline sm" onclick="this.classList.add('cx-spin');renderWaiverCommand(true)">${_cxIc('refresh',14)}Re-scan</button></div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      ${kpi('Priority adds', priority, '#FFC400')}
-      ${kpi('Open roster spots', totalOpen, 'var(--sky)')}
-      ${kpi('Avg FAAB remaining', avgFaab+'%', '#3DCC7A')}
-      ${kpi('Best available', best&&best.bestFA?best.bestFA.name:'—', 'var(--accent2)')}
-    </div>
-    ${anyBlocked?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:11.5px;color:var(--muted)">${_lcBadge('⚠ Fix','warn')}<span>= a roster issue (IR / taxi / over-roster) is blocking claims. Resolve it in the Sleeper app.</span></div>`:''}
-    <div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);overflow:hidden">
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:840px">
-        <thead><tr style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
-          <th style="text-align:left;padding:10px 18px;font-weight:600">League</th>
-          <th style="text-align:right;padding:10px 12px;font-weight:600">Open</th>
-          <th style="text-align:right;padding:10px 12px;font-weight:600">FAAB</th>
-          <th style="text-align:left;padding:10px 12px;font-weight:600">Best available</th>
-          <th style="text-align:left;padding:10px 12px;font-weight:600">Sugg drop</th>
-          <th style="text-align:right;padding:10px 12px;font-weight:600">Diff</th>
-          <th style="text-align:center;padding:10px 12px;font-weight:600">Claim</th>
-          <th style="padding:10px 18px"></th>
-        </tr></thead>
+    ${strip}
+    <div class="cx-card">
+      <div class="cx-head"><div><div class="cx-title">${_cxIc('target')}Best available by league</div><div class="cx-desc">Top unrostered value vs. your worst droppable</div></div><span class="cx-badge cx-b-muted">sorted by upgrade</span></div>
+      <div class="cx-twrap"><table class="cx-tbl">
+        <thead><tr><th class="l">League</th><th class="l">Top available</th><th>Upgrade</th><th>Open</th><th>FAAB left</th><th></th></tr></thead>
         <tbody>${rowHtml}</tbody>
       </table></div>
-    </div>`;
+    </div>
+    ${anyBlocked?`<div class="cx-banner">${_cxIc('alert',16)}<span><b>Some claims are blocked.</b> A roster issue (IR / taxi / over-roster) is in the way — Vault can Fix IR in one tap, or resolve it in the Sleeper app.</span></div>`:''}
+  </div>`;
 }
 try { window.renderWaiverCommand = renderWaiverCommand; } catch(e){}
 
@@ -19138,16 +19268,17 @@ function _txLeagueView(d, meta){
 async function renderTaxiCommand(force){
   const el = document.getElementById('pf-taxi-command');
   if(!el) return;
+  _cxEnsureStyles();
   const data = _txLeagues();
   if(!data.length){
-    el.innerHTML = `<div style="border:1px dashed var(--border2);border-radius:14px;padding:40px;text-align:center;color:var(--muted);font-size:13px">None of your leagues run a taxi squad. Taxi Manager applies to dynasty leagues with taxi slots.</div>`;
+    el.innerHTML = `<div class="cx"><div class="cx-empty">None of your leagues run a taxi squad. Taxi Manager applies to dynasty leagues with taxi slots.</div></div>`;
     return;
   }
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
 
-  el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Reading your taxi squads…</div>';
+  el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Reading your taxi squads…</div></div>`;
   let meta = window._pfRosterMeta;
   if(meta === undefined){ try { meta = await _pfEnsureRosterMeta(); } catch(e){} }
 
@@ -19158,64 +19289,56 @@ async function renderTaxiCommand(force){
   const totAged = views.reduce((s,x)=>s+x.v.agedOut.length,0);
   const totElig = views.reduce((s,x)=>s+x.v.eligible.length,0);
 
-  const kpi = (label, val, color) => `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:13px 16px;min-width:130px;flex:1">
-    <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${label}</div>
-    <div style="font-size:20px;font-weight:800;font-family:var(--font-mono);color:${color}">${val}</div>
-  </div>`;
-
-  const yrsLbl = y => y==null ? '' : `<span style="color:var(--muted);font-size:11px">${y===0?'rookie':y+'y'}</span>`;
+  const yrsLbl = y => y==null ? '' : `<span class="yr">${y===0?'rookie':y+'y'}</span>`;
 
   const cards = views.map(({d,v}) => {
     const lid = d.lg.league_id;
     const full = v.open<=0;
     const onTaxiRows = v.onTaxi.length ? v.onTaxi.map(p => `
-      <div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
-        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,26):'')}" onerror="this.style.display='none'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;background:var(--s2)">
-        <span style="flex:1;font-weight:600">${p.name} <span style="color:var(--muted);font-size:11px">${p.pos}</span> ${yrsLbl(p.yrs)}${p.agedOut?` <span style="color:#ff6680;font-size:10.5px;font-weight:700">AGED OUT</span>`:''}</span>
-        <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${p.val?p.val.toLocaleString():'—'}</span>
-        ${conn.connected?`<button onclick="txRemove('${lid}','${p.pid}')" style="padding:5px 11px;border-radius:7px;background:${p.agedOut?'rgba(255,102,128,0.14)':'var(--s2)'};border:1px solid ${p.agedOut?'rgba(255,102,128,0.35)':'var(--border2)'};color:${p.agedOut?'#ff6680':'var(--text)'};font-weight:600;font-size:11.5px;cursor:pointer;white-space:nowrap">Remove</button>`:''}
-      </div>`).join('') : `<div style="padding:6px 0;color:var(--muted);font-size:12px">No players on taxi</div>`;
+      <div class="cx-txr">
+        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,28):'')}" onerror="this.style.visibility='hidden'">
+        <span class="nm">${p.name}${p.pos?` <span class="cx-pos ${p.pos}">${p.pos}</span>`:''} ${yrsLbl(p.yrs)}${p.agedOut?' <span class="cx-aged">AGED OUT</span>':''}</span>
+        <span class="vv">${p.val?p.val.toLocaleString():'—'}</span>
+        ${conn.connected?`<button class="cx-btn ${p.agedOut?'red':'outline'} sm" onclick="txRemove('${lid}','${p.pid}')">Remove</button>`:''}
+      </div>`).join('') : `<div class="cx-mut" style="font-size:12px;padding:7px 0">No players on taxi</div>`;
     const eligRows = v.eligible.length ? v.eligible.slice(0,12).map(p => `
-      <div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
-        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,26):'')}" onerror="this.style.display='none'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;background:var(--s2)">
-        <span style="flex:1;font-weight:600">${p.name} <span style="color:var(--muted);font-size:11px">${p.pos}</span> ${yrsLbl(p.yrs)}</span>
-        <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${p.val?p.val.toLocaleString():'—'}</span>
-        ${conn.connected?`<button onclick="txAdd('${lid}','${p.pid}')" ${full?'disabled':''} title="${full?'Taxi is full — remove someone first':'Move to taxi (frees an active roster spot)'}" style="padding:5px 11px;border-radius:7px;background:${full?'var(--s2)':'rgba(61,204,122,0.14)'};border:1px solid ${full?'var(--border2)':'rgba(61,204,122,0.35)'};color:${full?'var(--muted)':'#3DCC7A'};font-weight:700;font-size:11.5px;cursor:${full?'default':'pointer'};white-space:nowrap">+ Taxi</button>`:''}
-      </div>`).join('') : `<div style="padding:6px 0;color:var(--muted);font-size:12px">No taxi-eligible players on your roster</div>`;
-    return `<div style="border:1px solid ${v.agedOut.length?'rgba(255,102,128,0.28)':'var(--border2)'};border-radius:14px;background:var(--s1);overflow:hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border2)">
-        <div style="font-size:14px;font-weight:700">${d.lg.name}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${v.agedOut.length?`<span style="font-size:11px;color:#ff6680;font-weight:700">${v.agedOut.length} aged out</span>`:''}
-          <span style="font-family:var(--font-mono);font-size:12px;color:${full?'#FFC400':'#3DCC7A'}">${v.used}/${v.slots} taxi</span>
+      <div class="cx-txr">
+        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,28):'')}" onerror="this.style.visibility='hidden'">
+        <span class="nm">${p.name}${p.pos?` <span class="cx-pos ${p.pos}">${p.pos}</span>`:''} ${yrsLbl(p.yrs)}</span>
+        <span class="vv">${p.val?p.val.toLocaleString():'—'}</span>
+        ${conn.connected?`<button class="cx-btn ${full?'outline':'green'} sm" ${full?'disabled':''} title="${full?'Taxi is full — remove someone first':'Move to taxi (frees an active roster spot)'}" onclick="txAdd('${lid}','${p.pid}')">${_cxIc('plus',13)}Taxi</button>`:''}
+      </div>`).join('') : `<div class="cx-mut" style="font-size:12px;padding:7px 0">No taxi-eligible players on your roster</div>`;
+    return `<div class="cx-card${v.agedOut.length?' aged':''}">
+      <div class="cx-head">
+        <div class="cx-title"><span class="cx-lgb">${_cxInit(d.lg.name)}</span>${d.lg.name}</div>
+        <div class="cx-btns" style="gap:8px">
+          ${v.agedOut.length?`<span class="cx-badge cx-b-red">${v.agedOut.length} aged out</span>`:''}
+          <span class="cx-badge ${full?'cx-b-amber':'cx-b-green'}">${v.used}/${v.slots} taxi</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
-        <div style="padding:12px 18px;border-right:1px solid var(--border2)">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">On taxi</div>
-          ${onTaxiRows}
-        </div>
-        <div style="padding:12px 18px">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">Eligible to stash</div>
-          ${eligRows}
-        </div>
+      <div class="cx-tx2">
+        <div class="cx-txcol"><div class="cx-txh">On taxi</div>${onTaxiRows}</div>
+        <div class="cx-txcol"><div class="cx-txh">Eligible to stash</div>${eligRows}</div>
       </div>
     </div>`;
   }).join('');
 
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="font-size:12.5px;color:var(--muted)">Manage taxi squads across your dynasty leagues${conn.connected?` · connected as <b>${conn.sleeperUsername}</b>`:''}</div>
-      <button onclick="renderTaxiCommand(true)" style="padding:9px 15px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">↻ Refresh</button>
+  const strip = _cxStrip([
+    { label:'Taxi used', val:totUsed+`<small> / ${totSlots}</small>`, c:'steel', hint:'across '+views.length+' league'+(views.length!==1?'s':'') },
+    { label:'Open slots', val:totOpen, c:'sky', hint:'available to stash' },
+    { label:'Aged out', val:totAged, c:totAged?'red':'green', hint:totAged?'need clearing':'all eligible' },
+    { label:'Eligible', val:totElig, c:'neutral', hint:'rookies to stash' }
+  ], 'c4');
+
+  el.innerHTML = `<div class="cx">
+    <div class="cx-actions">
+      ${_cxConnPill(conn)}
+      <div class="cx-btns"><button class="cx-btn outline sm" onclick="renderTaxiCommand(true)">${_cxIc('refresh',14)}Refresh</button></div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-      ${kpi('Taxi used', totUsed+' / '+totSlots, 'var(--accent2)')}
-      ${kpi('Open taxi slots', totOpen, 'var(--sky)')}
-      ${kpi('Aged out', totAged, totAged?'#ff6680':'#3DCC7A')}
-      ${kpi('Eligible to stash', totElig, 'var(--wr)')}
-    </div>
-    ${!conn.connected?`<div style="margin-bottom:12px;padding:11px 14px;border-radius:10px;background:rgba(123,208,255,0.05);border:1px solid rgba(123,208,255,0.18);font-size:12.5px;color:var(--muted)">Connect Sleeper for lineup control to add or remove taxi players from here. <button onclick="try{openSettingsDrawer()}catch(e){}" style="margin-left:6px;padding:5px 12px;border-radius:7px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:11.5px;cursor:pointer">Connect</button></div>`:''}
-    <div style="display:flex;flex-direction:column;gap:14px">${cards}</div>`;
+    ${strip}
+    ${!conn.connected?`<div class="cx-notice">${_cxIc('alert',16)}<span>Connect Sleeper for lineup control to add or remove taxi players from here.</span><button class="cx-btn primary sm" style="margin-left:auto" onclick="try{openSettingsDrawer()}catch(e){}">Connect</button></div>`:''}
+    <div style="display:flex;flex-direction:column;gap:14px">${cards}</div>
+  </div>`;
 }
 try { window.renderTaxiCommand = renderTaxiCommand; } catch(e){}
 
@@ -19284,6 +19407,11 @@ function pfSetView(v){
   const sub = document.getElementById('pf-viewdd-sub');
   if(title) title.textContent = views[v].title;
   if(sub) sub.textContent = views[v].sub;
+  // Command views carry their own action row + connection pill, so hide the
+  // portfolio-overview header buttons (Manage Leagues / Refresh) to avoid a
+  // duplicate Refresh and a redundant subtitle.
+  const hdrActions = document.getElementById('pf-header-actions');
+  if(hdrActions) hdrActions.style.display = (v==='overview') ? '' : 'none';
   document.querySelectorAll('#pf-nav-menu .lc-mt-item').forEach(it => {
     it.classList.toggle('active', it.dataset.pfview === v);
   });
