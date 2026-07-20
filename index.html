@@ -4962,6 +4962,14 @@ function pgsOpen(name, pos, team){
     <div id="pf-view-lineup" style="display:none">
       <div id="pf-lineup-command"></div>
     </div>
+    <!-- Trade Center — pending offers across leagues + send offers -->
+    <div id="pf-view-trades" style="display:none">
+      <div id="pf-trade-center"></div>
+    </div>
+    <!-- Waiver Command — FA targets + claims across leagues -->
+    <div id="pf-view-waivers" style="display:none">
+      <div id="pf-waiver-command"></div>
+    </div>
   </div>
 </div>
 
@@ -4987,6 +4995,8 @@ function pgsOpen(name, pos, team){
       <button class="dv-abtn hgbtn" id="hgbtn" onclick="toggleHide()" title="Show or hide drafted players"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></svg><span>Drafted</span><span class="hg-count" id="hg-count">0</span></button>
     </div>
   </div>
+  <!-- Draft Control — live Sleeper drafting from your board (queue sync + pick) -->
+  <div id="dv-draft-control" style="display:none"></div>
   <!-- ADP EXPLORER VIEW -->
   <div id="dv-adp-view">
     <!-- hero -->
@@ -13524,6 +13534,7 @@ function renderList(){
   
   // Sort once and reuse for both the row build and the tier-break pass below.
   const _sortedList = sortedPlayers();
+  window._sortedList = _sortedList;   // exposed for Draft Control (queue/pick in board order)
   // Positional rank by the ACTIVE value mode (Dynasty source-aware, or Redraft 1QB),
   // independent of the current display sort, so the pill always reads RB1, WR2, etc.
   const _dvm = window._dvMode || 'dynasty';
@@ -15992,7 +16003,7 @@ function renderAll(){
     const pg = document.querySelector('.page.on')?.id;
     if (pg==='page-teams') { const loaded=valueSource==='fc'?fcLoaded:raLoaded; if(!loaded){if(valueSource==='fc')fetchFantasyCalc();else fetchRosterAudit();}else renderTeams(); }
     if (pg==='page-visual') renderBoard();
-    if (pg==='page-draft') { renderBoard(); renderDraftSummary(); }
+    if (pg==='page-draft') { renderBoard(); renderDraftSummary(); try { dvRenderDraftControl(); } catch(e){} }
     // keep the ADP Explorer's drafted-greyout in sync with live picks
     try { window.adpOnDraftUpdate && window.adpOnDraftUpdate(); } catch(e){}
   });
@@ -18212,14 +18223,87 @@ function pfRosterIssues(d, meta){
 }
 try { window.pfRosterIssues = pfRosterIssues; } catch(e){}
 
-// Blocked-league detail: what's wrong and where to fix it.
-function _lcIssuesHtml(issues){
+// Can Vault clear this league's block by rewriting the IR list alone?
+// Returns a plan when the ONLY fix needed is moving IR-ineligible players off
+// reserve AND the active roster has room for them (we never force a drop, and
+// we never touch taxi — that's the taxi manager's job). null otherwise.
+function _pfIrFixPlan(d, meta){
+  if(!meta) return null;
+  const st = (d.lg && d.lg.settings) || {};
+  const resv = (d.myReserve||[]).map(String);
+  const taxi = (d.myTaxi||[]).map(String);
+  if(!resv.length) return null;
+  const irSlots = st.reserve_slots||0, taxiSlots = st.taxi_slots||0;
+  // Bail if a NON-IR issue is also blocking — Vault can't safely resolve those here.
+  if(taxi.length > taxiSlots) return null;                       // taxi overfill
+  if(!st.taxi_allow_vets && taxiSlots>0 && st.taxi_years>0){     // aged-out taxi
+    for(const pid of taxi){ const y = meta.yrs && meta.yrs[pid]; if(typeof y==='number' && y > st.taxi_years) return null; }
+  }
+  // Keep only IR-eligible players on reserve; everyone else moves to the bench.
+  const nm = p => ((typeof globalPidToName!=='undefined' && globalPidToName[p]) || ('#'+p));
+  const keep = resv.filter(pid => _pfIrOk(pid, meta, st));
+  let newReserve = keep.slice(0, irSlots);                       // also clears an overfilled-but-eligible IR
+  const movedOff = resv.filter(pid => newReserve.indexOf(pid) === -1);
+  if(!movedOff.length) return null;                              // nothing to fix via reserve
+  // Room check: players coming off IR land on the active roster.
+  const cap = (d.rosterPositions||[]).length;
+  const activeNow = (d.myPlayersCount||0) - resv.length - taxi.length;
+  const activeAfter = activeNow + movedOff.length;
+  const needsDrop = cap && activeAfter > cap;                    // would over-fill → can't auto-fix
+  return {
+    leagueId: d.lg.league_id, rosterId: d.myRosterId,
+    newReserve, moves: movedOff.map(pid => ({ pid, name: nm(pid) })),
+    fixable: !needsDrop, needsDrop, cap, activeAfter
+  };
+}
+try { window._pfIrFixPlan = _pfIrFixPlan; } catch(e){}
+
+// Confirm the exact moves, then write the corrected IR list to Sleeper.
+function pfFixIr(leagueId, onDone){
+  const d = (window._pfLeagueData||[]).find(x => x.lg && x.lg.league_id === leagueId);
+  if(!d) return;
+  const plan = _pfIrFixPlan(d, window._pfRosterMeta);
+  if(!plan || !plan.fixable) return;
+  const list = plan.moves.map(m => `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
+    <span style="width:16px;text-align:center;color:#3DCC7A;font-weight:700">▸</span>
+    <span style="flex:1"><b>${m.name}</b> <span style="color:var(--muted);font-size:11px">off IR → bench</span></span>
+  </div>`).join('');
+  pfLcModal({
+    title: 'Fix IR — ' + (d.lg.name || 'league'),
+    subtitle: `Move ${plan.moves.length} player${plan.moves.length!==1?'s':''} off IR so Sleeper accepts your roster`,
+    bodyHtml: `<div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+      <div style="padding:7px 12px;background:rgba(61,204,122,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#3DCC7A">Moving to bench</div>
+      <div style="padding:2px 12px 6px">${list}</div>
+    </div>`,
+    confirmLabel: 'Fix IR in Sleeper',
+    note: 'This updates your reserve/IR slots in Sleeper. These players return to your active bench — fully reversible in the Sleeper app.',
+    onConfirm: async () => {
+      await VaultSleeper.updateReserve(plan.leagueId, plan.rosterId, plan.newReserve);
+      // Reflect locally so the block clears without a full refetch.
+      d.myReserve = plan.newReserve;
+      if(typeof onDone === 'function'){ try { onDone(); } catch(e){} }
+    }
+  });
+}
+try { window.pfFixIr = pfFixIr; } catch(e){}
+
+// Blocked-league detail: what's wrong and where to fix it. When the block is
+// purely an IR problem Vault can resolve, offer a one-click Fix from Vault.
+function _lcIssuesHtml(issues, fixPlan){
   const rows = issues.map(i => `<div style="display:flex;gap:9px;padding:5px 0;font-size:12.5px;line-height:1.45"><span style="color:#ff6680;flex-shrink:0">⚠</span><span>${i}</span></div>`).join('');
+  const canFix = fixPlan && fixPlan.fixable;
+  const lid = fixPlan && fixPlan.leagueId;
+  const footer = canFix
+    ? `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:9px;background:rgba(61,204,122,0.06);border:1px solid rgba(61,204,122,0.2);flex-wrap:wrap">
+        <span style="font-size:11.5px;color:var(--muted);line-height:1.5">Vault can clear this by moving ${fixPlan.moves.length} player${fixPlan.moves.length!==1?'s':''} off IR onto your bench.</span>
+        <button onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())" style="padding:7px 15px;border-radius:8px;background:rgba(61,204,122,0.16);border:1px solid rgba(61,204,122,0.4);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">⚡ Fix from Vault</button>
+      </div>`
+    : `<div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the Sleeper app, then hit Refresh.</div>`;
   return `<div style="border:1px solid rgba(255,102,128,0.25);border-radius:10px;overflow:hidden;margin-top:6px">
-    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Roster issues — fix in the Sleeper app</div>
+    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Roster issues${canFix?'':' — fix in the Sleeper app'}</div>
     <div style="padding:4px 12px 8px">${rows}</div>
   </div>
-  <div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the Sleeper app, then hit Refresh.</div>`;
+  ${footer}`;
 }
 
 // ── Lineup Command UI: table of all leagues + optimize/push actions ──
@@ -18271,6 +18355,8 @@ async function renderLineupCommand(){
     const hasGain = !empty && gain>0.1 && lc.changed;
     const blocked = hasGain && issues.length>0;
     const act = hasGain && !blocked;
+    const fixPlan = blocked ? _pfIrFixPlan(d, meta) : null;
+    const canFix = fixPlan && fixPlan.fixable;
     const isOpen = expanded.has(lid);
     const open = act || blocked;   // rows with something to show expand
     const status = empty   ? _lcBadge('No roster','muted')
@@ -18279,6 +18365,8 @@ async function renderLineupCommand(){
                            : _lcBadge('✓ Optimized','ok');
     const btn = act
       ? `<button onclick="event.stopPropagation();pfOptimizeLeague('${lid}')" data-lc-btn="${lid}" style="padding:6px 15px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Optimize</button>`
+      : canFix
+      ? `<button onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())" style="padding:6px 15px;border-radius:8px;background:rgba(61,204,122,0.14);border:1px solid rgba(61,204,122,0.35);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">⚡ Fix IR</button>`
       : `<span style="color:var(--muted);font-size:12px">—</span>`;
     const chev = open
       ? `<span style="display:inline-block;width:12px;color:var(--muted);margin-right:9px;transition:transform .15s ease;transform:rotate(${isOpen?90:0}deg)">›</span>`
@@ -18296,7 +18384,7 @@ async function renderLineupCommand(){
       <td style="padding:12px 18px;text-align:right">${btn}</td>
     </tr>`;
     const detailRow = (open && isOpen)
-      ? `<tr><td colspan="5" style="padding:2px 18px 16px;background:rgba(255,255,255,0.015)">${blocked?_lcIssuesHtml(issues):_lcSwapHtml(lc)}</td></tr>`
+      ? `<tr><td colspan="5" style="padding:2px 18px 16px;background:rgba(255,255,255,0.015)">${blocked?_lcIssuesHtml(issues, fixPlan):_lcSwapHtml(lc)}</td></tr>`
       : '';
     return mainRow + detailRow;
   }).join('');
@@ -18445,25 +18533,563 @@ async function pfOptimizeAll(){
 }
 try { window.pfOptimizeAll = pfOptimizeAll; } catch(e){}
 
-// ── Portfolio view switcher: Overview ↔ Lineup Command ──
+// ═══════════════════════════════════════════════════════════════
+// Trade Center — pending offers across all leagues + send offers.
+// Reads authenticated league transactions through the backend
+// (pending offers aren't in Sleeper's public API); accept / reject /
+// cancel / propose flow through the same throttled write path.
+// ═══════════════════════════════════════════════════════════════
+window._tcCache = window._tcCache || {}; // lid -> {txns, users, at}
+
+function _tcLeagues(){
+  return (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
+}
+function _tcVal(name, lg){
+  if(!name) return 0;
+  const dyn = (typeof _isDynastyLeague==='function') ? _isDynastyLeague(lg) : true;
+  if(window.MyRankings){ const mv = MyRankings.getValue(name, dyn?'dynasty':'redraft'); if(mv) return mv; }
+  const fc = (typeof getFCValue==='function') ? getFCValue(name) : null;
+  if(!dyn) return (window._redraft1QB && (window._redraft1QB[name]||{}).value) || (fc&&fc.redraftValue) || 0;
+  return (fc&&fc.value) || 0;
+}
+const _tcPickVal = {1:3500, 2:1800, 3:800};
+function _tcName(pid){ return (typeof globalPidToName!=='undefined' && globalPidToName[pid]) || ('#'+pid); }
+
+async function _tcLoadLeague(d, force){
+  const lid = d.lg.league_id;
+  const c = window._tcCache[lid];
+  if(!force && c && Date.now()-c.at < 60*1000) return c;
+  const [txnsRes, users] = await Promise.all([
+    VaultSleeper.leagueTransactions(lid, { types:['trade'], limit:100 }),
+    fetch(`https://api.sleeper.app/v1/league/${lid}/users`).then(r=>r.json()).catch(()=>[]),
+  ]);
+  const txns = (txnsRes.data && txnsRes.data.league_transactions_filtered) || [];
+  // roster_id -> owner display name
+  const rosters = await fetch(`https://api.sleeper.app/v1/league/${lid}/rosters`).then(r=>r.json()).catch(()=>[]);
+  const nameByRoster = {};
+  rosters.forEach(r => {
+    const u = users.find(u => u.user_id === r.owner_id);
+    nameByRoster[r.roster_id] = (u && (u.display_name||u.username)) || ('Team '+r.roster_id);
+  });
+  const entry = { txns, nameByRoster, rosters, at: Date.now() };
+  window._tcCache[lid] = entry;
+  return entry;
+}
+
+// Classify one trade transaction relative to my roster in that league.
+function _tcClassify(t, myRosterId, myUserId){
+  const mine = (t.roster_ids||[]).includes(myRosterId);
+  if(!mine) return 'other';
+  if(t.status === 'proposed'){
+    if(String(t.creator) === String(myUserId)) return 'outgoing';
+    if((t.consenter_ids||[]).includes(myRosterId)) return 'waiting'; // I consented, others pending
+    return 'incoming';
+  }
+  return t.status; // complete / rejected / failed / ...
+}
+
+// One side of a trade card: what a roster RECEIVES.
+function _tcSideHtml(t, rosterId, d, entry, highlight){
+  const lg = d.lg;
+  const recvPids = Object.entries(t.adds||{}).filter(([,rid]) => rid===rosterId).map(([pid])=>pid);
+  const recvPicks = (t.draft_picks||[]).filter(pk => pk.owner_id===rosterId);
+  const faab = (t.waiver_budget||[]).filter(w => w.receiver===rosterId);
+  let total = 0;
+  const rows = recvPids.map(pid => {
+    const nm = _tcName(pid), v = Math.round(_tcVal(nm, lg)); total += v;
+    const pos = (typeof _pfLcPos==='function' && _pfLcPos(nm)) || '';
+    return `<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px">
+      <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,28):'')}" onerror="this.style.display='none'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s2)">
+      <span style="flex:1;font-weight:600">${nm} <span style="color:var(--muted);font-size:11px;font-weight:600">${pos}</span></span>
+      <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${v?v.toLocaleString():'—'}</span>
+    </div>`;
+  }).concat(recvPicks.map(pk => {
+    const v = _tcPickVal[pk.round]||300; total += v;
+    return `<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px">
+      <span style="width:26px;height:26px;border-radius:50%;background:var(--s2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted)">${pk.round}</span>
+      <span style="flex:1;font-weight:600">${pk.season} Round ${pk.round}</span>
+      <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${v.toLocaleString()}</span>
+    </div>`;
+  })).concat(faab.map(w => `<div style="padding:5px 0;font-size:13px;font-weight:600">$${w.amount} FAAB</div>`));
+  const who = entry.nameByRoster[rosterId] || ('Team '+rosterId);
+  const isMe = rosterId === d.myRosterId;
+  return { total, html: `<div style="flex:1;min-width:230px;border:1px solid ${highlight?'rgba(61,204,122,0.35)':'var(--border2)'};border-radius:11px;padding:11px 13px;background:${highlight?'rgba(61,204,122,0.04)':'rgba(255,255,255,0.015)'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:12px;font-weight:700">${isMe?'You':who} <span style="color:var(--muted);font-weight:500">receive${isMe?'':'s'}</span></span>
+      <span style="font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:${highlight?'#3DCC7A':'var(--text)'}">${total?total.toLocaleString():'—'}</span>
+    </div>
+    ${rows.join('') || '<div style="padding:5px 0;color:var(--muted);font-size:12px">Nothing</div>'}
+  </div>` };
+}
+
+function _tcCardHtml(t, d, entry, cls){
+  const lg = d.lg;
+  const others = (t.roster_ids||[]).filter(r => r!==d.myRosterId);
+  const mySide = _tcSideHtml(t, d.myRosterId, d, entry, false);
+  const theirSides = others.map(r => _tcSideHtml(t, r, d, entry, false));
+  const myT = mySide.total, thT = theirSides.reduce((s,x)=>s+x.total,0);
+  const edge = myT - thT;
+  const mySideH = _tcSideHtml(t, d.myRosterId, d, entry, edge>0).html;
+  const theirH = others.map(r => _tcSideHtml(t, r, d, entry, edge<0 && others.length===1).html).join('');
+  const when = t.created ? new Date(t.created).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
+  const tag = cls==='incoming' ? `<span style="padding:3px 10px;border-radius:999px;background:rgba(255,196,0,0.13);color:#FFC400;font-size:11px;font-weight:700">Incoming</span>`
+            : cls==='outgoing' ? `<span style="padding:3px 10px;border-radius:999px;background:rgba(123,208,255,0.12);color:var(--sky);font-size:11px;font-weight:700">Outgoing</span>`
+            : `<span style="padding:3px 10px;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--muted);font-size:11px;font-weight:700">Waiting on others</span>`;
+  const edgeBadge = (myT||thT) ? `<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;${edge>=0?'background:rgba(61,204,122,0.12);color:#3DCC7A':'background:rgba(255,102,128,0.12);color:#ff6680'}">${edge>=0?'+':''}${edge.toLocaleString()} for you</span>` : '';
+  const btns = cls==='incoming'
+    ? `<button onclick="tcCounter('${lg.league_id}','${t.transaction_id}')" style="padding:8px 15px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">⇄ Counter</button>
+       <button onclick="tcReject('${lg.league_id}','${t.transaction_id}',${t.leg||1})" style="padding:8px 15px;border-radius:8px;background:rgba(255,102,128,0.12);border:1px solid rgba(255,102,128,0.3);color:#ff6680;font-weight:700;font-size:12px;cursor:pointer">Reject</button>
+       <button onclick="tcAccept('${lg.league_id}','${t.transaction_id}',${t.leg||1})" style="padding:8px 18px;border-radius:8px;background:rgba(61,204,122,0.14);border:1px solid rgba(61,204,122,0.35);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer">✓ Accept</button>`
+    : cls==='outgoing'
+    ? `<button onclick="tcCancel('${lg.league_id}','${t.transaction_id}',${t.leg||1})" style="padding:8px 15px;border-radius:8px;background:rgba(255,102,128,0.1);border:1px solid rgba(255,102,128,0.25);color:#ff6680;font-weight:600;font-size:12px;cursor:pointer">Cancel offer</button>`
+    : '';
+  return `<div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:16px 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">${tag}<span style="font-size:13.5px;font-weight:700">${lg.name||'League'}</span></div>
+      <div style="display:flex;align-items:center;gap:10px">${edgeBadge}<span style="font-size:11px;color:var(--muted)">${when}</span></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">${mySideH}${theirH}</div>
+    ${btns?`<div style="display:flex;justify-content:flex-end;gap:9px;margin-top:12px">${btns}</div>`:''}
+  </div>`;
+}
+
+async function renderTradeCenter(force){
+  const el = document.getElementById('pf-trade-center');
+  if(!el) return;
+  const data = _tcLeagues();
+  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Loading leagues…</div>'; return; }
+
+  let conn = {connected:false};
+  try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
+  if(!conn.connected){
+    el.innerHTML = `<div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);padding:22px;text-align:center">
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px">⇄ Trade Center</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto">Connect Sleeper for lineup control to see pending offers and manage trades across every league from one inbox.</div>
+      <button onclick="try{openSettingsDrawer()}catch(e){}" style="padding:10px 18px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;cursor:pointer">Connect Sleeper</button>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Loading trades across your leagues…</div>';
+  const entries = await Promise.all(data.map(d => _tcLoadLeague(d, force).then(e=>({d, e})).catch(()=>null)));
+  const loaded = entries.filter(Boolean);
+
+  const buckets = { incoming:[], outgoing:[], waiting:[], complete:0, rejected:0, all:0 };
+  loaded.forEach(({d,e}) => {
+    e.txns.forEach(t => {
+      const cls = _tcClassify(t, d.myRosterId, myTeamsUserId);
+      if(cls==='other') return;
+      buckets.all++;
+      if(cls==='incoming'||cls==='outgoing'||cls==='waiting') buckets[cls].push({t,d,e,cls});
+      else if(cls==='complete') buckets.complete++;
+      else if(cls==='rejected'||cls==='failed') buckets.rejected++;
+    });
+  });
+  const open = [...buckets.incoming, ...buckets.outgoing, ...buckets.waiting]
+    .sort((a,b)=>(b.t.created||0)-(a.t.created||0));
+
+  const kpi = (label, val, color) => `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:13px 16px;min-width:120px;flex:1">
+    <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${label}</div>
+    <div style="font-size:21px;font-weight:800;font-family:var(--font-mono);color:${color}">${val}</div>
+  </div>`;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="font-size:12.5px;color:var(--muted)">Pending trade offers across all your leagues · connected as <b>${conn.sleeperUsername||'you'}</b></div>
+      <div style="display:flex;gap:9px">
+        <button onclick="renderTradeCenter(true)" style="padding:9px 15px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">↻ Refresh</button>
+        <button onclick="tcOpenComposer()" style="padding:9px 17px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer">+ Send offer</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      ${kpi('Total open', open.length, 'var(--accent2)')}
+      ${kpi('Incoming', buckets.incoming.length, '#FFC400')}
+      ${kpi('Outgoing', buckets.outgoing.length, 'var(--sky)')}
+      ${kpi('Completed', buckets.complete, '#3DCC7A')}
+      ${kpi('Rejected', buckets.rejected, '#ff6680')}
+      ${kpi('All trades', buckets.all, 'var(--wr)')}
+    </div>
+    <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Open trades</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${open.length ? open.map(o => _tcCardHtml(o.t, o.d, o.e, o.cls)).join('')
+        : `<div style="border:1px dashed var(--border2);border-radius:14px;padding:38px;text-align:center;color:var(--muted);font-size:13px">No open trade offers right now. Send one with the button above.</div>`}
+    </div>`;
+}
+try { window.renderTradeCenter = renderTradeCenter; } catch(e){}
+
+// ── Trade actions (confirm → backend → refresh) ──
+function _tcFind(lid, tid){
+  const d = _tcLeagues().find(x => x.lg.league_id===lid);
+  const e = window._tcCache[lid];
+  const t = e && e.txns.find(t => t.transaction_id===tid);
+  return { d, e, t };
+}
+function _tcActionModal(verb, lid, tid, leg, doIt){
+  const { d, e, t } = _tcFind(lid, tid);
+  if(!d || !t) return;
+  const cls = _tcClassify(t, d.myRosterId, myTeamsUserId);
+  pfLcModal({
+    title: verb + ' this trade?',
+    subtitle: (d.lg.name||'') ,
+    bodyHtml: _tcCardHtml(t, d, e, cls).replace(/<button[^>]*>[\s\S]*?<\/button>/g,''),
+    confirmLabel: verb,
+    note: 'This is a real ' + verb.toLowerCase() + ' in Sleeper — the other manager will see it immediately.',
+    onConfirm: async () => {
+      await doIt();
+      delete window._tcCache[lid];
+      setTimeout(()=>renderTradeCenter(true), 600);
+    }
+  });
+}
+function tcAccept(lid, tid, leg){ _tcActionModal('Accept', lid, tid, leg, () => VaultSleeper.acceptTrade(lid, tid, leg)); }
+function tcReject(lid, tid, leg){ _tcActionModal('Reject', lid, tid, leg, () => VaultSleeper.rejectTrade(lid, tid, leg)); }
+function tcCancel(lid, tid, leg){ _tcActionModal('Cancel', lid, tid, leg, () => VaultSleeper.cancelTrade(lid, tid, leg)); }
+try { window.tcAccept=tcAccept; window.tcReject=tcReject; window.tcCancel=tcCancel; } catch(e){}
+
+// ── Offer composer: league → partner → players both ways → propose ──
+function tcCounter(lid, tid){
+  const { d, e, t } = _tcFind(lid, tid);
+  if(!d) return;
+  const partner = (t.roster_ids||[]).find(r => r!==d.myRosterId);
+  tcOpenComposer(lid, partner);
+}
+try { window.tcCounter = tcCounter; } catch(e){}
+
+async function tcOpenComposer(preLid, preRoster){
+  const leagues = _tcLeagues();
+  if(!leagues.length) return;
+  const lid = preLid || leagues[0].lg.league_id;
+  const d = leagues.find(x => x.lg.league_id===lid) || leagues[0];
+  const entry = await _tcLoadLeague(d).catch(()=>null);
+  if(!entry) return;
+  const partners = entry.rosters.filter(r => r.roster_id !== d.myRosterId);
+  const partnerId = preRoster || (partners[0] && partners[0].roster_id);
+  const partner = partners.find(r => r.roster_id===partnerId) || partners[0];
+  const myRoster = entry.rosters.find(r => r.roster_id===d.myRosterId);
+
+  const list = (roster, side) => [...new Set((roster.players||[]).map(String))]
+    .map(pid => ({ pid, nm:_tcName(pid), v: Math.round(_tcVal(_tcName(pid), d.lg)) }))
+    .sort((a,b)=>b.v-a.v)
+    .map(p => `<label style="display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px;cursor:pointer">
+        <input type="checkbox" data-tc-side="${side}" value="${p.pid}" onchange="tcComposerTotals()">
+        <span style="flex:1;font-weight:600">${p.nm}</span>
+        <span style="color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px">${p.v?p.v.toLocaleString():'—'}</span>
+      </label>`).join('');
+
+  pfLcModal({
+    title: 'Send trade offer',
+    subtitle: `${d.lg.name} · you ⇄ <b>${entry.nameByRoster[partner.roster_id]||''}</b>`,
+    bodyHtml: `
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <select id="tc-cmp-league" onchange="tcOpenComposer(this.value)" style="flex:1;padding:9px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-size:12.5px">
+          ${leagues.map(x=>`<option value="${x.lg.league_id}" ${x.lg.league_id===lid?'selected':''}>${x.lg.name}</option>`).join('')}
+        </select>
+        <select id="tc-cmp-partner" onchange="tcOpenComposer('${lid}', parseInt(this.value))" style="flex:1;padding:9px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-size:12.5px">
+          ${partners.map(r=>`<option value="${r.roster_id}" ${r.roster_id===partner.roster_id?'selected':''}>${entry.nameByRoster[r.roster_id]||('Team '+r.roster_id)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+          <div style="padding:7px 12px;background:rgba(255,102,128,0.06);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">You send · <span id="tc-total-send">0</span></div>
+          <div style="max-height:220px;overflow-y:auto;padding:4px 10px">${list(myRoster,'send')}</div>
+        </div>
+        <div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+          <div style="padding:7px 12px;background:rgba(61,204,122,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#3DCC7A">You receive · <span id="tc-total-recv">0</span></div>
+          <div style="max-height:220px;overflow-y:auto;padding:4px 10px">${list(partner,'recv')}</div>
+        </div>
+      </div>`,
+    confirmLabel: 'Send offer',
+    note: 'Draft picks and FAAB can\'t be attached here yet — add those in Sleeper after sending, or send a players-only offer.',
+    onConfirm: async () => {
+      const sel = side => [...document.querySelectorAll(`#pf-lc-modal input[data-tc-side="${side}"]:checked`)].map(i=>i.value);
+      const send = sel('send'), recv = sel('recv');
+      if(!send.length && !recv.length) throw new Error('Pick at least one player.');
+      const adds = {}, drops = {};
+      send.forEach(pid => { adds[pid]=partner.roster_id; drops[pid]=d.myRosterId; });
+      recv.forEach(pid => { adds[pid]=d.myRosterId; drops[pid]=partner.roster_id; });
+      await VaultSleeper.proposeTrade({
+        leagueId: lid, rosterId: d.myRosterId,
+        rosterIds: [d.myRosterId, partner.roster_id],
+        adds, drops
+      });
+      delete window._tcCache[lid];
+      setTimeout(()=>renderTradeCenter(true), 600);
+    }
+  });
+  tcComposerTotals();
+}
+function tcComposerTotals(){
+  const d = _tcLeagues().find(x => x.lg.league_id === (document.getElementById('tc-cmp-league')||{}).value) || _tcLeagues()[0];
+  const sum = side => [...document.querySelectorAll(`#pf-lc-modal input[data-tc-side="${side}"]:checked`)]
+    .reduce((s,i)=>s+Math.round(_tcVal(_tcName(i.value), d && d.lg)),0);
+  const se=document.getElementById('tc-total-send'), re=document.getElementById('tc-total-recv');
+  if(se) se.textContent = sum('send').toLocaleString();
+  if(re) re.textContent = sum('recv').toLocaleString();
+}
+try { window.tcOpenComposer=tcOpenComposer; window.tcComposerTotals=tcComposerTotals; } catch(e){}
+
+// ═══════════════════════════════════════════════════════════════
+// Waiver Command — free-agent targets + claims across all leagues.
+// Availability computed from public rosters; claims flow through the
+// backend (submit_waiver_claim with FAAB bid + optional drop).
+// ═══════════════════════════════════════════════════════════════
+window._wcCache = window._wcCache || {}; // lid -> {rosters, myRoster, faSorted, at}
+
+async function _wcLoadLeague(d, force){
+  const lid = d.lg.league_id;
+  const c = window._wcCache[lid];
+  if(!force && c && Date.now()-c.at < 120*1000) return c;
+  const rosters = await fetch(`https://api.sleeper.app/v1/league/${lid}/rosters`).then(r=>r.json()).catch(()=>[]);
+  const myRoster = rosters.find(r => r.roster_id === d.myRosterId) || null;
+  // Rostered player IDs across every team — anyone NOT here is a free agent.
+  const rosteredPids = new Set();
+  rosters.forEach(r => (r.players||[]).forEach(pid => rosteredPids.add(String(pid))));
+  // Candidate universe = the whole Sleeper player set (globalPidToName, ~4k),
+  // not the 400-deep board — real dynasty waiver targets rank far past the
+  // startable board. Keep anyone unrostered with a positive value in this
+  // league's format. Fall back to PLAYERS if the pid map hasn't loaded.
+  const posOf = nm => (typeof _pfLcPos==='function' && _pfLcPos(nm)) || '';
+  let faSorted;
+  if(typeof globalPidToName!=='undefined' && Object.keys(globalPidToName).length){
+    const seen = new Set();
+    faSorted = [];
+    for(const [pid, nm] of Object.entries(globalPidToName)){
+      if(rosteredPids.has(String(pid)) || !nm || seen.has(nm)) continue;
+      seen.add(nm);
+      const val = Math.round(_tcVal(nm, d.lg));
+      if(val > 0) faSorted.push({ name:nm, pos:posOf(nm), team:'', pid:String(pid), val });
+    }
+    faSorted.sort((a,b)=>b.val-a.val);
+  } else {
+    const _pool = (typeof PLAYERS!=='undefined' && PLAYERS) ? PLAYERS : [];
+    faSorted = _pool.filter(p => p.name && !rosteredPids.has(String(_pidByName(p.name))))
+      .map(p => ({ name:p.name, pos:p.pos||'', team:p.team||'', pid:_pidByName(p.name), val:Math.round(_tcVal(p.name, d.lg)) }))
+      .filter(p => p.val > 0).sort((a,b)=>b.val-a.val);
+  }
+  const entry = { rosters, myRoster, faSorted, at: Date.now() };
+  window._wcCache[lid] = entry;
+  return entry;
+}
+// pid lookup by name from the global pid map (reverse index, built once)
+function _pidByName(name){
+  if(!window._pidByNameMap){
+    const m = {};
+    if(typeof globalPidToName !== 'undefined') Object.entries(globalPidToName).forEach(([pid,nm]) => { if(!m[nm]) m[nm]=pid; });
+    window._pidByNameMap = m;
+  }
+  return window._pidByNameMap[name] || null;
+}
+try { window._pidByName = _pidByName; } catch(e){}
+
+// My droppable players (active roster only), lowest value first.
+function _wcDroppables(d, entry){
+  const keep = new Set([...(d.myReserve||[]), ...(d.myTaxi||[])]);
+  return [...new Set(((entry.myRoster||{}).players||[]).map(String))]
+    .filter(pid => !keep.has(pid))
+    .map(pid => ({ pid, name:_tcName(pid), val: Math.round(_tcVal(_tcName(pid), d.lg)) }))
+    .sort((a,b)=>a.val-b.val);
+}
+
+async function renderWaiverCommand(force){
+  const el = document.getElementById('pf-waiver-command');
+  if(!el) return;
+  const data = _tcLeagues();
+  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Loading leagues…</div>'; return; }
+
+  let conn = {connected:false};
+  try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
+
+  el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Scanning free agents across your leagues…</div>';
+  // Injury/eligibility designations power both the block detection and the
+  // one-click IR fix — make sure they're loaded before computing rows.
+  let meta = window._pfRosterMeta;
+  if(meta === undefined && data.some(d => (d.myReserve||[]).length || (d.myTaxi||[]).length)){
+    try { meta = await _pfEnsureRosterMeta(); } catch(e){}
+  }
+  const rows = [];
+  for(const d of data){
+    try{
+      const e = await _wcLoadLeague(d, force);
+      const cap = (d.rosterPositions||[]).length;
+      const active = [...new Set(((e.myRoster||{}).players||[]).map(String))]
+        .filter(pid => !(d.myReserve||[]).includes(pid) && !(d.myTaxi||[]).includes(pid)).length;
+      const openSpots = Math.max(0, cap - active);
+      const st = (e.myRoster||{}).settings || {};
+      const budget = (d.lg.settings||{}).waiver_budget || 100;
+      const faabLeft = Math.max(0, budget - (st.waiver_budget_used||0));
+      const bestFA = e.faSorted[0] || null;
+      const drops = _wcDroppables(d, e);
+      const worst = drops[0] || null;
+      const diff = bestFA && worst ? bestFA.val - worst.val : (bestFA ? bestFA.val : 0);
+      const issues = pfRosterIssues(d, meta);
+      rows.push({ d, e, openSpots, faabLeft, budget, bestFA, worst, diff, issues });
+    }catch(err){}
+  }
+  rows.sort((a,b)=>b.diff-a.diff);
+
+  const totalOpen = rows.reduce((s,r)=>s+r.openSpots,0);
+  const avgFaab = rows.length ? Math.round(rows.reduce((s,r)=>s+(r.faabLeft/(r.budget||100))*100,0)/rows.length) : 0;
+  const priority = rows.filter(r => r.diff >= 300).length;
+  const best = rows.reduce((b,r)=> (!b || (r.bestFA&&r.bestFA.val>(b.bestFA?b.bestFA.val:0))) ? r : b, null);
+
+  const kpi = (label, val, color) => `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:13px 16px;min-width:150px;flex:1">
+    <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${label}</div>
+    <div style="font-size:19px;font-weight:800;font-family:var(--font-mono);color:${color}">${val}</div>
+  </div>`;
+
+  const anyBlocked = rows.some(r => r.issues.length);
+  const rowHtml = rows.map(r => {
+    const lid = r.d.lg.league_id;
+    const blocked = r.issues.length > 0;
+    const fixPlan = blocked ? _pfIrFixPlan(r.d, meta) : null;
+    const canFix = fixPlan && fixPlan.fixable;
+    const claimBtn = !conn.connected
+      ? `<span style="color:var(--muted);font-size:11px">Connect Sleeper</span>`
+      : canFix
+      ? `<button onclick="pfFixIr('${lid}', ()=>renderWaiverCommand(true))" title="Move ${fixPlan.moves.length} ineligible player(s) off IR onto your bench" style="padding:6px 13px;border-radius:8px;background:rgba(61,204,122,0.14);border:1px solid rgba(61,204,122,0.35);color:#3DCC7A;font-weight:700;font-size:11.5px;cursor:pointer;white-space:nowrap">⚡ Fix IR</button>`
+      : blocked
+      ? `<span title="${r.issues.length} roster issue(s) — resolve in the Sleeper app" style="padding:6px 13px;border-radius:8px;background:rgba(255,102,128,0.08);border:1px solid rgba(255,102,128,0.2);color:#ff6680;font-weight:600;font-size:11.5px;white-space:nowrap;opacity:.8">⚠ Fix</span>`
+      : r.bestFA
+      ? `<button onclick="wcClaimModal('${lid}','${(r.bestFA.name||'').replace(/'/g,"\\'")}')" style="padding:6px 14px;border-radius:8px;background:rgba(61,204,122,0.12);border:1px solid rgba(61,204,122,0.3);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">+ Claim</button>`
+      : '—';
+    return `<tr style="border-top:1px solid var(--border2)">
+      <td style="padding:12px 18px;font-weight:600">${r.d.lg.name}${blocked?' <span style="color:#ff6680;font-size:10.5px;margin-left:6px">'+r.issues.length+' issue'+(r.issues.length>1?'s':'')+'</span>':''}</td>
+      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums">${r.openSpots}</td>
+      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;color:${r.faabLeft>((r.budget||100)*0.5)?'#3DCC7A':'#FFC400'}">$${r.faabLeft}</td>
+      <td style="padding:12px 12px">${r.bestFA?`<b>${r.bestFA.name}</b> <span style="color:var(--muted);font-size:11px">${r.bestFA.pos} · ${r.bestFA.val.toLocaleString()}</span>`:'—'}</td>
+      <td style="padding:12px 12px">${r.worst?`${r.worst.name} <span style="color:var(--muted);font-size:11px">${r.worst.val.toLocaleString()}</span>`:'—'}</td>
+      <td style="padding:12px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:${r.diff>0?'#3DCC7A':'var(--muted)'}">${r.diff>0?'+':''}${r.diff.toLocaleString()}</td>
+      <td style="padding:12px 12px;text-align:center">${claimBtn}</td>
+      <td style="padding:12px 18px;text-align:right"><button onclick="wcLeagueBrowser('${lid}')" style="padding:6px 13px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:11.5px;cursor:pointer;white-space:nowrap">Browse</button></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="font-size:12.5px;color:var(--muted)">Find waiver targets, compare availability, and claim across your teams${conn.connected?` · connected as <b>${conn.sleeperUsername}</b>`:''}</div>
+      <button onclick="renderWaiverCommand(true)" style="padding:9px 15px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">↻ Refresh</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      ${kpi('Priority adds', priority, '#FFC400')}
+      ${kpi('Open roster spots', totalOpen, 'var(--sky)')}
+      ${kpi('Avg FAAB remaining', avgFaab+'%', '#3DCC7A')}
+      ${kpi('Best available', best&&best.bestFA?best.bestFA.name:'—', 'var(--accent2)')}
+    </div>
+    ${anyBlocked?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:11.5px;color:var(--muted)">${_lcBadge('⚠ Fix','warn')}<span>= a roster issue (IR / taxi / over-roster) is blocking claims. Resolve it in the Sleeper app.</span></div>`:''}
+    <div style="border:1px solid var(--border2);border-radius:14px;background:var(--s1);overflow:hidden">
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:840px">
+        <thead><tr style="color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
+          <th style="text-align:left;padding:10px 18px;font-weight:600">League</th>
+          <th style="text-align:right;padding:10px 12px;font-weight:600">Open</th>
+          <th style="text-align:right;padding:10px 12px;font-weight:600">FAAB</th>
+          <th style="text-align:left;padding:10px 12px;font-weight:600">Best available</th>
+          <th style="text-align:left;padding:10px 12px;font-weight:600">Sugg drop</th>
+          <th style="text-align:right;padding:10px 12px;font-weight:600">Diff</th>
+          <th style="text-align:center;padding:10px 12px;font-weight:600">Claim</th>
+          <th style="padding:10px 18px"></th>
+        </tr></thead>
+        <tbody>${rowHtml}</tbody>
+      </table></div>
+    </div>`;
+}
+try { window.renderWaiverCommand = renderWaiverCommand; } catch(e){}
+
+// League FA browser: top free agents in one league, claim any of them.
+async function wcLeagueBrowser(lid){
+  const d = _tcLeagues().find(x => x.lg.league_id===lid);
+  if(!d) return;
+  const e = await _wcLoadLeague(d).catch(()=>null);
+  if(!e) return;
+  const fas = e.faSorted.slice(0, 30);
+  pfLcModal({
+    title: d.lg.name,
+    subtitle: 'Top available free agents by your values',
+    bodyHtml: fas.map(p => `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);font-size:13px">
+        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,28):'')}" onerror="this.style.display='none'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s2)">
+        <span style="flex:1;font-weight:600">${p.name} <span style="color:var(--muted);font-size:11px">${p.pos} ${p.team?'· '+p.team:''}</span></span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${p.val.toLocaleString()}</span>
+        <button onclick="wcClaimModal('${lid}','${p.name.replace(/'/g,"\\'")}')" style="padding:5px 12px;border-radius:7px;background:rgba(61,204,122,0.12);border:1px solid rgba(61,204,122,0.3);color:#3DCC7A;font-weight:700;font-size:11.5px;cursor:pointer">+ Claim</button>
+      </div>`).join('') || '<div style="padding:20px;color:var(--muted)">No ranked free agents found.</div>',
+    confirmLabel: 'Close',
+    onConfirm: async () => {}
+  });
+}
+try { window.wcLeagueBrowser = wcLeagueBrowser; } catch(e){}
+
+// Claim modal: FAAB bid + optional/required drop → submit_waiver_claim.
+async function wcClaimModal(lid, playerName){
+  const d = _tcLeagues().find(x => x.lg.league_id===lid);
+  if(!d) return;
+  const e = await _wcLoadLeague(d).catch(()=>null);
+  if(!e) return;
+  const fa = e.faSorted.find(p => p.name===playerName);
+  const pid = (fa && fa.pid) || _pidByName(playerName);
+  if(!pid){ try{ alert('Could not resolve a Sleeper id for '+playerName); }catch(_){} return; }
+  const cap = (d.rosterPositions||[]).length;
+  const active = [...new Set(((e.myRoster||{}).players||[]).map(String))]
+    .filter(x => !(d.myReserve||[]).includes(x) && !(d.myTaxi||[]).includes(x)).length;
+  const mustDrop = active >= cap;
+  const drops = _wcDroppables(d, e);
+  const st = (e.myRoster||{}).settings || {};
+  const faabLeft = Math.max(0, ((d.lg.settings||{}).waiver_budget||100) - (st.waiver_budget_used||0));
+  pfLcModal({
+    title: 'Claim ' + playerName + '?',
+    subtitle: `${d.lg.name} · $${faabLeft} FAAB remaining`,
+    bodyHtml: `
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12.5px;font-weight:600">FAAB bid
+          <input id="wc-bid" type="number" min="0" max="${faabLeft}" value="0" style="display:block;width:100%;margin-top:5px;padding:9px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-size:13px">
+        </label>
+        <label style="font-size:12.5px;font-weight:600">Drop ${mustDrop?'<span style="color:#ff6680">(required — roster is full)</span>':'(optional)'}
+          <select id="wc-drop" style="display:block;width:100%;margin-top:5px;padding:9px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-size:13px">
+            ${mustDrop?'':'<option value="">No drop</option>'}
+            ${drops.map(p=>`<option value="${p.pid}">${p.name} · ${p.val.toLocaleString()}</option>`).join('')}
+          </select>
+        </label>
+      </div>`,
+    confirmLabel: 'Submit claim',
+    note: 'This submits a real waiver claim in Sleeper. It processes on your league\'s normal waiver schedule; you can cancel it in Sleeper before it runs.',
+    onConfirm: async () => {
+      const bid = parseInt((document.getElementById('wc-bid')||{}).value||'0') || 0;
+      const dropPid = (document.getElementById('wc-drop')||{}).value || '';
+      const adds = {}; adds[String(pid)] = d.myRosterId;
+      const dropsMap = {}; if(dropPid) dropsMap[dropPid] = d.myRosterId;
+      await VaultSleeper.submitWaiverClaim({
+        leagueId: lid, rosterId: d.myRosterId,
+        adds, drops: dropsMap, settings: { waiver_bid: bid }
+      });
+      delete window._wcCache[lid];
+      setTimeout(()=>renderWaiverCommand(true), 600);
+    }
+  });
+}
+try { window.wcClaimModal = wcClaimModal; } catch(e){}
+
+// ── Portfolio view switcher: Overview ↔ Lineup Command ↔ Trade Center ──
 window._pfView = window._pfView || 'overview';
 function pfSetView(v){
   window._pfView = v;
-  const isLineup = v === 'lineup';
-  const ov = document.getElementById('portfolio-v2');
-  const lv = document.getElementById('pf-view-lineup');
-  if(ov) ov.style.display = isLineup ? 'none' : '';
-  if(lv) lv.style.display = isLineup ? '' : 'none';
+  const views = {
+    overview: { el:'portfolio-v2', title:'My Portfolio', sub:'All your leagues · dynasty values · buy-ins & payouts' },
+    lineup:   { el:'pf-view-lineup', title:'Lineup Command', sub:'Optimize & push your starting lineups straight to Sleeper' },
+    trades:   { el:'pf-view-trades', title:'Trade Center', sub:'Pending trade offers across all your leagues · accept, reject & send offers' },
+    waivers:  { el:'pf-view-waivers', title:'Waiver Command', sub:'Find waiver targets, compare league availability, and claim across your teams' },
+  };
+  if(!views[v]) v = 'overview';
+  Object.entries(views).forEach(([key, cfg]) => {
+    const el = document.getElementById(cfg.el);
+    if(el) el.style.display = key === v ? '' : 'none';
+  });
   const title = document.getElementById('pf-viewdd-title');
   const sub = document.getElementById('pf-viewdd-sub');
-  if(title) title.textContent = isLineup ? 'Lineup Command' : 'My Portfolio';
-  if(sub) sub.textContent = isLineup
-    ? 'Optimize & push your starting lineups straight to Sleeper'
-    : 'All your leagues · dynasty values · buy-ins & payouts';
+  if(title) title.textContent = views[v].title;
+  if(sub) sub.textContent = views[v].sub;
   document.querySelectorAll('#pf-nav-menu .lc-mt-item').forEach(it => {
     it.classList.toggle('active', it.dataset.pfview === v);
   });
-  if(isLineup){ try { renderLineupCommand(); } catch(e){} }
+  if(v==='lineup'){ try { renderLineupCommand(); } catch(e){} }
+  if(v==='trades'){ try { renderTradeCenter(); } catch(e){} }
+  if(v==='waivers'){ try { renderWaiverCommand(); } catch(e){} }
 }
 try { window.pfSetView = pfSetView; } catch(e){}
 
@@ -18482,7 +19108,9 @@ try { window.pfSetView = pfSetView; } catch(e){}
     const menu = document.createElement('div'); menu.className = 'lc-mt-menu'; menu.id = 'pf-nav-menu';
     menu.innerHTML = `
       <button class="lc-mt-item" data-pfview="overview"><span class="ic">${icon('folder')}</span><span><b>My Portfolio</b><small>All leagues · values · buy-ins</small></span></button>
-      <button class="lc-mt-item" data-pfview="lineup"><span class="ic">${icon('bolt')}</span><span><b>Lineup Command</b><small>Optimize &amp; push to Sleeper</small></span><span class="lc-newtag">NEW</span></button>`;
+      <button class="lc-mt-item" data-pfview="lineup"><span class="ic">${icon('bolt')}</span><span><b>Lineup Command</b><small>Optimize &amp; push to Sleeper</small></span><span class="lc-newtag">NEW</span></button>
+      <button class="lc-mt-item" data-pfview="trades"><span class="ic">${icon('swap')}</span><span><b>Trade Center</b><small>Offers inbox · accept, reject &amp; send</small></span><span class="lc-newtag">NEW</span></button>
+      <button class="lc-mt-item" data-pfview="waivers"><span class="ic">${icon('plus')}</span><span><b>Waiver Command</b><small>FA targets &amp; claims across leagues</small></span><span class="lc-newtag">NEW</span></button>`;
     document.body.appendChild(menu);
     let hideT;
     const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
@@ -19646,6 +20274,148 @@ function _dvDraftPlatform(){
   }catch(e){}
   return null;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Draft Control — draft from your Vault board straight into Sleeper.
+// Shows on the Draft Vault page for a CONNECTED Sleeper user on a LIVE
+// Sleeper draft: push your board order to Sleeper's queue, and one-click
+// draft the best available (or any of the top board players) when you're
+// on the clock. draft_pick_player / update_draft_queue go through the
+// same throttled backend as every other write.
+// ═══════════════════════════════════════════════════════════════
+// slot string "2.08" → overall pick number for this draft's team count
+function _dvSlotOverall(slot){
+  if(!slot || slot==='—' || slot==='Done!') return null;
+  const [r,p] = String(slot).split('.').map(Number);
+  if(!r || !p) return null;
+  return (r-1)*(NUM_TEAMS||12) + p;
+}
+// how many picks have actually been made (draftState entries with a real pick)
+function _dvPicksMade(){
+  let n=0; try{ Object.values(draftState).forEach(v=>{ if(v && (v.teamIdx>=0)) n++; }); }catch(e){}
+  return n;
+}
+// The current overall pick on the clock, and whether it's mine.
+function _dvClock(){
+  const made = _dvPicksMade();
+  const current = made + 1;
+  const myNext = (typeof nextPick==='function') ? nextPick() : '—';
+  const myOverall = _dvSlotOverall(myNext);
+  return { current, myNext, myOverall, onClock: myOverall!=null && myOverall===current };
+}
+// Top available players in the CURRENT board order (respects your sort/My
+// Rankings), each resolved to a Sleeper player id. Excludes drafted/gone.
+function _dvBoardAvailable(limit){
+  const src = (window._sortedList && window._sortedList.length) ? window._sortedList
+            : ((typeof PLAYERS!=='undefined' && PLAYERS) ? PLAYERS : []);
+  const out = [];
+  for(const p of src){
+    if(!p || p.pos==='PICK' || !p.name) continue;
+    const st = (typeof draftState!=='undefined') ? draftState[p.name] : null;
+    if(st && (st.teamIdx>=0 || st.pickNo>0 || st.teamIdx===-1)) continue; // drafted or marked gone
+    const pid = (typeof _pidByName==='function') ? _pidByName(p.name) : null;
+    if(!pid) continue;
+    out.push({ name:p.name, pos:p.pos, team:p.team, pid:String(pid) });
+    if(limit && out.length>=limit) break;
+  }
+  return out;
+}
+
+window._dvControlConn = window._dvControlConn || null;
+async function dvRenderDraftControl(){
+  const el = document.getElementById('dv-draft-control');
+  if(!el) return;
+  // Only for a live Sleeper draft.
+  const isSleeper = _dvDraftPlatform()==='sleeper' && typeof sleeperDraftId!=='undefined' && sleeperDraftId;
+  const status = (window._activeDraft && window._activeDraft.status) || '';
+  const isLive = status==='drafting' || status==='in_progress' || status==='paused';
+  if(!isSleeper || !isLive){ el.style.display='none'; el.innerHTML=''; return; }
+
+  // Connection status (cached; refreshed opportunistically).
+  if(window._dvControlConn===null){
+    el.style.display='';
+    el.innerHTML = `<div style="border:1px solid var(--border2);border-radius:12px;background:var(--s1);padding:12px 16px;margin:10px 0;font-size:13px;color:var(--muted)">⚡ Checking Sleeper connection…</div>`;
+    try { window._dvControlConn = (window.VaultSleeper) ? await VaultSleeper.status() : {connected:false}; }
+    catch(e){ window._dvControlConn = {connected:false}; }
+  }
+  const conn = window._dvControlConn || {connected:false};
+
+  el.style.display='';
+  if(!conn.connected){
+    el.innerHTML = `<div style="border:1px solid rgba(123,208,255,0.2);border-radius:12px;background:linear-gradient(180deg,rgba(123,208,255,0.05),transparent);padding:14px 16px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div><div style="font-size:14px;font-weight:800">⚡ Draft from your board</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Connect Sleeper for lineup control to draft straight from Vault — sync your queue and pick with one click.</div></div>
+      <button onclick="try{openSettingsDrawer()}catch(e){}" style="padding:9px 16px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">Connect Sleeper</button>
+    </div>`;
+    return;
+  }
+
+  const clock = _dvClock();
+  const top = _dvBoardAvailable(6);
+  const best = top[0] || null;
+  const onClock = clock.onClock;
+  const pickStr = clock.myNext;
+
+  const bestBtns = onClock && top.length
+    ? top.slice(0,5).map(p => `<button onclick="dvDraftFromBoard('${p.pid}','${p.name.replace(/'/g,"\\'")}',${clock.current})" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:8px;background:${p===best?'rgba(61,204,122,0.16)':'var(--s2)'};border:1px solid ${p===best?'rgba(61,204,122,0.4)':'var(--border2)'};color:${p===best?'#3DCC7A':'var(--text)'};font-weight:${p===best?'700':'600'};font-size:12px;cursor:pointer;white-space:nowrap">${p===best?'★ ':''}${p.name} <span style="color:var(--muted);font-size:10.5px">${p.pos}</span></button>`).join('')
+    : '';
+
+  el.innerHTML = `
+    <div style="border:1px solid ${onClock?'rgba(61,204,122,0.4)':'var(--border2)'};border-radius:12px;background:${onClock?'linear-gradient(180deg,rgba(61,204,122,0.07),transparent)':'var(--s1)'};padding:14px 16px;margin:10px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:14px;font-weight:800">⚡ Draft Control</span>
+          ${onClock
+            ? `<span style="padding:4px 12px;border-radius:999px;background:rgba(61,204,122,0.16);color:#3DCC7A;font-size:11.5px;font-weight:800;letter-spacing:.02em">🟢 YOU'RE ON THE CLOCK · Pick ${clock.current}</span>`
+            : `<span style="padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--muted);font-size:11.5px;font-weight:700">Pick ${clock.current} on the clock · your next: ${pickStr}</span>`}
+        </div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <button onclick="dvSyncQueue()" id="dv-sync-queue-btn" style="padding:8px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">↧ Sync board → Sleeper queue</button>
+          <span style="font-size:11px;color:var(--muted)">connected as <b>${conn.sleeperUsername||'you'}</b></span>
+        </div>
+      </div>
+      ${onClock
+        ? `<div style="margin-top:12px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Draft from your board</div><div style="display:flex;gap:8px;flex-wrap:wrap">${bestBtns||'<span style="color:var(--muted);font-size:12px">No available board players resolved to Sleeper ids.</span>'}</div></div>`
+        : ''}
+    </div>`;
+}
+try { window.dvRenderDraftControl = dvRenderDraftControl; } catch(e){}
+
+// Push the current board order (top ~40 available) to Sleeper's draft queue.
+async function dvSyncQueue(){
+  const btn = document.getElementById('dv-sync-queue-btn');
+  const list = _dvBoardAvailable(40);
+  if(!list.length){ try{ toast('No available board players to queue'); }catch(_){} return; }
+  const pids = list.map(p=>p.pid);
+  if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
+  try{
+    await VaultSleeper.setDraftQueue(sleeperDraftId, pids);
+    if(btn){ btn.textContent='✓ Queue synced ('+pids.length+')'; }
+    try{ toast('Queued '+pids.length+' players in your board order'); }catch(_){}
+  }catch(e){
+    if(btn){ btn.textContent='↧ Sync board → Sleeper queue'; btn.disabled=false; }
+    try{ alert('Queue sync failed: '+((e&&e.message)||e)); }catch(_){}
+  }
+  setTimeout(()=>{ if(btn){ btn.disabled=false; btn.textContent='↧ Sync board → Sleeper queue'; } }, 4000);
+}
+try { window.dvSyncQueue = dvSyncQueue; } catch(e){}
+
+// Make the real Sleeper pick, confirming first.
+function dvDraftFromBoard(pid, name, pickNo){
+  pfLcModal({
+    title: 'Draft ' + name + '?',
+    subtitle: `Pick ${pickNo} · ${(window._activeDraft&&window._activeDraft.name)||'your draft'}`,
+    bodyHtml: `<div style="padding:8px 0;font-size:13px">This makes your real pick in Sleeper right now. Make sure you're actually on the clock — Sleeper will reject the pick otherwise.</div>`,
+    confirmLabel: 'Draft ' + (name.split(' ').slice(-1)[0]),
+    note: 'The pick is final in Sleeper, just like tapping draft in the Sleeper app.',
+    onConfirm: async () => {
+      await VaultSleeper.draftPlayer(sleeperDraftId, pid, pickNo);
+      // Reflect locally right away; the live sync will confirm on next poll.
+      try { if(typeof draftState!=='undefined'){ draftState[name]={teamIdx:(typeof myTeam==='number'?myTeam:-2),round:0,pickNo:pickNo}; save && save(); } } catch(e){}
+      try { renderAll(); } catch(e){}
+    }
+  });
+}
+try { window.dvDraftFromBoard = dvDraftFromBoard; } catch(e){}
 function _dvSleeperAdpKey(mode, sf){
   if (mode === 'redraft') return 'redraft_1qb';
   return sf ? 'dynasty_sf' : 'dynasty_1qb';

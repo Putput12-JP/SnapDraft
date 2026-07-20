@@ -10,7 +10,8 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { ENC_KEY_SECRET, THROTTLE_GAP_MS } from "./config";
 import { SleeperAction, SUPPORTED_ACTIONS, ActionType } from "./sleeper/mutations";
-import { executeAction } from "./executor";
+import { SleeperQuery, SUPPORTED_QUERIES, QueryType } from "./sleeper/queries";
+import { executeAction, executeQuery } from "./executor";
 import { enqueueActions } from "./queue";
 import { reserveThrottleSlot, getConnection } from "./lib/tokens";
 import { toHttpsError } from "./lib/errors";
@@ -77,6 +78,21 @@ export const enqueueSleeperActions = onCall(async (request) => {
   try {
     const jobIds = await enqueueActions(uid, actions);
     return { ok: true, jobIds, count: jobIds.length };
+  } catch (e) {
+    throw toHttpsError(e);
+  }
+});
+
+/** sleeperRead({ query }) — allowlisted read-only query, no write throttle. */
+export const sleeperRead = onCall({ secrets: [encKey] }, async (request) => {
+  const uid = uidOf(request);
+  const q = (request.data as any)?.query as SleeperQuery;
+  if (!q || typeof q !== "object" || !SUPPORTED_QUERIES.includes((q as any).type as QueryType)) {
+    throw new HttpsError("invalid-argument", "Unknown or missing query type.");
+  }
+  try {
+    const data = await executeQuery(uid, q, encKey.value());
+    return { ok: true, data };
   } catch (e) {
     throw toHttpsError(e);
   }

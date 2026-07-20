@@ -114,6 +114,80 @@
     /** Batch of actions, drained gradually by the server. */
     enqueue: function (actions) { return call('enqueueSleeperActions', { actions: actions }); },
 
+    /** Allowlisted read-only query with the user's token (no write throttle). */
+    read: function (query) { return call('sleeperRead', { query: query }); },
+
+    /** League transactions incl. PENDING trade offers (not in the public API). */
+    leagueTransactions: function (leagueId, opts) {
+      opts = opts || {};
+      return VaultSleeper.read({
+        type: 'league_transactions',
+        leagueId: String(leagueId),
+        limit: opts.limit,
+        statuses: opts.statuses || null,
+        types: opts.types || null
+      });
+    },
+
+    /** Trade actions. leg = current week/leg of the transaction. */
+    acceptTrade: function (leagueId, transactionId, leg) {
+      return VaultSleeper.execute({ type: 'accept_trade', leagueId: String(leagueId), transactionId: String(transactionId), leg: Number(leg) });
+    },
+    rejectTrade: function (leagueId, transactionId, leg) {
+      return VaultSleeper.execute({ type: 'reject_trade', leagueId: String(leagueId), transactionId: String(transactionId), leg: Number(leg) });
+    },
+    cancelTrade: function (leagueId, transactionId, leg) {
+      return VaultSleeper.execute({ type: 'cancel_transaction', leagueId: String(leagueId), transactionId: String(transactionId), leg: Number(leg) });
+    },
+    proposeTrade: function (opts /* {leagueId, rosterId, rosterIds, adds, drops, draftPicks, waiverBudget} */) {
+      return VaultSleeper.execute({
+        type: 'propose_trade',
+        leagueId: String(opts.leagueId), rosterId: Number(opts.rosterId),
+        rosterIds: opts.rosterIds.map(Number),
+        adds: opts.adds || {}, drops: opts.drops || {},
+        draftPicks: opts.draftPicks || [], waiverBudget: opts.waiverBudget || []
+      });
+    },
+
+    /** Waiver claims. adds/drops = {player_id: roster_id}; settings e.g. {waiver_bid: 12}. */
+    submitWaiverClaim: function (opts /* {leagueId, rosterId, adds, drops, settings} */) {
+      return VaultSleeper.execute({
+        type: 'submit_waiver_claim',
+        leagueId: String(opts.leagueId), rosterId: Number(opts.rosterId),
+        adds: opts.adds || {}, drops: opts.drops || {}, settings: opts.settings || {}
+      });
+    },
+    cancelWaiverClaim: function (leagueId, transactionId, leg) {
+      return VaultSleeper.execute({ type: 'cancel_waiver_claim', leagueId: String(leagueId), transactionId: String(transactionId), leg: Number(leg) });
+    },
+
+    /** Fix IR from Vault: set the full reserve (IR) list for a roster. */
+    updateReserve: function (leagueId, rosterId, reserve) {
+      return VaultSleeper.execute({ type: 'update_reserve', leagueId: String(leagueId), rosterId: Number(rosterId), reserve: reserve });
+    },
+    updateTaxi: function (leagueId, rosterId, taxi) {
+      return VaultSleeper.execute({ type: 'update_taxi', leagueId: String(leagueId), rosterId: Number(rosterId), taxi: taxi });
+    },
+
+    /** Draft: set the user's pick queue, or make the actual pick on their turn. */
+    setDraftQueue: function (draftId, playerIds) {
+      return VaultSleeper.execute({ type: 'update_draft_queue', draftId: String(draftId), playerIds: playerIds });
+    },
+    getDraftQueue: function (draftId) {
+      return VaultSleeper.read({ type: 'draft_queue', draftId: String(draftId) });
+    },
+    draftPlayer: function (draftId, playerId, pickNo) {
+      return VaultSleeper.execute({ type: 'draft_pick_player', draftId: String(draftId), playerId: String(playerId), pickNo: Number(pickNo) });
+    },
+
+    /** Trade block flag on a league player. */
+    addTradeBlock: function (leagueId, playerId) {
+      return VaultSleeper.execute({ type: 'add_trade_block', leagueId: String(leagueId), playerId: String(playerId) });
+    },
+    removeTradeBlock: function (leagueId, playerId) {
+      return VaultSleeper.execute({ type: 'remove_trade_block', leagueId: String(leagueId), playerId: String(playerId) });
+    },
+
     /** Convenience: push a full ordered starters array for one roster.
      *  week (leg) targets the per-week matchup lineup the Sleeper app
      *  displays; without it only roster.starters (the default) changes. */

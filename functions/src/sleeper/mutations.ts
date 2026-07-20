@@ -14,6 +14,12 @@ export interface UpdateStartersAction {
   leagueId: string;
   rosterId: number;
   starters: string[]; // full ordered starting lineup (player ids, slot order)
+  // Target week. The Sleeper app displays the per-week matchup-leg lineup,
+  // which is a separate record from roster.starters — when leg is set we
+  // write the leg first (update_matchup_leg) and only fall back to the
+  // roster-level default if the leg doesn't exist yet.
+  leg?: number;
+  round?: number; // defaults to leg
 }
 export interface UpdateTaxiAction {
   type: "update_taxi";
@@ -58,6 +64,43 @@ export interface ProposeTradeAction {
   draftPicks?: unknown[]; // sleeper draft-pick objects
   waiverBudget?: unknown[]; // faab transfers
 }
+export interface CancelTransactionAction {
+  type: "cancel_transaction"; // force_cancel_transaction: withdraw own trade offer
+  leagueId: string;
+  transactionId: string;
+  leg: number;
+}
+export interface CancelWaiverClaimAction {
+  type: "cancel_waiver_claim";
+  leagueId: string;
+  transactionId: string;
+  leg: number;
+}
+export interface UpdateWaiverClaimAction {
+  type: "update_waiver_claim"; // edit an open claim's bid/settings
+  leagueId: string;
+  transactionId: string;
+  leg: number;
+  settings?: Record<string, number>; // e.g. {waiver_bid: 12}
+  metadata?: Record<string, string>;
+}
+export interface DraftPickPlayerAction {
+  type: "draft_pick_player"; // make a real draft pick (Sleeper enforces turn)
+  draftId: string;
+  playerId: string;
+  pickNo: number;
+}
+export interface UpdateReserveAction {
+  type: "update_reserve"; // set the IR slots (fix invalid IR from Vault)
+  leagueId: string;
+  rosterId: number;
+  reserve: string[];
+}
+export interface TradeBlockAction {
+  type: "add_trade_block" | "remove_trade_block";
+  leagueId: string;
+  playerId: string;
+}
 
 export type SleeperAction =
   | UpdateStartersAction
@@ -66,7 +109,13 @@ export type SleeperAction =
   | AcceptTradeAction
   | RejectTradeAction
   | SubmitWaiverAction
-  | ProposeTradeAction;
+  | ProposeTradeAction
+  | CancelTransactionAction
+  | CancelWaiverClaimAction
+  | UpdateWaiverClaimAction
+  | DraftPickPlayerAction
+  | UpdateReserveAction
+  | TradeBlockAction;
 
 export type ActionType = SleeperAction["type"];
 
@@ -78,6 +127,13 @@ export const SUPPORTED_ACTIONS: ActionType[] = [
   "reject_trade",
   "submit_waiver_claim",
   "propose_trade",
+  "cancel_transaction",
+  "cancel_waiver_claim",
+  "update_waiver_claim",
+  "draft_pick_player",
+  "update_reserve",
+  "add_trade_block",
+  "remove_trade_block",
 ];
 
 // ── helpers ───────────────────────────────────────────────────
@@ -108,6 +164,32 @@ function requireStrArray(x: unknown, name: string): string[] {
 
 export class ValidationError extends Error {}
 
+// Sleeper's error when the requested matchup leg doesn't exist (e.g. the
+// week's legs haven't been generated yet) — the signal to fall back to the
+// roster-level default write.
+export const MATCHUP_LEG_NOT_FOUND = /could not find this matchup leg/i;
+
+/**
+ * The per-week lineup write, matching the Sleeper app 1:1. The app renders
+ * this leg record (not roster.starters), so in-season lineup pushes must go
+ * through it or they're invisible in the app.
+ */
+export function buildMatchupLegRequest(a: UpdateStartersAction): GraphQLRequest {
+  const leagueId = requireStr(a.leagueId, "leagueId");
+  const rosterId = requireInt(a.rosterId, "rosterId");
+  const starters = requireStrArray(a.starters, "starters");
+  const leg = requireInt(a.leg, "leg");
+  const round = a.round != null ? requireInt(a.round, "round") : leg;
+  return {
+    op: "update_matchup_leg",
+    query: `mutation update_matchup_leg($starters_games: Map) {
+  update_matchup_leg(league_id: "${leagueId}", roster_id: ${rosterId}, leg: ${leg}, round: ${round}, starters: ${JSON.stringify(
+      starters
+    )}, starters_games: $starters_games) { league_id leg round roster_id starters }
+}`,
+  };
+}
+
 /**
  * The roster a caller must own for this action to be allowed, or null if
  * ownership isn't roster-scoped (e.g. draft queue).
@@ -116,11 +198,13 @@ export function ownershipTarget(a: SleeperAction): { leagueId: string; rosterId:
   switch (a.type) {
     case "update_starters":
     case "update_taxi":
+    case "update_reserve":
     case "submit_waiver_claim":
     case "propose_trade":
       return { leagueId: a.leagueId, rosterId: a.rosterId };
-    // accept/reject trade are authorized by Sleeper against the token's own
-    // rosters in that league; draft queue is user-scoped. No local check.
+    // accept/reject/cancel trade, waiver-claim edits, trade block, and draft
+    // picks are authorized by Sleeper against the token's own rosters/turn;
+    // draft queue is user-scoped. No local check.
     default:
       return null;
   }
@@ -134,6 +218,8 @@ export function buildAction(a: SleeperAction): GraphQLRequest {
       const leagueId = requireStr(a.leagueId, "leagueId");
       const rosterId = requireInt(a.rosterId, "rosterId");
       const starters = requireStrArray(a.starters, "starters");
+      if (a.leg != null) requireInt(a.leg, "leg");
+      if (a.round != null) requireInt(a.round, "round");
       return {
         op: "roster_update_starters",
         query: `mutation roster_update_starters {
@@ -228,6 +314,80 @@ export function buildAction(a: SleeperAction): GraphQLRequest {
         )}) { transaction_id status }
 }`,
         variables: { k_adds: adds.k, v_adds: adds.v, k_drops: drops.k, v_drops: drops.v },
+      };
+    }
+    case "cancel_transaction": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const transactionId = requireStr(a.transactionId, "transactionId");
+      const leg = requireInt(a.leg, "leg");
+      return {
+        op: "force_cancel_transaction",
+        query: `mutation force_cancel_transaction {
+  force_cancel_transaction(league_id: "${leagueId}", transaction_id: "${transactionId}", leg: ${leg}) { transaction_id status }
+}`,
+      };
+    }
+    case "cancel_waiver_claim": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const transactionId = requireStr(a.transactionId, "transactionId");
+      const leg = requireInt(a.leg, "leg");
+      return {
+        op: "cancel_waiver_claim",
+        query: `mutation cancel_waiver_claim {
+  cancel_waiver_claim(league_id: "${leagueId}", transaction_id: "${transactionId}", leg: ${leg}) { transaction_id status }
+}`,
+      };
+    }
+    case "update_waiver_claim": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const transactionId = requireStr(a.transactionId, "transactionId");
+      const leg = requireInt(a.leg, "leg");
+      const settings = kv(a.settings);
+      const mk: string[] = [];
+      const mv: string[] = [];
+      for (const [k, v] of Object.entries(a.metadata ?? {})) { mk.push(k); mv.push(String(v)); }
+      return {
+        op: "update_waiver_claim",
+        query: `mutation update_waiver_claim($k_settings:[String],$v_settings:[Int],$k_metadata:[String],$v_metadata:[String]) {
+  update_waiver_claim(league_id: "${leagueId}", transaction_id: "${transactionId}", leg: ${leg}, k_settings:$k_settings, v_settings:$v_settings, k_metadata:$k_metadata, v_metadata:$v_metadata) { transaction_id status }
+}`,
+        variables: { k_settings: settings.k, v_settings: settings.v, k_metadata: mk, v_metadata: mv },
+      };
+    }
+    case "draft_pick_player": {
+      const draftId = requireStr(a.draftId, "draftId");
+      const playerId = requireStr(a.playerId, "playerId");
+      const pickNo = requireInt(a.pickNo, "pickNo");
+      return {
+        op: "draft_pick_player",
+        query: `mutation draft_pick_player {
+  draft_pick_player(sport: "nfl", draft_id: "${draftId}", player_id: "${playerId}", pick_no: ${pickNo})
+}`,
+      };
+    }
+    case "update_reserve": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const rosterId = requireInt(a.rosterId, "rosterId");
+      const reserve = requireStrArray(a.reserve, "reserve");
+      return {
+        op: "roster_update_reserve",
+        query: `mutation roster_update_reserve {
+  roster_update_reserve(league_id: "${leagueId}", roster_id: ${rosterId}, reserve: ${JSON.stringify(
+          reserve
+        )}) { league_id roster_id reserve }
+}`,
+      };
+    }
+    case "add_trade_block":
+    case "remove_trade_block": {
+      const leagueId = requireStr(a.leagueId, "leagueId");
+      const playerId = requireStr(a.playerId, "playerId");
+      const op = a.type === "add_trade_block" ? "add_league_player_trade_block" : "remove_league_player_trade_block";
+      return {
+        op,
+        query: `mutation ${op} {
+  ${op}(league_id: "${leagueId}", player_id: "${playerId}")
+}`,
       };
     }
     default: {

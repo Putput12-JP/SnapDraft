@@ -23,5 +23,5 @@ export {
   disconnectSleeper,
   sleeperStatus,
 } from "./connection";
-export { executeSleeperAction, enqueueSleeperActions } from "./actions";
+export { executeSleeperAction, enqueueSleeperActions, sleeperRead } from "./actions";
 export { drainSleeperQueue } from "./queue";
