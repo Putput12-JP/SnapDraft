@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Control — inline cell in the summary row</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red2:#ff5a6e;--gold:#f5c842;--value:#5fe09a;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;padding:34px 30px 70px;}
+.wrap{max-width:1180px;margin:0 auto;}
+.doc-h{font-size:12px;font-family:var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;}
+.doc-t{font-size:25px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;}
+.doc-d{font-size:14px;color:var(--text2);margin:0 0 8px;max-width:760px;line-height:1.5;}
+.section-tag{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:34px 0 12px;}
+.section-tag .num{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;background:var(--s3);color:var(--text2);font-size:10px;font-weight:800;}
+.section-tag.on .num{background:rgba(95,224,154,.16);color:var(--value);}
+.tag-good{color:var(--value);font-weight:700;}
+
+/* ═══ THE SUMMARY ROW (faithful to the live screenshot) ═══ */
+.dsrow{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.7);}
+.dscells{display:flex;align-items:stretch;}
+.cell{display:flex;flex-direction:column;justify-content:center;padding:16px 20px;position:relative;}
+.cell + .cell{border-left:1px solid var(--border);}
+.cell-stat{align-items:center;text-align:center;flex:1;gap:6px;}
+.cell-pick{flex:1.7;gap:5px;min-width:0;}
+
+.kick{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pickline{display:flex;align-items:baseline;gap:10px;}
+.pick-no{font-family:var(--font-mono);font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1;}
+.pick-away{font-size:13px;color:var(--text2);}
+.pick-meta{font-size:12px;color:var(--muted);}
+.stat-v{font-size:26px;font-weight:800;letter-spacing:-.01em;line-height:1;}
+.stat-v.grade{color:var(--accent2);}
+.stat-l{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.cell-clock{align-items:center;text-align:center;flex:1;gap:5px;}
+.clock-ic{color:var(--muted);}.clock-ic svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.clock-v{font-size:15px;font-weight:800;}.clock-v .win{font-family:var(--font-mono);font-weight:500;color:var(--muted);font-size:12px;}
+
+.resync{align-self:center;margin:0 14px;width:34px;height:34px;border-radius:8px;border:1px solid var(--border2);
+  background:var(--s2);color:var(--muted);display:grid;place-items:center;cursor:pointer;flex:none;}
+.resync svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.resync:hover{color:var(--text);border-color:var(--border3);}
+
+/* progress footer */
+.dsprog{display:flex;align-items:center;gap:14px;padding:12px 20px 14px;border-top:1px solid var(--border);}
+.dsprog .track{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden;}
+.dsprog .track i{display:block;height:100%;background:linear-gradient(90deg,#3f6ea8,#8fb4e0);border-radius:3px;}
+.dsprog .pct{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);white-space:nowrap;}
+
+/* ═══ THE NEW CELL — Draft Control ═══ */
+.cell-control{flex:1.35;align-items:stretch;justify-content:center;gap:9px;padding:14px 16px;}
+.cell-control.live{background:linear-gradient(180deg,rgba(95,224,154,.08),transparent);}
+.ctl-head{display:flex;align-items:center;gap:7px;}
+.ctl-bolt{color:var(--value);display:inline-flex;}.ctl-bolt svg{width:13px;height:13px;stroke:currentColor;fill:currentColor;stroke-width:1;}
+.ctl-kick{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.ctl-live-pill{margin-left:auto;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:3px 10px;border-radius:999px;
+  background:rgba(95,224,154,.14);border:1px solid rgba(95,224,154,.3);}
+.ctl-live-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--value);position:relative;}
+.ctl-live-pill .dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1.5px solid var(--value);opacity:.5;animation:ring 1.8s var(--ease-out) infinite;}
+.ctl-live-pill .t{font-family:var(--font-mono);font-size:9.5px;font-weight:800;letter-spacing:.05em;color:var(--value);white-space:nowrap;text-align:center;}
+@keyframes ring{0%{transform:scale(.7);opacity:.55}70%{opacity:0}100%{transform:scale(1.8);opacity:0}}
+.ctl-actions{display:flex;align-items:center;gap:8px;}
+.ctl-primary{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border-radius:9px;
+  background:var(--value);border:none;color:#062616;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+.ctl-primary svg{width:14px;height:14px;stroke:currentColor;fill:currentColor;stroke-width:1;}
+.ctl-ghost{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border-radius:9px;
+  background:var(--s2);border:1px solid var(--border2);color:var(--text2);font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap;}
+.ctl-ghost svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.ctl-ghost:hover{color:var(--text);border-color:var(--border3);}
+.ctl-conn{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);letter-spacing:.03em;}
+.ctl-conn b{color:var(--text2);font-weight:700;}
+.iconbtn{width:36px;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:9px 0;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--muted);cursor:pointer;}
+.iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.iconbtn:hover{color:var(--text);border-color:var(--border3);}
+
+.note{font-size:12.5px;color:var(--muted);margin:12px 2px 0;line-height:1.5;display:flex;gap:9px;}
+.note .d{width:6px;height:6px;border-radius:50%;background:var(--accent2);margin-top:6px;flex:none;}
+
+@media(max-width:900px){.dscells{flex-wrap:wrap}.cell-pick{flex:1 1 100%}.cell-control{flex:1 1 100%;border-left:none;border-top:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="doc-h">Draft Vault · concept</p>
+  <h1 class="doc-t">Draft Control as a cell in the summary row</h1>
+  <p class="doc-d">No separate bar. The row you already have gains one more segment — <b>Draft Control</b> — that sits right in line with Left / Drafted / Grade / Clock and adapts to whether you're on the clock. The lone re-sync icon folds into it.</p>
+
+  <!-- STATE 1 — ON THE CLOCK -->
+  <div class="section-tag on"><span class="num">1</span> On the clock &nbsp;<span class="tag-good">it's your pick</span></div>
+  <div class="dsrow">
+    <div class="dscells">
+      <div class="cell cell-pick">
+        <div class="kick">Your next pick · StatChasers D109</div>
+        <div class="pickline"><span class="pick-no">23.10</span><span class="pick-away">6 picks away</span></div>
+        <div class="pick-meta">Pick 274 of 360 · 2026 Snake · 12-team</div>
+      </div>
+      <div class="cell cell-stat"><span class="stat-v">87</span><span class="stat-l">Left</span></div>
+      <div class="cell cell-stat"><span class="stat-v">273</span><span class="stat-l">Drafted</span></div>
+      <div class="cell cell-stat"><span class="stat-v grade">B+</span><span class="stat-l">Draft Grade 87/100</span></div>
+      <div class="cell cell-clock">
+        <span class="clock-ic"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18"/><path d="M12 7.4v5l3 1.8"/></svg></span>
+        <span class="stat-l">On the clock</span>
+        <span class="clock-v">39m 21s <span class="win">(4h 0m)</span></span>
+      </div>
+      <div class="cell cell-control live">
+        <div class="ctl-head">
+          <span class="ctl-bolt"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+          <span class="ctl-kick">Draft Control</span>
+          <span class="ctl-live-pill"><span class="dot"></span><span class="t">YOU'RE UP</span></span>
+        </div>
+        <div class="ctl-actions">
+          <button class="ctl-primary"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Draft Sam Howell</button>
+          <button class="iconbtn" title="Sync board → Sleeper queue"><svg viewBox="0 0 24 24"><path d="M12 3v13"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg></button>
+        </div>
+        <span class="ctl-conn">connected as <b>putput</b> · board synced</span>
+      </div>
+    </div>
+    <div class="dsprog"><div class="track"><i style="width:76%"></i></div><span class="pct">76% COMPLETE</span></div>
+  </div>
+  <div class="note"><span class="d"></span><span>Primary button = your top-ranked available board player (★ Sam Howell). The ↧ icon syncs your whole board into Sleeper's queue in one tap.</span></div>
+
+  <!-- STATE 2 — WAITING -->
+  <div class="section-tag"><span class="num">2</span> Waiting — someone else on the clock</div>
+  <div class="dsrow">
+    <div class="dscells">
+      <div class="cell cell-pick">
+        <div class="kick">Your next pick · StatChasers D109</div>
+        <div class="pickline"><span class="pick-no">23.10</span><span class="pick-away">6 picks away</span></div>
+        <div class="pick-meta">Pick 274 of 360 · 2026 Snake · 12-team</div>
+      </div>
+      <div class="cell cell-stat"><span class="stat-v">87</span><span class="stat-l">Left</span></div>
+      <div class="cell cell-stat"><span class="stat-v">273</span><span class="stat-l">Drafted</span></div>
+      <div class="cell cell-stat"><span class="stat-v grade">B+</span><span class="stat-l">Draft Grade 87/100</span></div>
+      <div class="cell cell-clock">
+        <span class="clock-ic"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18"/><path d="M12 7.4v5l3 1.8"/></svg></span>
+        <span class="stat-l">On the clock</span>
+        <span class="clock-v">39m 21s <span class="win">(4h 0m)</span></span>
+      </div>
+      <div class="cell cell-control">
+        <div class="ctl-head">
+          <span class="ctl-bolt" style="color:var(--muted)"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+          <span class="ctl-kick">Draft Control</span>
+        </div>
+        <div class="ctl-actions">
+          <button class="ctl-ghost"><svg viewBox="0 0 24 24"><path d="M12 3v13"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>Sync board → queue</button>
+          <button class="iconbtn" title="Re-sync with Sleeper"><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M21 6H8a4 4 0 0 0-4 4v1"/><path d="m7 22-4-4 4-4"/><path d="M3 18h13a4 4 0 0 0 4-4v-1"/></svg></button>
+        </div>
+        <span class="ctl-conn">connected as <b>putput</b></span>
+      </div>
+    </div>
+    <div class="dsprog"><div class="track"><i style="width:76%"></i></div><span class="pct">76% COMPLETE</span></div>
+  </div>
+  <div class="note"><span class="d"></span><span>Off the clock: no green tint, no pulse. Just the sync action + connection status. Same footprint, so the row never jumps when the clock flips to you.</span></div>
+
+</div>
+</body>
+</html>

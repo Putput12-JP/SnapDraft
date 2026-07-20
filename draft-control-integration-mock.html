@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Control — Header Integration Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Vault tokens (ONYX & STEEL FROST — matches the live screenshot) ── */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#8fb4e0;--te:#f5c842;
+  --value:#5fe09a;--gold:#8fb4e0;
+  --green:#5fe09a;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --t-title:24px;--t-h1:20px;--t-h2:17px;--t-body:15px;--t-secondary:13px;
+  --t-label:11px;--t-micro:10px;--t-nano:9px;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;padding:36px 30px 80px;}
+.wrap{max-width:1180px;margin:0 auto;}
+
+.doc-h{font-size:12px;font-family:var(--font-mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px;}
+.doc-t{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px;}
+.doc-d{font-size:14px;color:var(--text2);margin:0 0 30px;max-width:720px;line-height:1.5;}
+
+.section-tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);
+  font-size:var(--t-label);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:38px 0 4px;}
+.section-tag .num{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;
+  background:var(--s3);color:var(--text2);font-size:10px;font-weight:800;}
+.section-tag.rec .num{background:rgba(95,224,154,.16);color:var(--value);}
+.section-note{font-size:13px;color:var(--muted);margin:0 0 16px;max-width:760px;line-height:1.5;}
+.tag-good{color:var(--value);font-weight:700;}
+.tag-bad{color:var(--red2);font-weight:700;}
+
+/* Fake page frame so each concept reads as "inside Draft Vault" */
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:16px;
+  padding:22px 26px 24px;position:relative;overflow:hidden;box-shadow:0 24px 60px -30px rgba(0,0,0,.7);}
+.frame + .frame{margin-top:16px;}
+
+/* Shared bits */
+.pos{font-family:var(--font-mono);font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;letter-spacing:.02em;}
+.pos.QB{background:rgba(255,102,128,.15);color:var(--qb);}
+.pos.RB{background:rgba(61,204,122,.15);color:var(--rb);}
+.pos.WR{background:rgba(143,180,224,.15);color:var(--wr);}
+.pos.TE{background:rgba(245,200,66,.15);color:var(--te);}
+
+.abtn{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border-radius:9px;
+  background:var(--s2);border:1px solid var(--border);color:var(--text2);font-family:var(--font-sans);
+  font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.abtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+.abtn:hover{border-color:var(--border2);color:var(--text);}
+.abtn .cnt{font-family:var(--font-mono);font-size:10px;font-weight:800;background:var(--s4);color:var(--muted);
+  padding:1px 6px;border-radius:5px;}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;
+  background:var(--value);border:1px solid transparent;color:#062616;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+.btn-primary svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;}
+.btn-ghost{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:9px;
+  background:transparent;border:1px solid var(--border2);color:var(--text2);font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+.btn-ghost svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+.btn-ghost:hover{color:var(--text);border-color:var(--border3);}
+
+.livedot{width:8px;height:8px;border-radius:50%;background:var(--value);position:relative;flex:none;}
+.livedot::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--value);
+  opacity:.55;animation:ring 1.8s var(--ease-out) infinite;}
+@keyframes ring{0%{transform:scale(.7);opacity:.6}70%{opacity:0}100%{transform:scale(1.7);opacity:0}}
+
+.title{font-size:var(--t-title);font-weight:800;letter-spacing:-.02em;margin:0;}
+.fmtbadge{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;
+  padding:4px 8px;border-radius:6px;background:var(--s3);color:var(--text2);}
+
+/* ════════ BEFORE (current: two stacked cards) ════════ */
+.b-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  border:1px solid var(--border2);border-radius:12px;background:var(--s1);padding:13px 16px;margin:14px 0 10px;}
+.b-bar .lbl{font-size:14px;font-weight:800;}
+.b-pill{padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted);
+  font-size:11.5px;font-weight:700;}
+.b-card{border:1px solid var(--border2);border-radius:12px;background:var(--s1);padding:16px 20px;}
+.b-card .row{display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
+.b-eyebrow{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.b-pick{font-family:var(--font-mono);font-size:36px;font-weight:800;letter-spacing:-.02em;line-height:1;}
+.b-sep{width:1px;align-self:stretch;min-height:44px;background:var(--border);}
+.b-stat .v{font-family:var(--font-mono);font-size:20px;font-weight:800;line-height:1;}
+.b-stat .l{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+
+/* ════════ OPTION 1 — Live Header + borderless metric rail ════════ */
+.o1-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+.o1-titlerow{display:flex;align-items:center;gap:11px;margin-bottom:11px;}
+.o1-state{display:inline-flex;align-items:center;gap:8px;padding:5px 11px 5px 9px;border-radius:999px;
+  background:rgba(95,224,154,.12);border:1px solid rgba(95,224,154,.28);}
+.o1-state .txt{font-family:var(--font-mono);font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--value);}
+.o1-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+
+/* borderless metric rail — sits on the page, no card */
+.rail{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-top:4px;}
+.rail-pick{display:flex;flex-direction:column;gap:3px;padding-right:26px;}
+.rail-pick .k{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.rail-pick .vrow{display:flex;align-items:baseline;gap:9px;}
+.rail-pick .no{font-family:var(--font-mono);font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1;}
+.rail-pick .away{font-size:12.5px;font-weight:700;color:var(--accent2);}
+.rail-div{width:1px;align-self:stretch;min-height:38px;background:var(--border);}
+.rail-metrics{display:flex;align-items:center;gap:30px;padding:0 26px;}
+.rmetric{display:flex;flex-direction:column;gap:4px;}
+.rmetric .v{font-family:var(--font-mono);font-size:20px;font-weight:800;line-height:1;letter-spacing:-.01em;}
+.rmetric .v.grade{color:var(--accent2);}
+.rmetric .l{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.rail-clock{margin-left:auto;display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:9px;
+  background:var(--s2);border:1px solid var(--border);}
+.rail-clock svg{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.rail-clock .t{font-size:12px;color:var(--text2);font-weight:600;}
+.rail-clock .c{font-family:var(--font-mono);font-size:13px;font-weight:800;}
+/* full-bleed hairline progress under the whole header */
+.o1-prog{margin:18px -26px -4px;height:2px;background:rgba(255,255,255,.06);position:relative;}
+.o1-prog i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+.o1-prog .pct{position:absolute;right:26px;top:-18px;font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.08em;}
+
+/* draft-from-board chip row (only when on the clock) */
+.o1-picks{display:flex;align-items:center;gap:9px;margin-top:16px;flex-wrap:wrap;}
+.o1-picks .k{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-right:2px;}
+.pchip{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:9px;background:var(--s2);
+  border:1px solid var(--border);font-size:12.5px;font-weight:600;cursor:pointer;}
+.pchip.star{background:rgba(95,224,154,.12);border-color:rgba(95,224,154,.34);color:var(--value);font-weight:800;}
+.pchip .g{font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--muted);}
+
+/* ════════ OPTION 2 — Cockpit strip (single line) ════════ */
+.o2-strip{display:flex;align-items:center;gap:0;flex-wrap:wrap;background:var(--s1);
+  border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+.o2-cell{display:flex;align-items:center;gap:9px;padding:13px 18px;}
+.o2-cell + .o2-cell{border-left:1px solid var(--border);}
+.o2-bolt{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:rgba(95,224,154,.14);color:var(--value);font-size:14px;}
+.o2-pick{font-family:var(--font-mono);font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1;}
+.o2-k{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.o2-v{font-family:var(--font-mono);font-size:15px;font-weight:800;line-height:1;}
+.o2-v.grade{color:var(--accent2);}
+.o2-mini{display:flex;flex-direction:column;gap:3px;}
+.o2-clock{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.o2-clock svg{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.o2-actions{display:flex;align-items:center;gap:8px;padding:9px 14px;border-left:1px solid var(--border);}
+.o2-prog{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.05);}
+.o2-prog i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+
+.callouts{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;}
+.callout{display:flex;gap:9px;font-size:12.5px;color:var(--text2);line-height:1.45;}
+.callout .d{width:6px;height:6px;border-radius:50%;background:var(--accent2);margin-top:6px;flex:none;}
+@media(max-width:720px){.callouts{grid-template-columns:1fr}.rail-clock{margin-left:0}.rail{gap:12px}.rail-div{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="doc-h">Draft Vault · concept</p>
+  <h1 class="doc-t">Draft Control, without the card</h1>
+  <p class="doc-d">Today the live-draft state lives in <b>two stacked boxes</b> under the header — a thin "⚡ Draft Control" bar and a big bordered stat card — both repeating the same pick / clock info. This dissolves them into the Draft Vault header itself, so live draft state reads as <b>page chrome</b>, not a card sitting on top of the board.</p>
+
+  <!-- ───────── BEFORE ───────── -->
+  <div class="section-tag"><span class="num">0</span> Today — two cards, duplicated state</div>
+  <p class="section-note">The bar and the card each carry the pick number and the clock. Heavy, boxy, and it pushes the board down.</p>
+  <div class="frame" style="opacity:.9">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:11px"><h2 class="title">Draft Vault</h2><span class="fmtbadge">DYNASTY · SF</span></div>
+      <div style="display:flex;gap:8px"><span class="abtn">☆ Watchlist</span><span class="abtn">↑ Import CSV</span><span class="abtn">👁 Drafted <span class="cnt">265</span></span></div>
+    </div>
+    <div class="b-bar">
+      <div style="display:flex;align-items:center;gap:12px"><span class="lbl">⚡ Draft Control</span><span class="b-pill">Pick 274 on the clock · your next: 24.4</span></div>
+      <div style="display:flex;align-items:center;gap:9px"><span class="btn-ghost">↧ Sync board → Sleeper queue</span><span style="font-size:11px;color:var(--muted)">connected as <b>putput</b></span></div>
+    </div>
+    <div class="b-card">
+      <div class="row">
+        <div><div class="b-eyebrow">Your next pick · StatChasers D109</div><div style="display:flex;align-items:baseline;gap:9px;margin-top:6px"><span class="b-pick">23.10</span><span style="font-size:12.5px;color:var(--accent2);font-weight:700">6 picks away</span></div></div>
+        <div class="b-sep"></div>
+        <div class="b-stat"><div class="v">87</div><div class="l">Left</div></div>
+        <div class="b-stat"><div class="v">273</div><div class="l">Drafted</div></div>
+        <div class="b-stat"><div class="v" style="color:var(--accent2)">B+</div><div class="l">Draft Grade</div></div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;background:var(--s2);border:1px solid var(--border)"><span style="color:var(--gold)">◷</span><span style="font-size:12.5px;color:var(--text2)">On the clock</span><span style="font-family:var(--font-mono);font-weight:800">2m33s</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:14px"><div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden"><div style="width:76%;height:100%;background:var(--accent)"></div></div><span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">76% complete</span></div>
+    </div>
+  </div>
+
+  <!-- ───────── OPTION 1 ───────── -->
+  <div class="section-tag rec"><span class="num">A</span> Live Header + metric rail &nbsp;<span class="tag-good">recommended</span></div>
+  <p class="section-note">The page header <b>becomes</b> the cockpit. The title row shows live state; the numbers sit on the page as a borderless rail split by hairlines; a full-bleed progress line underlines the whole header. No card. When you're on the clock, a draft-from-board chip row appears.</p>
+  <div class="frame">
+    <div class="o1-head">
+      <div style="min-width:0">
+        <div class="o1-titlerow">
+          <h2 class="title">Draft Vault</h2>
+          <span class="fmtbadge">DYNASTY · SF</span>
+          <span class="o1-state"><span class="livedot"></span><span class="txt">ON THE CLOCK · PICK 274</span></span>
+        </div>
+        <div class="rail">
+          <div class="rail-pick">
+            <span class="k">Your next · StatChasers D109</span>
+            <span class="vrow"><span class="no">23.10</span><span class="away">6 picks away</span></span>
+          </div>
+          <div class="rail-div"></div>
+          <div class="rail-metrics">
+            <div class="rmetric"><span class="v">87</span><span class="l">Left</span></div>
+            <div class="rmetric"><span class="v">273</span><span class="l">Drafted</span></div>
+            <div class="rmetric"><span class="v grade">B+</span><span class="l">Grade · 87</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="o1-actions">
+        <span class="rail-clock"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18"/><path d="M12 7.4v5l3 1.8"/></svg><span class="t">On the clock</span><span class="c">2m33s</span></span>
+        <span class="btn-primary"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Draft Sam Howell</span>
+      </div>
+    </div>
+    <div class="o1-picks">
+      <span class="k">Draft from board</span>
+      <span class="pchip star">★ Sam Howell <span class="g">QB · C-</span></span>
+      <span class="pchip">Spencer Rattler <span class="g">QB · D</span></span>
+      <span class="pchip">Devontez Walker <span class="g">WR · F</span></span>
+      <span style="margin-left:6px;display:inline-flex;gap:8px"><span class="btn-ghost">↧ Sync queue</span><span class="btn-ghost">↺ Re-sync</span></span>
+    </div>
+    <div class="o1-prog"><i style="width:76%"></i><span class="pct">76% COMPLETE</span></div>
+  </div>
+  <div class="callouts">
+    <div class="callout"><span class="d"></span><span>Off the clock, the green pill becomes a muted "Pick 274 · your next 24.4" and the draft-from-board chip row hides — same rail, calmer.</span></div>
+    <div class="callout"><span class="d"></span><span>Watchlist / Import / Drafted move to a small overflow "⋯" or stay right-aligned above — they're page tools, not draft tools.</span></div>
+  </div>
+
+  <!-- ───────── OPTION 2 ───────── -->
+  <div class="section-tag"><span class="num">B</span> Cockpit strip — one sticky line</div>
+  <p class="section-note">Everything collapses into a single slim bar that can pin to the top of the board as you scroll. Densest option — good if you want the board higher and the draft state always in view.</p>
+  <div class="frame">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:11px"><h2 class="title">Draft Vault</h2><span class="fmtbadge">DYNASTY · SF</span></div>
+      <div style="display:flex;gap:8px"><span class="abtn">☆ Watchlist</span><span class="abtn">↑ Import CSV</span><span class="abtn">👁 Drafted <span class="cnt">265</span></span></div>
+    </div>
+    <div class="o2-strip">
+      <div class="o2-cell"><span class="o2-bolt">⚡</span><div class="o2-mini"><span class="o2-pick">23.10</span></div><div class="o2-mini"><span class="o2-v" style="color:var(--accent2)">6 away</span><span class="o2-k">Next · D109</span></div></div>
+      <div class="o2-cell"><div class="o2-mini"><span class="o2-v">87</span><span class="o2-k">Left</span></div></div>
+      <div class="o2-cell"><div class="o2-mini"><span class="o2-v">273</span><span class="o2-k">Drafted</span></div></div>
+      <div class="o2-cell"><div class="o2-mini"><span class="o2-v grade">B+</span><span class="o2-k">Grade</span></div></div>
+      <div class="o2-cell o2-clock"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18"/><path d="M12 7.4v5l3 1.8"/></svg><div class="o2-mini"><span class="o2-v">2m33s</span><span class="o2-k">On the clock</span></div></div>
+      <div class="o2-actions"><span class="btn-ghost">↧ Sync</span><span class="btn-primary" style="padding:8px 14px"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Draft</span></div>
+      <div class="o2-prog"><i style="width:76%"></i></div>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.04em">↳ pins under the toolbar on scroll · progress lives in the bottom hairline</div>
+  </div>
+
+</div>
+</body>
+</html>
