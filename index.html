@@ -4970,6 +4970,10 @@ function pgsOpen(name, pos, team){
     <div id="pf-view-waivers" style="display:none">
       <div id="pf-waiver-command"></div>
     </div>
+    <!-- Taxi Manager — dynasty taxi squads across leagues -->
+    <div id="pf-view-taxi" style="display:none">
+      <div id="pf-taxi-command"></div>
+    </div>
   </div>
 </div>
 
@@ -19085,6 +19089,181 @@ async function wcClaimModal(lid, playerName){
 }
 try { window.wcClaimModal = wcClaimModal; } catch(e){}
 
+// ═══════════════════════════════════════════════════════════════
+// Taxi Manager — dynasty taxi squads across leagues.
+// Stash taxi-eligible rookies to free active spots; clear players who've
+// aged past the league's taxi limit (which also unblocks Lineup/Waiver).
+// Writes the full taxi list via update_taxi. Eligibility from league
+// settings (taxi_slots / taxi_years / taxi_allow_vets) + years_exp meta.
+// ═══════════════════════════════════════════════════════════════
+// Leagues that actually run a taxi squad.
+function _txLeagues(){
+  return _tcLeagues().filter(d => ((d.lg.settings||{}).taxi_slots||0) > 0);
+}
+// A rostered player's years of NFL experience (from the cached meta map).
+function _txYrs(pid, meta){ return meta && meta.yrs && typeof meta.yrs[pid]==='number' ? meta.yrs[pid] : null; }
+// Is this player allowed on THIS league's taxi squad?
+function _txEligible(pid, d, meta){
+  const st = d.lg.settings||{};
+  if(st.taxi_allow_vets) return true;              // no experience cap
+  const y = _txYrs(pid, meta);
+  if(y==null) return false;                        // unknown exp → don't offer
+  return y <= (st.taxi_years||0);
+}
+// Build one league's taxi picture: current taxi (with aged-out flags), open
+// slots, and rostered players eligible to add.
+function _txLeagueView(d, meta){
+  const st = d.lg.settings||{};
+  const slots = st.taxi_slots||0;
+  const taxi = (d.myTaxi||[]).map(String);
+  const reserve = new Set((d.myReserve||[]).map(String));
+  const onTaxi = taxi.map(pid => ({
+    pid, name:_tcName(pid), pos:(typeof _pfLcPos==='function'?_pfLcPos(_tcName(pid)):'')||'',
+    yrs:_txYrs(pid, meta), val:Math.round(_tcVal(_tcName(pid), d.lg)),
+    agedOut: !_txEligible(pid, d, meta)
+  }));
+  const taxiSet = new Set(taxi);
+  // Candidates to SUGGEST stashing = genuinely developmental players. Leagues
+  // that allow vets on taxi technically make everyone eligible, but nobody
+  // taxis a veteran starter — so cap suggestions to young players (≤2 yrs when
+  // vets are allowed, else the league's strict taxi_years limit).
+  const candidateCap = st.taxi_allow_vets ? 2 : (st.taxi_years||0);
+  const eligible = [...new Set((d.myStartable||[]).map(String))]
+    .filter(pid => { if(taxiSet.has(pid)||reserve.has(pid)) return false; const y=_txYrs(pid, meta); return y!=null && y <= candidateCap; })
+    .map(pid => ({ pid, name:_tcName(pid), pos:(typeof _pfLcPos==='function'?_pfLcPos(_tcName(pid)):'')||'', yrs:_txYrs(pid, meta), val:Math.round(_tcVal(_tcName(pid), d.lg)) }))
+    .sort((a,b)=>b.val-a.val);
+  return { slots, used:taxi.length, open:Math.max(0, slots - taxi.length), onTaxi, eligible, agedOut:onTaxi.filter(p=>p.agedOut) };
+}
+
+async function renderTaxiCommand(force){
+  const el = document.getElementById('pf-taxi-command');
+  if(!el) return;
+  const data = _txLeagues();
+  if(!data.length){
+    el.innerHTML = `<div style="border:1px dashed var(--border2);border-radius:14px;padding:40px;text-align:center;color:var(--muted);font-size:13px">None of your leagues run a taxi squad. Taxi Manager applies to dynasty leagues with taxi slots.</div>`;
+    return;
+  }
+
+  let conn = {connected:false};
+  try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
+
+  el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Reading your taxi squads…</div>';
+  let meta = window._pfRosterMeta;
+  if(meta === undefined){ try { meta = await _pfEnsureRosterMeta(); } catch(e){} }
+
+  const views = data.map(d => ({ d, v:_txLeagueView(d, meta) }));
+  const totUsed = views.reduce((s,x)=>s+x.v.used,0);
+  const totSlots = views.reduce((s,x)=>s+x.v.slots,0);
+  const totOpen = views.reduce((s,x)=>s+x.v.open,0);
+  const totAged = views.reduce((s,x)=>s+x.v.agedOut.length,0);
+  const totElig = views.reduce((s,x)=>s+x.v.eligible.length,0);
+
+  const kpi = (label, val, color) => `<div style="background:var(--s1);border:1px solid var(--border2);border-radius:11px;padding:13px 16px;min-width:130px;flex:1">
+    <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${label}</div>
+    <div style="font-size:20px;font-weight:800;font-family:var(--font-mono);color:${color}">${val}</div>
+  </div>`;
+
+  const yrsLbl = y => y==null ? '' : `<span style="color:var(--muted);font-size:11px">${y===0?'rookie':y+'y'}</span>`;
+
+  const cards = views.map(({d,v}) => {
+    const lid = d.lg.league_id;
+    const full = v.open<=0;
+    const onTaxiRows = v.onTaxi.length ? v.onTaxi.map(p => `
+      <div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
+        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,26):'')}" onerror="this.style.display='none'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;background:var(--s2)">
+        <span style="flex:1;font-weight:600">${p.name} <span style="color:var(--muted);font-size:11px">${p.pos}</span> ${yrsLbl(p.yrs)}${p.agedOut?` <span style="color:#ff6680;font-size:10.5px;font-weight:700">AGED OUT</span>`:''}</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${p.val?p.val.toLocaleString():'—'}</span>
+        ${conn.connected?`<button onclick="txRemove('${lid}','${p.pid}')" style="padding:5px 11px;border-radius:7px;background:${p.agedOut?'rgba(255,102,128,0.14)':'var(--s2)'};border:1px solid ${p.agedOut?'rgba(255,102,128,0.35)':'var(--border2)'};color:${p.agedOut?'#ff6680':'var(--text)'};font-weight:600;font-size:11.5px;cursor:pointer;white-space:nowrap">Remove</button>`:''}
+      </div>`).join('') : `<div style="padding:6px 0;color:var(--muted);font-size:12px">No players on taxi</div>`;
+    const eligRows = v.eligible.length ? v.eligible.slice(0,12).map(p => `
+      <div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
+        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,26):'')}" onerror="this.style.display='none'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;background:var(--s2)">
+        <span style="flex:1;font-weight:600">${p.name} <span style="color:var(--muted);font-size:11px">${p.pos}</span> ${yrsLbl(p.yrs)}</span>
+        <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${p.val?p.val.toLocaleString():'—'}</span>
+        ${conn.connected?`<button onclick="txAdd('${lid}','${p.pid}')" ${full?'disabled':''} title="${full?'Taxi is full — remove someone first':'Move to taxi (frees an active roster spot)'}" style="padding:5px 11px;border-radius:7px;background:${full?'var(--s2)':'rgba(61,204,122,0.14)'};border:1px solid ${full?'var(--border2)':'rgba(61,204,122,0.35)'};color:${full?'var(--muted)':'#3DCC7A'};font-weight:700;font-size:11.5px;cursor:${full?'default':'pointer'};white-space:nowrap">+ Taxi</button>`:''}
+      </div>`).join('') : `<div style="padding:6px 0;color:var(--muted);font-size:12px">No taxi-eligible players on your roster</div>`;
+    return `<div style="border:1px solid ${v.agedOut.length?'rgba(255,102,128,0.28)':'var(--border2)'};border-radius:14px;background:var(--s1);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border2)">
+        <div style="font-size:14px;font-weight:700">${d.lg.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${v.agedOut.length?`<span style="font-size:11px;color:#ff6680;font-weight:700">${v.agedOut.length} aged out</span>`:''}
+          <span style="font-family:var(--font-mono);font-size:12px;color:${full?'#FFC400':'#3DCC7A'}">${v.used}/${v.slots} taxi</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+        <div style="padding:12px 18px;border-right:1px solid var(--border2)">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">On taxi</div>
+          ${onTaxiRows}
+        </div>
+        <div style="padding:12px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">Eligible to stash</div>
+          ${eligRows}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="font-size:12.5px;color:var(--muted)">Manage taxi squads across your dynasty leagues${conn.connected?` · connected as <b>${conn.sleeperUsername}</b>`:''}</div>
+      <button onclick="renderTaxiCommand(true)" style="padding:9px 15px;border-radius:9px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer">↻ Refresh</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      ${kpi('Taxi used', totUsed+' / '+totSlots, 'var(--accent2)')}
+      ${kpi('Open taxi slots', totOpen, 'var(--sky)')}
+      ${kpi('Aged out', totAged, totAged?'#ff6680':'#3DCC7A')}
+      ${kpi('Eligible to stash', totElig, 'var(--wr)')}
+    </div>
+    ${!conn.connected?`<div style="margin-bottom:12px;padding:11px 14px;border-radius:10px;background:rgba(123,208,255,0.05);border:1px solid rgba(123,208,255,0.18);font-size:12.5px;color:var(--muted)">Connect Sleeper for lineup control to add or remove taxi players from here. <button onclick="try{openSettingsDrawer()}catch(e){}" style="margin-left:6px;padding:5px 12px;border-radius:7px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:11.5px;cursor:pointer">Connect</button></div>`:''}
+    <div style="display:flex;flex-direction:column;gap:14px">${cards}</div>`;
+}
+try { window.renderTaxiCommand = renderTaxiCommand; } catch(e){}
+
+// Add a player to taxi (confirm → write full new taxi list via update_taxi).
+function txAdd(lid, pid){
+  const d = _txLeagues().find(x => x.lg.league_id===lid);
+  if(!d) return;
+  const meta = window._pfRosterMeta;
+  const v = _txLeagueView(d, meta);
+  if(v.open<=0) return;
+  const name = _tcName(pid);
+  const newTaxi = [...(d.myTaxi||[]).map(String), String(pid)];
+  pfLcModal({
+    title: 'Move ' + name + ' to taxi?',
+    subtitle: `${d.lg.name} · frees an active roster spot`,
+    bodyHtml: `<div style="padding:8px 0;font-size:13px;line-height:1.5"><b>${name}</b> moves from your active roster to the taxi squad (${v.used+1}/${v.slots}). They won't count against your active roster and can't be started until you activate them.</div>`,
+    confirmLabel: 'Move to taxi',
+    note: 'This updates your taxi squad in Sleeper — reversible any time.',
+    onConfirm: async () => {
+      await VaultSleeper.updateTaxi(lid, d.myRosterId, newTaxi);
+      d.myTaxi = newTaxi;
+      renderTaxiCommand();
+    }
+  });
+}
+try { window.txAdd = txAdd; } catch(e){}
+
+// Remove a player from taxi (→ back to active roster).
+function txRemove(lid, pid){
+  const d = _txLeagues().find(x => x.lg.league_id===lid);
+  if(!d) return;
+  const name = _tcName(pid);
+  const newTaxi = (d.myTaxi||[]).map(String).filter(x => x !== String(pid));
+  pfLcModal({
+    title: 'Remove ' + name + ' from taxi?',
+    subtitle: d.lg.name,
+    bodyHtml: `<div style="padding:8px 0;font-size:13px;line-height:1.5"><b>${name}</b> returns to your active roster. Make sure you have an open active spot, or Sleeper may reject the change.</div>`,
+    confirmLabel: 'Remove from taxi',
+    note: 'This updates your taxi squad in Sleeper — reversible any time.',
+    onConfirm: async () => {
+      await VaultSleeper.updateTaxi(lid, d.myRosterId, newTaxi);
+      d.myTaxi = newTaxi;
+      renderTaxiCommand();
+    }
+  });
+}
+try { window.txRemove = txRemove; } catch(e){}
+
 // ── Portfolio view switcher: Overview ↔ Lineup Command ↔ Trade Center ──
 window._pfView = window._pfView || 'overview';
 function pfSetView(v){
@@ -19094,6 +19273,7 @@ function pfSetView(v){
     lineup:   { el:'pf-view-lineup', title:'Lineup Command', sub:'Optimize & push your starting lineups straight to Sleeper' },
     trades:   { el:'pf-view-trades', title:'Trade Center', sub:'Pending trade offers across all your leagues · accept, reject & send offers' },
     waivers:  { el:'pf-view-waivers', title:'Waiver Command', sub:'Find waiver targets, compare league availability, and claim across your teams' },
+    taxi:     { el:'pf-view-taxi', title:'Taxi Manager', sub:'Stash eligible rookies and clear players who’ve aged out, across your dynasty leagues' },
   };
   if(!views[v]) v = 'overview';
   Object.entries(views).forEach(([key, cfg]) => {
@@ -19110,6 +19290,7 @@ function pfSetView(v){
   if(v==='lineup'){ try { renderLineupCommand(); } catch(e){} }
   if(v==='trades'){ try { renderTradeCenter(); } catch(e){} }
   if(v==='waivers'){ try { renderWaiverCommand(); } catch(e){} }
+  if(v==='taxi'){ try { renderTaxiCommand(); } catch(e){} }
 }
 try { window.pfSetView = pfSetView; } catch(e){}
 
@@ -19130,7 +19311,8 @@ try { window.pfSetView = pfSetView; } catch(e){}
       <button class="lc-mt-item" data-pfview="overview"><span class="ic">${icon('folder')}</span><span><b>My Portfolio</b><small>All leagues · values · buy-ins</small></span></button>
       <button class="lc-mt-item" data-pfview="lineup"><span class="ic">${icon('bolt')}</span><span><b>Lineup Command</b><small>Optimize &amp; push to Sleeper</small></span><span class="lc-newtag">NEW</span></button>
       <button class="lc-mt-item" data-pfview="trades"><span class="ic">${icon('swap')}</span><span><b>Trade Center</b><small>Offers inbox · accept, reject &amp; send</small></span><span class="lc-newtag">NEW</span></button>
-      <button class="lc-mt-item" data-pfview="waivers"><span class="ic">${icon('plus')}</span><span><b>Waiver Command</b><small>FA targets &amp; claims across leagues</small></span><span class="lc-newtag">NEW</span></button>`;
+      <button class="lc-mt-item" data-pfview="waivers"><span class="ic">${icon('target')}</span><span><b>Waiver Command</b><small>FA targets &amp; claims across leagues</small></span><span class="lc-newtag">NEW</span></button>
+      <button class="lc-mt-item" data-pfview="taxi"><span class="ic">${icon('building')}</span><span><b>Taxi Manager</b><small>Stash rookies &amp; clear aged-out taxi</small></span><span class="lc-newtag">NEW</span></button>`;
     document.body.appendChild(menu);
     let hideT;
     const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
