@@ -5377,10 +5377,11 @@ function pgsOpen(name, pos, team){
     <div class="plist-scroll">
     <table class="plist-table">
       <colgroup>
-        <col class="col-rk"><col class="col-name"><col class="col-dynasty"><col class="col-redraft"><col class="col-adp"><col class="col-my"><col class="col-fup"><col class="col-ffl"><col class="col-frk"><col class="col-fsi"><col class="col-pgrade"><col class="col-watch2">
+        <col class="col-draft"><col class="col-rk"><col class="col-name"><col class="col-dynasty"><col class="col-redraft"><col class="col-adp"><col class="col-my"><col class="col-fup"><col class="col-ffl"><col class="col-frk"><col class="col-fsi"><col class="col-pgrade"><col class="col-watch2">
       </colgroup>
       <thead class="plist-thead" id="lhdr">
         <tr>
+          <th class="hdr-draft" id="hdr-draft" style="text-align:center;padding:0"></th>
           <th id="lh0" onclick="setSort(0)" style="text-align:right;cursor:pointer;padding-right:10px">#</th>
           <th style="text-align:left">Player</th>
           <th class="num-hdr col-hdr-sortable" id="hdr-dynasty" onclick="setSort('dynasty-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Click to sort by Dynasty value (uses current mode: RA / FC / My)">Dynasty <span class="hdr-source-label" id="hdr-dynasty-src">FC</span> <span class="sort-ind" id="ind-dynasty">↓</span></th>
@@ -13549,6 +13550,17 @@ function renderList(){
   PLAYERS.filter(p => p.pos !== 'PICK').slice().sort((a,b)=>_valForPos(b)-_valForPos(a))
     .forEach(p => { _posCtr[p.pos] = (_posCtr[p.pos]||0)+1; _posRankMap[normName(p.name)] = _posCtr[p.pos]; });
   let _rowRk = 0; // sequential RK for the leftmost column, always 1,2,3… in current display order
+  // Per-row "Draft Now" column: live only when connected + on the clock in a
+  // Sleeper draft. Toggle the table class so the column expands, and stamp the
+  // header label. renderAll re-fires on each pick, so this stays in sync.
+  const _dvReady = (typeof _dvBoardDraftState==='function') ? _dvBoardDraftState() : {on:false, pickNo:0};
+  try {
+    const _tbl = tbody.closest('table');
+    if(_tbl) _tbl.classList.toggle('dv-drafting', !!_dvReady.on);
+    const _dh = document.getElementById('hdr-draft');
+    if(_dh) _dh.textContent = _dvReady.on ? 'DRAFT' : '';
+  } catch(e){}
+
   const rows = _sortedList.map(p => {
     const nn=normName(p.name);
     // Browse-rankings mode (completed draft → "Browse rankings"): show a clean
@@ -13760,7 +13772,15 @@ function renderList(){
       }
     }
     const _statusCell = isDrafted ? statusHtml : (vbadgeHtml || '<span style="color:var(--dim)">—</span>');
+    // Draft Now cell (leftmost). Always present to keep the colgroup aligned;
+    // only shows a button when on the clock and the player is available + maps
+    // to a Sleeper id. Column is width-collapsed otherwise.
+    const _dvPid = _dvReady.on && !isDrafted && typeof _pidByName==='function' ? _pidByName(p.name) : null;
+    const draftCell = (_dvReady.on && !isDrafted && _dvPid)
+      ? `<td class="td-draft"><button class="dv-draftnow" onclick="event.stopPropagation();dvDraftFromBoard('${_dvPid}','${p.name.replace(/'/g,"\\'")}',${_dvReady.pickNo})" title="Draft ${p.name.replace(/"/g,'&quot;')} into your Sleeper draft">Draft</button></td>`
+      : `<td class="td-draft"></td>`;
     const desktopRow = `<tr class="prow ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
+      ${draftCell}
       <td class="rnum" style="text-align:right;padding-right:10px">${rank}</td>
       <td class="td-player" onclick="openPlayerProfile('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team}')" style="cursor:pointer" title="View player profile">
         <div class="dvrow-player">
@@ -20321,6 +20341,22 @@ function _dvBoardAvailable(limit){
   return out;
 }
 
+// Board-level draft readiness for the per-row "Draft Now" column. Cheap +
+// synchronous (uses the cached connection state) so renderList can call it
+// every render. on = connected + live Sleeper draft + you're on the clock.
+function _dvBoardDraftState(){
+  try{
+    if(_dvDraftPlatform()!=='sleeper' || typeof sleeperDraftId==='undefined' || !sleeperDraftId) return {on:false, pickNo:0};
+    const status = (window._activeDraft && window._activeDraft.status) || '';
+    if(!(status==='drafting'||status==='in_progress'||status==='paused')) return {on:false, pickNo:0};
+    const conn = window._dvControlConn;
+    if(!conn || !conn.connected) return {on:false, pickNo:0};
+    const clock = _dvClock();
+    return { on: !!clock.onClock, pickNo: clock.current };
+  }catch(e){ return {on:false, pickNo:0}; }
+}
+try { window._dvBoardDraftState = _dvBoardDraftState; } catch(e){}
+
 window._dvControlConn = window._dvControlConn || null;
 async function dvRenderDraftControl(){
   const el = document.getElementById('dv-draft-control');
@@ -21010,6 +21046,24 @@ function pickYear(year) {
   #page-draft .suggest-chips{ display:grid!important; grid-template-columns:repeat(4,1fr)!important; gap:8px!important; flex:1; }
   @media(max-width:860px){ #page-draft .suggest-chips{ grid-template-columns:repeat(2,minmax(0,1fr))!important; } #page-draft .schip{ min-width:0; } #page-draft .schip .schip-main{ min-width:0; } #page-draft .schip .sname{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
   @media(max-width:560px){ #page-draft .suggest-bar{ flex-direction:column; align-items:stretch; gap:8px; } }
+
+  /* Draft Now column — leftmost, collapsed to 0 until you're on the clock in a
+     live Sleeper draft, then expands to show a per-row Draft button. */
+  #page-draft .plist-table col.col-draft{ width:0; }
+  #page-draft .plist-table.dv-drafting col.col-draft{ width:86px; }
+  #page-draft .plist-table td.td-draft{ padding:0; text-align:center; overflow:hidden; white-space:nowrap; }
+  #page-draft .plist-table.dv-drafting td.td-draft{ padding:0 6px; }
+  #page-draft .plist-table th.hdr-draft{ color:var(--accent2); font-weight:700; }
+  #page-draft .dv-draftnow{ display:none; }
+  #page-draft .plist-table.dv-drafting .dv-draftnow{
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:5px 12px; border-radius:7px; border:none; cursor:pointer;
+    font-family:var(--font-sans); font-size:11px; font-weight:700; letter-spacing:.01em;
+    color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 2px 8px rgba(0,0,0,.28); transition:filter 120ms ease, transform 120ms ease;
+  }
+  #page-draft .plist-table.dv-drafting .dv-draftnow:hover{ filter:brightness(1.09); }
+  #page-draft .plist-table.dv-drafting .dv-draftnow:active{ transform:translateY(1px); }
 
   /* Option A: Dynasty/Redraft mode toggle, collapses the two value columns to ONE.
      NOTE: don't use display:none on a middle cell, it desyncs the <colgroup> mapping
