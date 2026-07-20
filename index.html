@@ -5191,6 +5191,8 @@ function pgsOpen(name, pos, team){
           </div>
           <button class="dsc-resync ds-resync-btn" id="ds-resync-btn" onclick="manualResync()" title="Manually re-sync with Sleeper"><span id="ds-resync-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M21 6H8a4 4 0 0 0-4 4v1"/><path d="m7 22-4-4 4-4"/><path d="M3 18h13a4 4 0 0 0 4-4v-1"/></svg></span></button>
         </div>
+        <!-- Draft Control — inline cell in the summary row (retires the old standalone bar) -->
+        <div class="dsc-stat dsc-ctl" id="ds-control" style="display:none"></div>
       </div>
       <div class="dsc-progwrap">
         <div class="ds-progress"><div class="ds-progress-fill" id="ds-progress-fill" style="width:0%"></div></div>
@@ -16168,6 +16170,9 @@ function renderDraftSummary(){
   set('ds-clock-sub', windowStr);
   const bar = document.getElementById('ds-progress-fill');
   if(bar) bar.style.width = `${pct}%`;
+  // Inline Draft Control cell (retired the standalone bar); repaint each render
+  // so on-the-clock state tracks the live sync.
+  try { dvRenderControlCell(); } catch(e){}
 }
 
 function toggleDsClock(event){
@@ -20678,62 +20683,79 @@ function _dvBoardDraftState(){
 try { window._dvBoardDraftState = _dvBoardDraftState; } catch(e){}
 
 window._dvControlConn = window._dvControlConn || null;
+// Draft Control now lives INLINE as a cell in the summary row (#ds-control),
+// not a standalone bar. This entry point stays (callers unchanged) but just
+// hides the retired bar and (re)paints the cell + fetches the connection.
 async function dvRenderDraftControl(){
-  const el = document.getElementById('dv-draft-control');
-  if(!el) return;
-  // Only for a live Sleeper draft.
-  const isSleeper = _dvDraftPlatform()==='sleeper' && typeof sleeperDraftId!=='undefined' && sleeperDraftId;
-  const status = (window._activeDraft && window._activeDraft.status) || '';
-  const isLive = status==='drafting' || status==='in_progress' || status==='paused';
-  if(!isSleeper || !isLive){ el.style.display='none'; el.innerHTML=''; return; }
-
-  // Connection status (cached; refreshed opportunistically).
+  const bar = document.getElementById('dv-draft-control');
+  if(bar){ bar.style.display='none'; bar.innerHTML=''; }
+  // Warm the cached connection so the cell + per-row Draft buttons light up.
   if(window._dvControlConn===null){
-    el.style.display='';
-    el.innerHTML = `<div style="border:1px solid var(--border2);border-radius:12px;background:var(--s1);padding:12px 16px;margin:10px 0;font-size:13px;color:var(--muted)">⚡ Checking Sleeper connection…</div>`;
+    window._dvControlConn = {connected:false, _loading:true};
     try { window._dvControlConn = (window.VaultSleeper) ? await VaultSleeper.status() : {connected:false}; }
     catch(e){ window._dvControlConn = {connected:false}; }
   }
-  const conn = window._dvControlConn || {connected:false};
+  try { dvRenderControlCell(); } catch(e){}
+}
 
-  el.style.display='';
+// small inline icons for the control cell
+function _dvcBolt(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>'; }
+function _dvcQueue(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>'; }
+
+// Paint the inline Draft Control cell. Sync + uses the cached connection;
+// called every renderDraftSummary (so clock state stays fresh) and lazily
+// fetches the connection on first paint.
+function dvRenderControlCell(){
+  const cell = document.getElementById('ds-control');
+  if(!cell) return;
+  const isSleeper = _dvDraftPlatform()==='sleeper' && typeof sleeperDraftId!=='undefined' && sleeperDraftId;
+  const status = (window._activeDraft && window._activeDraft.status) || '';
+  const isLive = status==='drafting' || status==='in_progress' || status==='paused';
+  if(!isSleeper || !isLive){ cell.style.display='none'; cell.classList.remove('live'); return; }
+  cell.style.display='';
+
+  // Lazily resolve the connection once, then repaint.
+  if(window._dvControlConn===null){
+    window._dvControlConn = {connected:false, _loading:true};
+    (async()=>{
+      try { window._dvControlConn = (window.VaultSleeper) ? await VaultSleeper.status() : {connected:false}; }
+      catch(e){ window._dvControlConn = {connected:false}; }
+      try { dvRenderControlCell(); } catch(e){}
+    })();
+    cell.classList.remove('live');
+    cell.innerHTML = `<div class="dscl-kick"><span class="bolt">${_dvcBolt()}</span>Draft Control</div><span class="dscl-conn">Checking Sleeper…</span>`;
+    return;
+  }
+
+  const conn = window._dvControlConn || {connected:false};
   if(!conn.connected){
-    el.innerHTML = `<div style="border:1px solid rgba(123,208,255,0.2);border-radius:12px;background:linear-gradient(180deg,rgba(123,208,255,0.05),transparent);padding:14px 16px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-      <div><div style="font-size:14px;font-weight:800">⚡ Draft from your board</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Connect Sleeper for lineup control to draft straight from Vault — sync your queue and pick with one click.</div></div>
-      <button onclick="try{openSettingsDrawer()}catch(e){}" style="padding:9px 16px;border-radius:9px;background:var(--accent);border:none;color:#fff;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">Connect Sleeper</button>
-    </div>`;
+    cell.classList.remove('live');
+    cell.innerHTML = `<div class="dscl-kick"><span class="bolt">${_dvcBolt()}</span>Draft Control</div>
+      <div class="dscl-actions"><button class="dscl-btn primary" onclick="try{openSettingsDrawer()}catch(e){}">Connect Sleeper</button></div>
+      <span class="dscl-conn">Draft straight from your board</span>`;
     return;
   }
 
   const clock = _dvClock();
-  const top = _dvBoardAvailable(6);
-  const best = top[0] || null;
-  const onClock = clock.onClock;
-  const pickStr = clock.myNext;
-
-  const bestBtns = onClock && top.length
-    ? top.slice(0,5).map(p => `<button onclick="dvDraftFromBoard('${p.pid}','${p.name.replace(/'/g,"\\'")}',${clock.current})" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:8px;background:${p===best?'rgba(61,204,122,0.16)':'var(--s2)'};border:1px solid ${p===best?'rgba(61,204,122,0.4)':'var(--border2)'};color:${p===best?'#3DCC7A':'var(--text)'};font-weight:${p===best?'700':'600'};font-size:12px;cursor:pointer;white-space:nowrap">${p===best?'★ ':''}${p.name} <span style="color:var(--muted);font-size:10.5px">${p.pos}</span></button>`).join('')
-    : '';
-
-  el.innerHTML = `
-    <div style="border:1px solid ${onClock?'rgba(61,204,122,0.4)':'var(--border2)'};border-radius:12px;background:${onClock?'linear-gradient(180deg,rgba(61,204,122,0.07),transparent)':'var(--s1)'};padding:14px 16px;margin:10px 0">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:14px;font-weight:800">⚡ Draft Control</span>
-          ${onClock
-            ? `<span style="padding:4px 12px;border-radius:999px;background:rgba(61,204,122,0.16);color:#3DCC7A;font-size:11.5px;font-weight:800;letter-spacing:.02em">🟢 YOU'RE ON THE CLOCK · Pick ${clock.current}</span>`
-            : `<span style="padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--muted);font-size:11.5px;font-weight:700">Pick ${clock.current} on the clock · your next: ${pickStr}</span>`}
-        </div>
-        <div style="display:flex;align-items:center;gap:9px">
-          <button onclick="dvSyncQueue()" id="dv-sync-queue-btn" style="padding:8px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">↧ Sync board → Sleeper queue</button>
-          <span style="font-size:11px;color:var(--muted)">connected as <b>${conn.sleeperUsername||'you'}</b></span>
-        </div>
-      </div>
-      ${onClock
-        ? `<div style="margin-top:12px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Draft from your board</div><div style="display:flex;gap:8px;flex-wrap:wrap">${bestBtns||'<span style="color:var(--muted);font-size:12px">No available board players resolved to Sleeper ids.</span>'}</div></div>`
-        : ''}
-    </div>`;
+  const who = conn.sleeperUsername || 'you';
+  if(clock.onClock){
+    const best = _dvBoardAvailable(1)[0] || null;
+    const last = best ? best.name.split(' ').slice(-1)[0] : '';
+    const draftBtn = best
+      ? `<button class="dscl-btn green" title="Draft ${best.name.replace(/"/g,'&quot;')} into your Sleeper draft" onclick="dvDraftFromBoard('${best.pid}','${best.name.replace(/'/g,"\\'")}',${clock.current})">${_dvcBolt()} Draft ${last}</button>`
+      : `<span class="dscl-conn">No board player resolved to a Sleeper id</span>`;
+    cell.classList.add('live');
+    cell.innerHTML = `<div class="dscl-kick"><span class="bolt">${_dvcBolt()}</span>Draft Control<em class="up">You're up</em></div>
+      <div class="dscl-actions">${draftBtn}<button class="dscl-icon" id="dv-sync-queue-btn" title="Sync board → Sleeper queue" onclick="dvSyncQueue()">${_dvcQueue()}</button></div>
+      <span class="dscl-conn">connected · <b>${who}</b></span>`;
+  } else {
+    cell.classList.remove('live');
+    cell.innerHTML = `<div class="dscl-kick"><span class="bolt">${_dvcBolt()}</span>Draft Control</div>
+      <div class="dscl-actions"><button class="dscl-btn" id="dv-sync-queue-btn" title="Push your board order into Sleeper's draft queue" onclick="dvSyncQueue()">${_dvcQueue()} Sync → queue</button></div>
+      <span class="dscl-conn">connected · <b>${who}</b></span>`;
+  }
 }
+try { window.dvRenderControlCell = dvRenderControlCell; } catch(e){}
 try { window.dvRenderDraftControl = dvRenderDraftControl; } catch(e){}
 
 // Push the current board order (top ~40 available) to Sleeper's draft queue.
@@ -20742,16 +20764,18 @@ async function dvSyncQueue(){
   const list = _dvBoardAvailable(40);
   if(!list.length){ try{ toast('No available board players to queue'); }catch(_){} return; }
   const pids = list.map(p=>p.pid);
-  if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
+  // The sync control is icon-only when you're on the clock, so don't overwrite
+  // its label — show transient feedback via title/disabled + toast, then let
+  // dvRenderControlCell repaint the button to its correct resting state.
+  if(btn){ btn.disabled=true; btn.title='Syncing…'; btn.style.opacity='.6'; }
   try{
     await VaultSleeper.setDraftQueue(sleeperDraftId, pids);
-    if(btn){ btn.textContent='✓ Queue synced ('+pids.length+')'; }
     try{ toast('Queued '+pids.length+' players in your board order'); }catch(_){}
   }catch(e){
-    if(btn){ btn.textContent='↧ Sync board → Sleeper queue'; btn.disabled=false; }
     try{ alert('Queue sync failed: '+((e&&e.message)||e)); }catch(_){}
   }
-  setTimeout(()=>{ if(btn){ btn.disabled=false; btn.textContent='↧ Sync board → Sleeper queue'; } }, 4000);
+  if(btn){ btn.disabled=false; btn.style.opacity=''; }
+  try{ dvRenderControlCell(); }catch(_){}
 }
 try { window.dvSyncQueue = dvSyncQueue; } catch(e){}
 
@@ -30316,6 +30340,7 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
   #page-draft .dsc-pickblock{ min-width:188px; }
   #page-draft .dsc-clockwrap,#page-draft .dsc-progwrap{ min-width:168px; }
   #page-draft .dsc-stat{ min-width:84px; }
+  #page-draft .dsc-ctl{ min-width:172px; }
 }
 </style>
 <style id="vault-mobile-dock">
@@ -36182,7 +36207,7 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft .ds-card.dsc{
   background:var(--s1)!important; border:1px solid var(--border)!important;
   border-radius:12px!important; padding:0!important; overflow:hidden;
-  display:grid!important; grid-template-columns:1.5fr .8fr .8fr 1fr 1.4fr; gap:0!important;
+  display:grid!important; grid-template-columns:1.4fr .7fr .7fr .9fr 1.2fr 1.55fr; gap:0!important;
 }
 #page-draft .dsc-pickblock, #page-draft .dsc-stat, #page-draft .dsc-clockwrap{
   background:transparent!important; border:none!important; border-radius:0!important;
@@ -36232,6 +36257,27 @@ else { _ssInjectPage();_ssInjectNav(); }
   font-family:var(--font-mono); font-size:10.5px; color:var(--muted);
   letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;
 }
+/* Draft Control cell — inline in the summary row */
+#page-draft .dsc-ctl{ align-items:stretch!important; justify-content:center; gap:8px!important; padding:12px 14px!important; text-align:left!important; }
+#page-draft .dsc-ctl.live{ background:linear-gradient(180deg,rgba(95,224,154,0.08),transparent)!important; }
+#page-draft .dscl-kick{ display:flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+#page-draft .dscl-kick .bolt{ display:inline-flex; color:var(--muted); }
+#page-draft .dsc-ctl.live .dscl-kick .bolt{ color:var(--value); }
+#page-draft .dscl-kick .up{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-style:normal; font-weight:800; letter-spacing:.04em; color:var(--value); }
+#page-draft .dscl-kick .up::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--value); box-shadow:0 0 0 0 rgba(95,224,154,.5); animation:dsclPulse 1.8s var(--ease-out,cubic-bezier(0.16,1,0.3,1)) infinite; }
+@keyframes dsclPulse{ 0%{box-shadow:0 0 0 0 rgba(95,224,154,.45)} 70%{box-shadow:0 0 0 6px rgba(95,224,154,0)} 100%{box-shadow:0 0 0 0 rgba(95,224,154,0)} }
+#page-draft .dscl-actions{ display:flex; align-items:center; gap:6px; }
+#page-draft .dscl-btn{ flex:1; min-width:0; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 10px; border-radius:8px; background:var(--s2); border:1px solid var(--border2); color:var(--text2); font-family:var(--font-sans); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:border-color .15s ease,color .15s ease,filter .15s ease; }
+#page-draft .dscl-btn:hover{ color:var(--text); border-color:var(--border3); }
+#page-draft .dscl-btn.green{ background:var(--value); border-color:transparent; color:#062616; font-weight:800; }
+#page-draft .dscl-btn.green:hover{ filter:brightness(1.06); color:#062616; }
+#page-draft .dscl-btn.primary{ background:var(--accent); border-color:transparent; color:#fff; font-weight:700; }
+#page-draft .dscl-btn.primary:hover{ filter:brightness(1.08); color:#fff; }
+#page-draft .dscl-btn svg,#page-draft .dscl-icon svg{ flex:none; }
+#page-draft .dscl-icon{ flex:0 0 auto; width:34px; padding:8px 0; border-radius:8px; background:var(--s2); border:1px solid var(--border2); color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:border-color .15s ease,color .15s ease; }
+#page-draft .dscl-icon:hover{ color:var(--text); border-color:var(--border3); }
+#page-draft .dscl-conn{ font-family:var(--font-mono); font-size:9px; color:var(--muted); letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#page-draft .dscl-conn b{ color:var(--text2); font-weight:700; }
 
 /* ── controls: quiet row (no bordered strip), pill tabs, joined pos group ── */
 #page-draft .controls.dvc{
