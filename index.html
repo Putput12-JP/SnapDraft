@@ -19006,6 +19006,16 @@ async function _wcLoadLeague(d, force){
   // Rostered player IDs across every team — anyone NOT here is a free agent.
   const rosteredPids = new Set();
   rosters.forEach(r => (r.players||[]).forEach(pid => rosteredPids.add(String(pid))));
+  // Rostered NAMES too. A single player can carry more than one pid in
+  // globalPidToName — Sleeper's roster pid plus, e.g., a RosterAudit sleeper_id
+  // that doesn't match it (see _applyPidMap / raValues merge). Rosters only ever
+  // reference the Sleeper pid, so the duplicate pid would slip past a pid-only
+  // check and surface a rostered player (Kenneth Walker) as a phantom free agent.
+  // Everything downstream keys on name, so exclude by rostered name as well.
+  const _norm = nm => (typeof normName==='function' ? normName(nm) : String(nm||'').toLowerCase().trim());
+  const _nameOf = pid => (typeof globalPidToName!=='undefined' && globalPidToName[String(pid)]) || (typeof _tcName==='function' ? _tcName(pid) : '') || '';
+  const rosteredNames = new Set();
+  rosteredPids.forEach(pid => { const nm = _nameOf(pid); if(nm) rosteredNames.add(_norm(nm)); });
   // Candidate universe = the whole Sleeper player set (globalPidToName, ~4k),
   // not the 400-deep board — real dynasty waiver targets rank far past the
   // startable board. Keep anyone unrostered with a positive value in this
@@ -19016,7 +19026,7 @@ async function _wcLoadLeague(d, force){
     const seen = new Set();
     faSorted = [];
     for(const [pid, nm] of Object.entries(globalPidToName)){
-      if(rosteredPids.has(String(pid)) || !nm || seen.has(nm)) continue;
+      if(rosteredPids.has(String(pid)) || !nm || seen.has(nm) || rosteredNames.has(_norm(nm))) continue;
       seen.add(nm);
       const val = Math.round(_tcVal(nm, d.lg));
       if(val > 0) faSorted.push({ name:nm, pos:posOf(nm), team:'', pid:String(pid), val });
@@ -19024,7 +19034,7 @@ async function _wcLoadLeague(d, force){
     faSorted.sort((a,b)=>b.val-a.val);
   } else {
     const _pool = (typeof PLAYERS!=='undefined' && PLAYERS) ? PLAYERS : [];
-    faSorted = _pool.filter(p => p.name && !rosteredPids.has(String(_pidByName(p.name))))
+    faSorted = _pool.filter(p => p.name && !rosteredPids.has(String(_pidByName(p.name))) && !rosteredNames.has(_norm(p.name)))
       .map(p => ({ name:p.name, pos:p.pos||'', team:p.team||'', pid:_pidByName(p.name), val:Math.round(_tcVal(p.name, d.lg)) }))
       .filter(p => p.val > 0).sort((a,b)=>b.val-a.val);
   }
