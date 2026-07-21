@@ -4248,9 +4248,11 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .glassnav .gn-word .t1{font-size:var(--t-secondary)}
 .page.on{min-height:calc(100dvh - 72px)!important}
 }
-/* ── Variant-2 exact: keep the pill minimal, league · search · Connect · avatar.
-   ☆ watchlist + 🌙 theme live in the Settings drawer (and ☆ on Draft Vault); ⚙ kept in DOM for app JS. ── */
-.glassnav #watch-header-btn,.glassnav #theme-toggle,.glassnav #settings-btn{display:none!important}
+/* ── Variant-2 exact: keep the pill minimal, league · ⚙ settings · Connect · avatar.
+   ☆ watchlist + 🌙 theme live in the Settings drawer (and ☆ on Draft Vault). Search retired from the pill. ── */
+.glassnav #watch-header-btn,.glassnav #theme-toggle,.glassnav .gn-search{display:none!important}
+/* settings gear replaces the search icon; force-visible over the inline display:none set on connect */
+.glassnav #settings-btn{display:flex!important}
 /* ── Connect hides once an account is connected (JS toggles .gn-connected on the header) ── */
 #app-header.gn-connected .gn-cta{display:none!important}
 /* ── frosted glass dropdown menus (My Team ▾ / Research ▾) ── */
