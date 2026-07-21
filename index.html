@@ -98,6 +98,7 @@ window.VAULT_SHOT_RESEARCH="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4
 
 <!-- AUTH: cross-device login + sync. Inert until auth/firebase-config.js has a config. -->
 <script src="auth/firebase-config.js"></script>
+<script src="auth/vault-appcheck.js"></script>
 <script src="auth/vault-auth.js"></script>
 <script src="auth/vault-sleeper.js"></script>
 <script>try{ if(window.VaultAuth) VaultAuth.guard(); }catch(e){}</script>
@@ -13708,8 +13709,11 @@ function renderList(){
     const posMatch=posF==='ALL'||p.pos===posF;
     const sm=!search||p.name.toLowerCase().includes(search)||p.team.toLowerCase().includes(search);
     const inWatchlist = watchlist.has(p.name);
-    if(watchFilter && !inWatchlist) return {desktop:'',mobile:''};
-    if(!posMatch||!sm||(hideGone&&isDrafted)) return {desktop:'',mobile:''};
+    // Filtered out (watchlist / position / search / hide-drafted). Empty html is
+    // the signal to skip the row entirely below — it must not reach the tier
+    // pass, or hidden players still trigger tier breaks and the dividers pile up.
+    if(watchFilter && !inWatchlist) return {html:'',tb:false};
+    if(!posMatch||!sm||(hideGone&&isDrafted)) return {html:'',tb:false};
 
     // This row is visible → assign the next sequential RK number for the display order.
     const _displayRk = ++_rowRk;
@@ -13987,7 +13991,8 @@ function renderList(){
   const rowsWithTiers = [];
   let tierNum = 1;
   rows.forEach((r, i) => {
-
+    // filtered-out rows carry empty html — skip before the tier accounting
+    if (!r.html) return;
     const p = sorted[i];
     const rank = p?.r0 || 0;
 

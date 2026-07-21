@@ -8,11 +8,16 @@ and every fix was A/B'd against the committed `HEAD` build serving identical out
 
 `renderList()` was the whole problem. Measured on the draft board:
 
-| renderer | before | after |
+| scenario | before | after |
 |---|---|---|
-| **renderList (desktop)** | **107.2 ms** | **39.9 ms** |
-| **renderList (mobile)** | **~112 ms** | **~26 ms** |
+| **live draft connected** (real conditions) | **646.8 ms** | **177.6 ms** |
+| no league connected, desktop | 107.2 ms | 39.9 ms |
+| no league connected, mobile | ~112 ms | ~26 ms |
 | renderBoard, renderStrip, renderRoster, renderSuggestions, renderDraftSummary, dvRenderDraftControl | ~0 ms | ~0 ms |
+
+**Benchmark with a league connected.** The disconnected board is ~6x cheaper than a
+live one, so early measurements badly understated both the problem and the fix. The
+numbers that matter are the first row: 15 renders, medians, identical page state.
 
 Output is byte-identical before/after: 400 rows, 391 player rows, 9 tier breaks,
 11,201 DOM nodes desktop / 5,700 mobile.
@@ -111,6 +116,28 @@ and only 50 in-flow elements have box-shadow. The stutter was never paint-bound.
 
 **G. Fonts** — 9 files / 297 KB load eagerly, but all six Archivo weights are genuinely
 used (700 × 680, 600 × 297, 800 × 262, 500 × 58, 900 × 26, 400 × 19). No safe cut.
+
+## Regression shipped and fixed (same day)
+
+The first push broke tier dividers: with players hidden they piled up at the top of
+the board instead of interleaving. Root cause — the row map has two early returns for
+filtered-out rows (watchlist / position / search / hide-drafted) that bail with empty
+content, and `if (!r.desktop) return;` in the tier pass was skipping them. It looked
+like dead code (every real row's template literal is truthy) so I dropped it during the
+single-variant refactor. With 351 drafted players hidden, 351 empty rows then fed the
+tier accounting and generated dividers with nothing between them.
+
+Fixed by moving the early returns to the new `{html, tb}` shape and restoring the guard
+as `if (!r.html) return;`. Confirmed by A/B against the bad build under the same filter:
+
+| | tier-break positions | adjacent (stacked) |
+|---|---|---|
+| broken build | 3,4,6,7,9,10,12,14,15 | **4** |
+| fixed build | 1,4,6,8,12,15,17,20,22 | **0** |
+
+**Lesson for next time:** the original verification ran on a clean board with no draft
+and no filters, which is exactly the state where the guard *is* dead code. Any change
+to the row pipeline must be checked with a filter active and a draft in progress.
 
 ## Verification
 
