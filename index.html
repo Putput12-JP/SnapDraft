@@ -25729,9 +25729,8 @@ function pickYear(year) {
       // menu lives on <body> (the nav clips overflow), positioned on hover
       const menu = document.createElement('div'); menu.className = 'lc-mt-menu'; menu.id = 'lc-mt-menu';
       menu.innerHTML = `
-        <button class="lc-mt-item" id="lc-mt-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span class="ic">${reIcon('building',{size:17})}</span><span><b>Matchup</b><small>This week · head-to-head</small></span></button>
         <button class="lc-mt-item" data-go="overview" data-dynview="dynasty"><span class="ic">${reIcon('grid',{size:17})}</span><span><b>Team Review</b><small>Roster · grade · outlook</small></span></button>
-        <button class="lc-mt-item" data-go="lineup"><span class="ic">${reIcon('bolt',{size:17})}</span><span><b>Lineup Command</b><small>Start/sit · projections</small></span><span class="lc-newtag">NEW</span></button>
+        <button class="lc-mt-item" id="lc-mt-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span class="ic">${reIcon('building',{size:17})}</span><span><b>Matchup</b><small>This week · head-to-head</small></span></button>
         <button class="lc-mt-item" data-go="compare"><span class="ic">${reIcon('swap',{size:17})}</span><span><b>Player Comparison Tool</b><small>Side-by-side · up to 4</small></span></button>`;
       document.body.appendChild(menu);
       let hideT;
