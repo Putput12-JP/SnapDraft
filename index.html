@@ -40,6 +40,62 @@ window.VAULT_SHOT_RESEARCH="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4
 </script>
 
 
+<!-- NETWORK: collapse duplicate GETs. Several init paths warm the same feeds
+     independently — a clean load measured 122 requests, 29 of them redundant
+     (RosterAudit rankings fired 4x in the same millisecond, league rosters 6x).
+     Must run before anything else fetches. -->
+<script id="vf-fetch-dedupe">
+(function(){
+  if (!window.fetch || window.__vfDedupe) return;
+  window.__vfDedupe = true;
+  var inflight = Object.create(null);   // url -> Promise, cleared on settle
+  var ttlHit   = Object.create(null);   // url -> {t, res} for static feeds only
+
+  // TTL is only safe for feeds that don't change in response to user actions.
+  // Anything the app WRITES to (rosters, matchups, lineups, waivers, trades)
+  // is deliberately excluded — it gets in-flight dedupe only, which can never
+  // serve stale data because it just shares a request already in the air.
+  var STATIC = [
+    'rosteraudit.com/wp-json/ra/v1/rankings',
+    'api.fantasycalc.com/values/current',
+    '/v1/state/nfl',
+    '/data/nflverse_',
+    '/data/adp_',
+    '/data/sleeper_adp_'
+  ];
+  var TTL_MS = 5000;
+  function isStatic(u){ for (var i=0;i<STATIC.length;i++) if (u.indexOf(STATIC[i])>-1) return true; return false; }
+
+  var orig = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    var url = (typeof input === 'string') ? input : (input && input.url) || '';
+    // Only idempotent, un-cache-busted, same-shape GETs. Live-draft polls carry a
+    // ?t= cache buster so they get unique URLs and flow straight through.
+    if (method !== 'GET' || !url || (init && init.body)) return orig(input, init);
+
+    var now = Date.now();
+    var hit = ttlHit[url];
+    if (hit && (now - hit.t) < TTL_MS) return Promise.resolve(hit.res.clone());
+
+    if (inflight[url]) return inflight[url].then(function(r){ return r.clone(); });
+
+    var p = orig(input, init).then(function(res){
+      delete inflight[url];
+      if (res && res.ok && isStatic(url)) { try { ttlHit[url] = { t: Date.now(), res: res.clone() }; } catch(e){} }
+      return res;
+    }, function(err){ delete inflight[url]; throw err; });
+
+    inflight[url] = p;
+    return p.then(function(r){ return r.clone(); });
+  };
+  // let write paths drop a cached feed if they ever need to force-refresh one
+  window.vfInvalidateFetch = function(sub){
+    Object.keys(ttlHit).forEach(function(k){ if (!sub || k.indexOf(sub)>-1) delete ttlHit[k]; });
+  };
+})();
+</script>
+
 <!-- AUTH: cross-device login + sync. Inert until auth/firebase-config.js has a config. -->
 <script src="auth/firebase-config.js"></script>
 <script src="auth/vault-auth.js"></script>
@@ -10644,10 +10700,30 @@ function dvComputeFactors(p, needOverride){
   return VaultGrades.factorsFor({ name:p.name, pos:pos, ovrRank:p.r0 || undefined }, _dvGradeCtx(rosterNeed));
 }
 // Build/refresh the per-player factor index used by the Draft Vault board.
-// Cheap enough to rebuild each render (situational tracks your live roster).
+// Only `situational` tracks your live roster; upside/floor/risk are static per
+// player, so a full rebuild measured ~23ms of a 112ms renderList and threw the
+// result away unchanged on most renders. Key off everything factorsFor actually
+// reads and reuse the index when none of it moved.
+function _dvFactorsSig(){
+  let need = null; try{ need = paMyNeeds(); }catch(e){}
+  // r0 fingerprint: catches a rankings reload that keeps the same player count
+  let rf = 0;
+  try{ for (let i=0; i<40 && i<PLAYERS.length; i++) rf += (PLAYERS[i].r0||0) * (i+1); }catch(e){}
+  return [
+    PLAYERS.length, rf,
+    !!(window.VaultGrades && VaultGrades.ready()),
+    !!window._draftIsDynasty, !!window._draftIsSuperflex,
+    (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || 12,
+    (function(){ try{ return _dvIsPPR(); }catch(e){ return null; } })(),
+    need ? need.QB+'/'+need.RB+'/'+need.WR+'/'+need.TE : '-',
+  ].join('|');
+}
 function dvBuildFactors(){
+  if (typeof PLAYERS==='undefined' || !Array.isArray(PLAYERS)) { window._dvFactors = {}; return window._dvFactors; }
+  const _sig = _dvFactorsSig();
+  if (window._dvFactors && window._dvFactorsSigLast === _sig) return window._dvFactors;
+  window._dvFactorsSigLast = _sig;
   window._dvFactors = {};
-  if (typeof PLAYERS==='undefined' || !Array.isArray(PLAYERS)) return window._dvFactors;
   if (!window.VaultGrades || !VaultGrades.ready()){
     // Stats not in yet — warm them and repaint once, so grades appear without
     // a manual refresh (the board renders "–" until then).
@@ -13501,7 +13577,9 @@ function sortedPlayers(){
   if(sortKey==='adp-col'){
     return bySortedKey(p => _boardAdpSortVal(p.name) || 9999, 1);
   }
-  // "my-col" sort = your My Rankings board order (rank asc), in the ACTIVE mode
+  // "my-col" sort = your My Rankings board order (rank asc), in the ACTIVE mode.
+  // Uses the same decorate-sort-undecorate as the other keys: the comparator ran
+  // up to two getRankInfo lookups per COMPARISON (O(n log n)), now one per player.
   if(sortKey==='my-col'){
     const f = (window._dvMode==='redraft') ? 'redraft' : 'dynasty';
     const gi = (n)=>{
@@ -13509,7 +13587,7 @@ function sortedPlayers(){
       if(!mi && window.MyRankings) mi = MyRankings.getRankInfo(n,'dynasty'); // fall back to dynasty board so Mine always sorts
       return mi ? mi.myRank : 99999;
     };
-    return [...src].sort((a,b)=>gi(a.name)-gi(b.name));
+    return bySortedKey(p => gi(p.name), 1);
   }
   // "my" sort = user's uploaded CSV ranks (stored in p.rMy)
   if(sortKey==='my'){
@@ -13609,6 +13687,11 @@ function renderList(){
     const _dh = document.getElementById('hdr-draft');
     if(_dh) _dh.textContent = _dvReady.on ? 'DRAFT' : '';
   } catch(e){}
+
+  // Only one layout is ever inserted, so only build that one. Assembling both
+  // variants for every player doubled the template work and threw half of it
+  // away on every render.
+  const _mobileMode = window.innerWidth <= 700;
 
   const rows = _sortedList.map(p => {
     const nn=normName(p.name);
@@ -13828,7 +13911,7 @@ function renderList(){
     const draftCell = (_dvReady.on && !isDrafted && _dvPid)
       ? `<td class="td-draft"><button class="dv-draftnow" onclick="event.stopPropagation();dvDraftFromBoard('${_dvPid}','${p.name.replace(/'/g,"\\'")}',${_dvReady.pickNo})" title="Draft ${p.name.replace(/"/g,'&quot;')} into your Sleeper draft">Draft</button></td>`
       : `<td class="td-draft"></td>`;
-    const desktopRow = `<tr class="prow ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
+    const desktopRow = _mobileMode ? '' : `<tr class="prow ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
       ${draftCell}
       <td class="rnum" style="text-align:right;padding-right:10px">${rank}</td>
       <td class="td-player" onclick="openPlayerProfile('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team}')" style="cursor:pointer" title="View player profile">
@@ -13876,7 +13959,7 @@ function renderList(){
     const _pmRight = _pmGrade
       ? `<div class="pm-grade" style="color:${dvGradeColor(_pmGrade)}">${_pmGrade.toFixed(1)}<small>GRADE</small></div>`
       : (_pmv > 0 ? `<div class="pm-grade" style="color:${_pmvCol}">${_pmv.toLocaleString()}<small>${_dvm==='redraft'?'RDR':'DYN'}</small></div>` : '');
-    const mobileRow = `<div class="prow-mobile ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
+    const mobileRow = !_mobileMode ? '' : `<div class="prow-mobile ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
       <div class="pm-rank">${rank}</div>
       ${hs.replace('pimg-wrap','pm-photo pimg-wrap')}
       <div class="pm-info" onclick="pgsOpen(this.dataset.n,'${p.pos}','${p.team}')" data-n="${p.name.replace(/"/g,'&quot;')}" style="cursor:pointer;flex:1">
@@ -13896,16 +13979,15 @@ function renderList(){
       </div>
     </div>`;
 
-    return { desktop: desktopRow, mobile: mobileRow };
+    return { html: _mobileMode ? mobileRow : desktopRow, tb: false };
   });
-  
+
   const sorted = _sortedList;
   let lastRank = 0;
   const rowsWithTiers = [];
   let tierNum = 1;
   rows.forEach((r, i) => {
-    
-    if (!r.desktop) return;
+
     const p = sorted[i];
     const rank = p?.r0 || 0;
 
@@ -13923,8 +14005,10 @@ function renderList(){
     if (tierTriggered) {
       tierNum++;
       rowsWithTiers.push({
-        desktop: `<tr class="tier-break-row"><td colspan="7"><div class="tier-break"><span class="tb-lbl">Tier ${tierNum}</span></div></td></tr>`,
-        mobile: `<div class="tier-break-mobile">— TIER ${tierNum} —</div>`
+        html: _mobileMode
+          ? `<div class="tier-break-mobile">— TIER ${tierNum} —</div>`
+          : `<tr class="tier-break-row"><td colspan="7"><div class="tier-break"><span class="tb-lbl">Tier ${tierNum}</span></div></td></tr>`,
+        tb: true
       });
     }
     if (rank) lastRank = rank;
@@ -13937,9 +14021,8 @@ function renderList(){
     let kept = 0;
     cappedRows = [];
     for (const row of rowsWithTiers) {
-      // tier-break-row has no .desktop player content like a real row, keep if next has room
-      const isTierBreak = row.desktop && row.desktop.includes('tier-break-row');
-      if (!isTierBreak) {
+      // tier-break rows aren't players, so they don't count against the cap
+      if (!row.tb) {
         if (kept >= window._draftListCap) break;
         kept++;
       }
@@ -13950,7 +14033,7 @@ function renderList(){
   // - Trailing tier-breaks (no player rows after)
   // - Leading tier-breaks (no player rows before)
   // - Adjacent tier-breaks (two tier dividers with nothing in between)
-  const isTB = (row) => row && row.desktop && row.desktop.includes('tier-break-row');
+  const isTB = (row) => !!(row && row.tb);
   // Pass 1: trailing
   while (cappedRows.length && isTB(cappedRows[cappedRows.length-1])) cappedRows.pop();
   // Pass 2: leading
@@ -13974,11 +14057,11 @@ function renderList(){
   }
   cappedRows = cleaned;
 
-  // Only insert the variant that's actually visible at this width, building DOM
-  // nodes for ~400 hidden rows of the other layout on every render is pure cost.
-  const _mobileMode = window.innerWidth <= 700;
-  tbody.innerHTML = _mobileMode ? '' : cappedRows.map(r=>r.desktop).join('');
-  if(mobileContainer) mobileContainer.innerHTML = _mobileMode ? cappedRows.map(r=>r.mobile).join('') : '';
+  // rows already hold only the variant for this width (see _mobileMode above),
+  // so the hidden layout costs neither template work nor DOM nodes.
+  const _html = cappedRows.map(r=>r.html).join('');
+  tbody.innerHTML = _mobileMode ? '' : _html;
+  if(mobileContainer) mobileContainer.innerHTML = _mobileMode ? _html : '';
 
   document.getElementById('hav')&&(document.getElementById('hav').textContent=avail);
   document.getElementById('hgn').textContent=tot;
@@ -23631,8 +23714,20 @@ function pickYear(year) {
     }).join(',');
     return n + ':' + (a ? (a.value||0)+'/'+(a.redraftValue||0) : '0') + ':r1' + r1 + ':sl' + sl;
   }
+  // fcSig() walks two ~900-key objects with Object.keys and runs superflex
+  // detection. maybeRebuild() fires on every getRankInfo(), which the board
+  // calls 600+ times per render — that alone measured 49ms of a 112ms
+  // renderList. Nothing fcSig reads (fcValues, _redraft1QB, the SL ADP cache)
+  // can change inside one synchronous pass, so compute it once per task and
+  // clear on the microtask boundary; async data landing still rebuilds on the
+  // very next tick, so the self-healing behaviour is unchanged.
+  let _sigCache = null;
   function maybeRebuild(){
-    const s = fcSig();
+    if (_sigCache === null){
+      _sigCache = fcSig();
+      Promise.resolve().then(() => { _sigCache = null; });
+    }
+    const s = _sigCache;
     if (s !== _lastSig){ _lastSig = s; buildBaseline(); invalidate(); }
   }
 
