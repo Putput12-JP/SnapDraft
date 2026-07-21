@@ -5367,13 +5367,13 @@ function pgsOpen(name, pos, team){
     <!-- 4-factor grade key: hover any item for the full calculation -->
     <div class="dv-factor-key" id="dv-factor-key">
       <span class="dfk-title">Grade keys</span>
-      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--te)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg><b>Upside</b><i>ceiling / boom weeks</i>
+      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--te)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg><b>Upside</b><i>ceiling / boom weeks</i>
         <span class="dfk-pop" id="dfk-pop-upside"><span class="dfk-pop-h" style="color:var(--te)">Upside · ceiling</span>Blends last season's <b>boom-game rate</b> (weeks hitting the position's boom line — QB 24, RB/WR 20, TE 15 pts), the player's <b>weekly ceiling</b> (85th-percentile game, ranked within position), and per-game scoring. Ascending youth (≤2 seasons) and a rising market add a small bump; rookies with no data are estimated from draft capital. <b>Dynasty boards</b> credit youth more (multi-year runway) and trim ceiling for age.<span class="dfk-pop-s">0–10 · higher = bigger ceiling</span></span></span>
-      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--rb)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg><b>Floor</b><i>weekly safety</i>
+      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--rb)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg><b>Floor</b><i>weekly safety</i>
         <span class="dfk-pop" id="dfk-pop-floor"><span class="dfk-pop-h" style="color:var(--rb)">Floor · weekly safety</span>Rewards a <b>low bust-game rate</b> (weeks under the position's bust line), a strong <b>weekly floor</b> (20th-percentile game vs position), and <b>availability</b> (games played ÷ 17). Proven, high-volume players score highest.<span class="dfk-pop-s">0–10 · higher = safer week to week</span></span></span>
-      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--red)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg><b>Risk</b><i>injury · volatility <em>(lower = safer)</em></i>
+      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--red)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><b>Risk</b><i>injury · volatility <em>(lower = safer)</em></i>
         <span class="dfk-pop" id="dfk-pop-risk"><span class="dfk-pop-h" style="color:var(--red)">Risk · downside</span>Adds risk for <b>games missed across the last 3 seasons</b> (durability — recent seasons count more, and a season missed entirely counts in full), week-to-week <b>volatility</b> (bust rate), <b>age cliffs</b> (RB ≥27 · WR ≥30 · TE ≥31 · QB ≥36), and a <b>sharply falling ADP</b>. <b>Dynasty boards</b> apply age earlier and more steeply — asset value fades before the production cliff. Shown 0–10 where <b>lower is safer</b> — the overall grade uses (11 − Risk).<span class="dfk-pop-s">0–10 · lower = safer</span></span></span>
-      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--wr)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg><b>Situational</b><i>fit to your roster</i>
+      <span class="dfk-item" tabindex="0"><svg class="dfk-ic" style="color:var(--wr)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><b>Situational</b><i>fit to your roster</i>
         <span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--wr)">Situational · fit to you</span>Combines your <b>roster need</b> (open starter slots, blended with positional scarcity), league <b>scoring</b> (PPR lifts pass-catchers), and the player's <b>team-offense strength</b> (weighed less on dynasty boards). Recalculates every pick as your roster fills — so the same player scores differently for different teams.<span class="dfk-pop-s">0–10 · higher = better fit right now</span></span></span>
       <span class="dfk-item dfk-scale-item" tabindex="0"><span class="dfk-scale">how the grade adds up ⓘ</span>
         <span class="dfk-pop"><span class="dfk-pop-h">Player grade &amp; team grade</span>A player's overall grade = <b>mean(Upside, Floor, 11−Risk, Situational)</b> on a 0–10 scale. Your <b>Draft Grade</b> averages that across your best starting lineup (QB / 2RB / 2WR / TE / 2FLEX by grade, bench excluded) and maps it to 0–100 + a letter. All factors are built from nflverse data (last-season PPG · boom% · bust% · weekly floor/ceiling, plus 3-season durability) and your league's scoring and roster settings.<span class="dfk-pop-s">skill positions only · K/DST not scored</span></span></span>
@@ -5394,10 +5394,10 @@ function pgsOpen(name, pos, team){
           <th class="num-hdr col-hdr-sortable" id="hdr-redraft" onclick="setSort('redraft-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="FantasyCalc redraft value (1QB)">Redraft <span class="sort-ind" id="ind-redraft">↕</span></th>
           <th class="num-hdr col-hdr-sortable" id="hdr-adp" onclick="setSort('adp-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="ADP follows your Dynasty/Redraft mode (FantasyCalc). DYN = 1QB dynasty · SF = Superflex (used when your league starts 2 QBs, so QBs rank early to match your values) · RDR = redraft.">ADP <span class="hdr-source-label" id="hdr-adp-src" style="color:#facc15">DYN</span> <span class="sort-ind" id="ind-adp">↕</span></th>
           <th class="num-hdr col-hdr-sortable" id="hdr-my" onclick="setSort('my-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Your custom rank from My Rankings (▲/▼ = vs market)">Mine <span class="hdr-source-label src-my" id="hdr-my-src">YOU</span> <span class="sort-ind" id="ind-my">↕</span></th>
-          <th class="fhdr" id="hdr-fup" style="color:var(--te)" title="Upside — ceiling / boom potential (last-season boom rate + weekly ceiling)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg></th>
-          <th class="fhdr" id="hdr-ffl" style="color:var(--rb)" title="Floor — weekly safety / consistency (low bust rate + weekly floor + availability)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg></th>
-          <th class="fhdr" id="hdr-frk" style="color:var(--red)" title="Risk — injury / volatility / age (lower is safer)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg></th>
-          <th class="fhdr" id="hdr-fsi" style="color:var(--wr)" title="Situational — fit to your roster + league settings (need, scoring, team offense)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></th>
+          <th class="fhdr" id="hdr-fup" style="color:var(--te)" title="Upside — ceiling / boom potential (last-season boom rate + weekly ceiling)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></th>
+          <th class="fhdr" id="hdr-ffl" style="color:var(--rb)" title="Floor — weekly safety / consistency (low bust rate + weekly floor + availability)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></th>
+          <th class="fhdr" id="hdr-frk" style="color:var(--red)" title="Risk — injury / volatility / age (lower is safer)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></th>
+          <th class="fhdr" id="hdr-fsi" style="color:var(--wr)" title="Situational — fit to your roster + league settings (need, scoring, team offense)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></th>
           <th class="fhdr" id="hdr-pgrade" style="color:var(--gold)" title="Pick grade — the letter this pick would earn at your next slot (value vs. his price, tilted by player quality). Fills in during a connected draft and recalculates after every pick. Hover a cell to see why."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M9 14.5 7.5 22 12 19l4.5 3-1.5-7.5"/></svg></th>
           <th id="hdr-watch2"></th>
         </tr>
@@ -10663,10 +10663,10 @@ function dvBuildFactors(){
 }
 const DVF_COL = { upside:'var(--te)', floor:'var(--rb)', risk:'var(--red)', situational:'var(--wr)' };
 const DVF_ICON = {
-  upside:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg>',
-  floor:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg>',
-  risk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg>',
-  situational:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',
+  upside:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+  floor:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>',
+  risk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  situational:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
 };
 function dvGradeColor(c){ return c>=8?'var(--rb)':c>=6.5?'var(--wr)':c>=5?'var(--te)':'var(--red2)'; }
 
@@ -11041,51 +11041,80 @@ function renderSuggestions() {
   }
 
   const pc = pos => ({QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[pos]||'var(--text)');
-  const tagColors = {urgent:'var(--qb)', value:'var(--rb)', need:'var(--sky)', calm:'var(--muted)'};
-  chips.innerHTML = pa.suggestions.map(({p, rank, reason, tag, tagKind, prof, factors, grade}) => {
+
+  // ── Three orthogonal angles on the pick — one clear question each ──
+  //   Faller  = who slid furthest past his ADP-blended price  (max grade.delta)
+  //   Rank    = the best board asset still on the table        (min rank)
+  //   Grade   = the best projected pick grade at your slot      (max grade.s)
+  // Selected in that order, de-duped, so each card is a distinct player.
+  const myPick = pa.myPick;
+  // Real players drive the three angles; future rookie PICKs only fill in when
+  // nothing else is left (late dynasty boards) so the strip never blanks.
+  let pool = pa.all.filter(s => s && s.p && s.p.pos !== 'PICK');
+  if (!pool.length) pool = pa.all.filter(s => s && s.p);
+  const used = new Set();
+  const takeBy = (arr, better) => {
+    let best = null;
+    for (const s of arr){ if (used.has(s.p.name)) continue; if (!best || better(s, best)) best = s; }
+    if (best) used.add(best.p.name);
+    return best;
+  };
+  const fallers = pool.filter(s => s.grade && s.grade.delta != null);
+  const graded  = pool.filter(s => s.grade);
+  // Rank & Grade are superlative claims the user can check against the table, so
+  // they pick from the full pool first; the Faller card absorbs any collision by
+  // taking the biggest slider still left.
+  const cRank  = takeBy(pool, (a,b) => a.rank < b.rank);
+  const cGrade = takeBy(graded.length ? graded : pool, (a,b) =>
+                   (a.grade ? a.grade.s : -1) > (b.grade ? b.grade.s : -1));
+  const cFall  = takeBy(fallers.length ? fallers : pool, (a,b) =>
+                   (a.grade ? a.grade.delta : (myPick - a.rank)) > (b.grade ? b.grade.delta : (myPick - b.rank)));
+
+  const dtri ='<svg class="sug3-dtri" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17 4 8h16z"/></svg>';
+  const buildCard = (s, kind) => {
+    if (!s) return '';
+    const p = s.p, pcol = pc(p.pos);
     const sn = p.name.replace(/'/g,"\\'");
-    const pcol = pc(p.pos);
-    const tagC = tagColors[tagKind] || 'var(--muted)';
-    // Projected pick grade — same A+..F engine as completed board picks, run
-    // against your current slot so you can compare candidates on one scale.
-    let gradeBadge = '';
-    if (grade){
-      let why = ''; try{ why = dvPickWhy(grade, p.name, slotNow); }catch(e){}
-      gradeBadge = `<span class="pg-badge" style="color:${grade.color}" data-tip="${why.replace(/"/g,'&quot;')}">${grade.letter}</span>`;
-    }
-    // player photo (NFL.com crop via nflverse, Sleeper thumb fallback)
     const sid = p.sleeperId || (typeof sleeperPlayerMap!=='undefined' && sleeperPlayerMap[normName(p.name)]?.player_id) || '';
-    const photo = p.pos!=='PICK' ? vaultHeadshot(p.name, sid, 34) : '';
+    const photo = vaultHeadshot(p.name, sid, 40);
     const initials = p.name.split(' ').map(w=>w[0]||'').join('').slice(0,2);
     const nEsc = p.name.replace(/"/g,'&quot;');
-    const avatar = p.pos!=='PICK' ? `<div class="schip-av" style="--pc:${pcol}">
-        ${photo ? `<img src="${photo}" data-vh-n="${nEsc}" data-vh-sid="${sid}" data-vh-px="34" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-        <span class="schip-av-fb" style="display:${photo?'none':'flex'}">${initials}</span>
-      </div>` : '';
-    // 4-factor scores — the "why" behind the suggestion (falls back to raw stat line)
-    let facRow = '';
-    if (factors){
-      const cell = (k) => `<span class="sfac" style="color:${DVF_COL[k]}" title="${k}"><i>${DVF_ICON[k]}</i>${factors[k]}</span>`;
-      facRow = `<div class="sfactors">${cell('upside')}${cell('floor')}${cell('risk')}${cell('situational')}</div>`;
-    } else if (prof && prof.games >= 4){
-      const parts = [`<b>${prof.ppg.toFixed(1)}</b> PPG`];
-      if (prof.boomPct != null) parts.push(`<span class="ss-up">${Math.round(prof.boomPct)}%</span> boom`);
-      facRow = `<div class="sstat">${parts.join('<i>·</i>')}</div>`;
+    const gl = s.grade ? s.grade.letter : '';
+    const gc = s.grade ? s.grade.color : 'var(--muted)';
+    let tip = ''; if (s.grade){ try{ tip = dvPickWhy(s.grade, p.name, slotNow); }catch(e){} }
+
+    let acc, ic, eyebrow, metric, metricCol, reason;
+    if (kind === 'fall'){
+      acc = 'var(--red)'; ic = DVF_ICON.risk; eyebrow = 'Biggest Faller';
+      const d = (s.grade && s.grade.delta != null) ? s.grade.delta : (myPick - s.rank);
+      metric = `${dtri}${Math.max(0, Math.round(d))}`; metricCol = acc;
+      const price = (s.grade && s.grade.base) ? s.grade.base : s.rank;
+      reason = `Priced ~${price} · here at ${myPick}${gl ? ` · <b style="color:${gc}">${gl}</b>` : ''}`;
+    } else if (kind === 'rank'){
+      acc = 'var(--sky)'; ic = DVF_ICON.situational; eyebrow = 'Highest Ranked Left';
+      metric = `#${s.rank}`; metricCol = acc;
+      reason = `Top name on the board${gl ? ` · <b style="color:${gc}">${gl}</b> pick` : ''}`;
+    } else {
+      acc = 'var(--rb)'; ic = DVF_ICON.upside; eyebrow = 'Best Draft Grade';
+      metric = gl || '—'; metricCol = gc;
+      reason = `Best projected pick at your slot · #${s.rank}`;
     }
-    return `<div class="schip pa-card" onclick="markMine('${sn}')">
-      ${avatar}
-      <span class="spos" style="background:${pcol}26;color:${pcol}">${p.pos}</span>
-      <div class="schip-main">
-        <div class="sname">${p.name} <span class="pa-rank">#${rank}</span></div>
-        <div class="sreason">${reason}</div>
-        ${facRow}
+    return `<div class="sug3 sug3-${kind}" style="--acc:${acc}" onclick="markMine('${sn}')" title="Draft ${nEsc}">
+      <div class="sug3-av">
+        ${photo ? `<img src="${photo}" data-vh-n="${nEsc}" data-vh-sid="${sid}" data-vh-px="40" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span class="sug3-av-fb" style="display:${photo?'none':'flex'}">${initials}</span>
       </div>
-      <div class="pa-right">
-        ${gradeBadge}
-        <span class="stag" style="background:${tagC}22;color:${tagC}">${tag}</span>
+      <div class="sug3-body">
+        <div class="sug3-eyebrow"><span class="sug3-ic">${ic}</span>${eyebrow}</div>
+        <div class="sug3-line">
+          <span class="sug3-name">${p.name}<span class="sug3-pos" style="background:color-mix(in srgb,${pcol} 20%,transparent);color:${pcol}">${p.pos}</span></span>
+          <span class="sug3-metric" style="color:${metricCol}"${tip?` data-tip="${tip.replace(/"/g,'&quot;')}"`:''}>${metric}</span>
+        </div>
+        <div class="sug3-reason">${reason}</div>
       </div>
     </div>`;
-  }).join('');
+  };
+  chips.innerHTML = [buildCard(cFall,'fall'), buildCard(cRank,'rank'), buildCard(cGrade,'grade')].join('');
 
   chips.style.opacity = '';
   // If season stats aren't loaded yet, warm nflverse once and re-render so the
@@ -36320,18 +36349,55 @@ else { _ssInjectPage();_ssInjectNav(); }
 /* ── suggested: label + card rows (mock .sug-card) ── */
 #page-draft .suggest-bar{ background:transparent!important; border:none!important; padding-top:10px!important; }
 #page-draft .suggest-title{ color:var(--muted)!important; font-size:9.5px!important; font-weight:700; letter-spacing:.1em!important; }
-#page-draft .suggest-chips{ grid-template-columns:repeat(auto-fit,minmax(250px,1fr))!important; gap:10px!important; }
+#page-draft .suggest-chips{ grid-template-columns:repeat(auto-fit,minmax(270px,1fr))!important; gap:14px!important; }
+/* skeleton (pre-settle) keeps the old chip shell */
 #page-draft .schip{
   background:var(--s1)!important; border:1px solid var(--border)!important; color:var(--text)!important;
-  border-radius:11px!important; padding:12px 14px!important;
+  border-radius:14px!important; padding:12px 14px!important;
   display:flex; align-items:center; gap:11px;
 }
-#page-draft .schip:hover{ background:var(--s2)!important; border-color:var(--border3)!important; }
-#page-draft .schip .sname{ font-size:13.5px; font-weight:700; letter-spacing:-.01em; color:var(--text); }
-#page-draft .schip .sname .pa-rank{ color:var(--muted); font-family:var(--font-mono); font-size:10.5px; font-weight:400; }
-#page-draft .schip .sreason{ font-size:11.5px!important; color:var(--muted)!important; font-family:var(--font-sans)!important; margin-top:2px; }
-#page-draft .schip .spos{ font-size:9px!important; font-family:var(--font-mono)!important; font-weight:700; padding:2px 6px; border-radius:5px; opacity:1!important; }
-#page-draft .schip .pg-badge{ font-family:var(--font-mono); font-size:16px; font-weight:700; margin-left:auto; }
+
+/* ── suggested: three-angle bar cards (faller / rank / grade) ── */
+#page-draft .sug3{
+  position:relative; display:flex; align-items:center; gap:12px;
+  background:var(--s1); border:1px solid var(--border);
+  border-radius:14px; padding:12px 15px 12px 17px; overflow:hidden; cursor:pointer;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+#page-draft .sug3::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--acc); opacity:.9; }
+#page-draft .sug3:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb,var(--acc) 45%,var(--border));
+  box-shadow:0 14px 30px -18px rgba(0,0,0,.85), 0 0 0 1px color-mix(in srgb,var(--acc) 20%,transparent);
+}
+#page-draft .sug3-av{
+  width:44px; height:44px; border-radius:10px; flex:none; overflow:hidden; position:relative;
+  background:linear-gradient(160deg,var(--s3),var(--s2)); border:1px solid var(--border2);
+}
+#page-draft .sug3-av img{ width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+#page-draft .sug3-av-fb{ position:absolute; inset:0; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:800; color:var(--muted); }
+#page-draft .sug3-body{ flex:1; min-width:0; }
+#page-draft .sug3-eyebrow{
+  display:flex; align-items:center; gap:5px; font-family:var(--font-mono);
+  font-size:8.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--acc); margin-bottom:3px;
+}
+#page-draft .sug3-ic{ display:inline-flex; width:12px; height:12px; }
+#page-draft .sug3-ic svg{ width:12px; height:12px; }
+#page-draft .sug3-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#page-draft .sug3-name{
+  font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+}
+#page-draft .sug3-pos{ font-family:var(--font-mono); font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; vertical-align:1px; }
+#page-draft .sug3-metric{
+  font-family:var(--font-mono); font-size:18px; font-weight:800; letter-spacing:-.01em; flex:none;
+  display:inline-flex; align-items:center; gap:1px;
+  text-shadow:0 0 14px color-mix(in srgb,currentColor 55%,transparent);
+}
+#page-draft .sug3-dtri{ width:13px; height:13px; margin-right:1px; }
+#page-draft .sug3-reason{ font-size:11px; color:var(--muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#page-draft .sug3-reason b{ font-family:var(--font-mono); font-weight:700; }
 
 /* ── grade key: dashed info strip ── */
 #page-draft .dv-factor-key{
