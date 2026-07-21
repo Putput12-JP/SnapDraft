@@ -4359,7 +4359,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button class="theme-toggle gn-ic" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
 
     <!-- settings (the app injects its gear icon into #settings-btn) -->
-    <button class="gn-ic" id="settings-btn" onclick="openConnect()" title="Settings"><span data-reicon="settings" data-rsize="16"></span></button>
+    <button class="gn-ic" id="settings-btn" onclick="try{openSettingsDrawer()}catch(e){openConnect()}" title="Settings"><span data-reicon="settings" data-rsize="16"></span></button>
 
     <!-- glass Connect CTA, Variant 2 (opens the Sleeper connect / setup overlay) -->
     <button class="gn-cta" id="gn-connect-cta" onclick="openConnect()" title="Connect a league">
