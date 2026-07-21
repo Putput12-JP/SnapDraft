@@ -18514,6 +18514,38 @@ function pfComputeLineup(d){
 }
 try { window.pfComputeLineup = pfComputeLineup; } catch(e){}
 
+// ── Post-write roster freshness ──────────────────────────────────
+// Sleeper's public /rosters sits behind Cloudflare with
+//   cache-control: public, s-maxage=300, stale-while-revalidate=300
+// so for up to ~10 minutes after a write it keeps serving the PRE-write
+// roster. Refetching in that window silently reverts a taxi/IR change we
+// just made (the Sleeper app looks right, Vault looks wrong). Leagues we
+// wrote to this session get a cache-busted request until the window passes.
+window._pfBustRosters = window._pfBustRosters || {}; // league_id -> expires at
+function pfMarkRosterDirty(lid){ window._pfBustRosters[String(lid)] = Date.now() + 11*60*1000; }
+function pfFetchRosters(lid){
+  const exp = window._pfBustRosters[String(lid)];
+  const bust = exp && Date.now() < exp;
+  const url = `https://api.sleeper.app/v1/league/${lid}/rosters` + (bust ? `?_=${Date.now()}` : '');
+  return fetch(url, bust ? {cache:'no-store'} : undefined).then(r=>r.json()).catch(()=>[]);
+}
+try { window.pfMarkRosterDirty = pfMarkRosterDirty; window.pfFetchRosters = pfFetchRosters; } catch(e){}
+
+// Rebuild league data from Sleeper, then re-render the active command view.
+// The command views' own Refresh buttons used to just re-render off the
+// cached _pfLeagueData, which could never pick up a change made elsewhere.
+async function pfRefreshData(){
+  try { await renderPortfolio(); } catch(e){}
+  const v = window._pfView;
+  try {
+    if(v==='lineup') renderLineupCommand();
+    else if(v==='trades') renderTradeCenter(true);      // bust their own per-view caches too
+    else if(v==='waivers') renderWaiverCommand(true);
+    else if(v==='taxi') renderTaxiCommand();
+  } catch(e){}
+}
+try { window.pfRefreshData = pfRefreshData; } catch(e){}
+
 // ── Roster-validity guardrails (mirror Sleeper's own write blocks) ──
 // Sleeper rejects lineup writes while a roster is invalid: an IR slot holding
 // a player without a qualifying designation, an over-filled IR/taxi, a taxi
@@ -18570,7 +18602,18 @@ function pfRosterIssues(d, meta){
   if(taxi.length > taxiSlots) issues.push(`Taxi holds ${taxi.length} player${taxi.length!==1?'s':''} but this league allows ${taxiSlots} — remove ${taxi.length-taxiSlots}`);
   const cap = (d.rosterPositions||[]).length;
   const active = (d.myPlayersCount||0) - resv.length - taxi.length;
-  if(cap && active > cap) issues.push(`${active} active players for ${cap} roster spots — drop ${active-cap}`);
+  // Over-roster is the one issue with a no-cost fix — never say "drop N" when
+  // there are open taxi slots to park players in instead.
+  if(cap && active > cap){
+    const over = active - cap;
+    const taxiOpen = Math.max(0, taxiSlots - taxi.length);
+    const stashable = Math.min(over, taxiOpen);
+    issues.push(`${active} active players for ${cap} roster spots — ${
+      !stashable ? `drop ${over}`
+      : stashable >= over ? `${over} over. Stash ${over} on taxi (${taxiOpen} slot${taxiOpen!==1?'s':''} open) or drop ${over}.`
+      : `${over} over. Stash ${stashable} on taxi (${taxiOpen} slot${taxiOpen!==1?'s':''} open), then drop ${over-stashable}.`
+    }`);
+  }
   if(meta){
     resv.forEach(pid => { if(!_pfIrOk(pid, meta, st)) issues.push(`<b>${nm(pid)}</b> is in an IR slot without a qualifying injury designation — move them off IR`); });
     if(!st.taxi_allow_vets && taxiSlots>0 && st.taxi_years>0){
@@ -18640,31 +18683,240 @@ function pfFixIr(leagueId, onDone){
     note: 'This updates your reserve/IR slots in Sleeper. These players return to your active bench — fully reversible in the Sleeper app.',
     onConfirm: async () => {
       await VaultSleeper.updateReserve(plan.leagueId, plan.rosterId, plan.newReserve);
+      pfMarkRosterDirty(plan.leagueId);
       // Reflect locally so the block clears without a full refetch.
       d.myReserve = plan.newReserve;
+      // Players coming off IR land on the bench — they're startable now.
+      const _back = plan.moves.map(m => String(m.pid)).filter(p => !(d.myStartable||[]).map(String).includes(p));
+      if(_back.length) d.myStartable = [...(d.myStartable||[]), ..._back];
       if(typeof onDone === 'function'){ try { onDone(); } catch(e){} }
     }
   });
 }
 try { window.pfFixIr = pfFixIr; } catch(e){}
 
+// ── Stash-to-unblock (over-roster leagues with taxi room) ────────
+// An over-roster block is the one Sleeper issue with a no-cost fix: park the
+// developmental players on taxi instead of dropping anyone. Returns a plan
+// only when stashing ALONE clears the block — never promise a fix we can't
+// deliver, same contract as _pfIrFixPlan.
+function _lcStashPlan(d, meta){
+  const st = (d.lg && d.lg.settings) || {};
+  const taxiSlots = st.taxi_slots || 0;
+  const cap = (d.rosterPositions||[]).length;
+  if(!taxiSlots || !cap) return null;
+  const resv = (d.myReserve||[]).map(String), taxi = (d.myTaxi||[]).map(String);
+  const need = (d.myPlayersCount||0) - resv.length - taxi.length - cap;
+  if(need <= 0) return null;                                   // not over-rostered
+  // Any OTHER issue would survive the stash and keep Sleeper rejecting the write.
+  const irSlots = st.reserve_slots||0;
+  if(resv.length > irSlots || taxi.length > taxiSlots) return null;
+  if(meta){
+    for(const pid of resv){ if(!_pfIrOk(pid, meta, st)) return null; }
+    if(!st.taxi_allow_vets && st.taxi_years > 0){
+      for(const pid of taxi){ const y = meta.yrs && meta.yrs[pid]; if(typeof y==='number' && y > st.taxi_years) return null; }
+    }
+  }
+  // eligible[] is the same candidate set the Taxi Manager suggests, value DESC.
+  const v = _txLeagueView(d, meta);
+  return {
+    leagueId: d.lg.league_id, rosterId: d.myRosterId,
+    need, open: v.open, slots: v.slots, used: v.used,
+    candidates: v.eligible, currentTaxi: taxi,
+    startersNow: (d.myStarters||[]).map(String),
+    feasible: need <= v.open && need <= v.eligible.length
+  };
+}
+
+// Which players are ticked. Defaults to the CHEAPEST players that clear the
+// block — stashing your best rookie to save a bench spot is never the move.
+window._lcStashSel = window._lcStashSel || {};
+function _lcStashSelection(plan, lid){
+  const valid = new Set(plan.candidates.map(c => String(c.pid)));
+  let sel = (window._lcStashSel[lid]||[]).map(String).filter(p => valid.has(p));
+  if(!window._lcStashSel[lid]){
+    // Only auto-pick when we actually have values to rank by. If the board
+    // hasn't loaded, every candidate reads 0 and "cheapest" would be arbitrary
+    // — better to make the user choose than to stash their best rookie.
+    if(!plan.candidates.some(c => c.val > 0)) sel = [];
+    else {
+      // Bench players before current starters, cheapest first within each —
+      // stashing someone out of your lineup should be the last resort.
+      const starting = new Set(plan.startersNow||[]);
+      sel = [...plan.candidates]
+        .sort((a,b) => (starting.has(String(a.pid))?1:0) - (starting.has(String(b.pid))?1:0) || a.val - b.val)
+        .slice(0, plan.need).map(c => String(c.pid));
+    }
+  }
+  window._lcStashSel[lid] = sel;
+  return sel;
+}
+function lcStashToggle(lid, pid){
+  const d = (window._pfLeagueData||[]).find(x => x.lg && x.lg.league_id === lid);
+  if(!d) return;
+  const plan = _lcStashPlan(d, window._pfRosterMeta);
+  if(!plan) return;
+  const sel = _lcStashSelection(plan, lid);
+  const p = String(pid), i = sel.indexOf(p);
+  if(i >= 0) sel.splice(i, 1);
+  else if(sel.length < plan.open) sel.push(p);   // can't stash more than the open slots
+  window._lcStashSel[lid] = sel;
+  renderLineupCommand();
+}
+try { window.lcStashToggle = lcStashToggle; } catch(e){}
+
+// What the lineup looks like once the ticked players are off the active roster
+// (they stop being startable, so the optimal lineup can differ from today's).
+function _lcStashOutcome(d, sel){
+  const gone = new Set(sel.map(String));
+  const after = Object.assign({}, d, { myStartable: (d.myStartable||[]).filter(x => !gone.has(String(x))) });
+  return window.pfComputeLineup(after);
+}
+
+function _lcStashHtml(plan, lid, sel){
+  const selSet = new Set(sel.map(String));
+  const starting = new Set(plan.startersNow||[]);
+  const enough = sel.length >= plan.need;
+  const rows = plan.candidates.map(c => {
+    const on = selSet.has(String(c.pid));
+    const atCap = !on && sel.length >= plan.open;      // no slot left for this one
+    const isStarter = starting.has(String(c.pid));
+    return `<div class="lcs-row${on?'':' off'}" ${atCap?'':`onclick="event.stopPropagation();lcStashToggle('${lid}','${c.pid}')"`} ${atCap?'style="cursor:default"':''}>
+      <span class="bx${on?' on':''}">${on?'✓':''}</span>
+      <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(c.name,c.pid,28):'')}" onerror="this.style.visibility='hidden'">
+      <span class="nm">${c.name}${c.pos?` <span class="cx-pos ${c.pos}">${c.pos}</span>`:''} <span class="yr">${c.yrs===0?'rookie':c.yrs+'y'}</span>${isStarter?' <span class="lcs-st">Starting</span>':''}</span>
+      <span class="vv">${c.val?c.val.toLocaleString():'—'}</span>
+    </div>`;
+  }).join('');
+  const gainTag = plan.gain > 0.1 ? ` <span style="font-family:var(--font-mono)">+${_lcFmt(plan.gain)}</span>` : '';
+  const label = plan.gain > 0.1 ? `Stash ${sel.length} &amp; optimize${gainTag}` : `Stash ${sel.length} to unblock`;
+  return `<div class="lcs">
+    <div class="lcs-hd">
+      <span class="t">Stash on taxi to clear it</span>
+      <span class="c">${plan.used + sel.length} of ${plan.slots} slots · ${sel.length} selected</span>
+    </div>
+    <div class="lcs-body">${rows}</div>
+    <div class="lcs-foot">
+      <span class="t">${enough
+        ? 'Taxi players keep their roster spot but can\'t be started — reversible any time.'
+        : `<span style="color:#f5c842">Select ${plan.need - sel.length} more</span> — you need ${plan.need} off the active roster.`}</span>
+      <button class="cx-btn green" ${enough?'':'disabled'} onclick="event.stopPropagation();pfStashAndOptimize('${lid}')">${_cxIc('bolt',13)}${label}</button>
+    </div>
+  </div>`;
+}
+
+// Stash the ticked players, then push the now-legal optimized lineup.
+async function pfStashAndOptimize(lid){
+  const d = (window._pfLeagueData||[]).find(x => x.lg && x.lg.league_id === lid);
+  if(!d) return;
+  const plan = _lcStashPlan(d, window._pfRosterMeta);
+  if(!plan || !plan.feasible) return;
+  const sel = _lcStashSelection(plan, lid);
+  if(sel.length < plan.need) return;
+  const byPid = new Map(plan.candidates.map(c => [String(c.pid), c]));
+  const picked = sel.map(p => byPid.get(String(p))).filter(Boolean);
+  const after = _lcStashOutcome(d, sel);
+  // Stashing a current starter empties their slot, so the lineup MUST be
+  // rewritten afterwards even when the projection gain is negligible.
+  const starting = new Set(plan.startersNow||[]);
+  const benched = picked.filter(c => starting.has(String(c.pid)));
+  const willPush = !!(after && after.changed && (after.gain > 0.1 || benched.length));
+  const list = picked.map(c => `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px">
+    <span style="width:16px;text-align:center;color:#3DCC7A;font-weight:700">▸</span>
+    <span style="flex:1"><b>${c.name}</b> <span style="color:var(--muted);font-size:11px">${c.pos||''} · ${starting.has(String(c.pid))?'<span style="color:#f5c842">starting</span> → taxi':'active roster → taxi'}</span></span>
+  </div>`).join('');
+  pfLcModal({
+    title: `Stash ${picked.length} on taxi — ${d.lg.name || 'league'}`,
+    subtitle: benched.length
+      ? `Clears the block — ${benched.length===1?'one of these is':benched.length+' of these are'} in your lineup, so Vault rewrites it too${after.gain>0.1?` · <b style="color:#3DCC7A">+${_lcFmt(after.gain)} pts</b>`:''}`
+      : willPush
+      ? `Clears the roster block, then pushes your optimal lineup · <b style="color:#3DCC7A">+${_lcFmt(after.gain)} pts</b>`
+      : 'Clears the roster block so Sleeper accepts lineup changes',
+    bodyHtml: `<div style="border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+      <div style="padding:7px 12px;background:rgba(61,204,122,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#3DCC7A">Moving to taxi</div>
+      <div style="padding:2px 12px 6px">${list}</div>
+    </div>${willPush?_lcSwapHtml(after):''}`,
+    confirmLabel: willPush ? 'Stash & optimize' : 'Stash on taxi',
+    note: 'Nobody is dropped. Taxi players stay on your roster but can\'t be started — reversible any time in the Sleeper app or Taxi Manager.',
+    onConfirm: async () => {
+      const btn = document.getElementById('pf-lc-modal-confirm');
+      const say = t => { if(btn) btn.textContent = t; };
+      const newTaxi = [...plan.currentTaxi, ...sel.map(String)];
+      await VaultSleeper.updateTaxi(lid, plan.rosterId, newTaxi);
+      pfMarkRosterDirty(lid);
+      d.myTaxi = newTaxi;
+      const gone = new Set(sel.map(String));
+      d.myStartable = (d.myStartable||[]).filter(x => !gone.has(String(x)));
+      delete window._lcStashSel[lid];
+      // Second write in a row — the server paces writes 3s apart, so honour
+      // the cooldown rather than failing a flow whose first half already landed.
+      if(willPush){
+        try {
+          say('Stashed — pushing lineup…');
+          const lc2 = window.pfComputeLineup(d);
+          if(lc2 && lc2.changed && (lc2.gain > 0.1 || benched.length)){
+            await _pfWriteWithBackoff(
+              () => VaultSleeper.pushStarters(lid, d.myRosterId, lc2.optimalStarters, window._pfNflWeek),
+              ms => say(`Stashed — lineup in ${Math.ceil(ms/1000)}s…`)
+            );
+            d.myStarters = lc2.optimalStarters.filter(x => x !== '0');
+          }
+        } catch(e){
+          // The stash landed; only the lineup push failed. Don't make it look
+          // like the whole thing failed — leave the league unblocked and say so.
+          pfLcModalClose();
+          renderLineupCommand();
+          try { renderTaxiCommand(); } catch(_){}
+          try { alert(`Stashed ${picked.length} on taxi — the league is unblocked.\n\nThe lineup push didn't go through: ${(e&&e.message)||e}\n${benched.length?`\nHeads up: ${benched.map(c=>c.name).join(', ')} came out of your starting lineup, so ${benched.length===1?'that slot is':'those slots are'} empty right now.\n`:''}\nHit Optimize on the row to retry.`); } catch(_){}
+          return;
+        }
+      }
+      (window._lcExpanded||new Set()).delete(lid);
+      renderLineupCommand();
+      try { renderTaxiCommand(); } catch(e){}
+    }
+  });
+}
+try { window.pfStashAndOptimize = pfStashAndOptimize; } catch(e){}
+
+// Retry a write that tripped the server's per-user write cooldown, using the
+// retryAfterMs it hands back. Anything else rethrows immediately.
+async function _pfWriteWithBackoff(fn, onWait){
+  for(let attempt = 0; ; attempt++){
+    try { return await fn(); }
+    catch(e){
+      const code = String((e && e.code) || '');
+      const wait = Math.max(((e && e.details && e.details.retryAfterMs) || 0), 1200) + 300;
+      if(attempt >= 2 || !/resource-exhausted/.test(code)) throw e;
+      if(typeof onWait === 'function') onWait(wait);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+}
+
 // Blocked-league detail: what's wrong and where to fix it. When the block is
 // purely an IR problem Vault can resolve, offer a one-click Fix from Vault.
-function _lcIssuesHtml(issues, fixPlan){
+function _lcIssuesHtml(issues, fixPlan, stashPlan, lid){
   const rows = issues.map(i => `<div style="display:flex;gap:9px;padding:5px 0;font-size:12.5px;line-height:1.45"><span style="color:#ff6680;flex-shrink:0">⚠</span><span>${i}</span></div>`).join('');
   const canFix = fixPlan && fixPlan.fixable;
-  const lid = fixPlan && fixPlan.leagueId;
-  const footer = canFix
+  const canStash = stashPlan && stashPlan.feasible;
+  lid = lid || (fixPlan && fixPlan.leagueId);
+  const footer = canStash
+    ? _lcStashHtml(stashPlan, lid, _lcStashSelection(stashPlan, lid))
+    : canFix
     ? `<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:9px;background:rgba(61,204,122,0.06);border:1px solid rgba(61,204,122,0.2);flex-wrap:wrap">
         <span style="font-size:11.5px;color:var(--muted);line-height:1.5">Vault can clear this by moving ${fixPlan.moves.length} player${fixPlan.moves.length!==1?'s':''} off IR onto your bench.</span>
         <button onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())" style="padding:7px 15px;border-radius:8px;background:rgba(61,204,122,0.16);border:1px solid rgba(61,204,122,0.4);color:#3DCC7A;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">⚡ Fix from Vault</button>
       </div>`
     : `<div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the Sleeper app, then hit Refresh.</div>`;
-  return `<div style="border:1px solid rgba(255,102,128,0.25);border-radius:10px;overflow:hidden;margin-top:6px">
-    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Roster issues${canFix?'':' — fix in the Sleeper app'}</div>
+  // .lc-det keeps this pinned in view on phones — the table it lives in is
+  // min-width:640px and scrolls horizontally, which would otherwise push the
+  // action button off-screen.
+  return `<div class="lc-det"><div style="border:1px solid rgba(255,102,128,0.25);border-radius:10px;overflow:hidden;margin-top:6px">
+    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680">Roster issues${(canFix||canStash)?'':' — fix in the Sleeper app'}</div>
     <div style="padding:4px 12px 8px">${rows}</div>
   </div>
-  ${footer}`;
+  ${footer}</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -18745,6 +18997,8 @@ function _cxEnsureStyles(){
   .cx-pos.WR{background:rgba(123,208,255,.15);color:#7bd0ff} .cx-pos.TE{background:rgba(245,200,66,.15);color:#f5c842}
   .cx-pos.PICK{background:rgba(143,180,224,.15);color:var(--accent2)}
   .cx-detail td{padding:4px 18px 18px!important;background:rgba(255,255,255,.014)}
+  /* must out-specify .cx-tbl tbody td's nowrap, or issue text can't wrap */
+  .cx-tbl tbody tr.cx-detail td{white-space:normal}
   .cx-swap{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch;padding-top:8px}
   .cx-scol{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg)}
   .cx-sh{padding:8px 13px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-family:var(--font-mono);display:flex;align-items:center;gap:6px}
@@ -18794,12 +19048,38 @@ function _cxEnsureStyles(){
   .cx-txr .vv{font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
   .cx-txr .yr{font-size:10.5px;color:var(--muted);font-family:var(--font-mono)}
   .cx-aged{font-size:8.5px;font-weight:800;letter-spacing:.08em;color:#ff5a6e;background:rgba(255,90,110,.13);padding:1px 5px;border-radius:4px;font-family:var(--font-mono)}
+  /* stash-to-unblock picker inside a blocked lineup row */
+  .lcs{margin-top:10px;border:1px solid rgba(61,204,122,.2);border-radius:10px;overflow:hidden;background:rgba(61,204,122,.035)}
+  .lcs-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 13px;border-bottom:1px solid rgba(61,204,122,.16);flex-wrap:wrap}
+  .lcs-hd .t{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#3DCC7A}
+  .lcs-hd .c{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+  .lcs-body{padding:3px 13px 5px}
+  .lcs-row{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13px;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;transition:opacity .14s}
+  .lcs-row:first-child{border-top:none}
+  .lcs-row.off{opacity:.45} .lcs-row.off:hover{opacity:.75}
+  .lcs-row img{width:28px;height:28px;border-radius:8px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0}
+  .lcs-row .nm{flex:1;min-width:0;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .lcs-row .vv{font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+  .lcs-row .yr{font-size:10.5px;color:var(--muted);font-family:var(--font-mono)}
+  .lcs-row .bx{width:16px;height:16px;border-radius:5px;border:1px solid var(--border3);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0e0f13}
+  .lcs-row .bx.on{background:#3DCC7A;border-color:#3DCC7A}
+  .lcs-st{font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#f5c842;background:rgba(245,200,66,.13);padding:1px 5px;border-radius:4px;font-family:var(--font-mono)}
+  .lcs-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 13px;border-top:1px solid rgba(61,204,122,.16);flex-wrap:wrap}
+  .lcs-foot .t{font-size:11.5px;color:var(--muted);line-height:1.5;flex:1 1 240px}
   @media (prefers-reduced-motion:reduce){.cx-halo,.cx-spark,.cx-spin svg.cx-ic{animation:none!important}}
   @media (max-width:760px){
     .cx-strip,.cx-strip.c5,.cx-strip.c4{grid-template-columns:repeat(2,1fr)}
     .cx-stat.span2{grid-column:span 2}
     .cx-swap{grid-template-columns:1fr} .cx-tbody{grid-template-columns:1fr} .cx-tmid{display:none}
     .cx-tx2{grid-template-columns:1fr} .cx-txcol:first-child{border-right:none;border-bottom:1px solid var(--border)}
+    /* The row detail lives in a 640px-min table that scrolls sideways — pin it
+       to the viewport so its buttons stay reachable on a phone. */
+    .cx-detail td{padding:4px 12px 14px!important}
+    .lc-det{position:sticky;left:0;width:calc(100vw - 58px);max-width:100%}
+    .lcs-foot{flex-direction:column;align-items:stretch}
+    .lcs-foot .t{flex:none}
+    .lcs-foot .cx-btn{width:100%}
+    .lcs-row .vv{margin-left:auto}
   }`;
   document.head.appendChild(s);
 }
@@ -18864,10 +19144,12 @@ async function renderLineupCommand(){
   // Roster-validity meta loads lazily (14MB dump, 24h cache); render now with
   // structural checks, re-render once designations arrive.
   const meta = window._pfRosterMeta;
-  if(meta === undefined && data.some(d => (d.myReserve||[]).length || (d.myTaxi||[]).length)){
+  const rows = data.map(d => ({ d, lc: window.pfComputeLineup(d), issues: pfRosterIssues(d, meta) }));
+  // Designations + years_exp gate both the IR check and the stash candidates,
+  // so any blocked league needs the meta — not just ones already using IR/taxi.
+  if(meta === undefined && (rows.some(r => r.issues.length) || data.some(d => (d.myReserve||[]).length || (d.myTaxi||[]).length))){
     _pfEnsureRosterMeta().then(()=>{ try{ renderLineupCommand(); }catch(e){} });
   }
-  const rows = data.map(d => ({ d, lc: window.pfComputeLineup(d), issues: pfRosterIssues(d, meta) }));
   const actionable = rows.filter(r => !r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
   const totalGain = actionable.reduce((s,r)=>s+r.lc.gain,0);
   const anyBlocked = rows.some(r => r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed);
@@ -18886,6 +19168,9 @@ async function renderLineupCommand(){
     const act = hasGain && !blocked;
     const fixPlan = blocked ? _pfIrFixPlan(d, meta) : null;
     const canFix = fixPlan && fixPlan.fixable;
+    const stashPlan = blocked ? _lcStashPlan(d, meta) : null;
+    const canStash = stashPlan && stashPlan.feasible;
+    if(canStash) stashPlan.gain = (() => { const a = _lcStashOutcome(d, _lcStashSelection(stashPlan, lid)); return a && a.changed ? a.gain : 0; })();
     const isOpen = expanded.has(lid);
     const open = act || blocked;   // rows with something to show expand
     const badge = empty   ? '<span class="cx-badge cx-b-muted">No roster</span>'
@@ -18894,12 +19179,14 @@ async function renderLineupCommand(){
                           : `<span class="cx-badge cx-b-steel">${_cxIc('check',11)}Optimized</span>`;
     const btn = act
       ? `<button class="cx-btn primary sm" data-lc-btn="${lid}" onclick="event.stopPropagation();pfOptimizeLeague('${lid}')">Optimize</button>`
+      : canStash
+      ? `<button class="cx-btn green sm" onclick="event.stopPropagation();${isOpen?'':`pfLcToggle('${lid}');`}pfStashAndOptimize('${lid}')">${_cxIc('bolt',13)}Stash ${stashPlan.need}</button>`
       : canFix
       ? `<button class="cx-btn green sm" onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())">${_cxIc('bolt',13)}Fix IR</button>`
       : `<span class="cx-mut" style="font-size:12px">${empty?'—':(blocked?'Fix in Sleeper':'Best ball')}</span>`;
     const swapCount = act ? (lc.swaps.in.length) : 0;
     const meta2 = act ? `${swapCount} swap${swapCount!==1?'s':''}`
-                : blocked ? `<span style="color:#ff5a6e">${issues.length} roster issue${issues.length!==1?'s':''}</span>`
+                : blocked ? `<span style="color:#ff5a6e">${issues.length} roster issue${issues.length!==1?'s':''}</span>${(canStash||canFix)?' · <span style="color:#3DCC7A">fixable in Vault</span>':''}`
                 : '';
     const chev = open ? `<span class="cx-chev${isOpen?' open':''}">›</span>` : `<span class="cx-chev" style="opacity:.3">›</span>`;
     const mainRow = `<tr class="cx-main${open?' cx-exp':''}" ${open?`onclick="pfLcToggle('${lid}')"`:''}>
@@ -18911,7 +19198,7 @@ async function renderLineupCommand(){
       <td>${btn}</td>
     </tr>`;
     const detailRow = (open && isOpen)
-      ? `<tr class="cx-detail"><td colspan="6">${blocked?_lcIssuesHtml(issues, fixPlan):_lcSwapHtml(lc)}</td></tr>`
+      ? `<tr class="cx-detail"><td colspan="6">${blocked?_lcIssuesHtml(issues, fixPlan, stashPlan, lid):_lcSwapHtml(lc)}</td></tr>`
       : '';
     return mainRow + detailRow;
   }).join('');
@@ -18927,7 +19214,7 @@ async function renderLineupCommand(){
   el.innerHTML = `<div class="cx">
     <div class="cx-actions">
       ${_cxConnPill(conn)}
-      <div class="cx-btns"><button class="cx-btn outline sm" onclick="renderLineupCommand()">${_cxIc('refresh',14)}Refresh</button></div>
+      <div class="cx-btns"><button class="cx-btn outline sm" onclick="pfRefreshData()">${_cxIc('refresh',14)}Refresh</button></div>
     </div>
     ${strip}
     <div class="cx-card">
@@ -18942,7 +19229,7 @@ async function renderLineupCommand(){
         <tbody>${rowsHtml}</tbody>
       </table></div>
     </div>
-    ${anyBlocked?`<div class="cx-banner">${_cxIc('alert',16)}<span><b>Some lineups are blocked.</b> A roster issue (IR / taxi / over-roster) is blocking optimization — Vault can move IR players to your bench in one tap (Fix IR), or resolve it in the Sleeper app.</span></div>`:''}
+    ${anyBlocked?`<div class="cx-banner">${_cxIc('alert',16)}<span><b>Some lineups are blocked.</b> A roster issue (IR / taxi / over-roster) is blocking optimization — Vault can stash spare players on taxi or move IR players to your bench in one tap, or you can resolve it in the Sleeper app.</span></div>`:''}
   </div>`;
 }
 try { window.renderLineupCommand = renderLineupCommand; } catch(e){}
@@ -19612,7 +19899,7 @@ function _txLeagueView(d, meta){
   return { slots, used:taxi.length, open:Math.max(0, slots - taxi.length), onTaxi, eligible, agedOut:onTaxi.filter(p=>p.agedOut) };
 }
 
-async function renderTaxiCommand(force){
+async function renderTaxiCommand(){
   const el = document.getElementById('pf-taxi-command');
   if(!el) return;
   _cxEnsureStyles();
@@ -19680,7 +19967,7 @@ async function renderTaxiCommand(force){
   el.innerHTML = `<div class="cx">
     <div class="cx-actions">
       ${_cxConnPill(conn)}
-      <div class="cx-btns"><button class="cx-btn outline sm" onclick="renderTaxiCommand(true)">${_cxIc('refresh',14)}Refresh</button></div>
+      <div class="cx-btns"><button class="cx-btn outline sm" onclick="pfRefreshData()">${_cxIc('refresh',14)}Refresh</button></div>
     </div>
     ${strip}
     ${!conn.connected?`<div class="cx-notice">${_cxIc('alert',16)}<span>Connect Sleeper for lineup control to add or remove taxi players from here.</span><button class="cx-btn primary sm" style="margin-left:auto" onclick="try{openSettingsDrawer()}catch(e){}">Connect</button></div>`:''}
@@ -19706,8 +19993,13 @@ function txAdd(lid, pid){
     note: 'This updates your taxi squad in Sleeper — reversible any time.',
     onConfirm: async () => {
       await VaultSleeper.updateTaxi(lid, d.myRosterId, newTaxi);
+      pfMarkRosterDirty(lid);
       d.myTaxi = newTaxi;
+      // A taxi player is no longer startable — without this the optimizer can
+      // still slot them into a lineup and push it to Sleeper.
+      d.myStartable = (d.myStartable||[]).filter(x => String(x) !== String(pid));
       renderTaxiCommand();
+      try { renderLineupCommand(); } catch(e){}  // stashing frees an active spot
     }
   });
 }
@@ -19727,8 +20019,11 @@ function txRemove(lid, pid){
     note: 'This updates your taxi squad in Sleeper — reversible any time.',
     onConfirm: async () => {
       await VaultSleeper.updateTaxi(lid, d.myRosterId, newTaxi);
+      pfMarkRosterDirty(lid);
       d.myTaxi = newTaxi;
+      if(!(d.myStartable||[]).map(String).includes(String(pid))) d.myStartable = [...(d.myStartable||[]), String(pid)];
       renderTaxiCommand();
+      try { renderLineupCommand(); } catch(e){}  // back on the active roster
     }
   });
 }
@@ -20111,7 +20406,7 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
       let rosters, users, tradedPicks, matchups;
       if (_pfEspn){ const ctx = await buildEspnContext(lg.league_id); rosters = ctx?ctx.rosters:[]; users = ctx?ctx.users:[]; tradedPicks = []; matchups = null; }
       else [rosters, users, tradedPicks, matchups] = await Promise.all([
-        fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/rosters`).then(r=>r.json()).catch(()=>[]),
+        pfFetchRosters(lg.league_id),
         fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/users`).then(r=>r.json()).catch(()=>[]),
         fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/traded_picks`).then(r=>r.json()).catch(()=>[]),
         _pfWeek ? fetch(`https://api.sleeper.app/v1/league/${lg.league_id}/matchups/${_pfWeek}`).then(r=>r.ok?r.json():null).catch(()=>null) : null,
