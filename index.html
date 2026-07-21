@@ -36598,23 +36598,15 @@ else { _ssInjectPage();_ssInjectNav(); }
      update-redraft-strategy cron.
      ══════════════════════════════════════════════════════════════════════ -->
 <style id="rs-strategy-restyle">
-/* hide the board chrome while in strategy mode, same list adp-mode hides */
-#page-draft.strategy-mode .dconn-bar,
-#page-draft.strategy-mode #dv-pagehead,
-#page-draft.strategy-mode #intel-bar,
-#page-draft.strategy-mode .pstrip,
-#page-draft.strategy-mode .controls,
-#page-draft.strategy-mode .suggest-bar,
-#page-draft.strategy-mode #draft-summary,
-#page-draft.strategy-mode #plist,
-#page-draft.strategy-mode #dv-adp-view,
-#page-draft.strategy-mode #your-pick-banner{display:none!important}
-/* The live-draft suggestion strip is pinned open by `#page-draft #sbar.pa-clock
-   {display:flex!important}` (two IDs), which outranks a class-scoped rule — so
-   match its ID and add a class to win on both specificity and order. */
-#page-draft.strategy-mode #sbar,
-#page-draft.strategy-mode #sbar.pa-soon,
-#page-draft.strategy-mode #sbar.pa-clock{display:none!important}
+/* Hide EVERY sibling of the strategy view rather than naming them.
+   Enumerating missed #ld-board-section and #dv-draft-control, which are only
+   invisible while no draft is connected — with a live draft they rendered the
+   board straight onto this page. Inverting the rule means any draft UI added to
+   #page-draft later is hidden here by default instead of leaking.
+   #dv-secnav is the mobile section nav and is how you leave this view, so it stays.
+   Specificity (3 ids) clears `#page-draft #sbar.pa-clock{display:flex!important}`,
+   and !important also beats the inline display JS sets on some of these. */
+#page-draft.strategy-mode > *:not(#rs-view):not(#dv-secnav){display:none!important}
 /* The roster bar lives OUTSIDE #page-draft and showPage() sets its display
    inline, so it needs a body-level hook plus !important to beat the inline style. */
 body.rs-mode #global-rbar{display:none!important}
