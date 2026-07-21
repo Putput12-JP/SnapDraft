@@ -4624,7 +4624,9 @@ function pgsOpen(name, pos, team){
         bar('UPSIDE',F.upside,'var(--value)')+
         bar('FLOOR',F.floor,'var(--accent2)')+
         bar('RISK',F.risk,'var(--red2)')+
-        bar('SITUATION',F.situational,'var(--value)')+
+        // Situational only means something with a live draft/roster; outside one
+        // (e.g. tapped from My Rankings) it's a generic assumption, so hide it.
+        ((typeof _over!=='undefined' && _over>0)?bar('SITUATION',F.situational,'var(--value)'):'')+
       '</div>'+
       '<div class="pgs-tiles">'+
         tile('PPG',(pr&&pr.ppg!=null)?(+pr.ppg).toFixed(1):'—',null)+
@@ -24134,7 +24136,7 @@ function pickYear(year) {
 #P .mr-gklegend .gk-item:hover .dfk-pop,#P .mr-gklegend .gk-item:focus-within .dfk-pop{opacity:1;transform:translateY(0)}
 #P .mr-gklegend .gk-item:last-child .dfk-pop{left:auto;right:0}
 #P .mr-gklegend .gk-item:last-child .dfk-pop::after{left:auto;right:20px}
-#P .mr-gkh,#P .mr-gk{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;justify-items:center;gap:0}
+#P .mr-gkh,#P .mr-gk{display:grid;grid-template-columns:repeat(3,1fr);align-items:center;justify-items:center;gap:0}
 #P .mr-gkh span{display:inline-flex;align-items:center}
 #P .mr-gk span{font-family:var(--font-mono);font-weight:800;font-size:var(--t-secondary)}
 #P .mr-gk .u{color:#f5c842}
@@ -24336,26 +24338,34 @@ function pickYear(year) {
           <div id="mr-rows">${compareRows(rows)}</div>
         </div>`;
     } else {
-      const gkIco = (n,c) => (typeof reIcon==='function' ? reIcon(n,{size:13,color:c}) : '');
+      // Grade-key icons — same Lucide set as the Draft Vault key/table
+      // (flame / shield / triangle-alert / target), stroked in the passed color.
+      const _gkPaths = {
+        fire:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+        shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+        alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+      };
+      const gkIco = (n,c) => _gkPaths[n]
+        ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px">${_gkPaths[n]}</svg>`
+        : (typeof reIcon==='function' ? reIcon(n,{size:13,color:c}) : '');
       // hover popouts: clone the draft key's calculation copy (single source of
       // truth); Situational gets its own text — no live roster on this page
       const gkPop = id => { const src = document.getElementById(id); return src ? `<span class="dfk-pop">${src.innerHTML}</span>` : ''; };
-      const sitPop = `<span class="dfk-pop"><span class="dfk-pop-h" style="color:var(--wr)">Situational · fit &amp; scarcity</span>Combines <b>positional scarcity</b> (market rank vs a league's starter slots), league <b>scoring</b> (PPR lifts pass-catchers), and the player's <b>team-offense strength</b> (weighed less on the Dynasty board). Here it assumes a standard 12-team PPR lineup — in a live draft it re-scores to your actual roster every pick.<span class="dfk-pop-s">0–10 · higher = better fit</span></span>`;
       const legend = `
         <div class="mr-gklegend">
           <span class="gk-cap">Grade Keys</span>
           <span class="gk-item" tabindex="0">${gkIco('fire','#f5c842')}<b>Upside</b> ceiling / boom weeks${gkPop('dfk-pop-upside')}</span>
           <span class="gk-item" tabindex="0">${gkIco('shield','#3DCC7A')}<b>Floor</b> weekly safety${gkPop('dfk-pop-floor')}</span>
           <span class="gk-item" tabindex="0">${gkIco('alert','#ff5a6e')}<b>Risk</b> injury · volatility (lower = safer)${gkPop('dfk-pop-risk')}</span>
-          <span class="gk-item" tabindex="0">${gkIco('target','#7bd0ff')}<b>Situational</b> fit to format &amp; situation${sitPop}</span>
         </div>`;
       body = `
         ${legend}
         <div class="mr-board">
           <div class="mr-bhead">
             <span class="r">#</span><span>Player</span><span>Conviction</span>
-            <span class="mr-gkh" title="Grade Keys · Upside / Floor / Risk / Situational">
-              <span title="Upside">${gkIco('fire','#f5c842')}</span><span title="Floor">${gkIco('shield','#3DCC7A')}</span><span title="Risk (lower = safer)">${gkIco('alert','#ff5a6e')}</span><span title="Situational">${gkIco('target','#7bd0ff')}</span>
+            <span class="mr-gkh" title="Grade Keys · Upside / Floor / Risk">
+              <span title="Upside">${gkIco('fire','#f5c842')}</span><span title="Floor">${gkIco('shield','#3DCC7A')}</span><span title="Risk (lower = safer)">${gkIco('alert','#ff5a6e')}</span>
             </span>
             <span class="r">My ${isRdr?'redraft':'dynasty'}</span><span class="r">Adjust</span>
           </div>
@@ -24442,8 +24452,8 @@ function pickYear(year) {
       ${conv}
       ${(() => { const g = _gk && _gk.get(norm(r.name));
         if (!g) return `<div class="mr-gk na" title="Grade Keys load with nflverse stats">·</div>`;
-        return `<div class="mr-gk" title="Upside ${g.upside} · Floor ${g.floor} · Risk ${g.risk} (lower = safer) · Situational ${g.situational}">
-          <span class="u">${g.upside}</span><span class="f">${g.floor}</span><span class="rk">${g.risk}</span><span class="s">${g.situational}</span>
+        return `<div class="mr-gk" title="Upside ${g.upside} · Floor ${g.floor} · Risk ${g.risk} (lower = safer)">
+          <span class="u">${g.upside}</span><span class="f">${g.floor}</span><span class="rk">${g.risk}</span>
         </div>`; })()}
       <div class="mr-val ${isRdr?'rdr':''}" title="FantasyCalc value for your #${r.myRank} slot, re-pulls daily">${r.myValue?r.myValue.toLocaleString():'—'}<small>mkt ${r.marketValue?r.marketValue.toLocaleString():'—'}</small></div>
       <div class="mr-act">
