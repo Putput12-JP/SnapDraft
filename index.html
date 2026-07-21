@@ -17844,7 +17844,9 @@ window.addEventListener('appinstalled', () => {
   if (btn) btn.style.display = 'none';
   _deferredInstallPrompt = null;
 });
-const DTEAMS=['Putput','parkerbpierce','GrimmDog16','ethanriffe','paulh31','kmid2193','SpencerYale','Scotty13','blaineboyd','BriggyBrigs','GunRod','hunterbue4'];
+// Fallback draft-board labels when no league is connected. Fictional by
+// design — demo data ships publicly, so it must never carry real handles.
+const DTEAMS=['You','Dynasty Warlords','Gridiron Gurus','Bench Mob','Red Zone Rebels','Waiver Kings','Blitz Brigade','Hail Mary','Play Action','Zone Defense','Two Minute Drill','Fourth Down'];
 const HPICKS=[
   ['Bijan Robinson',0],['Jahmyr Gibbs',1],['Josh Allen',2],['Drake Maye',3],["Ja'Marr Chase",4],['Jaxon Smith-Njigba',5],['Puka Nacua',6],['Caleb Williams',7],['Malik Nabers',8],['Amon-Ra St. Brown',9],['Justin Jefferson',10],['CeeDee Lamb',11],
   ['Drake London',11],['Brock Bowers',10],['Trey McBride',9],['Ashton Jeanty',8],['Jayden Daniels',7],['Lamar Jackson',6],['Joe Burrow',5],['Jeremiyah Love',4],['Jaxson Dart',3],['Devon Achane',2],['Justin Herbert',1],['Omarion Hampton',0],
@@ -22258,8 +22260,8 @@ function pickYear(year) {
   // ── Demo league (only used when NO Sleeper league is connected) ──
   const TEAM_META = [
     { id:'you', name:'The Vault',         owner:'You',            color:'#4d86f0', logo:'TV' },
-    { id:'bb',  name:'brittlebones85',    owner:'brittlebones85', color:'#ff5a6e', logo:'BB' },
-    { id:'put', name:'Putput',            owner:'Putput',         color:'#f5c842', logo:'PP' },
+    { id:'bb',  name:'Bone Collectors',   owner:'chris_b',        color:'#ff5a6e', logo:'BC' },
+    { id:'put', name:'Bench Mob',         owner:'derek_l',        color:'#f5c842', logo:'BM' },
     { id:'dyn', name:'Dynasty Warlords',  owner:'mike_t',         color:'#3DCC7A', logo:'DW' },
     { id:'gru', name:'Gridiron Gurus',    owner:'sarah_k',        color:'#b48cff', logo:'GG' },
   ];
