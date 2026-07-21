@@ -31885,9 +31885,18 @@ body .page,body .page.on{background:transparent!important}
     const gradeOf = p => p>=0.92?'A+':p>=0.80?'A':p>=0.68?'A-':p>=0.58?'B+':p>=0.48?'B':p>=0.38?'B-':p>=0.28?'C+':p>=0.20?'C':p>=0.12?'C-':p>=0.05?'D':'F';
     const gColor = g => g[0]==='A'?'var(--green)':g[0]==='B'?'#9fe0c2':g[0]==='C'?'var(--gold)':'var(--red2)';
     const keys = [['QB','qbs'],['RB','rbs'],['WR','wrs'],['TE','tes']];
+    // League-relative means min-max across THIS league's teams: the worst team is
+    // the floor, not zero. Seeding the min with 0 (and the max with 1) turned every
+    // grade into "your value / the best team's value" — and since dynasty rosters
+    // all sit within ~75-100% of the best one, the whole league graded A/A-.
+    // Same min-max the rest of the app already uses (gradePos, compositeGrade).
+    // When every team ties, range is 0 and there's nothing to separate — grade them
+    // all mid-pack rather than letting a 0-width range push everyone to F.
+    const mkScale = vals => { const mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rg=mx-mn; return { mn, rg, flat: !(rg>0) }; };
+    const pctIn = (sc, v) => sc.flat ? 0.5 : (v - sc.mn) / sc.rg;
     const scale = {};
-    keys.forEach(([P,a])=>{ const vals=teams.map(t=>(t[a]||[]).reduce((s,p)=>s+val(p.name),0)); const mn=Math.min.apply(null,vals.concat([0])),mx=Math.max.apply(null,vals.concat([1])); scale[P]={mn,rg:(mx-mn)||1}; });
-    const ov = teams.map(t=>t.fcTotal||0); const ovMn=Math.min.apply(null,ov.concat([0])),ovMx=Math.max.apply(null,ov.concat([1])),ovRg=(ovMx-ovMn)||1;
+    keys.forEach(([P,a])=>{ scale[P] = mkScale(teams.map(t=>(t[a]||[]).reduce((s,p)=>s+val(p.name),0))); });
+    const ovScale = mkScale(teams.map(t=>t.fcTotal||0));
     const ranked = teams.sort((a,b)=>(b.fcTotal||0)-(a.fcTotal||0));
     ranked.forEach((t,i)=> t._pr2=i+1);
     const total = ranked.length;
@@ -31900,25 +31909,25 @@ body .page,body .page.on{background:transparent!important}
 
     if (mob){
       const cards = ranked.map((t,i)=>{
-        const op=((t.fcTotal||0)-ovMn)/ovRg, og=gradeOf(op);
+        const op=pctIn(ovScale, t.fcTotal||0), og=gradeOf(op);
         const valPct = 1-((t._pr2-1)/total);
         return `<div class="lh-gr-mcard lh-card ${t.isMe?'me':''}">
           <div class="lh-grm-h"><span class="lh-grm-rk">${i+1}</span>${avatar(t.name,teamColor(t.idx||0),30)}<div class="lh-grm-id"><div class="lh-st-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-gr-sub">${windowChip(windowOf(valPct,t.avgAge))} ${t.avgAge?'· age '+t.avgAge.toFixed(1):''}</div></div><div class="lh-grm-ov" style="color:${gColor(og)}">${og}</div></div>
-          <div class="lh-grm-cells">${keys.map(([P,a])=>{ const v=(t[a]||[]).reduce((s,p)=>s+val(p.name),0); const p=(v-scale[P].mn)/scale[P].rg; return `<div class="lh-grm-cw"><span class="lh-grm-pl" style="color:${POSV[P]}">${P}</span>${cell(p)}</div>`; }).join('')}</div>
+          <div class="lh-grm-cells">${keys.map(([P,a])=>{ const v=(t[a]||[]).reduce((s,p)=>s+val(p.name),0); const p=pctIn(scale[P], v); return `<div class="lh-grm-cw"><span class="lh-grm-pl" style="color:${POSV[P]}">${P}</span>${cell(p)}</div>`; }).join('')}</div>
         </div>`;
       }).join('');
       E.innerHTML = `<div class="lh-wrap">${legend}<div class="lh-gr-mlist">${cards}</div></div>`;
       return;
     }
     const rows = ranked.map((t,i)=>{
-      const op=((t.fcTotal||0)-ovMn)/ovRg, og=gradeOf(op);
+      const op=pctIn(ovScale, t.fcTotal||0), og=gradeOf(op);
       const valPct = 1-((t._pr2-1)/total);
       return `<div class="lh-gr-row lh-card ${t.isMe?'me':''}">
         <span class="lh-gr-rk">${i+1}</span>${avatar(t.name,teamColor(t.idx||0),30)}
         <div class="lh-gr-id"><div class="lh-st-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-gr-sub">${t.avgAge?'age '+t.avgAge.toFixed(1)+' · ':''}${fmt(t.fcTotal)}</div></div>
         <div class="lh-gr-window">${windowChip(windowOf(valPct,t.avgAge))}</div>
         <div class="lh-gr-overall" style="color:${gColor(og)}"><b>${og}</b><span class="lh-gr-ovl">OVR</span></div>
-        <div class="lh-gr-cells">${keys.map(([P,a])=>{ const v=(t[a]||[]).reduce((s,p)=>s+val(p.name),0); const p=(v-scale[P].mn)/scale[P].rg; return cell(p); }).join('')}</div>
+        <div class="lh-gr-cells">${keys.map(([P,a])=>{ const v=(t[a]||[]).reduce((s,p)=>s+val(p.name),0); const p=pctIn(scale[P], v); return cell(p); }).join('')}</div>
       </div>`;
     }).join('');
     const head = `<div class="lh-gr-colhead"><span style="width:18px;text-align:center">#</span><span style="flex:1;padding-left:42px">TEAM</span><span style="width:92px">WINDOW</span><span style="width:74px;text-align:center">OVERALL</span><span class="lh-gr-cellhead">${keys.map(([P])=>`<span style="color:${POSV[P]}">${P}</span>`).join('')}</span></div>`;
