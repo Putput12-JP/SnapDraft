@@ -4704,7 +4704,8 @@ function pgsOpen(name, pos, team){
       {k:'rank', label:'Rankings', go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('plist'); }},
       {k:'board',label:'Board',    go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('ld-board-section'); }},
       {k:'adp',  label:'ADP',      go:function(){ try{dvShowADP()}catch(e){}   window.scrollTo({top:0,behavior:'instant'}); }},
-      {k:'sum',  label:'Summary',  go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('draft-summary'); }}
+      {k:'sum',  label:'Summary',  go:function(){ try{dvShowBoard()}catch(e){} dvScrollTo('draft-summary'); }},
+      {k:'strat',label:'Strategy',  go:function(){ try{dvShowStrategy()}catch(e){} window.scrollTo({top:0,behavior:'instant'}); }}
     ].forEach(function(d,i){
       var b=document.createElement('button');
       b.className='vcap'+(i===0?' on':''); b.dataset.k=d.k; b.textContent=d.label;
@@ -4738,10 +4739,11 @@ function pgsOpen(name, pos, team){
     }, {passive:true});
     /* external entries into ADP mode (Command sheet tile, desktop menu)
        should light the ADP capsule; leaving it resets to Rankings */
-    ['dvShowADP','dvShowBoard'].forEach(function(fn){
+    var _capKey={dvShowADP:'adp', dvShowBoard:'rank', dvShowStrategy:'strat'};
+    ['dvShowADP','dvShowBoard','dvShowStrategy'].forEach(function(fn){
       var orig=window[fn];
       if(typeof orig!=='function'||orig._capHooked) return;
-      var wrapped=function(){ var r=orig.apply(this,arguments); setDvActive(fn==='dvShowADP'?'adp':'rank'); return r; };
+      var wrapped=function(){ var r=orig.apply(this,arguments); setDvActive(_capKey[fn]); return r; };
       wrapped._capHooked=true; window[fn]=wrapped;
     });
   }
@@ -12015,7 +12017,15 @@ function showPage(p, opts){
     // Connect-first: if no live draft is connected, surface the connect modal
     // once per session so the user can either link a draft or browse rankings.
     if (!sleeperDraftId && !window._draftPromptDismissed) {
-      setTimeout(() => { try { openDraftConnect(); } catch(e){} }, 120);
+      setTimeout(() => {
+        // Redraft Strategy is a research sub-view that needs no draft connection,
+        // so don't ambush it with the connect modal. Checked here rather than
+        // flagging _draftPromptDismissed, which would wrongly suppress the prompt
+        // for the rest of the session once the user did open the board.
+        var pd = document.getElementById('page-draft');
+        if (pd && pd.classList.contains('strategy-mode')) return;
+        try { openDraftConnect(); } catch(e){}
+      }, 120);
     }
   }
   if(p==='research'){ initResearch(); }
@@ -33321,10 +33331,13 @@ window.vaultLeaguePosFilter = function () {
 
 /* ── board / ADP toggle ── */
 window.dvShowBoard = function() {
-  document.getElementById('page-draft').classList.remove('adp-mode');
+  document.getElementById('page-draft').classList.remove('adp-mode', 'strategy-mode');
+  document.body.classList.remove('rs-mode');
   document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'draft'));
 };
 window.dvShowADP = function() {
+  document.getElementById('page-draft').classList.remove('strategy-mode');
+  document.body.classList.remove('rs-mode');
   document.getElementById('page-draft').classList.add('adp-mode');
   document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === 'adp-explorer'));
   _adpApplyLeagueDefaults();   // 2QB league → default to Superflex ADP
@@ -33405,7 +33418,8 @@ function _adpLoadSleeperStats() {
     menu.id = 'dv-dd-menu';
     menu.innerHTML =
       '<button class="lc-mt-item active" data-go="draft"><span class="ic">🏈</span><span><b>Draft Board</b><small>Rankings · live draft sync</small></span></button>' +
-      '<button class="lc-mt-item" data-go="adp-explorer"><span class="ic"><span data-reicon="chart" data-rsize="17"></span></span><span><b>ADP Explorer</b><small>Market data · ADP trends</small></span></button>';
+      '<button class="lc-mt-item" data-go="adp-explorer"><span class="ic"><span data-reicon="chart" data-rsize="17"></span></span><span><b>ADP Explorer</b><small>Market data · ADP trends</small></span></button>' +
+      '<button class="lc-mt-item" data-go="redraft-strategy"><span class="ic"><span data-reicon="flask" data-rsize="17"></span></span><span><b>Redraft Strategy</b><small>Which builds actually win</small></span></button>';
     document.body.appendChild(menu);
 
     var hideT;
@@ -33426,6 +33440,9 @@ function _adpLoadSleeperStats() {
       if (it.dataset.go === 'adp-explorer') {
         window.showPage('draft');
         window.dvShowADP();
+      } else if (it.dataset.go === 'redraft-strategy') {
+        window.showPage('draft');
+        window.dvShowStrategy();
       } else {
         window.showPage('draft');
         window.dvShowBoard();
@@ -36570,5 +36587,717 @@ else { _ssInjectPage();_ssInjectNav(); }
   .rh-scope .rh-cmp-ph-name{ font-size:15px!important; }
 }
 </style>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     REDRAFT STRATEGY · Draft Vault sub-view
+     Third view on #page-draft alongside the board and ADP Explorer, entered
+     from the Draft Vault nav dropdown. Everything is scoped to `.rs-` and
+     `#page-draft.strategy-mode`, and this block sits after dv-shadcn-restyle
+     so it wins the cascade without !important.
+     Data: data/redraft_strategy_*.json, refreshed by the twice-daily
+     update-redraft-strategy cron.
+     ══════════════════════════════════════════════════════════════════════ -->
+<style id="rs-strategy-restyle">
+/* hide the board chrome while in strategy mode, same list adp-mode hides */
+#page-draft.strategy-mode .dconn-bar,
+#page-draft.strategy-mode #dv-pagehead,
+#page-draft.strategy-mode #intel-bar,
+#page-draft.strategy-mode .pstrip,
+#page-draft.strategy-mode .controls,
+#page-draft.strategy-mode .suggest-bar,
+#page-draft.strategy-mode #draft-summary,
+#page-draft.strategy-mode #plist,
+#page-draft.strategy-mode #dv-adp-view,
+#page-draft.strategy-mode #your-pick-banner{display:none!important}
+/* The live-draft suggestion strip is pinned open by `#page-draft #sbar.pa-clock
+   {display:flex!important}` (two IDs), which outranks a class-scoped rule — so
+   match its ID and add a class to win on both specificity and order. */
+#page-draft.strategy-mode #sbar,
+#page-draft.strategy-mode #sbar.pa-soon,
+#page-draft.strategy-mode #sbar.pa-clock{display:none!important}
+/* The roster bar lives OUTSIDE #page-draft and showPage() sets its display
+   inline, so it needs a body-level hook plus !important to beat the inline style. */
+body.rs-mode #global-rbar{display:none!important}
+
+#rs-view{display:none;max-width:1760px;margin:0 auto;padding:0 24px 120px;box-sizing:border-box}
+#page-draft.strategy-mode #rs-view{display:block}
+
+.rs-scope{--rs-gap:26px}
+/* Title and filters share one row BY DESIGN — the divider belongs to the header
+   itself, not to the controls, so the rule survives the controls wrapping.
+   Deliberately a DIV, not a <header>: the app styles the bare `header` element
+   for its site chrome (`header{background:var(--surface)!important}` plus a
+   glass/backdrop-filter rule), and a nested <header> inherited that panel fill. */
+.rs-hero{display:flex;align-items:center;gap:24px;flex-wrap:wrap;background:none;
+  padding:20px 0 15px;border-bottom:1px solid var(--border2)}
+.rs-kick{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.rs-hero h2{font-size:clamp(24px,2.5vw,34px);font-weight:900;letter-spacing:-.035em;line-height:1.05;margin:0;color:var(--text)}
+.rs-controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:0 0 0 auto;padding:0;border:0}
+
+/* stat cards — Draft Vault's .sug3 language */
+.rs-readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:22px 0 20px}
+.rs-card{position:relative;display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--border);
+  border-radius:14px;padding:12px 15px 12px 17px;overflow:hidden;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.rs-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc);opacity:.9}
+.rs-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--acc) 45%,var(--border));
+  box-shadow:0 14px 30px -18px rgba(0,0,0,.85),0 0 0 1px color-mix(in srgb,var(--acc) 20%,transparent)}
+.rs-av{width:44px;height:44px;border-radius:10px;flex:none;display:grid;place-items:center;color:var(--acc);
+  background:linear-gradient(160deg,var(--s3),var(--s2));border:1px solid var(--border2)}
+.rs-av svg{width:20px;height:20px}
+.rs-cbody{flex:1;min-width:0}
+.rs-eyebrow{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:8.5px;font-weight:700;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--acc);margin-bottom:3px}
+.rs-cline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rs-cname{font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rs-cmetric{font-family:var(--font-mono);font-size:18px;font-weight:800;flex:none;display:inline-flex;align-items:baseline;gap:1px;
+  text-shadow:0 0 14px color-mix(in srgb,currentColor 55%,transparent)}
+.rs-cmetric .u{font-size:11px;font-weight:700;opacity:.7}
+.rs-creason{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* section shell */
+.rs-sec{padding:26px 0 0}
+.rs-sech{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.rs-sech h3{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0;color:var(--text)}
+.rs-cap{font-size:13px;color:var(--muted);margin:5px 0 0;max-width:64ch}
+.rs-box{border:1px solid var(--border);border-radius:16px;padding:20px;background:var(--s1)}
+
+/* ranking bars */
+.rs-rrow{display:grid;grid-template-columns:104px 1fr;gap:14px;align-items:center;margin-bottom:8px}
+.rs-rlab{font-size:13px;font-weight:600;text-align:right;color:var(--text2)}
+.rs-klab{display:block;font-family:var(--font-mono);font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:2px;cursor:help}
+.rs-rtrack{position:relative;height:34px}
+.rs-rfill{position:absolute;top:0;bottom:0;left:0;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:9px;transition:width .5s cubic-bezier(.16,1,.3,1)}
+.rs-rfill.pos{background:linear-gradient(90deg,rgba(95,224,154,.45),rgba(95,224,154,.85))}
+.rs-rfill.neg{background:linear-gradient(90deg,rgba(226,58,78,.85),rgba(226,58,78,.45))}
+.rs-rfill.mid{background:linear-gradient(90deg,rgba(143,180,224,.35),rgba(143,180,224,.62))}
+.rs-rfig{font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);line-height:1.1;text-align:right}
+.rs-rfig small{display:block;font-size:9px;opacity:.85;font-weight:700}
+.rs-ravg{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--text);opacity:.85;z-index:3;border-radius:2px}
+.rs-ravg::before{content:attr(data-l);position:absolute;top:-26px;left:50%;transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--font-mono);font-size:9px;font-weight:700;background:var(--s4);border:1px solid var(--border2);
+  color:var(--text);padding:3px 8px;border-radius:5px}
+.rs-raxis{display:grid;grid-template-columns:104px 1fr;gap:14px;margin-top:6px}
+.rs-raxin{position:relative;height:18px;border-top:1px solid var(--border)}
+.rs-raxin span{position:absolute;top:5px;transform:translateX(-50%);font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+
+/* trust badges */
+.rs-tb{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+.rs-tb.pv{color:var(--accent2);background:color-mix(in srgb,var(--accent2) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent2) 36%,transparent)}
+.rs-tb.er{color:var(--te);background:color-mix(in srgb,var(--te) 12%,transparent);border:1px solid color-mix(in srgb,var(--te) 34%,transparent)}
+.rs-tb.no{color:var(--muted);background:var(--s3);border:1px solid var(--border2)}
+
+/* build rows */
+.rs-brow{display:grid;grid-template-columns:32px 1fr auto;gap:16px;align-items:center;padding:14px 16px;border-radius:11px;transition:background .2s ease}
+.rs-brow:hover{background:var(--s2)}
+.rs-brow+.rs-brow{border-top:1px solid var(--border)}
+.rs-bnum{font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--muted);text-align:center}
+.rs-bname{font-size:16px;font-weight:700;margin:0;display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:var(--text)}
+.rs-bmeta{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:4px;display:block}
+.rs-bstats{display:flex;gap:22px;align-items:baseline}
+.rs-bst{text-align:right;min-width:52px}
+.rs-bst .v{font-family:var(--font-mono);font-size:16px;font-weight:700;display:block;color:var(--text)}
+.rs-bst .k{font-family:var(--font-mono);font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);display:block;margin-top:3px}
+.rs-up{color:var(--rb)}.rs-dn{color:var(--red2)}
+
+/* glossary */
+.rs-glossbtn{display:flex;align-items:center;gap:11px;background:var(--s1);border:1px solid var(--border2);border-radius:10px;
+  padding:9px 13px;cursor:pointer;color:var(--text);font-family:var(--font-sans);text-align:left;transition:background .18s ease}
+.rs-glossbtn:hover{background:var(--s2)}
+.rs-glossbtn .gt{font-size:13px;font-weight:700;display:block;line-height:1.25}
+.rs-glossbtn .gs{font-size:11px;color:var(--muted);display:block}
+.rs-glossbtn .chev{margin-left:4px;color:var(--muted);transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.rs-glossbtn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.rs-gloss{border:1px solid var(--border2);border-radius:16px;background:var(--s1);padding:22px;margin-top:12px;display:none}
+.rs-gloss.on{display:block}
+.rs-gsec+.rs-gsec{margin-top:22px;padding-top:20px;border-top:1px solid var(--border)}
+.rs-gloss h4{font-size:15px;font-weight:800;margin:0 0 3px;color:var(--text)}
+.rs-gnote{font-size:12px;color:var(--muted);margin:0 0 12px}
+.rs-gitems{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px 28px}
+.rs-gitem{display:grid;grid-template-columns:8px 1fr;gap:11px;align-items:start;font-size:13px;color:var(--text2);line-height:1.6}
+.rs-gitem i{width:8px;height:8px;border-radius:50%;margin-top:7px;display:block}
+.rs-gitem b{color:var(--text)}
+.rs-rule{font-family:var(--font-mono);font-size:10px;color:var(--muted);display:block;margin-top:2px}
+
+/* openings */
+.rs-op{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;background:var(--s1);
+  border:1px solid var(--border);border-radius:10px;padding:12px 15px;margin-bottom:8px}
+.rs-op.sig{border-color:color-mix(in srgb,var(--rb) 30%,transparent)}
+.rs-op.sig.bad{border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+.rs-seq{display:flex;gap:4px}
+.rs-seq span{font-family:var(--font-mono);font-size:10px;font-weight:700;width:27px;height:25px;display:grid;place-items:center;
+  border-radius:6px;background:var(--s3);border:1px solid var(--border2)}
+.rs-ci{position:relative;height:6px;background:var(--s3);border-radius:999px;margin-top:8px}
+.rs-ci .band{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent2) 45%,transparent);border-radius:999px}
+.rs-ci .base{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text2);opacity:.8}
+.rs-cicap{font-family:var(--font-mono);font-size:9px;color:var(--muted);display:block;margin-top:4px}
+.rs-oprate{font-family:var(--font-mono);font-size:17px;font-weight:700;text-align:right;color:var(--text)}
+.rs-oprate small{display:block;font-size:8px;color:var(--muted);letter-spacing:.08em}
+
+/* curves + heatmap */
+.rs-curvegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:22px}
+.rs-curve{display:flex;gap:6px;align-items:flex-end;height:104px;margin-top:8px}
+.rs-curve .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
+.rs-curve .bar-i{width:100%;background:linear-gradient(180deg,var(--accent2),var(--accent));border-radius:5px 5px 0 0;min-height:3px}
+.rs-curve .col.peak .bar-i{background:linear-gradient(180deg,var(--rb),#2f9c62)}
+.rs-curve .c-lab{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+.rs-curve .c-rate{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text)}
+.rs-hmwrap{overflow-x:auto}
+table.rs-hm{border-collapse:separate;border-spacing:4px;width:100%;min-width:620px}
+table.rs-hm th{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 0 6px;text-align:center}
+table.rs-hm td.rowh{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text);text-align:left;width:52px}
+.rs-pdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.rs-cell{border-radius:6px;text-align:center;padding:8px 4px;border:1px solid var(--border);min-width:44px}
+.rs-cell .cv{font-family:var(--font-mono);font-size:12px;font-weight:700;display:block;line-height:1;color:var(--text)}
+.rs-cell .cn{font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.58);display:block;margin-top:3px}
+.rs-cell.empty{background:var(--s2);opacity:.32}
+
+/* year review */
+.rs-dec{background:linear-gradient(135deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:20px;padding:22px;margin-top:26px}
+.rs-decform{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.rs-decform input{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;
+  padding:11px 14px;color:var(--text);font-family:var(--font-sans);font-size:15px}
+.rs-decform button{background:var(--accent2);color:var(--on-primary,#0b1420);border:0;border-radius:10px;padding:11px 22px;
+  font-family:var(--font-sans);font-weight:800;font-size:15px;cursor:pointer}
+.rs-decform button:disabled{opacity:.55;cursor:default}
+.rs-status{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:11px;display:block}
+.rs-status.err{color:var(--red2)}
+.rs-lg{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:17px 19px;margin-top:13px}
+.rs-lghead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.rs-lgname{font-size:16px;font-weight:800;margin:0;color:var(--text)}
+.rs-lgmeta{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.rs-vline{background:var(--s2);border:1px solid color-mix(in srgb,var(--accent2) 22%,transparent);border-left:3px solid var(--accent2);
+  border-radius:10px;padding:11px 14px;margin:11px 0 0;font-size:13px;color:var(--text2)}
+.rs-vline.you{border-left-color:var(--te)}
+.rs-vline b{color:var(--text)}
+.rs-stdwrap{overflow-x:auto;margin-top:13px}
+table.rs-std{width:100%;min-width:540px;border-collapse:collapse;font-size:13px}
+table.rs-std th{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+table.rs-std td{padding:8px;border-bottom:1px solid var(--border);color:var(--text2)}
+table.rs-std tr.you{background:color-mix(in srgb,var(--accent2) 9%,transparent)}
+table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
+.rs-tag{font-family:var(--font-mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px;margin-left:6px;text-transform:uppercase}
+.rs-tag.champ{color:var(--te);background:color-mix(in srgb,var(--te) 14%,transparent);border:1px solid color-mix(in srgb,var(--te) 34%,transparent)}
+.rs-tag.you{color:var(--accent2);background:color-mix(in srgb,var(--accent2) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent2) 34%,transparent)}
+.rs-tag.po{color:var(--rb);background:color-mix(in srgb,var(--rb) 12%,transparent);border:1px solid color-mix(in srgb,var(--rb) 30%,transparent)}
+.rs-mini{display:inline-flex;gap:3px}
+.rs-mini span{font-family:var(--font-mono);font-size:9px;font-weight:700;width:22px;height:19px;display:grid;place-items:center;
+  border-radius:4px;background:var(--s3);border:1px solid var(--border2)}
+.rs-skel{height:14px;border-radius:5px;background:linear-gradient(90deg,var(--s2),var(--s3),var(--s2));background-size:200% 100%;animation:rs-sh 1.1s linear infinite}
+@keyframes rs-sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.rs-method{margin-top:36px;padding-top:20px;border-top:1px solid var(--border)}
+.rs-method p{font-size:13px;color:var(--muted);margin:8px 0 0;max-width:88ch}
+.rs-method code{font-family:var(--font-mono);font-size:10px;background:var(--s2);border:1px solid var(--border);padding:2px 6px;border-radius:4px;color:var(--text2)}
+.rs-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:30px;align-items:start}
+
+@media (max-width:900px){ .rs-grid2{grid-template-columns:minmax(0,1fr);gap:24px} }
+@media (max-width:760px){
+  #rs-view{padding:0 14px 120px}
+  .rs-rrow,.rs-raxis{grid-template-columns:74px 1fr;gap:9px}
+  .rs-rlab{font-size:12px}
+  .rs-brow{grid-template-columns:26px 1fr;gap:10px}
+  .rs-bstats{grid-column:1/-1;justify-content:space-between;gap:10px;padding-top:10px;border-top:1px solid var(--border)}
+}
+</style>
+<script id="rs-strategy-js">
+/* ══════════════════════════════════════════════════════════════════════
+   REDRAFT STRATEGY · view logic
+   Data comes from the cron-built data/redraft_strategy_*.json files, so
+   the sample grows without any change here. classifyJS below mirrors
+   classify() in scripts/build_redraft_strategy.py — change one, change both.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+  var RS = null, RS_LOADING = false;
+  var st = { season:'all', sc:'ppr', fmt:'1qb', metric:'playoff' };
+
+  var COLOR = {
+    'Robust RB':'var(--rb)','Hero RB':'var(--wr)','Zero RB':'var(--qb)','WR Heavy':'var(--te)','Balanced':'var(--accent2)',
+    'Elite QB':'var(--qb)','Late QB':'var(--rb)','Elite TE':'var(--te)','Late TE':'var(--accent3)',
+    'RB/RB':'var(--rb)','RB/WR':'var(--accent2)','WR/RB':'var(--accent2)','WR/WR':'var(--qb)'
+  };
+  var POSC = {RB:'var(--rb)',WR:'var(--wr)',QB:'var(--qb)',TE:'var(--te)'};
+  var KINDLAB = {core:'Core', overlay:'Timing', opening:'Opening'};
+  var METRICS = {
+    playoff:{key:'playoffRate', base:'playoffRate'},
+    champ:  {key:'champRate',   base:'champRate'},
+    top3:   {key:'top3Rate',    base:'top3Rate'}
+  };
+  var pct  = function(v,d){ return (v*100).toFixed(d==null?1:d)+'%'; };
+  var pct0 = function(v){ return (v*100).toFixed(0)+'%'; };
+  var pp   = function(v){ return (v>=0?'+':'−')+Math.abs(v*100).toFixed(1)+'pp'; };
+
+  var IC = {
+    teams:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.5"/><path d="M22 20v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.5a4 4 0 0 1 0 7"/></svg>',
+    field:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>',
+    best:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.2l5.9-.9z"/></svg>',
+    spread:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16M4 16h16"/><path d="M8 4L4 8l4 4"/><path d="M16 12l4 4-4 4"/></svg>'
+  };
+
+  var VIEW_HTML = [
+    '<div class="rs-scope">',
+    '<div class="rs-hero">',
+      '<h2>Redraft Strategy</h2>',
+      '<div class="rs-controls">',
+        '<div class="adp-seg-group"><span class="adp-seg-label">Season</span>',
+          '<div class="adp-seg" id="rs-seg-season"><button data-v="all" class="on">All</button><button data-v="2023">2023</button><button data-v="2024">2024</button><button data-v="2025">2025</button></div></div>',
+        '<div class="adp-seg-group"><span class="adp-seg-label">Scoring</span>',
+          '<div class="adp-seg" id="rs-seg-sc"><button data-v="ppr" class="on">PPR</button><button data-v="half">Half</button></div></div>',
+        '<div class="adp-seg-group"><span class="adp-seg-label">Format</span>',
+          '<div class="adp-seg" id="rs-seg-fmt"><button data-v="1qb" class="on">1QB</button><button data-v="sf">Superflex</button></div></div>',
+      '</div>',
+    '</div>',
+    '<div class="rs-readout" id="rs-readout"></div>',
+    '<section class="rs-sec"><div class="rs-sech">',
+      '<div><h3>Strategy ranking</h3><p class="rs-cap">Every strategy against the field. Switch the metric — a build can score well and still miss January.</p></div>',
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">',
+        '<div class="adp-seg" id="rs-seg-metric"><button data-v="playoff" class="on">Playoff Rate</button><button data-v="champ">Championship</button><button data-v="top3">Top-3 Points</button></div>',
+        '<button class="rs-glossbtn" id="rs-glossbtn" aria-expanded="false" aria-controls="rs-gloss"><span><span class="gt">Strategy glossary</span><span class="gs">What each strategy means</span></span>',
+        '<svg class="chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>',
+      '</div></div>',
+      '<div class="rs-gloss" id="rs-gloss">',
+        '<div class="rs-gsec"><h4>Core draft strategies</h4><p class="rs-gnote">Every team belongs to exactly one, judged on <b>rounds 1–5</b>.</p><div class="rs-gitems">',
+          '<div class="rs-gitem"><i style="background:var(--qb)"></i><span><b>Zero RB</b> — no running backs at all in the first five rounds. Loads up on receivers early and hunts RB value later.<span class="rs-rule">0 RB in rounds 1–5</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--wr)"></i><span><b>Hero RB</b> — one anchor back, then receivers.<span class="rs-rule">exactly 1 RB, fewer than 3 WR</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--rb)"></i><span><b>Robust RB</b> — heavy early investment at running back for depth and volume.<span class="rs-rule">3+ RB in rounds 1–5</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--te)"></i><span><b>WR Heavy</b> — commits to receiver depth without going full Zero RB.<span class="rs-rule">3+ WR and fewer than 3 RB</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--accent2)"></i><span><b>Balanced</b> — a mixed start with no extreme positional concentration.<span class="rs-rule">exactly 2 RB, fewer than 3 WR</span></span></div>',
+        '</div></div>',
+        '<div class="rs-gsec"><h4>Positional timing</h4><p class="rs-gnote">Independent overlays — a team can be <b>Hero RB and Late QB at once</b>, so these do not divide the field the way the core strategies do.</p><div class="rs-gitems">',
+          '<div class="rs-gitem"><i style="background:var(--qb)"></i><span><b>Elite QB</b> — pays up for a quarterback early.<span class="rs-rule">first QB in rounds 1–4</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--rb)"></i><span><b>Late QB</b> — waits out the position entirely.<span class="rs-rule">first QB in round 8 or later</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--te)"></i><span><b>Elite TE</b> — takes one of the top tight ends.<span class="rs-rule">first TE in rounds 1–2</span></span></div>',
+          '<div class="rs-gitem"><i style="background:var(--accent3)"></i><span><b>Late TE</b> — punts tight end and streams it.<span class="rs-rule">first TE in round 8 or later</span></span></div>',
+        '</div></div>',
+        '<div class="rs-gsec"><h4>Draft openings</h4><p class="rs-gnote">The first two picks, tracked as its own layer.</p><div class="rs-gitems">',
+          '<div class="rs-gitem"><i style="background:var(--rb)"></i><span><b>RB/RB</b> — running back in rounds 1 and 2.</span></div>',
+          '<div class="rs-gitem"><i style="background:var(--accent2)"></i><span><b>RB/WR</b> — back first, receiver second.</span></div>',
+          '<div class="rs-gitem"><i style="background:var(--accent2)"></i><span><b>WR/RB</b> — receiver first, back second.</span></div>',
+          '<div class="rs-gitem"><i style="background:var(--qb)"></i><span><b>WR/WR</b> — receiver in rounds 1 and 2.</span></div>',
+        '</div></div>',
+      '</div>',
+      '<div class="rs-box" style="margin-top:13px"><div id="rs-rank"></div><div class="rs-raxis"><span></span><div class="rs-raxin" id="rs-raxis"></div></div></div>',
+    '</section>',
+    '<section class="rs-sec"><div class="rs-sech"><div><h3>The winning builds</h3><p class="rs-cap">Core strategies ranked by playoff rate — read the trust badge before the number.</p></div></div>',
+      '<div class="rs-box" id="rs-board"></div></section>',
+    '<section class="rs-sec"><div class="rs-grid2">',
+      '<div><div class="rs-sech"><div><h3>The openings</h3><p class="rs-cap" id="rs-opcap"></p></div></div><div id="rs-openings"></div></div>',
+      '<div><div class="rs-sech"><div><h3>How many is too many</h3><p class="rs-cap">Playoff rate by how many of each position a team took in the first six rounds.</p></div></div>',
+        '<div class="rs-box"><div class="rs-curvegrid" id="rs-curves"></div></div></div>',
+    '</div></section>',
+    '<section class="rs-sec"><div class="rs-sech"><div><h3>When the winners drafted each position</h3><p class="rs-cap">Playoff rate by the round a team took its <em>first</em> player at each position.</p></div></div>',
+      '<div class="rs-box"><div class="rs-hmwrap"><table class="rs-hm" id="rs-hm"></table></div><span class="rs-cicap" id="rs-hmcap"></span></div></section>',
+    '<section class="rs-dec">',
+      '<span class="rs-kick">Your leagues</span>',
+      '<h3 style="font-size:19px;font-weight:800;letter-spacing:-.02em;margin:8px 0 0;color:var(--text)">How your league was actually won</h3>',
+      '<p class="rs-cap">Pull your completed <b>2025</b> redraft leagues, rebuild every manager\'s draft, and check the winning build against the corpus above.</p>',
+      '<form class="rs-decform" id="rs-decform"><input id="rs-decuser" type="text" placeholder="Sleeper username" autocomplete="off" spellcheck="false" aria-label="Sleeper username"><button type="submit" id="rs-decgo">Decode my 2025</button></form>',
+      '<span class="rs-status" id="rs-decstatus"></span><div id="rs-decout"></div>',
+    '</section>',
+    '<section class="rs-method"><span class="rs-kick">Method</span>',
+      '<p>Built from completed Sleeper redraft leagues. Every team\'s draft is rebuilt from <code>/draft/{id}/picks</code> (round, slot, position — keeper picks excluded) and joined on <code>roster_id</code> to that season\'s outcome from <code>/league/{id}/rosters</code> and <code>/league/{id}/winners_bracket</code>. The crawler runs twice daily, so the sample grows over time.</p>',
+      '<p><b>Metrics</b> — <b>Playoff Rate</b> is the share of teams that reached the bracket, <b>Championship</b> the share that won it, and <b>Top-3 Points</b> the share that finished top three in points scored, which measures roster strength without schedule luck. Lift is versus each slice\'s own field baseline.</p>',
+      '<p><b>Why the badges exist</b> — a ranked table of rates is mostly noise at these sample sizes. Every rate carries a 95% Wilson confidence interval; a finding is <b>significant</b> only if that interval clears the field baseline, and <b>Proven</b> only if it also holds the same direction in every season with enough teams.</p>',
+      '<p><b>Known bias</b> — the corpus spans 2023–2025, a stretch where early running backs beat their ADP. Use the season filter to see whether an edge held up or came from one year.</p>',
+    '</section></div>'
+  ].join('');
+
+  /* ── data ── */
+  function ensureView(){
+    var page = document.getElementById('page-draft');
+    if (!page || document.getElementById('rs-view')) return;
+    var v = document.createElement('div');
+    v.id = 'rs-view';
+    v.innerHTML = VIEW_HTML;
+    page.appendChild(v);
+    wire();
+  }
+
+  function load(){
+    if (RS || RS_LOADING) { render(); return; }
+    RS_LOADING = true;
+    var files = ['archetypes','openings','curves','position_rounds','stats'];
+    Promise.all(files.map(function(f){
+      return fetch('data/redraft_strategy_'+f+'.json').then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; });
+    })).then(function(res){
+      RS_LOADING = false;
+      if (!res[0]) { fail(); return; }
+      RS = { arch:res[0].data, op:res[1]&&res[1].data, cv:res[2]&&res[2].data, pr:res[3]&&res[3].data, stats:res[4]||{} };
+      render();
+    }).catch(function(){ RS_LOADING = false; fail(); });
+  }
+  function fail(){
+    var h = document.getElementById('rs-readout');
+    if (h) h.innerHTML = '<div class="rs-card" style="--acc:var(--red)"><div class="rs-cbody"><div class="rs-eyebrow">Unavailable</div>'+
+      '<div class="rs-cname">Strategy data did not load</div><div class="rs-creason">data/redraft_strategy_*.json could not be read</div></div></div>';
+  }
+
+  function slice(){
+    var s = RS && RS.arch[st.sc+'|'+st.fmt];
+    if (!s) return null;
+    return st.season==='all' ? s : ((s.bySeasonSlice||{})[st.season] || null);
+  }
+  function rootSlice(){ return RS && RS.arch[st.sc+'|'+st.fmt]; }
+  function rows(d){ return d ? (d.archetypes||[]).filter(function(r){ return !r.insufficient; }) : []; }
+  function coreRows(d){ return rows(d).filter(function(r){ return r.kind==='core'; }); }
+  function trust(r){
+    if (!r.significant) return {k:'no', t:'Not proven'};
+    return r.stability==='durable' ? {k:'pv', t:'Proven'} : {k:'er', t:'Era-dependent'};
+  }
+
+  /* ── renderers ── */
+  function card(acc, icon, eyebrow, name, metric, unit, reason){
+    return '<article class="rs-card" style="--acc:'+acc+'"><div class="rs-av">'+IC[icon]+'</div><div class="rs-cbody">'+
+      '<div class="rs-eyebrow"><span style="display:inline-flex;width:12px;height:12px">'+IC[icon]+'</span>'+eyebrow+'</div>'+
+      '<div class="rs-cline"><span class="rs-cname">'+name+'</span>'+
+      '<span class="rs-cmetric" style="color:'+acc+'">'+metric+(unit?'<span class="u">'+unit+'</span>':'')+'</span></div>'+
+      '<div class="rs-creason">'+reason+'</div></div></article>';
+  }
+  function renderReadout(){
+    var d = slice(), host = document.getElementById('rs-readout');
+    if (!host) return;
+    if (!d) { host.innerHTML = '<div class="rs-card" style="--acc:var(--muted)"><div class="rs-cbody"><div class="rs-eyebrow">No data</div><div class="rs-cname">Nothing for this slice yet</div><div class="rs-creason">Try another scoring or format</div></div></div>'; return; }
+    var cr = coreRows(d).slice().sort(function(a,b){ return b.playoffRate-a.playoffRate; });
+    var best = cr[0], worst = cr[cr.length-1];
+    /* a RANGE, not a join — three seasons rendered as "2023–2024–2025" */
+    var sea = (RS.stats.seasons||[]).slice().sort();
+    var seasonLab = st.season!=='all' ? st.season
+      : (sea.length ? (sea.length>1 ? sea[0]+'–'+sea[sea.length-1] : sea[0]) : '');
+    host.innerHTML = [
+      card('var(--sky)','teams','Sample','Teams analysed', Number(d.n).toLocaleString(), '',
+        Number(RS.stats.leagues||0).toLocaleString()+' completed leagues · '+seasonLab),
+      card('var(--accent2)','field','Field baseline','Playoff rate', (d.baseline.playoffRate*100).toFixed(1), '%',
+        'What an average team does · '+pct(d.baseline.champRate)+' win it all'),
+      best ? card('var(--rb)','best','Best build', best.arch, pct0(best.playoffRate), '',
+        pp(best.playoffRate-d.baseline.playoffRate)+' vs field · '+trust(best).t.toLowerCase())
+           : card('var(--muted)','best','Best build','—','—','','Core strategies rebuilding'),
+      cr.length ? card('var(--te)','spread','Spread','Best to worst',
+        ((best.playoffRate-worst.playoffRate)*100).toFixed(1), 'pp', best.arch+' over '+worst.arch)
+           : card('var(--muted)','spread','Spread','Best to worst','—','','No core rows yet')
+    ].join('');
+  }
+
+  function renderRank(){
+    var d = slice(), host = document.getElementById('rs-rank'), ax = document.getElementById('rs-raxis');
+    if (!host||!ax) return;
+    if (!d) { host.innerHTML=''; ax.innerHTML=''; return; }
+    var M = METRICS[st.metric];
+    var usable = rows(d).filter(function(r){ return r[M.key]!=null; });
+    if (!usable.length) { host.innerHTML='<p class="rs-cap">This metric is not available for the current slice.</p>'; ax.innerHTML=''; return; }
+    var base = d.baseline[M.base];
+    var rs = usable.slice().sort(function(a,b){ return a[M.key]-b[M.key]; });
+    var vals = rs.map(function(r){ return r[M.key]; }).concat([base]);
+    var mn = Math.min.apply(null,vals), mx = Math.max.apply(null,vals);
+    var lo = Math.max(0, mn-(mx-mn)*0.35), hi = mx+(mx-mn)*0.28;
+    var P = function(v){ return ((v-lo)/(hi-lo))*100; };
+    host.innerHTML = rs.map(function(r,i){
+      var v=r[M.key], diff=v-base, k=r.kind||'core';
+      var cls = Math.abs(diff)<0.005 ? 'mid' : (diff>0?'pos':'neg');
+      var tip = k==='core' ? 'Mutually exclusive — every team is exactly one'
+                           : 'An independent layer; teams can appear here and in a core strategy';
+      return '<div class="rs-rrow"><span class="rs-rlab">'+r.arch+'<span class="rs-klab" title="'+tip+'">'+KINDLAB[k]+'</span></span>'+
+        '<div class="rs-rtrack"><span class="rs-rfill '+cls+'" style="width:'+P(v).toFixed(2)+'%">'+
+        '<span class="rs-rfig">'+pct(v)+'<small>'+pp(diff)+'</small></span></span>'+
+        '<span class="rs-ravg" style="left:'+P(base).toFixed(2)+'%"'+(i===0?' data-l="FIELD '+pct(base)+'"':'')+'></span></div></div>';
+    }).join('');
+    var out='';
+    for (var i=0;i<=4;i++){ var v=lo+(hi-lo)*(i/4); out += '<span style="left:'+((i/4)*100)+'%">'+pct0(v)+'</span>'; }
+    ax.innerHTML = out;
+  }
+
+  function renderBoard(){
+    var d = slice(), host = document.getElementById('rs-board');
+    if (!host) return;
+    var cr = coreRows(d).slice().sort(function(a,b){ return b.playoffRate-a.playoffRate; });
+    if (!cr.length) { host.innerHTML='<p class="rs-cap">Core strategies are rebuilding as the crawler refills the corpus.</p>'; return; }
+    host.innerHTML = cr.map(function(r,i){
+      var t = trust(r), up = r.playoffRate>=d.baseline.playoffRate;
+      return '<article class="rs-brow"><span class="rs-bnum">'+(i+1)+'</span>'+
+        '<div><div class="rs-bname"><span style="width:9px;height:9px;border-radius:50%;background:'+(COLOR[r.arch]||'var(--accent2)')+';display:inline-block"></span>'+
+        r.arch+' <span class="rs-tb '+t.k+'">'+t.t+'</span></div>'+
+        '<span class="rs-bmeta">'+Number(r.n).toLocaleString()+' teams · <span class="'+(up?'rs-up':'rs-dn')+'">'+pp(r.playoffRate-d.baseline.playoffRate)+'</span> vs field</span></div>'+
+        '<div class="rs-bstats">'+
+          '<div class="rs-bst"><span class="v">'+pct0(r.playoffRate)+'</span><span class="k">Playoffs</span></div>'+
+          '<div class="rs-bst"><span class="v">'+pct0(r.champRate)+'</span><span class="k">Titles</span></div>'+
+          '<div class="rs-bst"><span class="v">'+(r.top3Rate!=null?pct0(r.top3Rate):'—')+'</span><span class="k">Top-3 PF</span></div>'+
+        '</div></article>';
+    }).join('');
+  }
+
+  function renderOpenings(){
+    var host = document.getElementById('rs-openings'), cap = document.getElementById('rs-opcap');
+    if (!host) return;
+    var o = RS.op && RS.op[st.sc+'|'+st.fmt];
+    if (!o || !o.openings || !o.openings.length) {
+      host.innerHTML = '<div class="rs-box"><p class="rs-cap">No opening has reached 30 teams in this slice yet.</p></div>';
+      if (cap) cap.textContent = 'Exact first-four-pick sequences.';
+      return;
+    }
+    if (cap) cap.innerHTML = o.distinctOpenings+' distinct openings · '+o.reported+' with 30+ teams · <b style="color:var(--rb)">'+o.significant+' clear the field at 95%</b>. Season filter does not apply here.';
+    var base = o.baseline.playoffRate;
+    var top = o.openings.slice(0,6).concat(o.openings.slice(-3));
+    var seen = {}, list = [];
+    top.forEach(function(r){ if(!seen[r.seq]){ seen[r.seq]=1; list.push(r); } });
+    host.innerHTML = list.map(function(r){
+      var bad = r.playoffLift<0, t = trust(r);
+      var LO=0.2, HI=0.8, X=function(v){ return Math.max(0,Math.min(100,((v-LO)/(HI-LO))*100)); };
+      var a=X(r.ci95[0]), b=X(r.ci95[1]);
+      return '<article class="rs-op'+(r.significant?' sig':'')+(bad?' bad':'')+'">'+
+        '<div class="rs-seq">'+r.seq.split('-').map(function(p){ return '<span style="color:'+POSC[p]+'">'+p+'</span>'; }).join('')+'</div>'+
+        '<div><span class="rs-tb '+t.k+'">'+t.t+'</span><span class="rs-cicap" style="display:inline;margin-left:6px">'+r.n+' teams · '+pp(r.playoffLift)+' vs field</span>'+
+        '<div class="rs-ci"><span class="band" style="left:'+a+'%;width:'+Math.max(1.5,b-a)+'%"></span><span class="base" style="left:'+X(base)+'%"></span></div></div>'+
+        '<div class="rs-oprate">'+pct0(r.playoffRate)+'<small>PLAYOFFS</small></div></article>';
+    }).join('');
+  }
+
+  function renderCurves(){
+    var host = document.getElementById('rs-curves');
+    if (!host) return;
+    var c = RS.cv && RS.cv[st.sc+'|'+st.fmt];
+    if (!c || !c.positions || !Object.keys(c.positions).length) { host.innerHTML='<p class="rs-cap">Not enough teams in this slice yet.</p>'; return; }
+    host.innerHTML = Object.keys(c.positions).map(function(pos){
+      var blk = c.positions[pos];
+      var max = Math.max.apply(null, blk.curve.map(function(r){ return r.playoffRate; }));
+      return '<div><span class="rs-kick"><span class="rs-pdot" style="background:'+POSC[pos]+'"></span>'+pos+' in first 6</span><div class="rs-curve">'+
+        blk.curve.map(function(r){
+          return '<div class="col'+(r.count===blk.peak?' peak':'')+'" title="'+r.count+' '+pos+' — '+pct(r.playoffRate)+' across '+r.n+' teams">'+
+            '<span class="c-rate">'+pct0(r.playoffRate)+'</span>'+
+            '<span class="bar-i" style="height:'+Math.max(4,(r.playoffRate/max)*74)+'px"></span>'+
+            '<span class="c-lab">'+r.count+'</span></div>';
+        }).join('')+'</div></div>';
+    }).join('');
+  }
+
+  function renderHeat(){
+    var host = document.getElementById('rs-hm'), cap = document.getElementById('rs-hmcap');
+    if (!host) return;
+    var block = RS.pr && RS.pr[st.sc+'|'+st.fmt], d = slice();
+    if (!block) { host.innerHTML=''; return; }
+    var base = d ? d.baseline.playoffRate : 0.5;
+    var style = function(rate){
+      var t = Math.max(-1,Math.min(1,(rate-base)/0.12)), a = 0.10+0.50*Math.abs(t);
+      return t>=0 ? 'background:rgba(95,224,154,'+a.toFixed(3)+');border-color:rgba(95,224,154,'+(a+0.15).toFixed(3)+')'
+                  : 'background:rgba(226,58,78,'+a.toFixed(3)+');border-color:rgba(226,58,78,'+(a+0.15).toFixed(3)+')';
+    };
+    var head = '<thead><tr><th></th>';
+    for (var r=1;r<=12;r++) head += '<th>R'+r+'</th>';
+    head += '</tr></thead><tbody>';
+    var body = ['RB','WR','QB','TE'].map(function(pos){
+      var by = {}; (block[pos]||[]).forEach(function(x){ by[x.round]=x; });
+      var tds = '';
+      for (var r=1;r<=12;r++){
+        var x = by[r];
+        tds += x ? '<td class="rs-cell" style="'+style(x.playoffRate)+'" title="'+pos+' first taken round '+r+' — '+pct(x.playoffRate)+' across '+x.n+' teams"><span class="cv">'+pct0(x.playoffRate)+'</span><span class="cn">'+x.n+'</span></td>'
+                 : '<td class="rs-cell empty"></td>';
+      }
+      return '<tr><td class="rowh"><span class="rs-pdot" style="background:'+POSC[pos]+'"></span>'+pos+'</td>'+tds+'</tr>';
+    }).join('');
+    host.innerHTML = head + body + '</tbody>';
+    if (cap) cap.textContent = 'Colour is distance from the field baseline ('+pct(base)+'); footnote is sample size. Season filter does not apply here.';
+  }
+
+  function render(){
+    if (!RS) return;
+    renderReadout(); renderRank(); renderBoard(); renderOpenings(); renderCurves(); renderHeat();
+  }
+
+  /* ── wiring ── */
+  function seg(id, key, after){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      [].forEach.call(el.querySelectorAll('button'), function(x){
+        var on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on));
+      });
+      st[key] = b.dataset.v;
+      (after||render)();
+    });
+    [].forEach.call(el.querySelectorAll('button'), function(b){ b.setAttribute('aria-pressed', String(b.classList.contains('on'))); });
+  }
+  function wire(){
+    seg('rs-seg-season','season'); seg('rs-seg-sc','sc');
+    seg('rs-seg-fmt','fmt'); seg('rs-seg-metric','metric', renderRank);
+    var gb = document.getElementById('rs-glossbtn'), gx = document.getElementById('rs-gloss');
+    if (gb && gx) gb.addEventListener('click', function(){
+      var open = gx.classList.toggle('on');
+      gb.setAttribute('aria-expanded', String(open));
+    });
+    var f = document.getElementById('rs-decform');
+    if (f) f.addEventListener('submit', function(e){
+      e.preventDefault();
+      var v = document.getElementById('rs-decuser').value.trim();
+      if (v) decode(v);
+    });
+    /* prefill from the connected Sleeper account when there is one */
+    try {
+      var u = (window.mySleeperUser && (mySleeperUser.display_name || mySleeperUser.username)) || '';
+      if (u) document.getElementById('rs-decuser').value = u;
+    } catch(e){}
+  }
+
+  /* ── Sleeper year review (public, keyless, CORS-open) ── */
+  var SLEEPER='https://api.sleeper.app/v1', SKILL={QB:1,RB:1,WR:1,TE:1};
+  function sGet(p){ return fetch(SLEEPER+'/'+p).then(function(r){ return r.ok?r.text():null; })
+    .then(function(t){ return (!t||t==='null')?null:JSON.parse(t); }).catch(function(){ return null; }); }
+  function classifyJS(pbr){
+    var c = function(pos,a,b){ var n=0; for(var r=a;r<=b;r++){ (pbr[r]||[]).forEach(function(p){ if(p===pos) n++; }); } return n; };
+    var rb=c('RB',1,5), wr=c('WR',1,5);
+    if (rb>=3) return 'Robust RB';
+    if (rb===0) return 'Zero RB';
+    if (wr>=3) return 'WR Heavy';
+    return rb===1 ? 'Hero RB' : 'Balanced';
+  }
+  function parseBracket(wb){
+    var playoff={}, champion=null, maxR=0, fin=null;
+    (wb||[]).forEach(function(m){
+      ['t1','t2'].forEach(function(k){ if (Number.isInteger(m[k])) playoff[m[k]]=1; });
+      if ((m.r||0)>maxR){ maxR=m.r||0; fin=m; }
+      if (Number.isInteger(m.p) && m.p===1 && Number.isInteger(m.w)) champion=m.w;
+    });
+    if (champion===null && fin && Number.isInteger(fin.w)) champion=fin.w;
+    return {playoff:playoff, champion:champion};
+  }
+  var ordinal = function(n){ return n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th'); };
+
+  function archVerdict(arch, sc, fmt){
+    var root = RS.arch[sc+'|'+fmt]; if (!root) return null;
+    var y = (root.bySeasonSlice||{})['2025'];
+    var src = y || root;
+    var row = (src.archetypes||[]).filter(function(a){ return a.arch===arch && !a.insufficient; })[0];
+    if (!row) return null;
+    return { lift: row.playoffRate - src.baseline.playoffRate, from: y?'2025':'2023–2025', trust: trust(row) };
+  }
+
+  function analyzeLeague(lg, uid){
+    var lid = lg.league_id;
+    return Promise.all([sGet('league/'+lid+'/users'), sGet('league/'+lid+'/rosters'),
+                        sGet('league/'+lid+'/winners_bracket'), sGet('league/'+lid+'/drafts')])
+    .then(function(a){
+      var users=a[0], rosters=a[1], wb=a[2], drafts=a[3];
+      if (!rosters || !drafts || !drafts.length) return null;
+      var draft = drafts.reduce(function(x,y){ return ((y.settings||{}).rounds||0)>((x.settings||{}).rounds||0)?y:x; });
+      return sGet('draft/'+draft.draft_id+'/picks').then(function(picks){
+        if (!picks || !picks.length) return null;
+        var nameOf={}; (users||[]).forEach(function(u){ nameOf[u.user_id]=u.display_name||u.username; });
+        var br = parseBracket(wb), builds={};
+        picks.forEach(function(pk){
+          if (pk.is_keeper) return;
+          var pos=(pk.metadata||{}).position||'';
+          if (pk.roster_id==null || !SKILL[pos] || !pk.round) return;
+          var b = builds[pk.roster_id] || (builds[pk.roster_id]={pbr:{},order:[],slot:pk.draft_slot});
+          (b.pbr[pk.round]=b.pbr[pk.round]||[]).push(pos);
+          b.order.push([pk.pick_no||0,pos,((pk.metadata||{}).first_name||'')+' '+((pk.metadata||{}).last_name||'')]);
+          if (b.slot==null && pk.draft_slot!=null) b.slot=pk.draft_slot;
+        });
+        var teams = rosters.map(function(r){
+          var b=builds[r.roster_id], s=r.settings||{};
+          var ord = b ? b.order.slice().sort(function(x,y){ return x[0]-y[0]; }) : [];
+          return { manager:nameOf[r.owner_id]||'Unknown', isYou:r.owner_id===uid,
+            wins:s.wins||0, losses:s.losses||0, pf:Math.round((s.fpts||0)+(s.fpts_decimal||0)/100),
+            slot:b?b.slot:null, arch:b?classifyJS(b.pbr):null,
+            seq:ord.slice(0,4).map(function(x){ return x[1]; }),
+            picks:ord.slice(0,3).map(function(x){ return x[1]+' '+x[2].trim(); }),
+            champ:br.champion===r.roster_id, playoff:!!br.playoff[r.roster_id] };
+        }).filter(function(t){ return t.arch; });
+        teams.sort(function(a,b){ return (b.wins-a.wins)||(b.pf-a.pf); });
+        var rp = lg.roster_positions||[];
+        var rec = parseFloat((lg.scoring_settings||{}).rec)||0;
+        return { name:lg.name, teams:rosters.length, rows:teams,
+          sc: rec>=0.75?'ppr':(rec>=0.25?'half':'std'),
+          fmt: (rp.indexOf('SUPER_FLEX')>=0 || rp.filter(function(x){return x==='QB';}).length>=2)?'sf':'1qb' };
+      });
+    });
+  }
+
+  function renderLeague(L){
+    var champ = L.rows.filter(function(r){ return r.champ; })[0];
+    var you = L.rows.filter(function(r){ return r.isYou; })[0];
+    var label = ({ppr:'PPR',half:'Half-PPR',std:'Standard'})[L.sc]+' · '+(L.fmt==='sf'?'Superflex':'1QB');
+    var v = '';
+    if (champ){
+      var a = archVerdict(champ.arch, L.sc, L.fmt);
+      v = '<div class="rs-vline"><b>'+champ.manager+'</b> won it from the <b>'+(champ.slot?ordinal(champ.slot):'?')+
+        '</b> slot on a <b>'+champ.arch+'</b> build — opened '+champ.picks.join(', ')+'.'+
+        (a?' League-wide in '+a.from+', <b>'+champ.arch+'</b> ran '+pp(a.lift)+' versus the field — '+a.trust.t.toLowerCase()+'.':'')+'</div>';
+    }
+    var mine = '';
+    if (you){
+      var b = archVerdict(you.arch, L.sc, L.fmt);
+      mine = '<div class="rs-vline you"><b>You</b> finished '+you.wins+'-'+you.losses+' on a <b>'+you.arch+'</b> build from the '+
+        (you.slot?ordinal(you.slot):'?')+' slot'+(you.champ?' — and won the whole thing.':'.')+
+        (b?' That build was '+pp(b.lift)+' versus the field league-wide in '+b.from+'.':'')+'</div>';
+    }
+    return '<div class="rs-lg"><div class="rs-lghead"><h4 class="rs-lgname">'+L.name+'</h4><span class="rs-lgmeta">'+L.teams+'-team · '+label+'</span></div>'+
+      v+mine+'<div class="rs-stdwrap"><table class="rs-std"><thead><tr><th>Manager</th><th>Rec</th><th>PF</th><th>Slot</th><th>Build</th><th>Opening</th></tr></thead><tbody>'+
+      L.rows.map(function(r){
+        return '<tr class="'+(r.champ?'champ':'')+(r.isYou?' you':'')+'">'+
+          '<td><b style="color:var(--text)">'+r.manager+'</b>'+(r.champ?'<span class="rs-tag champ">Champ</span>':'')+
+          (r.isYou?'<span class="rs-tag you">You</span>':'')+((!r.champ&&r.playoff)?'<span class="rs-tag po">Playoffs</span>':'')+'</td>'+
+          '<td>'+r.wins+'-'+r.losses+'</td><td>'+r.pf.toLocaleString()+'</td><td>'+(r.slot||'—')+'</td><td>'+r.arch+'</td>'+
+          '<td><span class="rs-mini">'+r.seq.map(function(p){ return '<span style="color:'+POSC[p]+'">'+p+'</span>'; }).join('')+'</span></td></tr>';
+      }).join('')+'</tbody></table></div></div>';
+  }
+
+  var SKEL = '<div class="rs-lg"><div class="rs-skel" style="width:38%;height:18px"></div>'+
+    '<div class="rs-skel" style="width:100%;margin-top:14px;height:44px"></div>'+
+    '<div class="rs-skel" style="width:100%;margin-top:10px;height:110px"></div></div>';
+
+  function decode(username){
+    var status=document.getElementById('rs-decstatus'), out=document.getElementById('rs-decout'), btn=document.getElementById('rs-decgo');
+    out.innerHTML=''; status.className='rs-status'; btn.disabled=true;
+    status.textContent='Looking up user…';
+    sGet('user/'+encodeURIComponent(username)).then(function(user){
+      if (!user || !user.user_id){ status.className='rs-status err'; status.textContent='No Sleeper user “'+username+'”.'; btn.disabled=false; return; }
+      status.textContent='Finding your 2025 leagues…';
+      return sGet('user/'+user.user_id+'/leagues/nfl/2025').then(function(lgs){
+        lgs = lgs || [];
+        var rd = lgs.filter(function(l){ return (l.settings||{}).type===0 && l.status==='complete'; });
+        if (!rd.length){
+          status.className='rs-status err';
+          status.textContent=user.display_name+' had '+lgs.length+' league(s) in 2025, but no completed redraft ones.';
+          btn.disabled=false; return;
+        }
+        status.textContent='Rebuilding '+rd.length+' league'+(rd.length>1?'s':'')+'…';
+        out.innerHTML = SKEL;
+        var res=[], chain=Promise.resolve();
+        rd.forEach(function(lg){
+          chain = chain.then(function(){
+            return analyzeLeague(lg, user.user_id).then(function(L){
+              if (L) res.push(L);
+              out.innerHTML = res.map(renderLeague).join('') + (res.length<rd.length ? SKEL : '');
+            });
+          });
+        });
+        return chain.then(function(){
+          out.innerHTML = res.map(renderLeague).join('');
+          status.textContent = res.length
+            ? user.display_name+' · '+res.length+' completed 2025 redraft league'+(res.length>1?'s':'')+' decoded.'
+            : 'Those leagues drafted offline — Sleeper has no picks to rebuild.';
+          btn.disabled=false;
+        });
+      });
+    }).catch(function(e){
+      status.className='rs-status err'; status.textContent='Sleeper request failed: '+(e&&e.message||'unknown');
+      btn.disabled=false;
+    });
+  }
+
+  /* ── entry point, called from the Draft Vault nav ── */
+  window.dvShowStrategy = function(){
+    var page = document.getElementById('page-draft');
+    if (!page) return;
+    ensureView();
+    page.classList.remove('adp-mode');
+    page.classList.add('strategy-mode');
+    document.body.classList.add('rs-mode');
+    document.querySelectorAll('#dv-dd-menu .lc-mt-item').forEach(function(it){
+      it.classList.toggle('active', it.dataset.go === 'redraft-strategy');
+    });
+    load();
+    try { if (window.reIconHydrate) window.reIconHydrate(); } catch(e){}
+  };
+})();
+</script>
+
 </body>
 </html>

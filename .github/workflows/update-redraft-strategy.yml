@@ -1,0 +1,84 @@
+name: Update Redraft Strategy
+
+# Crawls COMPLETED Sleeper redraft leagues and turns each drafted team into a
+# (build -> outcome) record: which opening the manager drafted, and whether that
+# team made the playoffs / won the title. Feeds the Draft Vault "Redraft Strategy" page.
+#
+# Each run does a BOUNDED chunk of the crawl (checkpointed in
+# data/redraft_strategy_state.json) so the corpus accretes instead of restarting.
+# The crawl walks `previous_league_id` chains with priority, so last season (2025)
+# — the board most relevant to a drafter — fills in first.
+#
+# Deliberately offset from the Sleeper ADP cron (:17 */6) so the two crawlers do not
+# hammer the Sleeper API in the same minute; this one also SEEDS from that job's
+# banked redraft league ids, so letting it land after an ADP run is the useful order.
+
+on:
+  schedule:
+    - cron: '47 1,13 * * *'   # twice daily, offset from the ADP crawl
+  workflow_dispatch:
+    inputs:
+      league_budget:
+        description: 'Completed leagues to ingest this run (run is also time-capped)'
+        required: false
+        default: '600'
+      rebuild_only:
+        description: 'Skip crawling; just recompute outputs from the existing corpus'
+        required: false
+        default: 'false'
+
+# Never let two runs race on the checkpoint + corpus files.
+concurrency:
+  group: redraft-strategy
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  crawl-strategy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Crawl + rebuild redraft strategy data
+        run: |
+          if [ "${{ github.event.inputs.rebuild_only }}" = "true" ]; then
+            python3 scripts/build_redraft_strategy.py --rebuild-only
+          else
+            python3 scripts/build_redraft_strategy.py \
+              --league-budget "${{ github.event.inputs.league_budget || '600' }}"
+          fi
+
+      - name: Show corpus growth
+        run: |
+          echo "Redraft strategy files:"
+          ls -lh data/redraft_strategy_*.json 2>/dev/null || echo "(none)"
+          echo ""
+          python3 -c "import json; s=json.load(open('data/redraft_strategy_stats.json')); print('teams:', s['teams'], '| leagues:', s['leagues'], '| by season:', s.get('teams_by_season'))"
+
+      - name: Commit updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Rebase in case another data cron pushed while we were crawling.
+          git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+          git add data/redraft_strategy_*.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "data: crawl + refresh redraft strategy corpus"
+            for i in 1 2 3; do
+              git push && break
+              echo "push race, retrying ($i)…"
+              git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+              sleep 3
+            done
+          fi
