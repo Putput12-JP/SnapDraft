@@ -15241,6 +15241,163 @@ async function _fcFetchJson(url, tries){
   return null;
 }
 
+/* ══════════════ FORMAT-AWARE VALUE BUCKETS ══════════════
+   A player is not worth one number. Josh Allen is ~10.3k in dynasty Superflex
+   and ~6.1k in redraft 1QB; across the 24 startable QBs the dynasty-SF value is
+   a median 4.4x the redraft-1QB one. For years this file fetched exactly one
+   board (isDynasty=true & numQbs=2 & numTeams=12) and graded EVERY league off
+   it, so a 1QB league had every quarterback credited ~4x over, and a redraft
+   league was scored on dynasty values outright.
+
+   FantasyCalc exposes the axes that actually move the number, so key a bucket
+   on all of them and fetch lazily — nobody needs all 48 combos, and most users
+   touch two or three. The dynasty-SF-12 board stays in `fcValues` as the base
+   store: it holds the static fields (age/pos/team/ids) and is the fallback
+   whenever a bucket hasn't landed yet, so a slow fetch degrades to today's
+   behaviour instead of to zeros. */
+window._fcBuckets = {};          // key -> { byName, at }
+const _FC_BUCKET_INFLIGHT = {};
+function _fcPprBand(p){ return p >= 0.75 ? 1 : p >= 0.25 ? 0.5 : 0; }   // FC only publishes 0 / .5 / 1
+function _fcBucketKey(c){ return (c.dyn?'d':'r') + (c.sf?2:1) + '_' + c.teams + '_' + _fcPprBand(c.ppr); }
+// FC publishes 8/10/12/14 only; snap anything else (odd-sized or offseason-empty
+// leagues) to the nearest rather than 404ing the whole bucket.
+function _fcSnapTeams(n){ n = parseInt(n,10)||12; return n<=9 ? (n<=8?8:10) : n<=11 ? 10 : n<=13 ? 12 : 14; }
+function _fcBucketUrl(c){
+  return 'https://api.fantasycalc.com/values/current?isDynasty=' + (c.dyn?'true':'false')
+       + '&numQbs=' + (c.sf?2:1) + '&numTeams=' + _fcSnapTeams(c.teams) + '&ppr=' + _fcPprBand(c.ppr);
+}
+// Bucket entries are FULL entries, not deltas. getFCValue is called thousands of
+// times per renderList, so it has to return a ready-made object — merging static
+// fields onto a value on every call would put an allocation in that hot path.
+function _fcBuildBucket(rows){
+  const byName = {};
+  rows.forEach(item => {
+    const p = item.player; if (!p || !p.name) return;
+    const base = fcValues[p.name] || fcValues[normName(p.name)] || null;
+    const e = {
+      value: item.value || 0,
+      overallRank: item.overallRank,
+      posRank: item.positionRank,
+      trend: item.trend30Day || 0,
+      // Keep the canonical 1QB redraft number reachable from any bucket — the
+      // trade calculator and My Rankings read it directly off the entry.
+      redraftValue: (base && base.redraftValue) || 0,
+      age: p.maybeAge ? Math.round(p.maybeAge * 10) / 10 : (base ? base.age : null),
+      yoe: p.maybeYoe, pos: p.position, team: p.maybeTeam,
+      sleeperId: p.sleeperId, name: p.name,
+    };
+    byName[p.name] = e; byName[normName(p.name)] = e;
+  });
+  return byName;
+}
+// Kick off a bucket load. Returns immediately; repaints once it lands so values
+// correct themselves in place rather than blocking the first render.
+function fcEnsureBucket(ctx){
+  const key = _fcBucketKey(ctx);
+  if (window._fcBuckets[key] || _FC_BUCKET_INFLIGHT[key]) return key;
+  _FC_BUCKET_INFLIGHT[key] = true;
+  (async () => {
+    const rows = await _fcFetchJson(_fcBucketUrl(ctx));
+    delete _FC_BUCKET_INFLIGHT[key];
+    if (!rows) { console.warn('FC bucket fetch failed:', key); return; }
+    window._fcBuckets[key] = { byName: _fcBuildBucket(rows), at: Date.now() };
+    _fcRepaintForValues();
+  })();
+  return key;
+}
+function _fcRepaintForValues(){
+  try { if (typeof renderTeams==='function' && document.getElementById('page-teams')?.classList.contains('on')) renderTeams(); } catch(e){}
+  try { if (typeof renderList==='function') renderList(); } catch(e){}
+  try { if (window.LeagueHub && typeof window.renderDraftGrades==='function' && teamsTab==='gr') window.renderDraftGrades(); } catch(e){}
+}
+
+/* Which board should a given league be graded on? Both facts are already on the
+   Sleeper league object; nothing here needs a new API call. */
+function fcCtxForLeague(lg){
+  if (!lg) return null;
+  const rp = lg.roster_positions || [];
+  const rec = lg.scoring_settings && lg.scoring_settings.rec;
+  return {
+    dyn: (typeof _isDynastyLeague==='function') ? !!_isDynastyLeague(lg) : true,
+    sf: rp.indexOf('SUPER_FLEX') >= 0 || rp.filter(s=>s==='QB').length > 1,
+    teams: lg.total_rosters || (lg.settings && lg.settings.num_teams) || 12,
+    ppr: (rec == null ? 1 : rec),
+  };
+}
+// A connected draft outranks the selected league: you can be sitting in a 1QB
+// redraft draft while your primary league is dynasty SF, and the board must
+// price the draft you're actually in. Mirrors what _adpSyncToValueMode already
+// does for the ADP column.
+// getFCValue runs thousands of times per renderList, so the context lookup has
+// to be scalar reads only — resolving the league object (a find over every
+// connected league) on each call is exactly the kind of per-player work that
+// put renderList at 107ms before. Memoise on a signature of the raw inputs.
+let _fcCtxSig = null, _fcCtxMemo = null;
+function _fcCtxSigNow(){
+  let s = '';
+  try {
+    s = (window._dvDraftActive?'D':'-')
+      + '|' + (window._dvMode||'') + '|' + (window._draftIsDynasty?1:0) + (window._draftIsSuperflex?1:0)
+      + '|' + ((typeof NUM_TEAMS!=='undefined' && NUM_TEAMS)||'')
+      + '|' + ((typeof teamsLeagueId!=='undefined' && teamsLeagueId)||'')
+      + '|' + (window._currentLeagueId||'');
+  } catch(e){}
+  return s;
+}
+function fcActiveCtx(){
+  const sig = _fcCtxSigNow();
+  if (sig === _fcCtxSig && _fcCtxMemo) return _fcCtxMemo;
+  _fcCtxSig = sig; _fcCtxMemo = _fcResolveCtx();
+  return _fcCtxMemo;
+}
+function _fcResolveCtx(){
+  try {
+    if (window._dvDraftActive && window._activeDraft){
+      const s = window._activeDraft.settings || {};
+      return {
+        dyn: (window._dvMode ? window._dvMode !== 'redraft' : !!window._draftIsDynasty),
+        sf: !!window._draftIsSuperflex,
+        teams: (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || s.teams || 12,
+        ppr: (typeof _dvIsPPR==='function') ? _dvIsPPR() : 1,
+      };
+    }
+  } catch(e){}
+  try {
+    const id = (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || window._currentLeagueId;
+    // myTeamsData is module-scoped, NOT on window — reaching for window.myTeamsData
+    // here silently resolved to null and sent every league back to the legacy
+    // dynasty-SF default, which is the exact bug this whole change is fixing.
+    const all = (typeof myTeamsData!=='undefined' && myTeamsData) ? myTeamsData : null;
+    const lg = (id && all) ? all.find(l=>l.league_id===id) : null;
+    const c = fcCtxForLeague(lg);
+    if (c) return c;
+  } catch(e){}
+  return { dyn:true, sf:true, teams:12, ppr:1 };   // legacy default = the old hardcoded board
+}
+// Resolved map for the active context, memoised on the context key so the hot
+// render paths don't re-derive it per player.
+let _fcActiveKey = null, _fcActiveMap = null;
+function _fcActiveBucket(){
+  const ctx = fcActiveCtx(), key = _fcBucketKey(ctx);
+  if (key !== _fcActiveKey){
+    _fcActiveKey = key;
+    _fcActiveMap = (window._fcBuckets[key] || {}).byName || null;
+    if (!_fcActiveMap) fcEnsureBucket(ctx);        // lazily warm it, fall back meanwhile
+  } else if (!_fcActiveMap){
+    _fcActiveMap = (window._fcBuckets[key] || {}).byName || null;
+  }
+  return _fcActiveMap;
+}
+// Value for an explicit league context (Portfolio spans leagues, so it can't use
+// the single active one).
+function fcValueFor(name, ctx){
+  if (!ctx) return getPlayerValue(name);
+  const key = _fcBucketKey(ctx), b = window._fcBuckets[key];
+  if (!b){ fcEnsureBucket(ctx); return getPlayerValue(name); }
+  const e = b.byName[name] || b.byName[normName(name)];
+  return e ? (e.value||0) : 0;
+}
+
 async function fetchFantasyCalc() {
   if (fcLoading) return;
   fcLoading = true;
@@ -15285,6 +15442,10 @@ async function fetchFantasyCalc() {
 
     fcLoaded = true;
     fcLoading = false;
+    // This IS the dynasty/SF/12/PPR bucket — register it so a league on that
+    // format reuses these rows instead of re-fetching the identical board.
+    window._fcBuckets[_fcBucketKey({dyn:true, sf:true, teams:12, ppr:1})] = { byName: fcValues, at: Date.now() };
+    _fcActiveKey = null;                                  // force the memo to re-resolve
     if (statusEl) statusEl.textContent = `✓ FC loaded · ${Object.keys(fcValues).length/2|0} players`;
     renderTeams();
     // Fetch FC's DEDICATED 1QB redraft endpoint and set each player's redraftValue.
@@ -15556,7 +15717,10 @@ async function fetchRosterAudit() {
 
 function getPlayerValue(name) {
   if (valueSource === 'my' && window.MyRankings) {
-    return MyRankings.getValue(name, 'dynasty') || getFCValue(name)?.value || 0;
+    // "Mine" has to follow the same format as "Market", or toggling the switch
+    // silently swaps dynasty for redraft on top of swapping the source.
+    const fmt = fcActiveCtx().dyn ? 'dynasty' : 'redraft';
+    return MyRankings.getValue(name, fmt) || getFCValue(name)?.value || 0;
   }
   if (valueSource === 'ra') {
     
@@ -15663,7 +15827,12 @@ function renderMovers() {
     </div>`;
 }
 
+// Every value read in the app funnels through here. It answers for the format
+// you are actually looking at (dynasty/redraft x SF/1QB x size x ppr), falling
+// back to the dynasty-SF-12 base store until that bucket lands.
 function getFCValue(name) {
+  const b = _fcActiveBucket();
+  if (b){ const e = b[name] || b[normName(name)]; if (e) return e; }
   return fcValues[name] || fcValues[normName(name)] || null;
 }
 
@@ -15736,23 +15905,17 @@ async function renderTeamsFromLeague(leagueId) {
     const avatarMap = buildUserAvatarMap(users);
     const rosterOwnerMap = buildRosterOwnerMap(rosters);
 
-    // Redraft-aware, source-aware team value: redraft leagues rank by 1QB redraft value,
-    // and "Mine" pulls the matching (redraft|dynasty) board from My Rankings.
+    // Format-aware, source-aware team value. The league's own settings decide the
+    // board: dynasty/redraft, Superflex/1QB, size and ppr. Publishing the whole
+    // context (not just the dynasty flag) is what lets _lgValOf — and through it
+    // the Grades tab — price the same league the same way.
     const _lgObj = myTeamsData.find(l=>l.league_id===leagueId);
-    const _lgRedraft = _lgObj ? (typeof _isDynastyLeague==='function' ? !_isDynastyLeague(_lgObj) : false) : false;
-    window._lgValFmt = _lgRedraft ? 'redraft' : 'dynasty';
-    const lgVal = (name) => {
-      if (valueSource === 'my' && window.MyRankings) {
-        const mv = MyRankings.getValue(name, _lgRedraft ? 'redraft' : 'dynasty');
-        if (mv) return mv;
-        return _lgRedraft ? (getFCValue(name)?.redraftValue || 0) : (getFCValue(name)?.value || 0);
-      }
-      if (_lgRedraft) {
-        const r1 = (window._redraft1QB && (window._redraft1QB[name] || window._redraft1QB[normName(name)]));
-        return (r1 && r1.value) || (getFCValue(name)?.redraftValue || 0);
-      }
-      return getPlayerValue(name);
-    };
+    const _lgCtx = fcCtxForLeague(_lgObj);
+    const _lgRedraft = _lgCtx ? !_lgCtx.dyn : false;
+    window._lgValCtx = _lgCtx;
+    window._lgValFmt = _lgRedraft ? 'redraft' : 'dynasty';   // kept: older call sites still read it
+    if (_lgCtx) fcEnsureBucket(_lgCtx);                      // warm before the first paint
+    const lgVal = (name) => _lgValOf(name);
 
     const teamData = (rosters||[]).map((r, i) => {
       const ownerId = r.owner_id;
@@ -15984,15 +16147,28 @@ function selectTeamRow(idx) {
 }
 
 function _lgValOf(name){
-  // Shared League-tab value: follows the viewed league's format (window._lgValFmt,
-  // set by renderTeamsFromLeague) and the Market/Mine toggle (valueSource).
-  var redraft = window._lgValFmt === 'redraft';
+  // Shared League-tab value: follows the viewed league's FULL format — dynasty
+  // vs redraft, Superflex vs 1QB, league size, ppr (window._lgValCtx, set by
+  // renderTeamsFromLeague) — and the Market/Mine toggle (valueSource).
+  //
+  // This used to switch on dynasty/redraft alone and hardcode 1QB for redraft,
+  // which meant a Superflex redraft league priced Josh Allen at his 1QB number.
+  // _lgValCtx is only set once renderTeamsFromLeague has run. Before that (and on
+  // surfaces that read this helper first) fall back to the active context rather
+  // than to null, so the League tab never prices a league differently depending
+  // on which view happened to paint first.
+  var ctx = window._lgValCtx || (typeof fcActiveCtx==='function' ? fcActiveCtx() : null);
+  var redraft = ctx ? !ctx.dyn : (window._lgValFmt === 'redraft');
   if (typeof valueSource!=='undefined' && valueSource === 'my' && window.MyRankings) {
     var mv = MyRankings.getValue(name, redraft ? 'redraft' : 'dynasty');
     if (mv) return mv;
-    return redraft ? (getFCValue(name)?.redraftValue||0) : (getFCValue(name)?.value||0);
+  } else if (ctx) {
+    return fcValueFor(name, ctx);
   }
   if (redraft) {
+    // 1QB redraft keeps its dedicated store (it's the one board fetched eagerly
+    // and the most-used redraft format); SF redraft goes through the bucket.
+    if (ctx && ctx.sf) return fcValueFor(name, ctx);
     var r1 = (window._redraft1QB && (window._redraft1QB[name] || window._redraft1QB[normName(name)]));
     return (r1 && r1.value) || (getFCValue(name)?.redraftValue || 0);
   }
@@ -31381,7 +31557,12 @@ body .page,body .page.on{background:transparent!important}
   function initials(n){ return String(n||'?').split(/\s+/).map(w=>w[0]).filter(Boolean).join('').slice(0,2).toUpperCase(); }
   function teamColor(i){ try { return (typeof COLORS!=='undefined' && COLORS.length) ? COLORS[i % COLORS.length] : 'var(--sky)'; } catch(e){ return 'var(--sky)'; } }
   function isMobile(){ return window.matchMedia('(max-width:860px)').matches; }
-  function val(name){ try { return getPlayerValue(name) || 0; } catch(e){ return 0; } }
+  // _lgValOf follows the VIEWED league's format and the Market/Mine toggle.
+  // This used to call getPlayerValue directly, so in a redraft league the
+  // position columns were summed from dynasty values while the OVERALL column
+  // came from t.fcTotal (already redraft-aware) — the two halves of the same
+  // row disagreed about what a player was worth.
+  function val(name){ try { return (typeof _lgValOf==='function' ? _lgValOf(name) : getPlayerValue(name)) || 0; } catch(e){ return 0; } }
   function fcOf(name){ try { return getFCValue(name) || null; } catch(e){ return null; } }
   function trendOf(name){ const f = fcOf(name); if (f && f.trend) return f.trend; try { return getPlayerTrend(name) || 0; } catch(e){ return 0; } }
   function sidOf(name){ const f = fcOf(name); if (f && f.sleeperId) return f.sleeperId; try { return (sleeperPlayerMap[normName(name)]||{}).player_id || ''; } catch(e){ return ''; } }
