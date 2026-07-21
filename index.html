@@ -36681,7 +36681,7 @@ body.rs-mode #global-rbar{display:none!important}
 .rs-raxin span{position:absolute;top:5px;transform:translateX(-50%);font-family:var(--font-mono);font-size:9px;color:var(--muted)}
 
 /* trust badges */
-.rs-tb{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+.rs-tb{cursor:help;font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
 .rs-tb.pv{color:var(--accent2);background:color-mix(in srgb,var(--accent2) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent2) 36%,transparent)}
 .rs-tb.er{color:var(--te);background:color-mix(in srgb,var(--te) 12%,transparent);border:1px solid color-mix(in srgb,var(--te) 34%,transparent)}
 .rs-tb.no{color:var(--muted);background:var(--s3);border:1px solid var(--border2)}
@@ -36754,8 +36754,14 @@ table.rs-hm td.rowh{font-family:var(--font-mono);font-size:11px;font-weight:700;
 /* year review */
 .rs-dec{background:linear-gradient(135deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:20px;padding:22px;margin-top:26px}
 .rs-decform{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
-.rs-decform input{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;
-  padding:11px 14px;color:var(--text);font-family:var(--font-sans);font-size:15px}
+/* A global `input[type="text"]{background:rgba(1,15,31,.7)!important}` hardcodes a
+   Vapor-Sky navy on every text field and ignores the active theme, so this needs
+   both the higher specificity and !important to hold the onyx tokens. */
+.rs-decform input[type="text"]{flex:1;min-width:200px;border-radius:10px;
+  padding:11px 14px;font-family:var(--font-sans);font-size:15px;
+  background:var(--bg)!important;border:1px solid var(--border2)!important;color:var(--text)!important}
+.rs-decform input[type="text"]::placeholder{color:var(--muted)}
+.rs-decform input[type="text"]:focus{outline:2px solid var(--accent2);outline-offset:1px;border-color:transparent!important}
 .rs-decform button{background:var(--accent2);color:var(--on-primary,#0b1420);border:0;border-radius:10px;padding:11px 22px;
   font-family:var(--font-sans);font-weight:800;font-size:15px;cursor:pointer}
 .rs-decform button:disabled{opacity:.55;cursor:default}
@@ -36785,9 +36791,6 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   border-radius:4px;background:var(--s3);border:1px solid var(--border2)}
 .rs-skel{height:14px;border-radius:5px;background:linear-gradient(90deg,var(--s2),var(--s3),var(--s2));background-size:200% 100%;animation:rs-sh 1.1s linear infinite}
 @keyframes rs-sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.rs-method{margin-top:36px;padding-top:20px;border-top:1px solid var(--border)}
-.rs-method p{font-size:13px;color:var(--muted);margin:8px 0 0;max-width:88ch}
-.rs-method code{font-family:var(--font-mono);font-size:10px;background:var(--s2);border:1px solid var(--border);padding:2px 6px;border-radius:4px;color:var(--text2)}
 .rs-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:30px;align-items:start}
 
 @media (max-width:900px){ .rs-grid2{grid-template-columns:minmax(0,1fr);gap:24px} }
@@ -36893,12 +36896,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       '<form class="rs-decform" id="rs-decform"><input id="rs-decuser" type="text" placeholder="Sleeper username" autocomplete="off" spellcheck="false" aria-label="Sleeper username"><button type="submit" id="rs-decgo">Decode my 2025</button></form>',
       '<span class="rs-status" id="rs-decstatus"></span><div id="rs-decout"></div>',
     '</section>',
-    '<section class="rs-method"><span class="rs-kick">Method</span>',
-      '<p>Built from completed Sleeper redraft leagues. Every team\'s draft is rebuilt from <code>/draft/{id}/picks</code> (round, slot, position — keeper picks excluded) and joined on <code>roster_id</code> to that season\'s outcome from <code>/league/{id}/rosters</code> and <code>/league/{id}/winners_bracket</code>. The crawler runs twice daily, so the sample grows over time.</p>',
-      '<p><b>Metrics</b> — <b>Playoff Rate</b> is the share of teams that reached the bracket, <b>Championship</b> the share that won it, and <b>Top-3 Points</b> the share that finished top three in points scored, which measures roster strength without schedule luck. Lift is versus each slice\'s own field baseline.</p>',
-      '<p><b>Why the badges exist</b> — a ranked table of rates is mostly noise at these sample sizes. Every rate carries a 95% Wilson confidence interval; a finding is <b>significant</b> only if that interval clears the field baseline, and <b>Proven</b> only if it also holds the same direction in every season with enough teams.</p>',
-      '<p><b>Known bias</b> — the corpus spans 2023–2025, a stretch where early running backs beat their ADP. Use the season filter to see whether an edge held up or came from one year.</p>',
-    '</section></div>'
+    '</div>'
   ].join('');
 
   /* ── data ── */
@@ -36939,9 +36937,16 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   function rootSlice(){ return RS && RS.arch[st.sc+'|'+st.fmt]; }
   function rows(d){ return d ? (d.archetypes||[]).filter(function(r){ return !r.insufficient; }) : []; }
   function coreRows(d){ return rows(d).filter(function(r){ return r.kind==='core'; }); }
+  /* `why` carries the explanation that used to live in the Method block, so the
+     badges stay self-describing on hover now that the prose is gone. */
   function trust(r){
-    if (!r.significant) return {k:'no', t:'Not proven'};
-    return r.stability==='durable' ? {k:'pv', t:'Proven'} : {k:'er', t:'Era-dependent'};
+    if (!r.significant) return {k:'no', t:'Not proven',
+      w:'The 95% confidence interval overlaps the field baseline — this gap is inside the noise.'};
+    return r.stability==='durable'
+      ? {k:'pv', t:'Proven',
+         w:'Clears the field at 95% confidence AND holds the same direction in every season with enough teams.'}
+      : {k:'er', t:'Era-dependent',
+         w:'Clears the field at 95% confidence, but the sign flips between seasons — do not bank on it.'};
   }
 
   /* ── renderers ── */
@@ -37013,7 +37018,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       var t = trust(r), up = r.playoffRate>=d.baseline.playoffRate;
       return '<article class="rs-brow"><span class="rs-bnum">'+(i+1)+'</span>'+
         '<div><div class="rs-bname"><span style="width:9px;height:9px;border-radius:50%;background:'+(COLOR[r.arch]||'var(--accent2)')+';display:inline-block"></span>'+
-        r.arch+' <span class="rs-tb '+t.k+'">'+t.t+'</span></div>'+
+        r.arch+' <span class="rs-tb '+t.k+'" title="'+t.w+'">'+t.t+'</span></div>'+
         '<span class="rs-bmeta">'+Number(r.n).toLocaleString()+' teams · <span class="'+(up?'rs-up':'rs-dn')+'">'+pp(r.playoffRate-d.baseline.playoffRate)+'</span> vs field</span></div>'+
         '<div class="rs-bstats">'+
           '<div class="rs-bst"><span class="v">'+pct0(r.playoffRate)+'</span><span class="k">Playoffs</span></div>'+
@@ -37043,7 +37048,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       var a=X(r.ci95[0]), b=X(r.ci95[1]);
       return '<article class="rs-op'+(r.significant?' sig':'')+(bad?' bad':'')+'">'+
         '<div class="rs-seq">'+r.seq.split('-').map(function(p){ return '<span style="color:'+POSC[p]+'">'+p+'</span>'; }).join('')+'</div>'+
-        '<div><span class="rs-tb '+t.k+'">'+t.t+'</span><span class="rs-cicap" style="display:inline;margin-left:6px">'+r.n+' teams · '+pp(r.playoffLift)+' vs field</span>'+
+        '<div><span class="rs-tb '+t.k+'" title="'+t.w+'">'+t.t+'</span><span class="rs-cicap" style="display:inline;margin-left:6px">'+r.n+' teams · '+pp(r.playoffLift)+' vs field</span>'+
         '<div class="rs-ci"><span class="band" style="left:'+a+'%;width:'+Math.max(1.5,b-a)+'%"></span><span class="base" style="left:'+X(base)+'%"></span></div></div>'+
         '<div class="rs-oprate">'+pct0(r.playoffRate)+'<small>PLAYOFFS</small></div></article>';
     }).join('');
