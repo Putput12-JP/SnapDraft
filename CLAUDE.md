@@ -95,6 +95,16 @@ Traps this code already handles — preserve them if you touch it:
    native text colour on top of the pill — invisible dark-on-dark in light
    mode. `place()` re-asserts the classes on every run for exactly this reason.
 
+0b. **A re-rendered strip cannot animate unless you seed it.** Most of these
+   strips rebuild from a template literal on every click, so you get a
+   brand-new pill with no `left` — and an element that has never had a
+   position has nothing to transition *from*, so it teleports. `place()`
+   keeps a `lastGeom` map keyed by a stable strip signature and re-seeds the
+   fresh pill at the old position (transitions off, forced reflow) before
+   moving it. **Verify travel by checking `pill.getAnimations()` after a real
+   click** — final geometry being correct proves nothing, and the preview tab
+   never paints so sampled positions stay frozen either way.
+
 1. **`offsetWidth === 0`.** Pages are toggled with `display:none`, so a strip
    positioned on load pegs the bar at width 0 and makes it snake into place the
    first time the page opens. The bar parks at `opacity:0` until the strip has a

@@ -38384,6 +38384,18 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   var ALL_SEL = RAILS.map(function(r){ return r.sel; }).join(', ');
   var wired = new WeakSet();
 
+  // Last known pill geometry per strip. Several strips (Research Hub, ADP,
+  // Draft filters) rebuild themselves from template literals on every click,
+  // which hands us a brand-new pill with no `left` — and an element that has
+  // never had a position cannot transition from anywhere, so it teleports.
+  // Remembering the geometry lets the new pill be seeded where the old one
+  // was, so the move still reads as one object travelling.
+  var lastGeom = {};
+  function sig(strip){
+    return (strip.id || '') + '|' +
+           (strip.className || '').replace(/vrail[^ ]*|rail-noanim/g, '').trim();
+  }
+
   function pill(strip, cfg){
     var p = strip.querySelector(':scope > .v-pill');
     if (!p) {                       // absent on first run, or wiped by a re-render
@@ -38425,10 +38437,24 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
         strip.style.setProperty('--rail-ink', POS_INK[key]);
       }
     }
+    var key = sig(strip);
+    // Fresh pill from a re-render: put it back where the old one was, with
+    // transitions off, so the change below has something to animate FROM.
+    if (!p.style.left && lastGeom[key]) {
+      strip.classList.add('rail-noanim');
+      p.style.opacity = '1';
+      p.style.left    = lastGeom[key].l;
+      p.style.width   = lastGeom[key].w;
+      void strip.offsetWidth;
+      strip.classList.remove('rail-noanim');
+      animate = true;
+    }
+
     if (!animate) strip.classList.add('rail-noanim');
     p.style.opacity = '1';
     p.style.left    = it.offsetLeft  + 'px';
     p.style.width   = it.offsetWidth + 'px';
+    lastGeom[key] = { l:p.style.left, w:p.style.width };
     if (!animate) {
       void strip.offsetWidth;       // flush the untransitioned position
       strip.classList.remove('rail-noanim');
