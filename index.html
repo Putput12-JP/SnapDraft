@@ -151,7 +151,7 @@ window.VAULT_SHOT_DRAFT="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBM
      in vault-ds.css (.spinner, .press, .rail). If a visitor pairs fresh markup
      with a cached stylesheet, every loading state renders as an invisible blank
      span. Bump this date whenever vault-ds.css changes. -->
-<link href="vault-ds.css?v=20260722" rel="stylesheet">
+<link href="vault-ds.css?v=20260722b" rel="stylesheet">
 <style>
 /* tokens, themes, and .v-* components live in vault-ds.css */
 [data-theme="medium"] { --bg:#0c1119; --s1:#121a25; --s2:#19222f; }
@@ -38299,7 +38299,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 (function(){
   // Position colours + the ink that stays readable on top of each.
   var POS_C  = { ALL:'var(--accent)', QB:'var(--qb)', RB:'var(--rb)', WR:'var(--wr)', TE:'var(--te)' };
-  var POS_INK= { ALL:'#fff', QB:'#1a0b10', RB:'#06140d', WR:'#06141a', TE:'#1a1405' };
+  // --pos-ink flips per theme (see vault-ds.css); ALL sits on --accent, which
+  // is dark in every theme, so it is always white.
+  var POS_INK= { ALL:'#fff', QB:'var(--pos-ink)', RB:'var(--pos-ink)',
+                 WR:'var(--pos-ink)', TE:'var(--pos-ink)' };
 
   var RAILS = [
     { sel:'.la-tabs, #page-teams .lr-tabs', skin:'bar' },
@@ -38344,6 +38347,15 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 
   function place(strip, cfg, animate){
     var p  = pill(strip, cfg);
+    // Re-assert the hooks every time. The pill paints its own background, but
+    // the ink + background-neutralising rules are keyed on .vrail--*; if
+    // anything rewrites the strip's className the pill outlives its styling and
+    // you get the native text colour on top of the pill — dark-on-dark in light
+    // mode. classList.add of an existing class is a no-op, so this cannot loop
+    // the MutationObserver that calls us.
+    if (!strip.classList.contains('vrail')) {
+      strip.classList.add('vrail', 'vrail--' + cfg.skin);
+    }
     var it = activeItem(strip, cfg);
     // Hidden strip (display:none) or nothing selected — park it, don't guess.
     if (!it || !strip.clientWidth) { p.style.opacity = '0'; return; }

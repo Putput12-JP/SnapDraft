@@ -47,14 +47,35 @@ matching `--press-*` step, don't reuse `.88` everywhere.
 Do **not** put a scale press on a `<tr>` — transforms on table rows are
 unreliable. Use the div-based row (e.g. `.prow-mobile`), not `.prow`.
 
-### 2. Sliding indicator — `.rail > .pill`
+### 2. Sliding indicator — `.vrail > .v-pill`
 
 Tab strips get **one shared bar that travels**, never an indicator that blinks
-between tabs. Wired automatically by `vaultRails()` (bottom of `index.html`) for
-`.la-tabs` and `#page-teams .lr-tabs`. A new strip opts in by matching that
-selector, or by calling `window.vaultRails()` after it renders.
+between tabs. Wired by `vaultRails()` (bottom of `index.html`) from a `RAILS`
+config — add a strip there rather than writing new indicator CSS. Three skins:
 
-Three traps this code already handles — preserve them if you touch it:
+| Skin | Use |
+|---|---|
+| `--bar` | 2px underline (`.la-tabs`, `.lr-tabs`) |
+| `--fill` | solid capsule behind the active item (segmented filters, main nav) |
+| `--soft` | translucent tint; item keeps its own colour (mobile dock) |
+
+Per-strip config keys: `colour` (take the position colour from the item's
+label), `c` / `ink` (pin both), `bg` (custom pill background, e.g. keeping an
+existing gradient), `inset`, `radius`, `on` (custom active selector).
+
+**Contrast is theme-dependent.** Position colours *invert* between themes —
+vapor/onyx use light positions (`--qb:#ff6680`), light mode uses dark ones
+(`--qb:#c52d3a`). Never hardcode the ink; use `--pos-ink`, which flips per
+theme. Same trap on the nav: it is pinned to `--primary`/`--on-primary`, which
+are already a matched pair in every theme.
+
+Traps this code already handles — preserve them if you touch it:
+
+0. **The pill can outlive its styling hook.** The pill paints its own
+   background, but the ink and background-neutralising rules key on
+   `.vrail--*`. If anything rewrites the strip's `className`, you get the
+   native text colour on top of the pill — invisible dark-on-dark in light
+   mode. `place()` re-asserts the classes on every run for exactly this reason.
 
 1. **`offsetWidth === 0`.** Pages are toggled with `display:none`, so a strip
    positioned on load pegs the bar at width 0 and makes it snake into place the
@@ -111,6 +132,21 @@ another — there are already several scattered through `index.html`.
 (e.g. the `.la-tab` restyle ~L2022). **Before editing any CSS, find which rule
 actually wins** — the obvious edit is frequently dead code. New motion/draft CSS
 must land *after* the `dv-shadcn-restyle` block.
+
+Three things that cost real time here:
+
+- **Count specificity properly before assuming you win.**
+  `.rh-scope .rh-seg.pos .rh-segbtn.on` is (0,5,0), not (0,4,0) — the scope
+  class counts. Several of these strips are scoped that way.
+- **A losing `var()` does not fall through.** A declaration that wins the
+  cascade but is invalid at computed-value time (e.g. `color:var(--pc)` where
+  `--pc` is unset) makes the property `unset`/inherit — it does *not* defer to
+  the next declaration. A near-miss lands on an inherited value, not yours.
+- **`-webkit-text-fill-color` beats `color`.** `[data-theme="onyx"] .mr-seg
+  button.on` sets it `!important`, so setting `color` alone there is silently a
+  no-op. Set both.
+- `!important` beats specificity, so it outranks an ID selector like
+  `#P .mr-seg.posseg button.on` without needing a longer selector.
 
 ## Verifying UI work
 

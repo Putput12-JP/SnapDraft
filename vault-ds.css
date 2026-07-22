@@ -47,6 +47,12 @@
   --press-card:.975;
   --press-row:.99;
 
+  /* Ink that stays legible on top of a position-coloured pill. The position
+     colours invert between themes — vapor/onyx use LIGHT positions (#ff6680 …)
+     so the ink is dark, while [data-theme="light"] uses DARK positions
+     (#c52d3a …) so the ink flips to white. */
+  --pos-ink:#12151c;
+
   /* ── TYPE SCALE ──────────────────────────────────────────────────
      One ramp for the whole app. iOS-anchored; sizes are theme-agnostic.
      Sans (Archivo) carries all reading + UI text. Mono is reserved for
@@ -77,6 +83,7 @@
   --qb:#c52d3a;--rb:#0a7a4c;--wr:#1f6fb0;--te:#a76a16;
   --suggest:#1f4e87;--value:#0a7a4c;--reach:#c52d3a;--gold:#a76a16;--navy:#16233a;
   --glass-1:rgba(255,255,255,0.62);--glass-2:rgba(248,244,235,0.62);
+  --pos-ink:#ffffff;   /* light theme's position colours are dark — flip the ink */
   --shadow-card:0 20px 48px -22px rgba(41,50,66,0.24),0 1px 0 rgba(255,255,255,0.5) inset;
 }
 
