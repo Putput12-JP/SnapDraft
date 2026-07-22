@@ -38392,8 +38392,15 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   // was, so the move still reads as one object travelling.
   var lastGeom = {};
   function sig(strip){
-    return (strip.id || '') + '|' +
-           (strip.className || '').replace(/vrail[^ ]*|rail-noanim/g, '').trim();
+    if (strip.id) return strip.id;
+    var cls = (strip.className || '').replace(/vrail[^ ]*|rail-noanim/g, '').trim();
+    // Two strips can share a className (several .tc-seg / .vcaps do). Without
+    // the parent slot in the key they overwrite each other's geometry and a
+    // pill seeds from the wrong place, which reads as a jump.
+    var pa  = strip.parentElement;
+    var pid = pa ? (pa.id || (pa.className || '').split(' ')[0] || '') : '';
+    var idx = pa ? Array.prototype.indexOf.call(pa.children, strip) : 0;
+    return pid + '>' + idx + '|' + cls;
   }
 
   function pill(strip, cfg){
@@ -38438,9 +38445,23 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       }
     }
     var key = sig(strip);
+    var tl = it.offsetLeft + 'px', tw = it.offsetWidth + 'px';
+    // Already there (or already travelling there): do nothing. One click can
+    // fire this 5+ times via the class observer, the click net and the
+    // re-render observer; re-running it would rewrite identical values and a
+    // late animate:false pass would add .rail-noanim to an in-flight
+    // transition and snap the pill to its endpoint.
+    if (p.style.left === tl && p.style.width === tw && p.style.opacity === '1') {
+      lastGeom[key] = { l:tl, w:tw, sw:strip.clientWidth };
+      return;
+    }
     // Fresh pill from a re-render: put it back where the old one was, with
     // transitions off, so the change below has something to animate FROM.
-    if (!p.style.left && lastGeom[key]) {
+    // Only seed from remembered geometry if the strip is still the same width.
+    // A stale seed (layout changed, different page state) makes the pill fly in
+    // from an unrelated spot, which reads as a glitch rather than a transition.
+    if (!p.style.left && lastGeom[key] && lastGeom[key].sw === strip.clientWidth
+        && lastGeom[key].l !== tl) {
       strip.classList.add('rail-noanim');
       p.style.opacity = '1';
       p.style.left    = lastGeom[key].l;
@@ -38448,13 +38469,14 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       void strip.offsetWidth;
       strip.classList.remove('rail-noanim');
       animate = true;
+
     }
 
     if (!animate) strip.classList.add('rail-noanim');
     p.style.opacity = '1';
-    p.style.left    = it.offsetLeft  + 'px';
-    p.style.width   = it.offsetWidth + 'px';
-    lastGeom[key] = { l:p.style.left, w:p.style.width };
+    p.style.left    = tl;
+    p.style.width   = tw;
+    lastGeom[key] = { l:tl, w:tw, sw:strip.clientWidth };
     if (!animate) {
       void strip.offsetWidth;       // flush the untransitioned position
       strip.classList.remove('rail-noanim');
@@ -38471,8 +38493,12 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     if (cfg.c)      strip.style.setProperty('--rail-c',   cfg.c);
     if (cfg.ink)    strip.style.setProperty('--rail-ink', cfg.ink);
     place(strip, cfg, false);
-    new MutationObserver(function(){ place(strip, cfg, true); })
-      .observe(strip, { subtree:true, attributes:true, attributeFilter:['class'] });
+    var pending = false;
+    new MutationObserver(function(){
+      if (pending) return;                 // collapse a burst of class changes
+      pending = true;
+      setTimeout(function(){ pending = false; place(strip, cfg, true); }, 0);
+    }).observe(strip, { subtree:true, attributes:true, attributeFilter:['class'] });
   }
 
   function each(fn){
