@@ -15329,6 +15329,10 @@ function fcEnsureBucket(ctx){
   return key;
 }
 function _fcRepaintForValues(){
+  // Waiver Command prices and sorts a league's whole free-agent pool once and
+  // caches it for 120s. A bucket landing after that scan would leave the wrong
+  // board baked in, so drop the cache — cheap, and the next scan re-prices.
+  try { window._wcCache = {}; } catch(e){}
   try { if (typeof renderTeams==='function' && document.getElementById('page-teams')?.classList.contains('on')) renderTeams(); } catch(e){}
   try { if (typeof renderList==='function') renderList(); } catch(e){}
   try { if (window.LeagueHub && typeof window.renderDraftGrades==='function' && teamsTab==='gr') window.renderDraftGrades(); } catch(e){}
@@ -19350,12 +19354,67 @@ window._tcCache = window._tcCache || {}; // lid -> {txns, users, at}
 function _tcLeagues(){
   return (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
 }
+// Per-league value context, memoised by league_id.
+//
+// This used to be a plain dynasty/redraft switch, which got both halves wrong
+// across a multi-league scan: redraft was hardcoded to the 1QB/12/PPR store (so
+// a redraft SUPERFLEX league priced QBs at their 1QB number — worst possible
+// place for it, since streaming QBs live on the waiver wire), and dynasty went
+// through getFCValue, which resolves the *selected* league's bucket and ignores
+// the `lg` argument entirely. Waiver Command loops every league, so every row
+// got priced on whichever league happened to be active.
+//
+// Now each league resolves its own board (dynasty/redraft x SF/1QB x size x ppr)
+// via the same fcCtxForLeague/_fcBuckets machinery the League tab uses. The
+// context and its bucket key are cached per league because Waiver Command calls
+// _tcVal ~4k times per league — rebuilding the ctx object per call would put an
+// allocation in that loop.
+window._tcCtxCache = window._tcCtxCache || {};
+function _tcCtxFor(lg){
+  const id = (lg && lg.league_id) || '_default';
+  let c = window._tcCtxCache[id];
+  if(!c){
+    const ctx = ((typeof fcCtxForLeague==='function' && fcCtxForLeague(lg)) || {dyn:true, sf:true, teams:12, ppr:1});
+    c = window._tcCtxCache[id] = { ctx, key:(typeof _fcBucketKey==='function' ? _fcBucketKey(ctx) : '') };
+  }
+  return c;
+}
+// Warm every connected league's board, then wait briefly for them to land so the
+// first paint is priced correctly. Without this the Command pages render against
+// whatever bucket happens to be loaded, which is the bug above by another route.
+// Falls through on timeout rather than holding the page hostage.
+async function _tcWarmBuckets(list, waitMs){
+  if(typeof fcEnsureBucket!=='function') return;
+  const keys = [];
+  (list || _tcLeagues()).forEach(d => {
+    const c = _tcCtxFor(d.lg);
+    if(keys.indexOf(c.key) < 0) keys.push(c.key);
+    if(!window._fcBuckets[c.key]) fcEnsureBucket(c.ctx);
+  });
+  const deadline = Date.now() + (waitMs || 4000);
+  while(Date.now() < deadline && keys.some(k => !window._fcBuckets[k])){
+    await new Promise(r => setTimeout(r, 120));
+  }
+}
+try { window._tcWarmBuckets = _tcWarmBuckets; } catch(e){}
 function _tcVal(name, lg){
   if(!name) return 0;
-  const dyn = (typeof _isDynastyLeague==='function') ? _isDynastyLeague(lg) : true;
-  if(window.MyRankings){ const mv = MyRankings.getValue(name, dyn?'dynasty':'redraft'); if(mv) return mv; }
+  const c = _tcCtxFor(lg);
+  // My Rankings only when the user is actually on "Mine". This used to run
+  // unconditionally, so the Command pages served My Rankings values while the
+  // rest of the app served Market — and since that board exists in only two
+  // formats (dynasty / redraft-1QB), it flattened SF, league size and PPR right
+  // back out. Every other value path in the app gates on valueSource; match it.
+  if(typeof valueSource!=='undefined' && valueSource==='my' && window.MyRankings){
+    const mv = MyRankings.getValue(name, c.ctx.dyn?'dynasty':'redraft'); if(mv) return mv;
+  }
+  const b = window._fcBuckets && window._fcBuckets[c.key];
+  if(b){ const e = b.byName[name] || b.byName[normName(name)]; if(e) return e.value||0; }
+  // Bucket hasn't landed (warm timed out, or a caller skipped the warm) — fall
+  // back to the closest static store so values are directionally right instead
+  // of zero, exactly as this did before.
   const fc = (typeof getFCValue==='function') ? getFCValue(name) : null;
-  if(!dyn) return (window._redraft1QB && (window._redraft1QB[name]||{}).value) || (fc&&fc.redraftValue) || 0;
+  if(!c.ctx.dyn) return (window._redraft1QB && (window._redraft1QB[name]||{}).value) || (fc&&fc.redraftValue) || 0;
   return (fc&&fc.value) || 0;
 }
 const _tcPickVal = {1:3500, 2:1800, 3:800};
@@ -19461,6 +19520,7 @@ async function renderTradeCenter(force){
   _cxEnsureStyles();
 
   el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Loading trades across your leagues…</div></div>`;
+  await _tcWarmBuckets(data);   // price each league on its own format board
   const entries = await Promise.all(data.map(d => _tcLoadLeague(d, force).then(e=>({d, e})).catch(()=>null)));
   const loaded = entries.filter(Boolean);
 
@@ -19697,6 +19757,10 @@ async function renderWaiverCommand(force){
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
 
   el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Scanning free agents across your leagues…</div></div>`;
+  // Warm every league's value board BEFORE the scan — _wcLoadLeague prices and
+  // sorts the whole free-agent pool once and caches it for 120s, so a bucket
+  // landing after the scan would leave the wrong board baked into the cache.
+  await _tcWarmBuckets(data);
   // Injury/eligibility designations power both the block detection and the
   // one-click IR fix — make sure they're loaded before computing rows.
   let meta = window._pfRosterMeta;
@@ -19913,6 +19977,7 @@ async function renderTaxiCommand(){
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
 
   el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Reading your taxi squads…</div></div>`;
+  await _tcWarmBuckets(data);   // price each league on its own format board
   let meta = window._pfRosterMeta;
   if(meta === undefined){ try { meta = await _pfEnsureRosterMeta(); } catch(e){} }
 
