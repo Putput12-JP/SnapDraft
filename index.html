@@ -25116,6 +25116,16 @@ function pickYear(year) {
         </div>`;
     }
 
+    // Cold start: the board is derived from FantasyCalc/baseline data that has
+    // not necessarily landed on a first visit. Painting an empty table there
+    // just reads as broken, so show a real wait state instead. Guarded on the
+    // SOURCE being empty — a pos filter or a search that matches nothing keeps
+    // its own empty state rather than spinning forever.
+    if (!rows.length && !((baseline && baseline[format]) || []).length) {
+      body = '<div class="v-loading"><div class="spinner lg"></div>'
+           + '<span>Loading rankings from FantasyCalc\u2026</span></div>';
+    }
+
     page.innerHTML = `<div class="mr-wrap">${header}${controls}${body}</div>`;
     if (!compareSrc) bindDrag();
     applySearch();
@@ -37675,7 +37685,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .v-pill--fill{
   top:var(--rail-inset,4px); bottom:var(--rail-inset,4px);
   border-radius:var(--rail-radius,8px);
-  background:var(--rail-c, var(--accent));
+  background:var(--rail-bg, var(--rail-c, var(--accent)));
   box-shadow:0 3px 14px -5px var(--rail-c, var(--accent)),
              inset 0 1px 0 rgba(255,255,255,0.16);
 }
@@ -37711,8 +37721,21 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 #page-draft .controls.dvc .pos-seg.vrail--fill .fbtn.on,
 .res-seg.res-pos-seg.vrail--fill .res-segbtn.on,
 #adp-poschips.vrail--fill button.on,
-.nav.desktop-nav.vrail--fill .on{
+.nav.desktop-nav.vrail--fill .on,
+.mr-seg.vrail--fill button.on{
   color:var(--rail-ink, #fff) !important;
+  /* [data-theme="onyx"] .mr-seg button.on sets -webkit-text-fill-color
+     !important, which beats `color` at paint time — so it has to be set too. */
+  -webkit-text-fill-color:var(--rail-ink, #fff) !important;
+}
+
+/* .mr-seg's own active fill (grey --s4 on .posseg, gradient elsewhere) has to
+   go so the pill shows through. The rules it beats are not !important, so
+   specificity does not matter here — but #P .mr-seg.posseg button.on carries an
+   ID, which is exactly why this needs !important rather than a longer selector. */
+.mr-seg.vrail--fill button.on{
+  background:transparent !important;
+  box-shadow:none !important;
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -38289,6 +38312,11 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     // gains the travel; --accent here would darken it and kill the contrast.
     { sel:'.nav.desktop-nav', skin:'fill', inset:'0px', radius:'9999px',
       c:'var(--primary)', ink:'var(--on-primary)' },
+    // My Rankings: position strip takes the position colour, the Format /
+    // Benchmark strips keep their existing accent gradient and just gain travel.
+    { sel:'.mr-seg.posseg', skin:'fill', colour:true, inset:'3px', radius:'7px' },
+    { sel:'.mr-seg:not(.posseg)', skin:'fill', inset:'3px', radius:'7px',
+      bg:'linear-gradient(135deg,var(--accent),var(--accent2))', ink:'#fff' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];
   var ALL_SEL = RAILS.map(function(r){ return r.sel; }).join(', ');
@@ -38342,6 +38370,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     strip.classList.add('vrail', 'vrail--' + cfg.skin);
     if (cfg.inset)  strip.style.setProperty('--rail-inset',  cfg.inset);
     if (cfg.radius) strip.style.setProperty('--rail-radius', cfg.radius);
+    if (cfg.bg)     strip.style.setProperty('--rail-bg',  cfg.bg);
     if (cfg.c)      strip.style.setProperty('--rail-c',   cfg.c);
     if (cfg.ink)    strip.style.setProperty('--rail-ink', cfg.ink);
     place(strip, cfg, false);
