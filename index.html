@@ -10986,7 +10986,9 @@ function paGetPickAssist(){
         // urgency comes from the room eating the tier, not from a tier being naturally small
         tierDepleted = leftInTier < tlist[t].length;
         const nextUp = (tlist[t+1]||[]).find(paIsAvail);
-        cliffDrop = nextUp ? getRankByMode(nextUp,suggestMode)-rank : 30;
+        // Tiers are built on the source rank (paPosTiers), so measure the drop in
+        // that same unit — mixing it with the board rank above makes the gap noise.
+        cliffDrop = nextUp ? getRankByMode(nextUp,suggestMode)-getRankByMode(p,suggestMode) : 30;
         break;
       }
     }
@@ -11163,7 +11165,8 @@ function renderSuggestions() {
   //   Faller  = who slid furthest past his ADP-blended price  (max grade.delta)
   //   Rank    = the best board asset still on the table        (min rank)
   //   Grade   = the best projected pick grade at your slot      (max grade.s)
-  // Selected in that order, de-duped, so each card is a distinct player.
+  // De-duped so each card is a distinct player; Grade / Rank / Fall in that
+  // claim order, because the grade letter is the one printed on the board rows.
   const myPick = pa.myPick;
   // Real players drive the three angles; future rookie PICKs only fill in when
   // nothing else is left (late dynasty boards) so the strip never blanks.
@@ -11178,14 +11181,56 @@ function renderSuggestions() {
   };
   const fallers = pool.filter(s => s.grade && s.grade.delta != null);
   const graded  = pool.filter(s => s.grade);
-  // Rank & Grade are superlative claims the user can check against the table, so
-  // they pick from the full pool first; the Faller card absorbs any collision by
-  // taking the biggest slider still left.
-  const cRank  = takeBy(pool, (a,b) => a.rank < b.rank);
-  const cGrade = takeBy(graded.length ? graded : pool, (a,b) =>
-                   (a.grade ? a.grade.s : -1) > (b.grade ? b.grade.s : -1));
-  const cFall  = takeBy(fallers.length ? fallers : pool, (a,b) =>
-                   (a.grade ? a.grade.delta : (myPick - a.rank)) > (b.grade ? b.grade.delta : (myPick - b.rank)));
+  // ── "Highest ranked" means the board on screen ──
+  // s.rank is the IMPORTED source rank (p.r0 — a dynasty list). It is the right
+  // unit for market questions (paSurvival, tier shape), but that number is
+  // printed nowhere on the page, so ranking the card on it put "Highest Ranked
+  // Left · Caleb Williams #10" on the strip while the board — in redraft, sorted
+  // by Mine — had Jayden Daniels on row 1. The truth is the RK column, which
+  // renderList publishes as window._boardDisplayRk keyed by normName: it already
+  // honours the active sort, position filter and hide-drafted toggle, so quoting
+  // it means the card can never disagree with the row right under the strip.
+  const _boardRk = window._boardDisplayRk || {};
+  const bpos = s => _boardRk[normName(s.p.name)] || Infinity;
+  const bySug = new Map(pool.map(s => [s.p.name, s]));
+  // Candidates for the rank card = the visible top rows. Skill players only
+  // (rookie PICKs hold an RK slot but aren't a "best player left"), and the top
+  // of the board can sit outside the pool's 40 source-ranked names, so stub in
+  // anything missing rather than skipping down to a lower row.
+  const rankCands = Object.keys(_boardRk)
+    .map(nn => ({ nn, rk: _boardRk[nn] }))
+    .filter(x => x.rk <= 12)
+    .sort((a,b) => a.rk - b.rk)
+    .map(({nn}) => {
+      let s = null;
+      for (const cand of pool){ if (normName(cand.p.name) === nn){ s = cand; break; } }
+      if (s) return (s.p.pos === 'PICK') ? null : s;
+      const p = (typeof findPlayer === 'function') ? findPlayer(nn) : null;
+      if (!p || p.pos === 'PICK' || !paIsAvail(p)) return null;
+      let g = null;
+      try{ if (typeof dvPickScore === 'function') g = dvPickScore(p.name, p.pos, myPick); }catch(e){}
+      return { p, rank: getRankByMode(p, suggestMode), grade: g };
+    })
+    .filter(Boolean);
+  // All three are superlatives the user can check against the board columns, but
+  // only one card can hold a player. Grade picks FIRST: its letter sits in the
+  // pgrade column of every row, so a card reading B+ while an A+ is on screen is
+  // the most visible lie. (Rank used to go first, which is exactly how the top
+  // grade ended up on the Rank card as "· A+ pick" while the Grade card showed
+  // the runner-up.) Whoever settles for second says so — see `exact` below.
+  const _gS = s => (s.grade ? s.grade.s : -1);
+  const _gD = s => (s.grade && s.grade.delta != null) ? s.grade.delta : (myPick - s.rank);
+  const cGrade = takeBy(graded.length ? graded : pool, (a,b) => _gS(a) > _gS(b));
+  const cRank  = takeBy(rankCands.length ? rankCands : pool, (a,b) => bpos(a) < bpos(b));
+  const cFall  = takeBy(fallers.length ? fallers : pool, (a,b) => _gD(a) > _gD(b));
+  // Did each card get the true winner for its angle, or the next one down because
+  // another card claimed him? Drives the copy, so no card overstates.
+  const _topOf = (arr, val) => arr.reduce((m,s) => (m == null || val(s) > val(m)) ? s : m, null);
+  const exact = {
+    grade: true,                          // picks first, so always the max
+    rank:  !!cRank && bpos(cRank) === 1,  // literally row 1 of the board
+    fall:  cFall === _topOf(fallers.length ? fallers : pool, _gD),
+  };
 
   const dtri ='<svg class="sug3-dtri" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17 4 8h16z"/></svg>';
   const buildCard = (s, kind) => {
@@ -11202,19 +11247,24 @@ function renderSuggestions() {
 
     let acc, ic, eyebrow, metric, metricCol, reason;
     if (kind === 'fall'){
-      acc = 'var(--red)'; ic = DVF_ICON.risk; eyebrow = 'Biggest Faller';
+      acc = 'var(--red)'; ic = DVF_ICON.risk; eyebrow = exact.fall ? 'Biggest Faller' : 'Also Falling';
       const d = (s.grade && s.grade.delta != null) ? s.grade.delta : (myPick - s.rank);
       metric = `${dtri}${Math.max(0, Math.round(d))}`; metricCol = acc;
       const price = (s.grade && s.grade.base) ? s.grade.base : s.rank;
       reason = `Priced ~${price} · here at ${myPick}${gl ? ` · <b style="color:${gc}">${gl}</b>` : ''}`;
     } else if (kind === 'rank'){
-      acc = 'var(--sky)'; ic = DVF_ICON.situational; eyebrow = 'Highest Ranked Left';
-      metric = `#${s.rank}`; metricCol = acc;
-      reason = `Top name on the board${gl ? ` · <b style="color:${gc}">${gl}</b> pick` : ''}`;
+      acc = 'var(--sky)'; ic = DVF_ICON.situational;
+      eyebrow = exact.rank ? 'Highest Ranked Left' : 'Next Best on the Board';
+      // Board row, not source rank — this is the number in the list's RK column,
+      // so the claim is checkable against the rows right under the strip.
+      const bp = bpos(s);
+      metric = `#${bp === Infinity ? s.rank : bp}`; metricCol = acc;
+      reason = `${exact.rank ? 'Top' : 'Next'} name on the board${gl ? ` · <b style="color:${gc}">${gl}</b> pick` : ''}`;
     } else {
       acc = 'var(--rb)'; ic = DVF_ICON.upside; eyebrow = 'Best Draft Grade';
       metric = gl || '—'; metricCol = gc;
-      reason = `Best projected pick at your slot · #${s.rank}`;
+      const bp = bpos(s);
+      reason = `Best projected pick at your slot${bp === Infinity ? '' : ` · board #${bp}`}`;
     }
     return `<div class="sug3 sug3-${kind}" style="--acc:${acc}" onclick="markMine('${sn}')" title="Draft ${nEsc}">
       <div class="sug3-av">
@@ -13712,6 +13762,10 @@ function renderList(){
   PLAYERS.filter(p => p.pos !== 'PICK').slice().sort((a,b)=>_valForPos(b)-_valForPos(a))
     .forEach(p => { _posCtr[p.pos] = (_posCtr[p.pos]||0)+1; _posRankMap[normName(p.name)] = _posCtr[p.pos]; });
   let _rowRk = 0; // sequential RK for the leftmost column, always 1,2,3… in current display order
+  // Published so the suggestion strip can quote the SAME row number the user sees
+  // in the RK column — it tracks the active sort, position filter and hide-drafted
+  // toggle, none of which the strip can reconstruct on its own. Keyed by normName.
+  const _boardDisplayRk = {}; window._boardDisplayRk = _boardDisplayRk;
   // Per-row "Draft Now" column: live only when connected + on the clock in a
   // Sleeper draft. Toggle the table class so the column expands, and stamp the
   // header label. renderAll re-fires on each pick, so this stays in sync.
@@ -13751,6 +13805,7 @@ function renderList(){
 
     // This row is visible → assign the next sequential RK number for the display order.
     const _displayRk = ++_rowRk;
+    _boardDisplayRk[nn] = _displayRk;
 
     // ===== Status (REACH / NEED / VALUE / TAKE NOW) =====
     // Compare the player's rank in the CURRENT sort/value mode against their ADP
