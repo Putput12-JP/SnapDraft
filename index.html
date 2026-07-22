@@ -37638,29 +37638,85 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
    !important (~L2034) — which rendered as two stacked 2px lines in different
    colours. Both are retired here; the pill is now the only indicator.
    The transparent border is kept so tab height doesn't change.             */
-.la-tabs, #page-teams .lr-tabs { position:relative; }
+/* vaultRails() adds .vrail to a strip and inserts one <i class="v-pill">.
+   Three skins:
+     .v-pill--bar   2px underline        — sub-tab strips (.la-tabs, .lr-tabs)
+     .v-pill--fill  solid capsule behind — segmented filters, main nav
+     .v-pill--soft  translucent tint     — mobile dock (icon keeps its colour) */
+.vrail { position:relative; }
+/* Items must paint above the pill. Every wired item computes to static or
+   relative today — none are absolutely positioned — so this is safe. */
+.vrail > *:not(.v-pill) { position:relative; z-index:1; }
+
+.vrail > .v-pill{
+  position:absolute; left:0; width:0; z-index:0;
+  opacity:0; pointer-events:none;
+  transition:left var(--dur-rail) var(--ease-rail),
+             width var(--dur-rail) var(--ease-rail),
+             background-color 260ms ease,
+             opacity 180ms ease;
+}
+/* Applied while positioning a strip that was display:none (offsetWidth 0) or
+   mid-resize, so the pill teleports instead of visibly snaking into place. */
+.rail-noanim > .v-pill{ transition:none !important; }
+
+/* — bar — bottom:0, not -1px: overflow-x:auto makes overflow-y compute to
+   auto, which clips anything below the padding box. */
+.v-pill--bar{
+  bottom:0; height:2px; border-radius:2px 2px 0 0;
+  background:var(--rail-c, var(--accent2));
+  box-shadow:0 0 12px -1px color-mix(in srgb, var(--rail-c, var(--accent2)) 70%, transparent);
+}
 .la-tab.on::after            { display:none !important; }
 .la-tab.on                   { border-bottom-color:transparent !important; }
 #page-teams .lr-tab.on       { border-bottom-color:transparent; }
 
-/* bottom:0 (not -1px) on purpose: overflow-x:auto makes overflow-y compute to
-   auto too, so anything below the padding box gets clipped. */
-.la-tabs > .v-pillbar, #page-teams .lr-tabs > .v-pillbar{
-  position:absolute; bottom:0; left:0; width:0; height:2px;
-  border-radius:2px 2px 0 0;
-  background:var(--accent2);
-  box-shadow:0 0 12px -1px color-mix(in srgb, var(--accent2) 70%, transparent);
-  opacity:0; pointer-events:none;
-  transition:left var(--dur-rail) var(--ease-rail),
-             width var(--dur-rail) var(--ease-rail),
-             opacity 180ms ease;
+/* — fill — */
+.v-pill--fill{
+  top:var(--rail-inset,4px); bottom:var(--rail-inset,4px);
+  border-radius:var(--rail-radius,8px);
+  background:var(--rail-c, var(--accent));
+  box-shadow:0 3px 14px -5px var(--rail-c, var(--accent)),
+             inset 0 1px 0 rgba(255,255,255,0.16);
 }
-/* Applied while positioning a strip that was display:none (offsetWidth 0) or
-   mid-resize, so the bar teleports instead of visibly snaking into place. */
-.rail-noanim > .v-pillbar{ transition:none !important; }
+
+/* — soft — */
+.v-pill--soft{
+  top:var(--rail-inset,6px); bottom:var(--rail-inset,6px);
+  border-radius:var(--rail-radius,14px);
+  background:color-mix(in srgb, var(--rail-c, var(--accent2)) 16%, transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rail-c, var(--accent2)) 26%, transparent);
+}
+
+/* The pill IS the active background now, so each strip's own .on fill has to go
+   or you get a chip inside a chip. Scoped to wired strips (.vrail-- is added by
+   JS), so nothing changes if the script never runs.
+
+   These are written per-strip rather than as one `.vrail--fill .on` because the
+   rules they override are themselves !important at higher specificity — e.g.
+   `.rh-scope .rh-seg.pos .rh-segbtn.on` (0,4,0) and
+   `#page-draft .controls.dvc .pos-seg .fbtn.QB.on` (1,4,0). A short selector
+   loses to those even with !important. */
+.rh-scope .rh-seg.pos.vrail--fill .rh-segbtn.on,
+#page-draft .controls.dvc .pos-seg.vrail--fill .fbtn.on,
+.res-seg.res-pos-seg.vrail--fill .res-segbtn.on,
+#adp-poschips.vrail--fill button.on,
+.nav.desktop-nav.vrail--fill .on,
+.bottom-tab-bar.vrail--soft .tab-btn.on{
+  background:transparent !important;
+  box-shadow:none !important;
+}
+/* Ink flips per position colour — set on the strip by vaultRails(). */
+.rh-scope .rh-seg.pos.vrail--fill .rh-segbtn.on,
+#page-draft .controls.dvc .pos-seg.vrail--fill .fbtn.on,
+.res-seg.res-pos-seg.vrail--fill .res-segbtn.on,
+#adp-poschips.vrail--fill button.on,
+.nav.desktop-nav.vrail--fill .on{
+  color:var(--rail-ink, #fff) !important;
+}
 
 @media (prefers-reduced-motion:reduce){
-  .la-tabs > .v-pillbar, #page-teams .lr-tabs > .v-pillbar{ transition:none !important; }
+  .vrail > .v-pill{ transition:none !important; }
 }
 
 /* ════ MOTION · in-button wait state ═════════════════════════════════
@@ -38202,85 +38258,115 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 
 <script id="vault-rails-js">
 /* ════ MOTION · sliding tab indicator ═══════════════════════════════════
-   Gives every tab strip one travelling bar instead of an indicator that
-   blinks between tabs. See the "MOTION · sliding tab indicator" CSS block.
+   Gives every tab strip one travelling pill instead of an indicator that
+   blinks between tabs. Pairs with the "MOTION · sliding tab indicator" CSS.
 
-   Two observers per strip, no polling and no showPage() hook:
-     · ResizeObserver  — fires when a strip that was display:none finally
-       gets a box. That is the whole fix for the offsetWidth===0 trap: pages
-       are toggled with display:none, so positioning on load would otherwise
-       peg the bar at width 0 and make it snake into place on first open.
-       It also covers window resize and webfont metric shifts for free.
+   Per-strip triggers, no polling:
      · MutationObserver — the app sets .on itself, sometimes after an await,
-       so we watch for the class change rather than listening for clicks.
+       so we watch the class change rather than listening for clicks.
+     · catchUp() on nav / click / resize — a strip can become visible without
+       its .on ever changing, which fires no observer at all.
+
+   Deliberately NOT rAF-driven: a backgrounded or non-painting tab never runs
+   requestAnimationFrame, which would strand .rail-noanim and kill the travel
+   permanently. Positions flush with a forced reflow instead, the same way
+   openPlayerStats() does. ResizeObserver/IntersectionObserver are paint-driven
+   for the same reason and are not used as triggers.
    ══════════════════════════════════════════════════════════════════════ */
 (function(){
-  var SEL  = '.la-tabs, #page-teams .lr-tabs';
-  var BAR  = 'v-pillbar';
+  // Position colours + the ink that stays readable on top of each.
+  var POS_C  = { ALL:'var(--accent)', QB:'var(--qb)', RB:'var(--rb)', WR:'var(--wr)', TE:'var(--te)' };
+  var POS_INK= { ALL:'#fff', QB:'#1a0b10', RB:'#06140d', WR:'#06141a', TE:'#1a1405' };
+
+  var RAILS = [
+    { sel:'.la-tabs, #page-teams .lr-tabs', skin:'bar' },
+    // ALL/QB/RB/WR/TE filters — pill carries the position colour as it travels.
+    // adp-poschips is single-select but de-selectable, so "nothing active" is a
+    // real state; place() parks the pill at opacity 0 for it.
+    { sel:'.rh-seg.pos, .dvc-seg.pos-seg, .res-pos-seg, #adp-poschips',
+      skin:'fill', colour:true, inset:'4px', radius:'8px' },
+    // Nav keeps its existing look (light --primary chip, dark ink) and just
+    // gains the travel; --accent here would darken it and kill the contrast.
+    { sel:'.nav.desktop-nav', skin:'fill', inset:'0px', radius:'9999px',
+      c:'var(--primary)', ink:'var(--on-primary)' },
+    { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
+  ];
+  var ALL_SEL = RAILS.map(function(r){ return r.sel; }).join(', ');
   var wired = new WeakSet();
 
-  function bar(strip){
-    var b = strip.querySelector(':scope > .' + BAR);
-    if (!b) {                       // absent on first run, or wiped by a re-render
-      b = document.createElement('i');
-      b.className = BAR;
-      b.setAttribute('aria-hidden', 'true');
-      strip.insertBefore(b, strip.firstChild);
+  function pill(strip, cfg){
+    var p = strip.querySelector(':scope > .v-pill');
+    if (!p) {                       // absent on first run, or wiped by a re-render
+      p = document.createElement('i');
+      p.className = 'v-pill v-pill--' + cfg.skin;
+      p.setAttribute('aria-hidden', 'true');
+      strip.insertBefore(p, strip.firstChild);
     }
-    return b;
+    return p;
   }
 
-  function place(strip, animate){
-    var b  = bar(strip);
-    var on = strip.querySelector(':scope > .on');
-    // Hidden strip (display:none) or no active tab — park the bar, don't guess.
-    if (!on || !strip.clientWidth) { b.style.opacity = '0'; return; }
+  // The measurable item is the strip's DIRECT child. In the main nav the .on
+  // button is nested inside a dropdown wrapper, so walk up to that child.
+  function activeItem(strip, cfg){
+    var on = strip.querySelector(cfg.on || '.on');
+    if (!on) return null;
+    while (on && on.parentElement !== strip) on = on.parentElement;
+    return on;
+  }
+
+  function place(strip, cfg, animate){
+    var p  = pill(strip, cfg);
+    var it = activeItem(strip, cfg);
+    // Hidden strip (display:none) or nothing selected — park it, don't guess.
+    if (!it || !strip.clientWidth) { p.style.opacity = '0'; return; }
+    if (cfg.colour) {
+      var key = (it.textContent || '').trim().toUpperCase();
+      if (POS_C[key]) {
+        strip.style.setProperty('--rail-c', POS_C[key]);
+        strip.style.setProperty('--rail-ink', POS_INK[key]);
+      }
+    }
     if (!animate) strip.classList.add('rail-noanim');
-    b.style.opacity = '1';
-    b.style.left    = on.offsetLeft  + 'px';
-    b.style.width   = on.offsetWidth + 'px';
+    p.style.opacity = '1';
+    p.style.left    = it.offsetLeft  + 'px';
+    p.style.width   = it.offsetWidth + 'px';
     if (!animate) {
-      // Forced reflow, NOT rAF: a backgrounded or non-painting tab never runs
-      // rAF, which would strand .rail-noanim and kill the travel permanently.
-      // Same reason openPlayerStats() flushes with a reflow instead of a frame.
-      void strip.offsetWidth;
+      void strip.offsetWidth;       // flush the untransitioned position
       strip.classList.remove('rail-noanim');
     }
   }
 
-  function wire(strip){
+  function wire(strip, cfg){
     if (wired.has(strip)) return;
     wired.add(strip);
-    place(strip, false);
-
-    new MutationObserver(function(){ place(strip, true); })
+    strip.classList.add('vrail', 'vrail--' + cfg.skin);
+    if (cfg.inset)  strip.style.setProperty('--rail-inset',  cfg.inset);
+    if (cfg.radius) strip.style.setProperty('--rail-radius', cfg.radius);
+    if (cfg.c)      strip.style.setProperty('--rail-c',   cfg.c);
+    if (cfg.ink)    strip.style.setProperty('--rail-ink', cfg.ink);
+    place(strip, cfg, false);
+    new MutationObserver(function(){ place(strip, cfg, true); })
       .observe(strip, { subtree:true, attributes:true, attributeFilter:['class'] });
-
-    if (window.ResizeObserver) {
-      var first = true;
-      new ResizeObserver(function(){
-        // width 0 -> N is the hidden page opening; never animate that one
-        place(strip, !first && strip.clientWidth > 0);
-        first = false;
-      }).observe(strip);
-    }
   }
 
-  function scan(){
-    document.querySelectorAll(SEL).forEach(wire);
+  function each(fn){
+    RAILS.forEach(function(cfg){
+      document.querySelectorAll(cfg.sel).forEach(function(s){ fn(s, cfg); });
+    });
   }
 
-  // Re-place any strip that is now on screen but still has a parked bar.
-  // A strip can become visible without its .on ever changing (open a page,
-  // open a player profile), and that fires neither observer above — so this
-  // is the deterministic catch-up, not a nicety.
+  function scan(){ each(wire); }
+
+  // Re-place any strip that is on screen but still parked. A strip can become
+  // visible without its .on ever changing (open a page, open a profile), which
+  // fires no observer — this is the deterministic catch-up, not a nicety.
   function catchUp(){
     hookNav();   // idempotent; retried here so the hook self-heals regardless
                  // of whether showPage existed at DOMContentLoaded or load
-    document.querySelectorAll(SEL).forEach(function(s){
-      wire(s);
-      var b = s.querySelector(':scope > .' + BAR);
-      if (b && b.style.opacity !== '1' && s.clientWidth) place(s, false);
+    each(function(s, cfg){
+      wire(s, cfg);
+      var p = s.querySelector(':scope > .v-pill');
+      if (p && p.style.opacity !== '1' && s.clientWidth) place(s, cfg, false);
     });
   }
 
@@ -38291,20 +38377,30 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     var orig = window.showPage;
     var wrapped = function(){
       var r = orig.apply(this, arguments);
-      setTimeout(catchUp, 0);   // after the page swap paints its new layout
+      setTimeout(catchUp, 0);   // after the page swap lays out
       return r;
     };
     wrapped.__rails = true;
     try { window.showPage = wrapped; } catch(e){}
   }
 
-  // Cheap third net: 3 strips inspected on a click is negligible, and it
+  // Cheap net: a handful of strips inspected per click is negligible, and it
   // covers app states that route around showPage entirely.
   document.addEventListener('click', function(){ setTimeout(catchUp, 0); }, { passive:true });
   addEventListener('resize', catchUp);
 
-  // Strips are static markup today; scan() stays exported so a future
-  // dynamically-rendered strip can opt in with one call.
+  // Several of these strips (research-hub, ADP, draft filters) are re-rendered
+  // from template literals when data lands, which throws away the pill and the
+  // .vrail class. Re-scan when the DOM changes, debounced hard: the draft board
+  // renders hundreds of rows and renderList is a known hot path, so the work is
+  // coalesced to one cheap querySelectorAll per idle burst rather than per node.
+  var rescan = null;
+  new MutationObserver(function(){
+    if (rescan) return;
+    rescan = setTimeout(function(){ rescan = null; catchUp(); }, 300);
+  }).observe(document.body, { childList:true, subtree:true });
+
+  // Exported so a future dynamically-rendered strip can opt in with one call.
   window.vaultRails = scan;
 
   if (document.readyState === 'loading') {
@@ -38312,14 +38408,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   } else {
     scan(); hookNav();
   }
-  // Retry the nav hook once everything has parsed, in case showPage was not
-  // defined yet on the first attempt. hookNav() is idempotent.
   addEventListener('load', function(){ scan(); hookNav(); catchUp(); });
-  // Webfont swap changes tab widths after first paint.
+  // Webfont swap changes item widths after first paint.
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function(){
-      document.querySelectorAll(SEL).forEach(function(s){ place(s, false); });
-    });
+    document.fonts.ready.then(function(){ each(function(s, cfg){ place(s, cfg, false); }); });
   }
 })();
 </script>
