@@ -1,16 +1,41 @@
 # Refresh the Lineup Command projection feed.
-# Every 6h as a baseline, plus hourly through the game windows
+# In-season: every 6h as a baseline, plus hourly through the game windows
 # (Thu/Sun/Mon, 13:00–23:00 UTC ≈ 9am–7pm ET) so projections track
-# late-breaking news. Matches the repo's scripts/ + data/ + workflows pattern.
+# late-breaking news. Offseason: once daily — see the credit budget below.
+# Matches the repo's scripts/ + data/ + workflows pattern.
 # Place at: .github/workflows/update-lineup.yml
 
 name: Update Lineup projections
 
 on:
   schedule:
-    - cron: '0 */6 * * *'        # baseline: every 6 hours
-    - cron: '0 13-23 * * 0,1,4'  # hourly during Sun/Mon/Thu game windows
+    # ── ParlayAPI credit budget ──────────────────────────────────────────
+    # Each run costs 6 ParlayAPI credits: 2 requests (/odds + /props) billed
+    # at 3 credits each. Measured over Jul 2026 — 140 runs → 840 credits,
+    # exactly 6.0/run. The FREE tier is 1,000 credits/month, so the entire
+    # year has to fit inside ~166 runs/month.
+    #
+    # OFFSEASON (Feb–Aug) — once daily.
+    # Season-opener lines move a few times a WEEK, so the old year-round
+    # '0 */6' + hourly-game-window schedule burned ~70% of the monthly budget
+    # re-fetching numbers that hadn't changed. 1/day ≈ 180 credits/month.
+    - cron: '0 9 * 2,3,4,5,6,7,8 *'
+    #
+    # IN-SEASON (Sep–Jan) — unchanged for now.
+    # WARNING: this is ~172 runs ≈ 1,032 credits/month and does NOT fit the
+    # free tier. Before Week 1, either upgrade ($5/mo) or trim to a daily
+    # baseline + a 15-23 UTC game window (~146 runs ≈ 876 credits/month).
+    - cron: '0 */6 * 9,10,11,12,1 *'
+    - cron: '0 13-23 * 9,10,11,12,1 0,1,4'
   workflow_dispatch: {}        # manual "Run workflow" button
+
+# Two cron entries both match 18:00 UTC on Sun/Mon/Thu in-season. Serialize so
+# the overlapping runs can't race on data/lineup-feed.json and trip the push
+# retry loop below. (This is a git-safety fix, not a credit saving — a queued
+# run still executes and still costs its 6 credits.)
+concurrency:
+  group: lineup-feed
+  cancel-in-progress: false
 
 permissions:
   contents: write
