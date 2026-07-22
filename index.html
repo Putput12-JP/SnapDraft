@@ -18310,6 +18310,15 @@ function getPfFinance(lgId){ return window._pfFinance[lgId] || null; }
 function _pfMoney(v){ return '$'+(Math.round(v)||0).toLocaleString(); }
 function _pfOrd(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 function _pfLg(lgId){ return (window._pfLeagueData||[]).find(x=>x.lg && x.lg.league_id===lgId); }
+// Every Portfolio command view (Lineup / Trade / Waiver / Taxi) derives from
+// window._pfLeagueData, which renderPortfolio() fills asynchronously. Until it
+// exists there is nothing to render — and "empty" must not be mistaken for
+// "loaded and none qualify", which is how Taxi Manager used to claim you had no
+// taxi leagues while the fetch was still in flight.
+function _pfDataReady(){ return Array.isArray(window._pfLeagueData); }
+function _pfWaitHtml(msg){
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:13px;padding:56px 20px;color:var(--muted);font-size:13px"><div class="spinner md"></div>${msg}</div>`;
+}
 // projected payout for a league at the current standing (0 = out of the money)
 function _pfProj(d){
   const f = getPfFinance(d.lg && d.lg.league_id); if(!f) return null;
@@ -19143,6 +19152,7 @@ const _lcFmt = n => (n==null?'—':(Math.round(n*100)/100).toFixed(2));
 async function renderLineupCommand(){
   const el = document.getElementById('pf-lineup-command');
   if(!el) return;
+  if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
   const data = (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
   if(!data.length){ el.innerHTML=''; return; }
 
@@ -19545,8 +19555,9 @@ function _tcCardHtml(t, d, entry, cls){
 async function renderTradeCenter(force){
   const el = document.getElementById('pf-trade-center');
   if(!el) return;
+  if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
   const data = _tcLeagues();
-  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Loading leagues…</div>'; return; }
+  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">No Sleeper leagues to trade in.</div>'; return; }
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
@@ -19787,8 +19798,9 @@ async function renderWaiverCommand(force){
   const el = document.getElementById('pf-waiver-command');
   if(!el) return;
   _cxEnsureStyles();
+  if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
   const data = _tcLeagues();
-  if(!data.length){ el.innerHTML = '<div class="cx"><div class="cx-loading">Loading leagues…</div></div>'; return; }
+  if(!data.length){ el.innerHTML = '<div class="cx"><div class="cx-empty">No Sleeper leagues to claim in.</div></div>'; return; }
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
@@ -20004,6 +20016,7 @@ async function renderTaxiCommand(){
   const el = document.getElementById('pf-taxi-command');
   if(!el) return;
   _cxEnsureStyles();
+  if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
   const data = _txLeagues();
   if(!data.length){
     el.innerHTML = `<div class="cx"><div class="cx-empty">None of your leagues run a taxi squad. Taxi Manager applies to dynasty leagues with taxi slots.</div></div>`;
@@ -20159,12 +20172,30 @@ function pfSetView(v){
   document.querySelectorAll('#pf-nav-menu .lc-mt-item').forEach(it => {
     it.classList.toggle('active', it.dataset.pfview === v);
   });
-  if(v==='lineup'){ try { renderLineupCommand(); } catch(e){} }
-  if(v==='trades'){ try { renderTradeCenter(); } catch(e){} }
-  if(v==='waivers'){ try { renderWaiverCommand(); } catch(e){} }
-  if(v==='taxi'){ try { renderTaxiCommand(); } catch(e){} }
+  pfRenderView(v);
 }
-try { window.pfSetView = pfSetView; } catch(e){}
+// Paint whichever command view is showing. Kept separate from pfSetView so the
+// same dispatch can run a second time when _pfLeagueData finally lands —
+// navigating in before the fetch resolves used to leave the view parked on its
+// wait state forever, because nothing re-invoked the renderer.
+window._pfViewRun = window._pfViewRun || {};
+function pfRenderView(v){
+  v = v || window._pfView;
+  const fn = { lineup:renderLineupCommand, trades:renderTradeCenter,
+               waivers:renderWaiverCommand, taxi:renderTaxiCommand }[v];
+  if(typeof fn !== 'function') return;
+  // Each renderer writes innerHTML at several points across its awaits, so two
+  // overlapping runs interleave and the slower one paints last. Queue rather
+  // than race: an in-flight run re-dispatches itself once when it settles.
+  const st = window._pfViewRun;
+  if(st[v]){ st[v+':again'] = true; return; }
+  st[v] = true;
+  Promise.resolve().then(fn).catch(()=>{}).then(() => {
+    st[v] = false;
+    if(st[v+':again']){ st[v+':again'] = false; pfRenderView(v); }
+  });
+}
+try { window.pfSetView = pfSetView; window.pfRenderView = pfRenderView; } catch(e){}
 
 // Turn the top-nav "Portfolio" pill into a dropdown (My Portfolio ▾ / Lineup
 // Command), matching the existing My Team / Research nav dropdowns exactly.
@@ -20197,7 +20228,6 @@ try { window.pfSetView = pfSetView; } catch(e){}
       const it = e.target.closest('.lc-mt-item'); if(!it) return;
       menu.classList.remove('show');
       const v = it.dataset.pfview;
-      window._pfPendingView = v;
       try { showPage('portfolio'); } catch(e){}
       try { pfSetView(v); } catch(e){}
     });
@@ -20218,9 +20248,6 @@ function renderPortfolioV2(){
     tableWrap.innerHTML = '';
     return;
   }
-
-  // Lineup Command table (optimize + push to Sleeper across all leagues)
-  try { renderLineupCommand(); } catch(e){}
 
   // ── Top stat strip, money-aware (buy-ins are entered by the manager, stored per Sleeper account) ──
   const totalLeagues = data.length;
@@ -20610,6 +20637,11 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
   window._pfLeagueData = leagueData;
   // v2 is the only view now, always re-render after data computes
   try { if (typeof renderPortfolioV2 === 'function') renderPortfolioV2(); } catch(e) {}
+  // …and repaint whichever command view is open. Clicking straight into Lineup /
+  // Trade / Waiver / Taxi from the nav dropdown fires its renderer immediately,
+  // which is before this data exists on a cold nav — this is the only thing that
+  // brings that view out of its wait state.
+  try { pfRenderView(); } catch(e) {}
 
   // ── Summary KPIs ─────────────────────────────────────────
   const totalVal = leagueData.reduce((s,d) => s + d.myValue, 0);
@@ -37698,6 +37730,19 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rail-c, var(--accent2)) 26%, transparent);
 }
 
+/* Catch-all for every wired strip. !important outranks any non-important rule
+   regardless of specificity, which covers the long tail of segmented controls.
+   The taller per-strip selectors below handle the few whose own rules are
+   themselves !important and so need to be out-specified. */
+.vrail--fill .on, .vrail--soft .on{
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.vrail--fill .on{
+  color:var(--rail-ink, #fff) !important;
+  -webkit-text-fill-color:var(--rail-ink, #fff) !important;
+}
+
 /* The pill IS the active background now, so each strip's own .on fill has to go
    or you get a chip inside a chip. Scoped to wired strips (.vrail-- is added by
    JS), so nothing changes if the script never runs.
@@ -38320,6 +38365,20 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     { sel:'.mr-seg.posseg', skin:'fill', colour:true, inset:'3px', radius:'7px' },
     { sel:'.mr-seg:not(.posseg)', skin:'fill', inset:'3px', radius:'7px',
       bg:'linear-gradient(135deg,var(--accent),var(--accent2))', ink:'#fff' },
+    // Everything else with an .on child — wired by class FAMILY, not by
+    // modifier, so a new `.rh-seg foo` variant is covered automatically. Order
+    // matters: the coloured/position entries above claim their strips first
+    // (wire() is WeakSet-guarded, so the first match wins).
+    //
+    // Deliberately NOT here:
+    //   .lc-mt-menu / .rh-mt-menu / #dv-dd-menu — vertical dropdown MENUS, a
+    //     travelling pill is the wrong idiom for a popup list
+    //   .d-fc-dots — carousel dots, not a selector
+    //   #vp-platforms — flex-direction:column; the pill only animates
+    //     left/width, so it cannot track a vertical strip
+    { sel:'.rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg, .bt-seg,'
+       + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .vcaps, #vp-chips',
+      skin:'fill', inset:'3px', radius:'7px' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];
   var ALL_SEL = RAILS.map(function(r){ return r.sel; }).join(', ');
