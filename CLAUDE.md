@@ -63,6 +63,24 @@ Per-strip config keys: `colour` (take the position colour from the item's
 label), `c` / `ink` (pin both), `bg` (custom pill background, e.g. keeping an
 existing gradient), `inset`, `radius`, `on` (custom active selector).
 
+**Match by class FAMILY, not by modifier.** `RAILS` ends with a catch-all entry
+listing `.rh-seg, .res-seg, .dvc-seg, .tc-seg, .vcaps, …` so a new
+`.rh-seg whatever` variant is covered automatically. Entries are matched in
+order and `wire()` is WeakSet-guarded, so the specific coloured/position
+entries must stay *above* the catch-all to claim their strips first. Wiring
+one modifier at a time is how Advanced Stats' SEASON strip got missed while
+POSITION worked.
+
+Four things are deliberately **excluded** — do not "fix" them:
+`.lc-mt-menu` / `.rh-mt-menu` / `#dv-dd-menu` (vertical dropdown *menus* — a
+travelling pill is the wrong idiom for a popup list), `.d-fc-dots` (carousel
+dots), and `#vp-platforms` (`flex-direction:column`; the pill only animates
+`left`/`width`, so it cannot track a vertical strip).
+
+To find anything still uncovered, scan the DOM for elements whose children are
+all buttons and where exactly one has `.on` — that audit is what took coverage
+from 9 strips to 27.
+
 **Contrast is theme-dependent.** Position colours *invert* between themes —
 vapor/onyx use light positions (`--qb:#ff6680`), light mode uses dark ones
 (`--qb:#c52d3a`). Never hardcode the ink; use `--pos-ink`, which flips per
