@@ -265,14 +265,51 @@ const TOA_MARKETS = {
 };
 const americanToProb = p => p == null ? null : (p < 0 ? (-p) / (-p + 100) : 100 / (p + 100));
 
-/* build a consensus cell (median line + best over/under + every book quote)
+/* Consensus line = the mode, not the median. median(34.5, 35.5) is 35 — a
+   number no book offers, and a whole number implies a push that pick'em apps
+   never allow. Ties resolve to the line nearest the middle of the market, then
+   to the lower line, so repeated builds are stable. */
+function modalLine(vals) {
+  const a = (vals || []).filter(v => v != null).slice().sort((x, y) => x - y);
+  if (!a.length) return null;
+  const n = a.length, mid = n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2;
+  const freq = new Map();
+  a.forEach(v => freq.set(v, (freq.get(v) || 0) + 1));
+  let pick = null, pickN = -1;
+  for (const [v, n] of freq) {
+    if (n > pickN) { pick = v; pickN = n; continue; }
+    if (n < pickN) continue;
+    const dv = Math.abs(v - mid), dp = Math.abs(pick - mid);
+    if (dv < dp || (dv === dp && v < pick)) pick = v;
+  }
+  return pick;
+}
+
+/* Best price for a side, ranked on the LINE first. A lower line is strictly
+   better for an OVER and a higher one for an UNDER; comparing price alone let
+   flat-priced pick'em apps (PrizePicks +100/-100, Underdog -112/-112) win every
+   contested cell over a sportsbook's -110 regardless of the number they were
+   posting. Price only breaks a tie. anytime_td quotes all carry line 0, so they
+   fall straight through to the price comparison. */
+function bestSide(quotes, side) {
+  const better = side === 'over' ? (a, b) => a < b : (a, b) => a > b;
+  return quotes.reduce((best, q) => {
+    if (q[side] == null) return best;
+    const cand = { book: q.book, price: q[side], line: q.line ?? null };
+    if (!best) return cand;
+    if (cand.line != null && best.line != null && cand.line !== best.line)
+      return better(cand.line, best.line) ? cand : best;
+    return cand.price > best.price ? cand : best;
+  }, null);
+}
+
+/* build a consensus cell (modal line + best over/under + every book quote)
    from books = { bookTitle: { line, over, under, prob } } */
 function consensusCell(stat, books) {
   const quotes = Object.entries(books).map(([book, v]) => ({ book, line: v.line ?? null, over: v.over ?? null, under: v.under ?? null, prob: v.prob ?? null }));
-  const lineVals = quotes.map(q => q.line).filter(v => v != null);
-  const cons = stat === 'anytime_td' ? null : round(median(lineVals));
-  const bestOver = quotes.reduce((b, q) => (q.over != null && (!b || q.over > b.price)) ? { book: q.book, price: q.over } : b, null);
-  const bestUnder = quotes.reduce((b, q) => (q.under != null && (!b || q.under > b.price)) ? { book: q.book, price: q.under } : b, null);
+  const cons = stat === 'anytime_td' ? null : modalLine(quotes.map(q => q.line).filter(v => v != null));
+  const bestOver = bestSide(quotes, 'over');
+  const bestUnder = bestSide(quotes, 'under');
   return stat === 'anytime_td'
     ? { prob: round(median(quotes.map(q => q.prob).filter(v => v != null))), over: bestOver?.price ?? null, book: bestOver?.book ?? null, quotes, best: { over: bestOver } }
     : { line: cons, over: bestOver?.price ?? null, under: bestUnder?.price ?? null, book: bestOver?.book ?? null, quotes, best: { over: bestOver, under: bestUnder } };

@@ -32838,8 +32838,48 @@ body .page,body .page.on{background:transparent!important}
       return { book, line: round(jLine, 1), over, under, prob: null };
     });
   }
-  function bestOf(quotes, side) {
-    return quotes.reduce((b, q) => (q[side] != null && (!b || q[side] > b.price)) ? { book: q.book, price: q[side] } : b, null);
+  /* Best price for a side — LINE-AWARE. A lower line is strictly better for an
+     OVER and a higher line for an UNDER, so ranking on price alone hands the
+     badge to whoever quotes the friendliest price against an unstated number.
+     That failed systematically: pick'em apps price flat by design (PrizePicks
+     +100/-100, Underdog -112/-112) and a sportsbook's -110 can never beat +100,
+     so a DFS app won "best" on every contested cell in the feed while offering
+     a materially worse line. Rank on the line first; price only breaks a tie.
+     Markets with no line (anytime TD, where every quote carries line 0) fall
+     straight through to the price comparison. Pass lineAware=false for
+     synthesized quotes: their per-book lines are jitter, not a real market,
+     so ranking on them would be noise. */
+  function bestOf(quotes, side, lineAware = true) {
+    const better = side === 'over' ? (a, b) => a < b : (a, b) => a > b;
+    return (quotes || []).reduce((best, q) => {
+      if (q[side] == null) return best;
+      const cand = { book: q.book, price: q[side], line: q.line ?? null };
+      if (!best) return cand;
+      if (lineAware && cand.line != null && best.line != null && cand.line !== best.line)
+        return better(cand.line, best.line) ? cand : best;
+      return cand.price > best.price ? cand : best;
+    }, null);
+  }
+
+  /* Consensus line = the number the most books actually post (the mode), never
+     an average. median(34.5, 35.5) is 35 — a whole number no book offers, and
+     one that implies a push pick'em apps do not allow. Ties resolve to the line
+     nearest the middle of the market, then to the lower line, so the result is
+     stable across renders. Returns null when no quote carries a line. */
+  function consensusLine(quotes) {
+    const vals = (quotes || []).map(q => q.line).filter(v => v != null).sort((a, b) => a - b);
+    if (!vals.length) return null;
+    const n = vals.length, mid = n % 2 ? vals[(n - 1) / 2] : (vals[n / 2 - 1] + vals[n / 2]) / 2;
+    const freq = new Map();
+    vals.forEach(v => freq.set(v, (freq.get(v) || 0) + 1));
+    let pick = null, pickN = -1;
+    for (const [v, n] of freq) {
+      if (n > pickN) { pick = v; pickN = n; continue; }
+      if (n < pickN) continue;
+      const dv = Math.abs(v - mid), dp = Math.abs(pick - mid);
+      if (dv < dp || (dv === dp && v < pick)) pick = v;
+    }
+    return pick;
   }
 
   async function getJSON(url) {
@@ -33120,21 +33160,34 @@ body .page,body .page.on{background:transparent!important}
         const m = MARKET_BY_KEY[mk]; if (!m) continue;
         if (f.posMarketOnly && p.pos && !m.pos.includes(p.pos)) continue;
         const cell = block.lines[mk]; if (!cell) continue;
-        const val = m.kind === 'prob' ? cell.prob : cell.line;
-        if (f.min != null && val < f.min) continue;
-        if (f.max != null && val > f.max) continue;
         // per-book quotes: real from feed, else synthesized (deterministic) for the grid
         const books = (model._cfg && model._cfg.sampleBooks) || [];
         let quotes = cell.quotes;
-        if (!quotes || !quotes.length) quotes = synthQuotes(val, m.kind, (p.id || p.name) + ':' + mk + ':' + tf, books);
-        const best = cell.best && (cell.best.over || cell.best.under)
-          ? cell.best
-          : { over: bestOf(quotes, 'over'), under: bestOf(quotes, 'under') };
+        // synthQuotes jitters a line per book to fill the grid before props post.
+        // That jitter is NOT a market disagreement, so everything below that
+        // reads per-book lines has to know the difference.
+        const realQuotes = !!(quotes && quotes.length);
+        if (!realQuotes) quotes = synthQuotes(m.kind === 'prob' ? cell.prob : cell.line, m.kind, (p.id || p.name) + ':' + mk + ':' + tf, books);
+        // Consensus and best are recomputed from real quotes rather than read
+        // off the feed: cells built before the modal fix carry median(lines),
+        // which can name a number no book offers, and a feed `best` ranked on
+        // price alone. Recomputing here also means a stale feed self-corrects.
+        const lineVals = (m.kind === 'prob' || !realQuotes) ? [] : [...new Set(quotes.map(q => q.line).filter(v => v != null))].sort((a, b) => a - b);
+        const consLine = m.kind === 'prob' ? null
+          : (realQuotes ? (consensusLine(quotes) ?? cell.line ?? null) : (cell.line ?? null));
+        const val = m.kind === 'prob' ? cell.prob : consLine;
+        if (f.min != null && val < f.min) continue;
+        if (f.max != null && val > f.max) continue;
+        const best = { over: bestOf(quotes, 'over', realQuotes), under: bestOf(quotes, 'under', realQuotes) };
         rows.push({
           id: p.id, name: p.name, team: p.team, teamName: p.teamName, pos: p.pos,
           headshot: p.headshot, rank: p.rank,
           market: mk, marketLabel: m.label, marketShort: m.short, kind: m.kind,
-          line: cell.line ?? null, prob: cell.prob ?? null, value: val,
+          line: consLine, prob: cell.prob ?? null, value: val,
+          // spread of distinct lines across books; null when they agree or when
+          // the quotes are synthesized (jitter, not a real disagreement)
+          lineSpread: lineVals.length > 1 ? { min: lineVals[0], max: lineVals[lineVals.length - 1], n: lineVals.length } : null,
+          synthetic: !realQuotes,
           over: cell.over ?? null, under: cell.under ?? null, book: cell.book || null, modeled: !!cell.modeled,
           quotes, best,
           timeframe: tf,
@@ -33206,8 +33259,16 @@ body .page,body .page.on{background:transparent!important}
   --bt-border:var(--border);--bt-border2:var(--border2);--bt-border3:var(--border3);
   --bt-text:var(--text);--bt-text2:var(--text2);--bt-muted:var(--muted);--bt-faint:var(--muted);
   --bt-accent:var(--accent);--bt-accent2:var(--accent2);--bt-qb:var(--qb);--bt-rb:var(--rb);--bt-wr:var(--wr);--bt-te:var(--te);--bt-gold:var(--gold);--bt-green:var(--value);
+  /* off-consensus line marker. Sourced from --te only because it is the DS's
+     amber in every theme (onyx retunes --gold to steel-blue, which would read
+     as "best price" here); the meaning is "this book is on a different number". */
+  --bt-alt:var(--te);
   --bt-mono:var(--font-mono);
   padding:22px 28px 90px;color:var(--bt-text);max-width:1320px;margin:0 auto}
+/* .ln renders at --t-body (15px) bold, which is NOT WCAG "large text", so it
+   needs 4.5:1. Light theme's --te (#a76a16) only reaches 3.84:1 on the chip
+   surface (--s2 #f3eede); this darkened gold clears it at 4.55:1. */
+[data-theme="light"] #page-betting{--bt-alt:#966013}
 #page-betting .bt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
 #page-betting .bt-eyebrow{font-family:var(--bt-mono);font-size:var(--t-micro);letter-spacing:.2em;text-transform:uppercase;color:var(--bt-accent2);margin-bottom:9px}
 #page-betting .bt-title{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1;margin:0}
@@ -33380,6 +33441,12 @@ body .page,body .page.on{background:transparent!important}
 #page-betting .bt-ob.best .od{color:var(--bt-gold)}
 #page-betting .bt-ob .sd{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted);margin-top:1px}
 #page-betting .bt-ob.pk .od{color:var(--bt-accent2)}
+/* off-consensus: this book is posting a different NUMBER, so the number leads
+   and the price drops to the sub-line beside the delta. Only rendered when the
+   book actually disagrees, so rows where every book matches gain no new ink. */
+#page-betting .bt-ob.off{border-color:color-mix(in srgb,var(--bt-alt) 38%,transparent);background:color-mix(in srgb,var(--bt-alt) 8%,transparent)}
+#page-betting .bt-ob .ln{font-family:var(--bt-mono);font-size:var(--t-body);font-weight:700;margin-top:3px;line-height:1.1;color:var(--bt-alt)}
+#page-betting .bt-ob .pz{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted);margin-top:2px;white-space:nowrap}
 /* ── Mobile (≤700px): reflow Vault Pro for phones ── */
 @media(max-width:700px){
   #page-betting{padding:14px 12px 96px;overflow-x:hidden}
@@ -33569,8 +33636,32 @@ body .page,body .page.on{background:transparent!important}
       if (pickem) {
         boxes = '<div class="bt-ob best pk"><div class="bk">' + (r.book || 'PP') + '</div><div class="od">' + r.line + '</div><div class="sd">PICK</div></div>';
       } else {
-        boxes = books.map(b => { const q = qBy[b]; if (!q || q.over == null) return ''; return '<div class="bt-ob' + (b === bo ? ' best' : '') + '"><div class="bk">' + b + '</div><div class="od">' + fb.fmtOdds(q.over) + '</div><div class="sd">OVER</div></div>'; }).join('');
-        if (!isProb && r.best.under) boxes += '<div class="bt-ob best" title="Best Under price across all books — from ' + (r.best.under.book || 'book') + '"><div class="bk">BEST</div><div class="od">' + fb.fmtOdds(r.best.under.price) + '</div><div class="sd">UNDER</div></div>';
+        boxes = books.map(b => {
+          const q = qBy[b]; if (!q || q.over == null) return '';
+          // A book on a different number gets its own line, because the price
+          // beside a consensus it isn't quoting is meaningless. Delta signs the
+          // gap so "further out / easier" reads at a glance.
+          if (!isProb && !r.synthetic && q.line != null && r.line != null && q.line !== r.line) {
+            const d = q.line - r.line;
+            return '<div class="bt-ob off' + (b === bo ? ' best' : '') + '" title="' + b + ' is on ' + q.line + ', not the consensus ' + r.line + (b === bo ? ' — best OVER (lowest line)' : '') + '">'
+              + '<div class="bk">' + b + '</div><div class="ln">' + q.line + '</div>'
+              + '<div class="pz">' + fb.fmtOdds(q.over) + ' · ' + (d > 0 ? '+' : '') + d + '</div></div>';
+          }
+          return '<div class="bt-ob' + (b === bo ? ' best' : '') + '"><div class="bk">' + b + '</div><div class="od">' + fb.fmtOdds(q.over) + '</div><div class="sd">OVER</div></div>';
+        }).join('');
+        if (!isProb && r.best.under) {
+          // Best UNDER = highest line (price breaks ties). Name the line too
+          // whenever it isn't the consensus, so the chip can't imply the badge
+          // applies to the headline number.
+          // Summary chip, not a book quote — so it keeps the gold "best" look
+          // rather than the amber off-consensus one, and names the line in the
+          // sub-label instead of leading with it. Without that it renders as a
+          // second amber chip repeating the number of the book beside it.
+          const bu = r.best.under, offU = !r.synthetic && bu.line != null && r.line != null && bu.line !== r.line;
+          boxes += '<div class="bt-ob best" title="Best UNDER (highest line) — ' + (bu.book || 'book') + (offU ? ', who is on ' + bu.line + ' rather than the consensus ' + r.line : '') + '">'
+            + '<div class="bk">BEST</div><div class="od">' + fb.fmtOdds(bu.price) + '</div>'
+            + '<div class="sd">' + (offU ? 'U ' + bu.line : 'UNDER') + '</div></div>';
+        }
       }
       const hs = '<span class="bt-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>';
       const meta = '<span class="pb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span>' + (r.team ? '<span class="tm">' + r.team + (showOpp && r.opp ? ' · vs ' + r.opp : '') + '</span>' : '') + (r.modeled ? '<span class="bt-pj">PROJ</span>' : '');
