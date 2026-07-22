@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Motion Upgrade Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   Tokens inlined from vault-ds.css (onyx default, vapor toggle)
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --primary:#8fb4e0;--on-primary:#0b1420;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;--sky:#5e7c9c;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --value:#5fe09a;--gold:#8fb4e0;
+  --glass-1:rgba(24,25,30,0.55);--glass-2:rgba(30,32,38,0.55);
+  --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
+
+  /* ── EXISTING motion tokens (vault-ds.css) ── */
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ease-sheet:cubic-bezier(0.32,0.72,0,1);
+
+  /* ── PROPOSED additions ── */
+  --ease-rail:cubic-bezier(0.65,0,0.35,1);   /* travel: pills, indicators, carousels */
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1); /* release: press-return, pop-in */
+  --dur-press:80ms;    /* down — must beat perception */
+  --dur-release:500ms; /* up — the spring needs room */
+  --dur-rail:400ms;
+}
+[data-theme="vapor"]{
+  --bg:#070d18;--surface:#0e1626;
+  --s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
+  --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#7d8ca3;--dim:#1b2740;
+  --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+  --primary:#bec6e0;--sky:#4d86f0;--value:#3DCC7A;--gold:#f5c842;
+  --glass-1:rgba(14,22,38,0.55);--glass-2:rgba(20,30,48,0.55);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+  padding:0 0 120px;
+  transition:background .3s ease,color .3s ease;
+}
+
+/* ── page chrome ─────────────────────────────────────────────── */
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+header.pg{
+  padding:64px 0 40px;border-bottom:1px solid var(--border);margin-bottom:8px;
+}
+.kick{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent2);margin-bottom:14px}
+h1.pg{font-size:44px;font-weight:900;letter-spacing:-.035em;line-height:1.02}
+.lede{font-size:16px;line-height:1.6;color:var(--text2);max-width:62ch;margin-top:18px}
+.lede code{font-family:var(--font-mono);font-size:13px;background:var(--s3);padding:2px 6px;border-radius:4px;color:var(--accent3)}
+
+section.blk{padding:56px 0;border-bottom:1px solid var(--border)}
+.snum{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted)}
+h2.blk{font-size:28px;font-weight:800;letter-spacing:-.025em;margin:10px 0 12px}
+.sub{font-size:15px;line-height:1.6;color:var(--text2);max-width:64ch}
+
+.demo{
+  background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:28px;margin-top:26px;
+}
+.demo + .demo{margin-top:16px}
+.dlabel{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:20px;line-height:1.6;
+}
+.dlabel .dtx{flex:1 1 200px;min-width:0}
+.dlabel .tagx{background:rgba(226,58,78,.14);color:var(--red2);padding:3px 8px;border-radius:4px;letter-spacing:.08em}
+.dlabel .tagn{background:rgba(95,224,154,.13);color:var(--value);padding:3px 8px;border-radius:4px;letter-spacing:.08em}
+.dnote{font-size:13px;line-height:1.6;color:var(--muted);margin-top:18px;padding-top:16px;border-top:1px dashed var(--border2)}
+.dnote b{color:var(--text2);font-weight:600}
+
+pre.code{
+  background:#0a0b0e;border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:16px 18px;margin-top:16px;overflow-x:auto;
+  font-family:var(--font-mono);font-size:11.5px;line-height:1.75;color:#c9cdd6;
+}
+[data-theme="vapor"] pre.code{background:#050a12}
+pre.code .c{color:#5d6470}
+pre.code .p{color:var(--accent2)}
+pre.code .v{color:var(--te)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════════════════════════════════════
+   01 · THE SLIDING PILL
+   ═══════════════════════════════════════════════════════════════ */
+
+/* --- shared rail mechanics --- */
+.rail{position:relative}
+.rail .pill{
+  position:absolute;
+  transition:left var(--dur-rail) var(--ease-rail),
+             width var(--dur-rail) var(--ease-rail),
+             background-color 260ms ease,
+             box-shadow 260ms ease;
+  pointer-events:none;
+}
+.rail.noanim .pill{transition:none}
+
+/* A · nav tabs (.v-ntab) */
+.ntabs{display:flex;gap:2px;background:var(--s2);border:1px solid var(--border);padding:4px;border-radius:var(--radius-pill);width:max-content;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.ntabs::-webkit-scrollbar{display:none}
+.ntabs button{flex:0 0 auto}
+.ntabs .pill{
+  top:4px;bottom:4px;height:auto;border-radius:var(--radius-pill);
+  background:var(--accent);
+  box-shadow:0 2px 10px -3px color-mix(in srgb,var(--accent) 65%,transparent),inset 0 1px 0 rgba(255,255,255,.16);
+}
+.ntabs button{
+  position:relative;z-index:1;
+  padding:8px 18px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--muted);
+  border-radius:var(--radius-pill);white-space:nowrap;
+  transition:color 200ms ease;
+}
+.ntabs button:hover{color:var(--text2)}
+.ntabs button.on{color:#fff}
+
+/* the OLD behaviour, for contrast */
+.ntabs.legacy .pill{display:none}
+.ntabs.legacy button{transition:all .14s}
+.ntabs.legacy button.on{background:var(--accent);color:#fff;box-shadow:0 2px 10px -3px color-mix(in srgb,var(--accent) 55%,transparent)}
+
+/* B · underline tabs (.la-tab) — pill becomes a travelling rail */
+.latabs{display:flex;gap:0;border-bottom:1px solid var(--border);position:relative;overflow-x:auto;scrollbar-width:none}
+.latabs::-webkit-scrollbar{display:none}
+.latabs button{flex:0 0 auto}
+.latabs .pill{
+  bottom:-1px;height:2px;border-radius:2px 2px 0 0;
+  background:var(--accent2);
+  box-shadow:0 0 12px -1px color-mix(in srgb,var(--accent2) 70%,transparent);
+}
+.latabs button{
+  position:relative;padding:12px 18px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);white-space:nowrap;
+  transition:color 200ms ease;
+}
+.latabs button:hover{color:var(--text2)}
+.latabs button.on{color:var(--text)}
+
+.latabs.legacy .pill{display:none}
+.latabs.legacy button.on::after{
+  content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--accent2);border-radius:2px 2px 0 0;
+}
+
+/* C · position filter — pill inherits the position colour as it travels */
+.posf{display:inline-flex;gap:3px;background:var(--s2);border:1px solid var(--border);padding:4px;border-radius:var(--radius-md)}
+.posf .pill{
+  top:4px;bottom:4px;border-radius:7px;
+  background:var(--pc,var(--accent));
+  box-shadow:0 3px 14px -4px var(--pc,var(--accent));
+}
+.posf button{
+  position:relative;z-index:1;
+  padding:7px 16px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.09em;
+  color:var(--muted);border-radius:7px;
+  transition:color 200ms ease;
+}
+.posf button.on{color:#08090c}
+
+/* D · mobile dock — pill as a soft capsule that also lifts the icon */
+.dock{
+  display:flex;align-items:center;justify-content:space-around;
+  background:var(--glass-2);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--border);border-radius:var(--radius-xl);
+  padding:10px 8px;max-width:420px;
+}
+.dock .pill{
+  top:6px;bottom:6px;border-radius:14px;
+  background:color-mix(in srgb,var(--accent2) 15%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent2) 25%,transparent);
+}
+.dock button{
+  position:relative;z-index:1;flex:1;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:8px 4px;border:0;background:transparent;cursor:pointer;color:var(--muted);
+  transition:color 220ms ease;
+}
+.dock button svg{width:21px;height:21px;transition:transform 420ms var(--ease-spring)}
+.dock button.on{color:var(--accent2)}
+.dock button.on svg{transform:translateY(-2px) scale(1.06)}
+.dock .lb{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+
+/* ═══════════════════════════════════════════════════════════════
+   02 · THE SPRING PRESS
+   ═══════════════════════════════════════════════════════════════ */
+.press{
+  transition:transform var(--dur-release) var(--ease-spring);
+}
+.press:active{
+  transform:scale(var(--press-scale,.88));
+  transition:transform var(--dur-press) ease-out;
+}
+/* scale is inverse to surface size — a big card at .88 looks broken */
+.press.sz-chip{--press-scale:.88}
+.press.sz-btn {--press-scale:.94}
+.press.sz-card{--press-scale:.975}
+.press.sz-row {--press-scale:.99}
+
+.btn{
+  position:relative;overflow:hidden;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:11px 22px;border:0;border-radius:var(--radius-md);cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#0b1420;font-family:var(--font-sans);font-size:14px;font-weight:700;letter-spacing:-.01em;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 8px 18px -10px rgba(4,9,20,.7);
+}
+.btn.ghost{
+  background:var(--glass-1);border:1px solid var(--border2);color:var(--text);
+  box-shadow:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+.btn.red{background:linear-gradient(135deg,var(--red),var(--red2));color:#fff}
+.btn.icon{padding:11px;border-radius:var(--radius-md)}
+.btn.icon svg{width:17px;height:17px}
+.btn.legacy{transition:transform 80ms ease}
+.btn.legacy:active{transform:scale(.97)}
+
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 13px;border-radius:var(--radius-pill);cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid var(--border2);
+  font-size:11.5px;font-weight:600;color:var(--text2);
+}
+.chip.on{background:color-mix(in srgb,var(--accent2) 16%,transparent);border-color:color-mix(in srgb,var(--accent2) 34%,transparent);color:var(--accent3)}
+
+/* a player row that presses — where premium actually gets noticed */
+.prow{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  padding:13px 16px;border-radius:var(--radius-md);cursor:pointer;
+  background:var(--s2);border:1px solid var(--border);
+  transition:transform var(--dur-release) var(--ease-spring),background 180ms ease,border-color 180ms ease;
+}
+.prow:hover{background:var(--s3);border-color:var(--border2)}
+.prow:active{transform:scale(.99);transition:transform var(--dur-press) ease-out}
+.prow .rk{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--muted);width:24px}
+.prow .pos{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:4px 8px;border-radius:5px}
+.prow .nm{font-size:14px;font-weight:600;flex:1;color:var(--text)}
+.prow .val{font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--value)}
+
+.rowstack{display:flex;flex-direction:column;gap:8px;max-width:520px}
+
+/* ═══════════════════════════════════════════════════════════════
+   03 · LOADING
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes spin{to{transform:rotate(1turn)}}
+
+.spinner{
+  border-radius:50%;
+  border:var(--sw,4px) solid var(--s3);
+  border-top-color:var(--accent2);
+  border-right-color:var(--accent2);
+  animation:spin .8s linear infinite;
+}
+.spinner.lg{width:44px;height:44px;--sw:4px}
+.spinner.md{width:26px;height:26px;--sw:3px}
+.spinner.sm{width:15px;height:15px;--sw:2px}
+.spinner.red{border-top-color:var(--red2);border-right-color:var(--red2)}
+.spinner.val{border-top-color:var(--value);border-right-color:var(--value)}
+
+/* the glyph spinner currently in index.html, for contrast */
+.glyph{display:inline-block;font-size:24px;color:var(--muted);animation:spin 1s linear infinite}
+
+.loadbox{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  min-height:150px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-md);
+}
+.loadbox .msg{font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+
+/* button that swallows its own spinner — width never jumps */
+.btn.busy{pointer-events:none}
+.btn .bl{display:inline-flex;align-items:center;gap:7px;transition:opacity 180ms ease,transform 320ms var(--ease-out)}
+.btn.busy .bl{opacity:0;transform:scale(.9)}
+.btn .bs{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:scale(.9);transition:opacity 180ms ease,transform 320ms var(--ease-spring);
+}
+.btn.busy .bs{opacity:1;transform:scale(1)}
+.btn .bs .spinner{border-color:rgba(0,0,0,.22);border-top-color:#0b1420;border-right-color:#0b1420}
+.btn.done .bs .spinner{display:none}
+.btn .bk{display:none}
+.btn.done .bk{display:block;width:18px;height:18px;color:#0b1420}
+.btn.done .bk path{stroke-dasharray:24;stroke-dashoffset:24;animation:draw 340ms var(--ease-out) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* skeletons — what most of Vault's spinners should actually be */
+@keyframes shimmer{0%{opacity:.28}50%{opacity:.55}100%{opacity:.28}}
+.skel{background:color-mix(in srgb,var(--text) 9%,transparent);border-radius:6px;animation:shimmer 1.4s ease-in-out infinite}
+.skelrow{display:flex;align-items:center;gap:14px;padding:13px 16px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-md)}
+
+/* ═══════════════════════════════════════════════════════════════
+   04 · COMPOUNDS
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.stagger > *{animation:riseIn 520ms var(--ease-out) both}
+.stagger > *:nth-child(1){animation-delay:0ms}
+.stagger > *:nth-child(2){animation-delay:45ms}
+.stagger > *:nth-child(3){animation-delay:90ms}
+.stagger > *:nth-child(4){animation-delay:135ms}
+.stagger > *:nth-child(5){animation-delay:180ms}
+
+@keyframes popIn{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+.popin{animation:popIn 420ms var(--ease-spring) both}
+
+.ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:20px}
+.mini{
+  padding:7px 14px;border-radius:var(--radius-sm);cursor:pointer;
+  background:var(--s3);border:1px solid var(--border2);color:var(--text2);
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+}
+.mini:hover{background:var(--s4);color:var(--text)}
+
+/* theme switch, top-right */
+.tsw{position:fixed;top:20px;right:20px;z-index:50;display:flex;gap:4px;background:var(--glass-2);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--border2);padding:4px;border-radius:var(--radius-pill)}
+.tsw button{padding:7px 14px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:var(--radius-pill);font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:all .18s}
+.tsw button.on{background:var(--accent);color:#fff}
+
+.verdict{background:var(--s2);border:1px solid var(--border2);border-left:3px solid var(--accent2);border-radius:0 var(--radius-md) var(--radius-md) 0;padding:20px 22px;margin-top:22px}
+.verdict h4{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px}
+.verdict p{font-size:14px;line-height:1.65;color:var(--text2)}
+.verdict p + p{margin-top:10px}
+
+ol.ship{margin:18px 0 0 18px}
+ol.ship li{font-size:14.5px;line-height:1.7;color:var(--text2);margin-bottom:12px}
+ol.ship li b{color:var(--text);font-weight:700}
+ol.ship code{font-family:var(--font-mono);font-size:12.5px;background:var(--s3);padding:2px 6px;border-radius:4px;color:var(--accent3)}
+
+@media(prefers-reduced-motion:reduce){
+  .rail .pill,.press,.btn,.prow,.dock button svg{transition:none!important}
+  .spinner,.skel,.glyph{animation:none!important}
+  .spinner{border-top-color:var(--accent2);opacity:.6}
+  .stagger > *,.popin{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="tsw">
+  <button class="on" onclick="setTheme('onyx',this)">Onyx</button>
+  <button onclick="setTheme('vapor',this)">Vapor</button>
+</div>
+
+<div class="wrap">
+
+<header class="pg">
+  <div class="kick">Vault Fantasy · Motion Upgrade</div>
+  <h1 class="pg">Three primitives,<br>applied across the app.</h1>
+  <p class="lede">
+    The sliding pill, the spring press, and the arc spinner — mapped onto the surfaces Vault
+    already has. Everything below is live: click the tabs, hold the buttons, run the loaders.
+    Every colour is a theme token, so it works in Onyx and Vapor Sky without a second version.
+  </p>
+</header>
+
+<!-- ══════════════════ 01 ══════════════════ -->
+<section class="blk">
+  <div class="snum">01 · TRAVEL</div>
+  <h2 class="blk">The sliding pill</h2>
+  <p class="sub">
+    Right now every tab in Vault is a hard cut — <code style="font-family:var(--font-mono);font-size:13px">.la-tab.on::after</code>
+    paints a static underline, <code style="font-family:var(--font-mono);font-size:13px">.v-ntab.on</code> just swaps a background.
+    One shared element that moves instead of two that blink is the single biggest perceived-quality
+    upgrade available, and it's about 6 lines of JS.
+  </p>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagx">Now</span> Nav tabs — background snaps between buttons</div>
+    <div class="ntabs legacy rail">
+      <button class="on">Overview</button><button>Roster</button><button>Matchup</button><button>Trade Intel</button><button>Draft Vault</button>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> One pill travels — and morphs width to fit</div>
+    <div class="ntabs rail" id="r1">
+      <div class="pill"></div>
+      <button class="on">Overview</button><button>Roster</button><button>Matchup</button><button>Trade Intel</button><button>Draft Vault</button>
+    </div>
+    <div class="dnote">
+      The width morph is what sells it. <b>Overview → Trade Intel</b> is a big jump in both position and
+      size; because both animate on the same curve the pill reads as one object stretching, not two
+      properties racing. <b>0.4s is deliberate</b> — fast enough to feel responsive, slow enough that the
+      eye tracks the travel and learns the spatial relationship between tabs.
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> <span class="dtx">The same rail as a 2px underline — for <code style="font-family:var(--font-mono);text-transform:none;letter-spacing:0">.la-tab</code> strips</span></div>
+    <div class="latabs rail" id="r2">
+      <div class="pill"></div>
+      <button class="on">Season</button><button>Splits</button><button>Advanced</button><button>Game Log</button><button>vs Opponent</button>
+    </div>
+    <div class="dnote">
+      Identical mechanics, different skin — so <b>one CSS block and one JS function serve every tab strip in
+      the app</b>: player-stats tabs, results tabs, team-review tabs, the ADP explorer. The glow
+      (<code style="font-family:var(--font-mono)">box-shadow</code> in the accent) is what keeps a 2px line from looking anemic on a dark surface.
+      <br><br>
+      <b>This strip scrolls</b> (Vault's <code style="font-family:var(--font-mono)">.la-tabs</code> is <code style="font-family:var(--font-mono)">overflow-x:auto</code>) — narrow your
+      window and try it. The pill is positioned against the strip, so it scrolls <i>with</i> the tabs
+      instead of drifting off them, and clicking a half-visible tab centres it. That only works because
+      <code style="font-family:var(--font-mono)">offsetLeft</code> and the pill share the same offset parent — put the pill outside the
+      scroller and it desyncs the moment anyone swipes.
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> Position filter — the pill picks up the position colour mid-flight</div>
+    <div class="posf rail" id="r3" style="--pc:var(--accent)">
+      <div class="pill"></div>
+      <button class="on" data-c="var(--accent)">ALL</button>
+      <button data-c="var(--qb)">QB</button>
+      <button data-c="var(--rb)">RB</button>
+      <button data-c="var(--wr)">WR</button>
+      <button data-c="var(--te)">TE</button>
+    </div>
+    <div class="dnote">
+      Vault already colour-codes positions everywhere. Letting the travelling pill <b>cross-fade into that
+      colour while it moves</b> ties the filter to the rows it's filtering — you see red arriving before you
+      read "QB". Colour transitions on 260ms, slightly under the travel, so the colour has settled by
+      the time the pill stops.
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> Mobile dock — capsule slides, active icon lifts on the spring curve</div>
+    <div class="dock rail" id="r4">
+      <div class="pill"></div>
+      <button class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><span class="lb">Home</span></button>
+      <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><span class="lb">Research</span></button>
+      <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/></svg><span class="lb">Trends</span></button>
+      <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span class="lb">Team</span></button>
+    </div>
+    <div class="dnote">
+      Two motions, two curves, on purpose. The capsule <b>travels</b> (0.4s rail curve) because it's moving
+      through space; the icon <b>arrives</b> (spring curve) because it's just popping in place. Mixing them
+      up — springing the travel, railing the pop — is what makes hand-rolled motion feel off.
+    </div>
+  </div>
+
+<pre class="code"><span class="c">/* one block, every strip */</span>
+.rail{ <span class="p">position</span>:relative }
+.rail .pill{
+  <span class="p">position</span>:absolute;
+  <span class="p">transition</span>: left <span class="v">.4s</span> var(--ease-rail),
+              width <span class="v">.4s</span> var(--ease-rail),
+              background-color <span class="v">260ms</span> ease;
+}
+.rail.noanim .pill{ <span class="p">transition</span>:none }  <span class="c">/* first paint + resize */</span>
+
+<span class="c">/* one function, every strip */</span>
+function movePill(rail){
+  const pill = rail.querySelector('.pill');
+  const on   = rail.querySelector('button.on');
+  if (!pill || !on) return;
+  pill.style.left  = on.offsetLeft  + 'px';
+  pill.style.width = on.offsetWidth + 'px';
+  if (on.dataset.c) rail.style.setProperty('--pc', on.dataset.c);
+}</pre>
+
+  <div class="verdict">
+    <h4>The trap to avoid</h4>
+    <p>
+      A hidden strip has <code style="font-family:var(--font-mono);font-size:12.5px">offsetWidth === 0</code>. Vault's tabs live inside pages toggled with
+      <code style="font-family:var(--font-mono);font-size:12.5px">display:none</code>, so a pill positioned on load lands at width 0 and then visibly
+      snakes into place the first time you open the page. <b>Call <code style="font-family:var(--font-mono);font-size:12.5px">movePill()</code> with <code style="font-family:var(--font-mono);font-size:12.5px">.noanim</code>
+      inside <code style="font-family:var(--font-mono);font-size:12.5px">showPage()</code></b>, drop the class a frame later, and re-run it on <code style="font-family:var(--font-mono);font-size:12.5px">resize</code>
+      and on font load.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 02 ══════════════════ -->
+<section class="blk">
+  <div class="snum">02 · FEEDBACK</div>
+  <h2 class="blk">The spring press</h2>
+  <p class="sub">
+    Vault's current press is <code style="font-family:var(--font-mono);font-size:13px">scale(.97)</code> over 80ms in both directions. It registers,
+    but it returns dead. The upgrade is asymmetry: <b>snap down fast, spring back slow.</b>
+    Press and hold to feel the difference.
+  </p>
+
+  <div class="grid2">
+    <div class="demo">
+      <div class="dlabel"><span class="tagx">Now</span> scale(.97), 80ms both ways</div>
+      <button class="btn legacy">Sync Roster</button>
+    </div>
+    <div class="demo">
+      <div class="dlabel"><span class="tagn">Proposed</span> 80ms down, 500ms spring up</div>
+      <button class="btn press sz-btn">Sync Roster</button>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> Scale depth is inverse to element size</div>
+    <div class="ctrls" style="margin-top:0">
+      <button class="chip press sz-chip">Dynasty</button>
+      <button class="chip press sz-chip on">Superflex</button>
+      <button class="chip press sz-chip">12-Team</button>
+      <button class="btn ghost press sz-btn">Compare</button>
+      <button class="btn press sz-btn">Accept Trade</button>
+      <button class="btn red press sz-btn">Drop Player</button>
+      <button class="btn ghost icon press sz-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <div class="dnote">
+      <b>0.88 is right for a chip and wrong for a card.</b> Scale is perceptual, not absolute — a 90px chip
+      losing 12% moves 11px and feels crisp; a 600px card losing 12% moves 72px and feels like it broke.
+      Four tokens cover the app: <code style="font-family:var(--font-mono)">.88</code> chips ·
+      <code style="font-family:var(--font-mono)">.94</code> buttons ·
+      <code style="font-family:var(--font-mono)">.975</code> cards ·
+      <code style="font-family:var(--font-mono)">.99</code> table rows.
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> Where it actually gets noticed — pressable rows</div>
+    <div class="rowstack">
+      <button class="prow"><span class="rk">01</span><span class="pos" style="background:rgba(255,102,128,.15);color:var(--qb)">QB</span><span class="nm">Jayden Daniels</span><span class="val">9,240</span></button>
+      <button class="prow"><span class="rk">02</span><span class="pos" style="background:rgba(61,204,122,.15);color:var(--rb)">RB</span><span class="nm">Bijan Robinson</span><span class="val">8,915</span></button>
+      <button class="prow"><span class="rk">03</span><span class="pos" style="background:rgba(123,208,255,.15);color:var(--wr)">WR</span><span class="nm">Malik Nabers</span><span class="val">8,780</span></button>
+    </div>
+    <div class="dnote">
+      Vault is mostly lists — draft board, ADP explorer, portfolio, free agents. Right now tapping a row
+      does nothing until the modal appears, and on a slow fetch that's a dead beat where the user
+      wonders if the tap registered. <b>A 0.99 press is invisible as a design detail and unmistakable as
+      confirmation.</b> This is the highest-leverage place to spend the spring.
+    </div>
+  </div>
+
+<pre class="code"><span class="c">/* asymmetric — the whole trick is that these differ */</span>
+.press{
+  <span class="p">transition</span>: transform <span class="v">.5s</span> var(--ease-spring);   <span class="c">/* release */</span>
+}
+.press:active{
+  <span class="p">transform</span>: scale(var(--press-scale, .94));
+  <span class="p">transition</span>: transform <span class="v">80ms</span> ease-out;             <span class="c">/* press */</span>
+}
+.press.sz-chip{ --press-scale:<span class="v">.88</span> }
+.press.sz-btn { --press-scale:<span class="v">.94</span> }
+.press.sz-card{ --press-scale:<span class="v">.975</span> }
+.press.sz-row { --press-scale:<span class="v">.99</span> }</pre>
+
+  <div class="verdict">
+    <h4>Why 1.56 in the curve matters</h4>
+    <p>
+      <code style="font-family:var(--font-mono);font-size:12.5px">cubic-bezier(0.34, 1.56, 0.64, 1)</code> — that 1.56 pushes the curve past its endpoint and
+      lets it settle back. The button overshoots its own resting size by a couple percent before landing.
+      You don't consciously see it; you read the button as <b>physical</b> rather than as a rectangle that
+      changed value. It's the same reason iOS buttons feel alive and Bootstrap buttons don't.
+    </p>
+    <p>
+      One caveat: overshoot only works on <code style="font-family:var(--font-mono);font-size:12.5px">transform</code>. Never put a springy curve on
+      <code style="font-family:var(--font-mono);font-size:12.5px">width</code>, <code style="font-family:var(--font-mono);font-size:12.5px">height</code>, or anything that reflows —
+      you'd be overshooting a layout 30 times a second.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 03 ══════════════════ -->
+<section class="blk">
+  <div class="snum">03 · WAITING</div>
+  <h2 class="blk">Loading motion</h2>
+  <p class="sub">
+    There are <b>20+ loading states in index.html</b> rendered as the text character <code style="font-family:var(--font-mono);font-size:13px">⟳</code>
+    with an inline <code style="font-family:var(--font-mono);font-size:13px">animation:spin</code>. It's a font glyph — it renders differently per
+    platform, sits off its own baseline, and wobbles as it rotates because the glyph isn't centred in its em box.
+    This is the cheapest-feeling thing in the app and it's everywhere.
+  </p>
+
+  <div class="grid2">
+    <div class="demo">
+      <div class="dlabel"><span class="tagx">Now</span> A rotating text character</div>
+      <div class="loadbox"><span class="glyph">⟳</span><span class="msg">Loading rankings…</span></div>
+    </div>
+    <div class="demo">
+      <div class="dlabel"><span class="tagn">Proposed</span> A real arc, on theme</div>
+      <div class="loadbox"><div class="spinner lg"></div><span class="msg">Loading rankings…</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> Three sizes, semantic colour</div>
+    <div style="display:flex;align-items:center;gap:40px;flex-wrap:wrap">
+      <div class="spinner lg"></div>
+      <div class="spinner md"></div>
+      <div class="spinner sm"></div>
+      <div class="spinner md val"></div>
+      <div class="spinner md red"></div>
+    </div>
+    <div class="dnote">
+      <b>Your spec used <code style="font-family:var(--font-mono)">#FF8A00</code> — I'd swap it for <code style="font-family:var(--font-mono)">var(--accent2)</code>.</b>
+      Orange appears nowhere in Vault's palette; it would be the only hardcoded hue in the app and it
+      would fight the Vapor Sky theme badly. Same for the <code style="font-family:var(--font-mono)">#232326</code> track →
+      <code style="font-family:var(--font-mono)">var(--s3)</code>. Two arcs on 0.8s linear is exactly right, though —
+      <b>linear is correct here</b>, since an eased spin looks like it's struggling.
+      (Note <code style="font-family:var(--font-mono)">.vp-wv-spin</code> at index.html:3588 is already hardcoded
+      <code style="font-family:var(--font-mono)">#e4e6ea</code>/<code style="font-family:var(--font-mono)">#d50a0a</code> — it breaks in dark mode today and this fixes it.)
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> In-button — spinner replaces the label without moving the button</div>
+    <div class="ctrls" style="margin-top:0">
+      <button class="btn press sz-btn" style="min-width:172px" onclick="runBusy(this)">
+        <span class="bl">Push Lineup</span>
+        <span class="bs"><span class="spinner sm"></span><svg class="bk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg></span>
+      </button>
+      <button class="btn ghost press sz-btn" style="min-width:172px" onclick="runBusy(this)">
+        <span class="bl">Submit Waiver</span>
+        <span class="bs"><span class="spinner sm" style="border-color:var(--s4);border-top-color:var(--accent2);border-right-color:var(--accent2)"></span><svg class="bk" viewBox="0 0 24 24" fill="none" stroke="var(--value)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg></span>
+      </button>
+    </div>
+    <div class="dnote">
+      Both states are absolutely positioned inside a fixed-width button, so <b>nothing reflows</b> — the label
+      cross-fades out, the spinner cross-fades in, and the checkmark strokes itself on arrival. This is the
+      pattern for every Sleeper write in Vault: push lineup, submit waiver, accept trade. The drawn
+      checkmark is what turns "the request finished" into "your move landed."
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> …but most of these shouldn't be spinners at all</div>
+    <div class="rowstack">
+      <div class="skelrow"><span class="skel" style="width:22px;height:11px"></span><span class="skel" style="width:32px;height:19px;border-radius:5px"></span><span class="skel" style="width:44%;height:13px"></span><span class="skel" style="width:46px;height:12px;margin-left:auto"></span></div>
+      <div class="skelrow"><span class="skel" style="width:22px;height:11px"></span><span class="skel" style="width:32px;height:19px;border-radius:5px"></span><span class="skel" style="width:36%;height:13px"></span><span class="skel" style="width:46px;height:12px;margin-left:auto"></span></div>
+      <div class="skelrow"><span class="skel" style="width:22px;height:11px"></span><span class="skel" style="width:32px;height:19px;border-radius:5px"></span><span class="skel" style="width:52%;height:13px"></span><span class="skel" style="width:46px;height:12px;margin-left:auto"></span></div>
+    </div>
+    <div class="dnote">
+      Vault already has <code style="font-family:var(--font-mono)">.skel</code> and a shimmer keyframe — they're used in the grade strip and
+      nowhere near enough elsewhere. <b>The rule: a spinner is for a discrete action with an unknown wait
+      (connecting, pushing). A skeleton is for content arriving into a shape you already know</b> — player
+      lists, stat tables, league grids. Swapping a centred <code style="font-family:var(--font-mono)">⟳</code> for shape-matched skeletons
+      removes the layout jump when data lands, which is most of what makes loading feel janky.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 04 ══════════════════ -->
+<section class="blk">
+  <div class="snum">04 · COMPOUND</div>
+  <h2 class="blk">Where they stack</h2>
+  <p class="sub">
+    The primitives are worth more together than apart. Below: the pill picks the filter, the rows spring
+    on press, and new results rise in on a stagger. Hit <b>Refilter</b> to replay.
+  </p>
+
+  <div class="demo">
+    <div class="dlabel"><span class="tagn">Proposed</span> Draft board filter — full interaction</div>
+    <div class="posf rail" id="r5" style="--pc:var(--accent);margin-bottom:20px">
+      <div class="pill"></div>
+      <button class="on" data-c="var(--accent)">ALL</button>
+      <button data-c="var(--qb)">QB</button>
+      <button data-c="var(--rb)">RB</button>
+      <button data-c="var(--wr)">WR</button>
+      <button data-c="var(--te)">TE</button>
+    </div>
+    <div class="rowstack stagger" id="stack">
+      <button class="prow"><span class="rk">01</span><span class="pos" style="background:rgba(61,204,122,.15);color:var(--rb)">RB</span><span class="nm">Bijan Robinson</span><span class="val">8,915</span></button>
+      <button class="prow"><span class="rk">02</span><span class="pos" style="background:rgba(123,208,255,.15);color:var(--wr)">WR</span><span class="nm">Malik Nabers</span><span class="val">8,780</span></button>
+      <button class="prow"><span class="rk">03</span><span class="pos" style="background:rgba(255,102,128,.15);color:var(--qb)">QB</span><span class="nm">Jayden Daniels</span><span class="val">8,240</span></button>
+      <button class="prow"><span class="rk">04</span><span class="pos" style="background:rgba(245,200,66,.15);color:var(--te)">TE</span><span class="nm">Brock Bowers</span><span class="val">7,960</span></button>
+      <button class="prow"><span class="rk">05</span><span class="pos" style="background:rgba(123,208,255,.15);color:var(--wr)">WR</span><span class="nm">Marvin Harrison Jr.</span><span class="val">7,610</span></button>
+    </div>
+    <div class="ctrls">
+      <button class="mini" onclick="replay()">Refilter</button>
+      <button class="mini" onclick="fakeLoad()">Load with skeletons</button>
+    </div>
+    <div class="dnote">
+      Stagger is <b>45ms per row, capped at 5 rows</b>. Beyond that the last row waits long enough to read as
+      lag rather than choreography — so on a 200-row draft board you stagger the visible window and let
+      the rest appear instantly. The rise is 10px, not 30: enough to imply arrival, not enough to make the
+      user watch furniture move every time they touch a filter.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ ship ══════════════════ -->
+<section class="blk" style="border-bottom:0">
+  <div class="snum">05 · SHIPPING</div>
+  <h2 class="blk">Recommended order</h2>
+  <p class="sub">Ranked by perceived-premium gained per line of code touched.</p>
+  <ol class="ship">
+    <li><b>Kill the <code>⟳</code> glyph.</b> ~20 inline instances → one <code>.spinner</code> class. Pure find-and-replace, zero layout risk, and it's the most visible cheapness in the app. Fixes the hardcoded <code>.vp-wv-spin</code> colours in the same pass.</li>
+    <li><b>Add the two tokens.</b> <code>--ease-rail</code> and <code>--ease-spring</code> next to the existing <code>--ease-out</code>/<code>--ease-sheet</code> in <code>vault-ds.css</code>, plus the four <code>--press-scale</code> steps. Nothing changes visually — this is just the vocabulary the rest depends on.</li>
+    <li><b>Spring press on <code>.v-btn</code> and list rows.</b> One rule change in the design system reaches every button; the row press is the one users will feel most on mobile.</li>
+    <li><b>Sliding pill on <code>.la-tab</code> first</b>, since that class covers player stats, results, and team review in one go. Then <code>.v-ntab</code> and <code>.v-seg</code>. Watch the <code>display:none</code> / <code>offsetWidth</code> trap in <code>showPage()</code>.</li>
+    <li><b>In-button spinner + checkmark on Sleeper writes.</b> Smallest surface, but it's the moment where users are most anxious that something actually happened.</li>
+    <li><b>Skeletons over spinners for list content</b> — the largest job, best done page by page rather than as one sweep.</li>
+  </ol>
+
+  <div class="verdict">
+    <h4>Reduced motion</h4>
+    <p>
+      Everything here degrades in one block: pill transitions off (it still positions correctly, it just
+      jumps), presses off, spinners freeze to a static arc at 60% opacity, stagger off. Vault already has
+      <code style="font-family:var(--font-mono);font-size:12.5px">prefers-reduced-motion</code> blocks in six places — these should join the global one
+      near <code style="font-family:var(--font-mono);font-size:12.5px">index.html:168</code> rather than adding a seventh.
+    </p>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ── sliding pill: one function, every strip ───────────────── */
+function movePill(rail){
+  const pill = rail.querySelector('.pill');
+  const on   = rail.querySelector('button.on');
+  if(!pill || !on) return;
+  pill.style.left  = on.offsetLeft  + 'px';
+  pill.style.width = on.offsetWidth + 'px';
+  if(on.dataset.c) rail.style.setProperty('--pc', on.dataset.c);
+}
+
+function initRail(rail){
+  rail.classList.add('noanim');
+  movePill(rail);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>rail.classList.remove('noanim')));
+
+  rail.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      rail.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      movePill(rail);
+      /* scrolling strips: keep the newly-active tab in view */
+      if(rail.scrollWidth > rail.clientWidth){
+        btn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+      }
+      if(rail.id==='r5') replay();
+    });
+  });
+}
+
+/* legacy strips still need the .on swap, minus the pill */
+document.querySelectorAll('.rail.legacy').forEach(rail=>{
+  rail.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      rail.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+    });
+  });
+});
+
+document.querySelectorAll('.rail:not(.legacy)').forEach(initRail);
+
+/* reposition on resize + after webfonts land (metrics shift) */
+let rt;
+addEventListener('resize',()=>{
+  clearTimeout(rt);
+  document.querySelectorAll('.rail:not(.legacy)').forEach(r=>r.classList.add('noanim'));
+  document.querySelectorAll('.rail:not(.legacy)').forEach(movePill);
+  rt = setTimeout(()=>document.querySelectorAll('.rail:not(.legacy)').forEach(r=>r.classList.remove('noanim')),80);
+});
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(()=>{
+    document.querySelectorAll('.rail:not(.legacy)').forEach(r=>{
+      r.classList.add('noanim'); movePill(r);
+      requestAnimationFrame(()=>r.classList.remove('noanim'));
+    });
+  });
+}
+
+/* ── in-button spinner → checkmark ─────────────────────────── */
+function runBusy(btn){
+  if(btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  setTimeout(()=>{
+    btn.classList.add('done');
+    setTimeout(()=>btn.classList.remove('busy','done'), 1400);
+  }, 1500);
+}
+
+/* ── stagger replay ────────────────────────────────────────── */
+function replay(){
+  const s = document.getElementById('stack');
+  s.classList.remove('stagger');
+  void s.offsetWidth;           /* force reflow so the animation restarts */
+  s.classList.add('stagger');
+}
+
+/* ── skeleton → content demo ───────────────────────────────── */
+let realRows = null;
+function fakeLoad(){
+  const s = document.getElementById('stack');
+  if(!realRows) realRows = s.innerHTML;
+  s.classList.remove('stagger');
+  s.innerHTML = Array.from({length:5},(_,i)=>{
+    const w = [44,36,52,40,48][i];
+    return `<div class="skelrow">
+      <span class="skel" style="width:22px;height:11px"></span>
+      <span class="skel" style="width:32px;height:19px;border-radius:5px"></span>
+      <span class="skel" style="width:${w}%;height:13px"></span>
+      <span class="skel" style="width:46px;height:12px;margin-left:auto"></span>
+    </div>`;
+  }).join('');
+  setTimeout(()=>{ s.innerHTML = realRows; replay(); }, 1600);
+}
+
+/* ── theme switch ──────────────────────────────────────────── */
+function setTheme(t, btn){
+  if(t==='onyx') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('.tsw button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+</script>
+</body>
+</html>

@@ -32,6 +32,20 @@
      Short color/opacity feedback (≤150ms) can keep plain `ease`.      */
   --ease-out:cubic-bezier(0.16,1,0.3,1);    /* entrances, expanders, movement */
   --ease-sheet:cubic-bezier(0.32,0.72,0,1); /* bottom sheets — iOS/Vaul curve */
+  --ease-rail:cubic-bezier(0.65,0,0.35,1);      /* TRAVEL — a thing moving between two known points */
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1); /* ARRIVAL — press-release, pop-in (overshoots) */
+
+  /* Durations. Press is asymmetric on purpose: snap down, spring back. */
+  --dur-press:80ms;     /* pointer-down — must beat perception */
+  --dur-release:500ms;  /* pointer-up — the spring needs room to settle */
+  --dur-rail:400ms;     /* pill / indicator travel */
+
+  /* Press depth is INVERSE to element size. A 90px chip losing 12% moves 11px
+     and feels crisp; a 600px card losing 12% moves 72px and looks broken. */
+  --press-chip:.88;
+  --press-btn:.94;
+  --press-card:.975;
+  --press-row:.99;
 
   /* ── TYPE SCALE ──────────────────────────────────────────────────
      One ramp for the whole app. iOS-anchored; sizes are theme-agnostic.
@@ -193,11 +207,13 @@
   cursor:pointer;
   touch-action:manipulation;
   white-space:nowrap;
-  transition:opacity 150ms ease, transform 80ms ease;
+  transition:opacity 150ms ease, transform var(--dur-release) var(--ease-spring);
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),0 8px 18px -10px rgba(4,9,20,0.7);
 }
 .v-btn:hover { opacity:.88; }
-.v-btn:active { transform:scale(.97); }
+/* Asymmetric press — the whole trick is that down and up differ. See §19. */
+.v-btn:active { transform:scale(var(--press-btn)); transition:transform var(--dur-press) ease-out; }
+.v-btn.sm:active { transform:scale(var(--press-chip)); transition:transform var(--dur-press) ease-out; }
 
 .v-btn .sheen {
   position:absolute;
@@ -581,4 +597,82 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 /* Perpetual attention-pulse must not loop for users who opt out of motion. */
 @media (prefers-reduced-motion:reduce){
   .v-pill.hot{ animation:none; }
+}
+
+
+/* ── 19. MOTION PRIMITIVES ──────────────────────────────────────────
+   Three reusable behaviours. Any new page or feature should reach for
+   these instead of hand-rolling a transition:
+
+     .press + .press-{chip,btn,card,row}  — tactile feedback on tap
+     .rail  > .pill                        — a travelling tab indicator
+     .spinner                              — indeterminate wait
+
+   Rules of thumb:
+   · Things that MOVE between two known points use --ease-rail.
+   · Things that ARRIVE in place use --ease-spring (it overshoots).
+   · Overshoot is only ever safe on `transform`. Never spring a `width`,
+     `height`, or anything else that triggers layout.
+   · Colour/opacity feedback under 150ms may keep plain `ease`.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* ── 19a. PRESS ── snap down fast, spring back slow ── */
+.press          { transition:transform var(--dur-release) var(--ease-spring); }
+.press:active   { transform:scale(var(--press-scale,var(--press-btn)));
+                  transition:transform var(--dur-press) ease-out; }
+.press-chip     { --press-scale:var(--press-chip); }
+.press-btn      { --press-scale:var(--press-btn); }
+.press-card     { --press-scale:var(--press-card); }
+.press-row      { --press-scale:var(--press-row); }
+
+/* ── 19b. RAIL ── one shared indicator that travels between tabs ──
+   The pill MUST live inside the strip: it is positioned against .rail,
+   so if the strip scrolls horizontally the pill scrolls with it. Move it
+   outside and it desyncs the moment anyone swipes.
+   JS: vaultPill(rail) in index.html sets left/width from the active button. */
+.rail           { position:relative; }
+.rail > .pill   { position:absolute; pointer-events:none;
+                  transition:left var(--dur-rail) var(--ease-rail),
+                             width var(--dur-rail) var(--ease-rail),
+                             background-color 260ms ease,
+                             box-shadow 260ms ease; }
+/* Applied while positioning a strip that was display:none (offsetWidth 0),
+   or during a resize, so the pill teleports instead of snaking into place. */
+.rail.noanim > .pill { transition:none; }
+
+/* ── 19c. SPINNER ── a real arc, never a rotating text glyph ──
+   Two adjacent borders in the accent + a track. `linear` is correct here;
+   an eased spin reads as struggling. Size via .sm/.md/.lg or --sp-size. */
+@keyframes v-spin { to { transform:rotate(1turn); } }
+.spinner {
+  display:inline-block;
+  vertical-align:middle;  /* a bordered box on the baseline rides high next to text */
+  width:var(--sp-size,26px); height:var(--sp-size,26px);
+  border-radius:50%;
+  border:var(--sp-w,3px) solid var(--s3);
+  border-top-color:var(--sp-c,var(--accent2));
+  border-right-color:var(--sp-c,var(--accent2));
+  animation:v-spin .8s linear infinite;
+  flex-shrink:0;
+}
+.spinner.lg { --sp-size:44px; --sp-w:4px; }
+.spinner.md { --sp-size:26px; --sp-w:3px; }
+.spinner.sm { --sp-size:15px; --sp-w:2px; }
+.spinner.xs { --sp-size:12px; --sp-w:2px; }
+.spinner.red   { --sp-c:var(--red2); }
+.spinner.value { --sp-c:var(--value); }
+/* Centred block wait-state: <div class="v-loading"><div class="spinner lg"></div><span>…</span></div> */
+.v-loading {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; padding:40px 20px; text-align:center;
+  color:var(--muted); font-size:13px;
+}
+.v-loading.row { flex-direction:row; padding:14px 0; gap:10px; }
+
+/* ── 19d. REDUCED MOTION ── everything above degrades here, one block ── */
+@media (prefers-reduced-motion:reduce){
+  .press, .v-btn                    { transition:none !important; }
+  .press:active, .v-btn:active      { transform:none !important; }
+  .rail > .pill                     { transition:none !important; }
+  .spinner                          { animation:none !important; opacity:.6; }
 }
