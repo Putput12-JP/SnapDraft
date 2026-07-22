@@ -9,6 +9,22 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── Yahoo OAuth grants ──────────────────────────────────────
+    // Access + refresh tokens, both encrypted. The refresh token is the
+    // durable credential — it survives the hourly access-token expiry, so
+    // leaking it is equivalent to leaking the Yahoo account. Functions only.
+    match /yahooTokens/{uid} {
+      allow read, write: if false;
+    }
+
+    // ── Rate-limit counters ─────────────────────────────────────
+    // Written/read ONLY by Cloud Functions via the Admin SDK. Client
+    // access would let a caller reset their own budget, which defeats
+    // the point of having one.
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
     // ── Per-user data ───────────────────────────────────────────
     match /users/{uid} {
       function isOwner() {
@@ -28,6 +44,14 @@ service cloud.firestore {
       match /sleeperJobs/{jobId} {
         allow read: if isOwner();
         allow write: if false;
+      }
+
+      // Cached Yahoo API responses. Server-only in BOTH directions: a
+      // cache the client can write is a cache the client can poison, and
+      // one it can read leaks league data across the trust boundary for
+      // no benefit (the client already gets this via yahooRead).
+      match /yahooCache/{key} {
+        allow read, write: if false;
       }
 
       // NB: intentionally no recursive {document=**} rule — any other

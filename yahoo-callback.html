@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Connecting Yahoo… · Vault</title>
+<!--
+  Yahoo OAuth redirect target. This URL must match YAHOO_REDIRECT_URI in
+  functions/src/config.ts AND the redirect URI registered on the Yahoo app,
+  character for character — a trailing-slash difference fails the exchange
+  with invalid_grant.
+
+  This page deliberately does NOT exchange the code itself. It relays
+  code + state to the opener, which is signed in and calls
+  yahooExchangeCode. Keeping the exchange in the main window means this page
+  needs no Firebase auth state, and the popup stays a dumb courier.
+-->
+<style>
+  :root { color-scheme: dark; }
+  html,body { height:100%; margin:0; }
+  body {
+    display:flex; align-items:center; justify-content:center;
+    background:#0b0b0d; color:#e9e9ee;
+    font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:24px; text-align:center;
+  }
+  .card { max-width:380px; }
+  .mark {
+    width:44px; height:44px; margin:0 auto 18px; border-radius:12px;
+    background:#5f01d1; color:#fff; font-weight:800; font-size:20px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  h1 { font-size:17px; font-weight:700; margin:0 0 8px; letter-spacing:-0.01em; }
+  p { font-size:13.5px; color:#9a9aa6; margin:0; }
+  .err { color:#ff6680; }
+  .spin {
+    width:18px; height:18px; margin:16px auto 0; border-radius:50%;
+    border:2px solid rgba(255,255,255,.15); border-top-color:#8b5cf6;
+    animation:sp .7s linear infinite;
+  }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { .spin { animation:none; } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark">Y!</div>
+    <h1 id="t">Connecting your Yahoo leagues…</h1>
+    <p id="m">You can close this window in a moment.</p>
+    <div class="spin" id="s"></div>
+  </div>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(window.location.search);
+  var code  = q.get('code');
+  var state = q.get('state');
+  var err   = q.get('error');
+  var errDesc = q.get('error_description');
+
+  function show(title, msg, isErr) {
+    document.getElementById('t').textContent = title;
+    var m = document.getElementById('m');
+    m.textContent = msg;
+    if (isErr) m.className = 'err';
+    var s = document.getElementById('s');
+    if (s) s.remove();
+  }
+
+  // Yahoo puts the code in the URL, and URLs leak — history, referrer,
+  // shoulder-surfing. Strip it as soon as it's read. The code is
+  // single-use and short-lived, but there's no reason to leave it sitting
+  // in the address bar while the exchange happens.
+  try { history.replaceState(null, '', window.location.pathname); } catch (e) {}
+
+  var payload = { source: 'vault-yahoo-oauth' };
+  if (err) {
+    payload.error = errDesc || err;
+  } else if (!code) {
+    payload.error = 'Yahoo did not return an authorization code.';
+  } else {
+    payload.code = code;
+    payload.state = state;
+  }
+
+  // postMessage is targeted at our own origin explicitly — never '*', which
+  // would hand the authorization code to whatever page happened to open us.
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(payload, window.location.origin);
+    } catch (e) {
+      show('Could not finish connecting', String(e && e.message || e), true);
+      return;
+    }
+    if (payload.error) {
+      show('Yahoo sign-in failed', payload.error, true);
+    } else {
+      show('Yahoo connected', 'Finishing up — this window will close itself.');
+      setTimeout(function () { try { window.close(); } catch (e) {} }, 900);
+    }
+  } else {
+    // Opened directly, or the opener is gone (user closed the app tab). There
+    // is nothing to hand the code to, and it can't be reused later.
+    show(
+      payload.error ? 'Yahoo sign-in failed' : 'Nothing to finish here',
+      payload.error || 'Open Vault and start the Yahoo connection again.',
+      true
+    );
+  }
+})();
+</script>
+</body>
+</html>
