@@ -1,5 +1,8 @@
 node_modules/
-lib/
+# Compiled output ONLY. Must stay anchored with the leading slash: a bare
+# `lib/` matches at any depth, which silently excluded src/lib/ — the whole
+# shared layer (crypto, tokens, ratelimit, errors, firebase) — from the repo.
+/lib/
 *.log
 .env
 .env.*
