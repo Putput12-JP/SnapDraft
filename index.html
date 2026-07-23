@@ -14643,13 +14643,16 @@ function renderBoard(){
         const isTraded=pk.ownerIdx!==origTeamIdx;
         const pkC=POSCOL[pk.pos]||'var(--border2)';
         const pkSn=pk.name.replace(/'/g,"\\'");
+        const _nt=pk.name.trim().split(/\s+/);
+        const bcFirst=_nt.length>1?_nt[0]:'';
+        const bcLast=_nt.length>1?_nt.slice(1).join(' '):(_nt[0]||'');
         const justCls=(window._bdJustPicked && window._bdJustPicked[key])?' just-picked':'';
         rows+=`<td style="${tdBase};background:${isMyCol?'#5b8dee0d':''}">
           <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}${justCls}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${pk.name.replace(/"/g,'&quot;')}${isTraded?' · traded to '+(TEAMS[pk.ownerIdx]||'').replace(/"/g,'&quot;'):''}">
             <div class="bc-top"><span class="bc-posrk">${pk.pos}</span><span class="bc-topr"><span class="bc-pick">#${pk.r0||'—'}</span>${pk.g?`<span class="bc-grade" data-tip="${dvPickWhy(pk.g,pk.name,_dvPickStr(pk.pickNo,NUM_TEAMS)).replace(/"/g,'&quot;')}" style="color:${pk.g.color}">${pk.g.letter}</span>`:''}</span></div>
             <div class="bc-body">
               <div class="bc-txt">
-                <div class="bc-name" style="color:${ownerC}">${pk.name.split(' ').pop()}</div>
+                ${bcFirst?`<div class="bc-first">${bcFirst}</div>`:''}<div class="bc-name" style="color:${ownerC}">${bcLast}</div>
                 ${isTraded?`<div class="bc-meta bc-tradedtag">↗ ${(TEAMS[pk.ownerIdx]||'').slice(0,7)}</div>`:''}
               </div>
               ${_bdAv(pk.name,pk.sid,pk.pos)}
@@ -37914,7 +37917,8 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .board-cell.filled .bc-top{position:relative;z-index:2}
 .board-cell.filled .bc-body{position:relative;z-index:2;flex:1;flex-direction:column-reverse;align-items:center;justify-content:center;gap:5px}
 .board-cell.filled .bc-txt{flex:none;min-width:0;max-width:100%;text-align:center}
-.board-cell.filled .bc-name{font-size:12px;line-height:1.1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.board-cell.filled .bc-first{font-size:9px;font-weight:600;line-height:1.05;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em}
+.board-cell.filled .bc-name{font-size:12px;line-height:1.12;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .board-cell.filled .bc-meta{text-align:center}
 
 /* Bigger headshot — scoped to .board-cell so the ADP board's avatar is unchanged. */
