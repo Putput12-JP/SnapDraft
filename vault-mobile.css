@@ -1,0 +1,449 @@
+/* ══════════════════════════════════════════════════════════════════════
+   VAULT MOBILE LAYER · Phases 2–5
+   Styles for the mobile-only components added by vault-mobile.js.
+   Everything is scoped to @media(max-width:700px) and to .vm-* classes so
+   it cannot touch desktop. Loaded after the app's own CSS.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.vm-bar, .vm-sheet, .vm-dim { display: none; }
+
+@media (max-width: 700px) {
+
+/* ── shared: action bars that sit above the dock ──────────────────────
+   Every bar uses the same slot so two bars can never overlap: the stack
+   assigns each visible bar an index and vault-mobile.js writes --vm-i.   */
+.vm-bar {
+  display: flex;
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: calc(84px + env(safe-area-inset-bottom) + (var(--vm-i, 0) * 62px));
+  z-index: 9005;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 8px 0 14px;
+  border-radius: 16px;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: 0 14px 30px -14px rgba(0, 0, 0, .85);
+  transition: bottom 260ms var(--ease-sheet, cubic-bezier(.32,.72,0,1)),
+              transform 260ms var(--ease-sheet, cubic-bezier(.32,.72,0,1)),
+              opacity 200ms ease;
+}
+.vm-bar[hidden] { display: none; }
+.vm-bar.vm-in { transform: translateY(0); opacity: 1; }
+.vm-bar.vm-out { transform: translateY(14px); opacity: 0; }
+
+.vm-bar-main { flex: 1; min-width: 0; }
+.vm-bar-main b {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vm-bar-main small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--accent2);
+}
+.vm-bar button {
+  flex: none;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 11px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--dur-release, 500ms) var(--ease-spring, cubic-bezier(.34,1.56,.64,1));
+}
+.vm-bar button:active { transform: scale(.94); transition: transform var(--dur-press, 80ms) ease-out; }
+.vm-bar .vm-ghost {
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+}
+.vm-bar .vm-go {
+  background: var(--accent2);
+  border: none;
+  color: var(--on-primary);
+  padding: 0 16px;
+  font-size: 13.5px;
+}
+
+/* staged intent (lineup swaps, trade accept, waiver claims) */
+.vm-bar.vm-staged {
+  border: 1px solid color-mix(in srgb, var(--accent2) 45%, transparent);
+  background: linear-gradient(140deg,
+    color-mix(in srgb, var(--accent) 42%, transparent),
+    color-mix(in srgb, var(--s1) 95%, transparent));
+}
+
+/* live draft bar — persistent, so leaving the draft never loses it */
+.vm-bar.vm-draft {
+  min-height: 46px;
+  border: 1px solid color-mix(in srgb, var(--value) 50%, transparent);
+  background: linear-gradient(140deg,
+    color-mix(in srgb, var(--value) 30%, transparent),
+    color-mix(in srgb, var(--s1) 94%, transparent));
+  padding: 0 14px;
+  cursor: pointer;
+}
+.vm-bar.vm-draft .vm-live {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--value);
+}
+.vm-bar.vm-draft .vm-dtitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vm-bar.vm-draft .vm-clock {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--value);
+}
+.vm-bar.vm-draft.vm-warn { border-color: color-mix(in srgb, var(--warn, #f5c842) 55%, transparent); }
+.vm-bar.vm-draft.vm-warn .vm-clock,
+.vm-bar.vm-draft.vm-warn .vm-live { color: var(--warn, #f5c842); }
+.vm-bar.vm-draft.vm-crit { border-color: color-mix(in srgb, var(--neg, #ff5a6e) 60%, transparent); }
+.vm-bar.vm-draft.vm-crit .vm-clock,
+.vm-bar.vm-draft.vm-crit .vm-live { color: var(--neg, #ff5a6e); }
+.vm-bar.vm-draft.vm-crit .vm-clock { animation: vmPulse 1s ease-in-out infinite; }
+@keyframes vmPulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+@media (prefers-reduced-motion: reduce) {
+  .vm-bar.vm-draft.vm-crit .vm-clock { animation: none }
+  .vm-bar { transition: none }
+}
+
+/* ── sheets built on the shared primitive (league switcher) ─────────── */
+.vm-dim {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(4, 7, 12, .66);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+}
+.vm-dim[hidden], .vm-sheet[hidden] { display: none; }
+.vm-sheet {
+  display: flex;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9002;
+  flex-direction: column;
+  height: 92svh;
+  max-height: 92svh;
+  overflow: hidden;
+  background: var(--s1);
+  border: 1px solid var(--border2);
+  border-bottom: none;
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -24px 60px -18px rgba(0, 0, 0, .8);
+  touch-action: none;
+  will-change: transform;
+}
+.vm-grab { flex: none; padding: 8px 16px 0; cursor: grab; touch-action: none; }
+.vm-grab i {
+  display: block;
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border3);
+  margin: 2px auto 14px;
+}
+.vm-shead { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; }
+.vm-shead .vm-stitle { flex: 1; min-width: 0; }
+.vm-shead b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
+.vm-shead small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+.vm-x {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+.vm-x svg { width: 16px; height: 16px; }
+.vm-sbody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 0 16px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* league rows in the switcher */
+.vm-lg {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 62px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+.vm-lg.on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent2) 45%, transparent);
+}
+.vm-lg-av {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+}
+.vm-lg-main { flex: 1; min-width: 0; }
+.vm-lg-main b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vm-lg-main small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+.vm-flag {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  padding: 4px 7px;
+  border-radius: 6px;
+}
+.vm-flag.lineup { color: var(--warn, #f5c842); background: color-mix(in srgb, var(--warn, #f5c842) 16%, transparent); }
+.vm-flag.draft { color: var(--value); background: color-mix(in srgb, var(--value) 16%, transparent); }
+.vm-flag.trade { color: var(--neg, #ff5a6e); background: color-mix(in srgb, var(--neg, #ff5a6e) 16%, transparent); }
+.vm-tick { flex: none; width: 17px; height: 17px; color: transparent; }
+.vm-lg.on .vm-tick { color: var(--accent2); }
+
+/* ── Phase 2: flagged lineup slots float to the top ──────────────────
+   The app renders the lineup; this only re-orders and marks, so the
+   real data and its own row markup stay the source of truth.          */
+.vm-flagged {
+  order: -1;
+  position: relative;
+  border-color: color-mix(in srgb, var(--warn, #f5c842) 40%, transparent) !important;
+}
+.vm-flagged.vm-out {
+  border-color: color-mix(in srgb, var(--neg, #ff5a6e) 45%, transparent) !important;
+  background: color-mix(in srgb, var(--neg, #ff5a6e) 6%, transparent) !important;
+}
+.vm-flag-hd {
+  order: -2;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: var(--muted);
+  margin: 4px 0 8px;
+}
+.vm-flag-hd[hidden] { display: none; }
+
+/* ── Phase 5: next-action line on portfolio league cards ─────────────── */
+.vm-next {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+.vm-next span {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vm-next b { flex: none; font-size: 12px; font-weight: 700; color: var(--accent2); }
+.vm-next svg { flex: none; width: 8px; height: 14px; color: var(--accent2); }
+.vm-next.lineup span { color: var(--warn, #f5c842); }
+.vm-next.draft span { color: var(--value); }
+.vm-next.trade span { color: var(--neg, #ff5a6e); }
+.vm-next.ok span { color: var(--muted); }
+
+/* dock always wins: no sheet or bar may cover it */
+.bottom-tab-bar { z-index: 9010 !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   VAULT COMMAND · Phase 1 sheet (relocated here from index.html so the
+   whole mobile layer is two files). JS owns transform; no keyframes.
+   ══════════════════════════════════════════════════════════════════════ */
+/* ════ VAULT COMMAND · Phase 1 port. Loaded last so it wins over the
+   original tile-grid sheet rules. JS owns transform; no keyframes. ════ */
+@media(max-width:700px){
+  .vc-sheet.vcx{
+    animation:none!important;
+    height:92svh;max-height:92svh;
+    padding:0!important;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+    touch-action:none;
+    will-change:transform;
+  }
+  /* index.html's `.vc-sheet[hidden]{display:none}` is also (0,2,0), and this
+     file loads last — so without this rule the display:flex above wins and the
+     hidden attribute stops hiding the sheet, leaving it open over the whole app
+     on first paint. Must stay below the .vcx block. */
+  .vc-sheet.vcx[hidden]{display:none}
+  .vc-sheet.vcx.vc-leaving{transition:none;transform:none;opacity:1}
+  .vc-dim.vc-leaving{transition:none;opacity:0}
+
+  .vcx-drag{flex:none;padding:8px 16px 0;cursor:grab;touch-action:none}
+  .vcx-top{display:flex;align-items:center;gap:10px;padding-bottom:14px}
+  .vcx-search{
+    flex:1;min-width:0;display:flex;align-items:center;gap:9px;height:44px;
+    padding:0 14px;border-radius:12px;background:var(--s2);border:1px solid var(--border2);
+  }
+  .vcx-search svg{width:16px;height:16px;color:var(--muted);flex:none}
+  .vcx-search input{
+    flex:1;min-width:0;background:transparent;border:none;outline:none;
+    color:var(--text);font-family:var(--font-sans);font-size:15px;
+    -webkit-appearance:none;appearance:none;
+  }
+  .vcx-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+  .vcx-x{
+    flex:none;width:44px;height:44px;border-radius:12px;background:var(--s2);
+    border:1px solid var(--border2);color:var(--text2);
+    display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;
+  }
+  .vcx-x svg{width:16px;height:16px}
+
+  .vcx-scroll{
+    flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    touch-action:pan-y;padding:0 16px 20px;
+  }
+  .vcx-hd{
+    font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.16em;
+    color:var(--muted);margin:18px 0 8px;
+  }
+  .vcx-grp:first-child .vcx-hd,.vcx-now .vcx-hd{margin-top:2px}
+  .vcx-grp[hidden],.vcx-now[hidden],.vcx-empty[hidden],.vcx-bd[hidden]{display:none}
+
+  .vcx-primary{
+    width:100%;display:flex;align-items:center;gap:14px;text-align:left;
+    padding:16px;border-radius:16px;cursor:pointer;
+    background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 26%,transparent),color-mix(in srgb,var(--accent2) 10%,transparent));
+    border:1px solid color-mix(in srgb,var(--accent2) 35%,transparent);
+    transition:transform var(--dur-release) var(--ease-spring);
+  }
+  .vcx-primary:active{transform:scale(.975);transition:transform var(--dur-press) ease-out}
+  .vcx-pic{
+    flex:none;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb,var(--accent2) 16%,transparent);color:var(--accent2);
+  }
+  .vcx-pic svg{width:21px;height:21px}
+  .vcx-pmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+  .vcx-pmain b{font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+  .vcx-pmain small{font-family:var(--font-mono);font-size:12px;color:var(--accent2)}
+
+  .vcx-list{display:flex;flex-direction:column;gap:-1px}
+  .vcx-row{
+    display:flex;align-items:center;gap:12px;width:100%;min-height:52px;
+    padding:0 14px;background:var(--s2);border:1px solid var(--border);
+    text-align:left;cursor:pointer;color:var(--text);
+    font-family:var(--font-sans);
+    transition:transform var(--dur-release) var(--ease-spring);
+  }
+  .vcx-row:active{transform:scale(.99);transition:transform var(--dur-press) ease-out}
+  .vcx-row[hidden]{display:none}
+  .vcx-row+.vcx-row{margin-top:-1px}
+  .vcx-list .vcx-row:first-child{border-radius:14px 14px 0 0}
+  .vcx-list .vcx-row:last-child{border-radius:0 0 14px 14px}
+  .vcx-list .vcx-row:only-child{border-radius:14px}
+  .vcx-ic{flex:none;display:flex;align-items:center;justify-content:center}
+  .vcx-ic svg{width:18px;height:18px}
+  .vcx-a{color:var(--accent2)}
+  .vcx-b{color:color-mix(in srgb,var(--accent2) 70%,var(--text))}
+  .vcx-v{color:var(--value)}
+  .vcx-r{color:var(--neg,#ff5a6e)}
+  .vcx-m{color:var(--muted)}
+  .vcx-lb{
+    flex:1;min-width:0;font-size:15px;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .vcx-bd{
+    flex:none;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;
+    background:var(--neg,#e23a4e);color:#fff;padding:3px 7px;border-radius:6px;
+  }
+  .vcx-bd.live{background:var(--value);color:#06281a}
+  .vcx-nt{flex:none;font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+  .vcx-ch{width:8px;height:14px;flex:none;color:var(--muted)}
+  .vcx-empty{padding:34px 10px;text-align:center;font-size:14px;color:var(--muted)}
+
+  .vc-sheet.vcx .vc-league{
+    flex:none;margin:0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--border);
+  }
+  /* the dock stays above the sheet — never covered, never dead */
+  .bottom-tab-bar{z-index:9010!important}
+  .tab-fab-live.live{background:var(--value);color:#06281a}
+}

@@ -4496,7 +4496,7 @@ function openConnect(){
     <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"></path></svg></span>
     <span class="tab-label">Home</span>
   </button>
-  <button class="tab-btn" id="tb-research" onclick="showPage('advstats')" aria-label="Research Hub">
+  <button class="tab-btn" id="tb-research" onclick="vcRoute('research')" aria-label="Research Hub">
     <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m20 20-4.6-4.6"></path></svg></span>
     <span class="tab-label">Research</span>
   </button>
@@ -4517,64 +4517,61 @@ function openConnect(){
 <!-- VAULT COMMAND, shield sheet (mobile only). Pops above the dock; routes to
      the tools that no longer live on the tab bar. -->
 <div class="vc-dim" id="vc-dim" hidden onclick="vcClose()"></div>
-<div class="vc-sheet" id="vc-sheet" hidden role="dialog" aria-label="Vault Command">
-  <div class="vc-grab"></div>
-  <div class="vc-head">
-    <span class="vc-title">Vault Command</span>
-    <span class="vc-acts">
-      <button class="vc-act" onclick="vcClose();toggleTheme()" aria-label="Toggle theme">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"></path></svg>
-      </button>
-      <button class="vc-act" onclick="vcClose();try{openSettingsDrawer()}catch(e){document.getElementById('setup').classList.remove('gone')}" aria-label="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.06-.4.1-.8.1-1.2z"></path></svg>
-      </button>
-    </span>
+<div class="vc-sheet vcx" id="vc-sheet" hidden role="dialog" aria-label="Vault Command">
+  <div class="vcx-drag" id="vc-drag">
+    <div class="vc-grab"></div>
+    <div class="vcx-top">
+      <label class="vcx-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        <input id="vc-q" type="search" autocomplete="off" placeholder="Search Vault, or a player">
+      </label>
+      <button class="vcx-x" onclick="vcClose()" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
   </div>
-  <div class="vc-grid">
-    <button class="vc-tile" id="vc-tile-draft" onclick="vcGo('draft')">
-      <span class="vc-live" id="vc-live-badge" hidden>● LIVE</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 12h12M4 18h8"></path><path d="M20 6v8"></path><path d="M17 11l3 3 3-3"></path></svg>
-      <b>Draft Vault</b><small id="vc-sub-draft">RANKINGS &amp; BOARD</small>
-    </button>
-    <button class="vc-tile" onclick="vcClose();showPage('draft');try{dvShowADP()}catch(e){}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M4 11h16"></path><rect x="4" y="5" width="16" height="16" rx="3"></rect></svg>
-      <b>ADP Explorer</b><small>MARKET MOVES</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('myrankings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="4" height="10" rx="1"></rect><rect x="10" y="4" width="4" height="16" rx="1"></rect><rect x="17" y="13" width="4" height="7" rx="1"></rect></svg>
-      <b>My Rankings</b><small>TIERS &amp; EDITS</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('trade')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3"></path><path d="M4 7h13"></path><path d="m17 20 3-3-3-3"></path><path d="M20 17H7"></path></svg>
-      <b>Trade Calc</b><small>VALUE ANY DEAL</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('seasonsim')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M3 12h18"></path></svg>
-      <b>Season Sim</b><small>PLAYOFF ODDS</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('research')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"></path></svg>
-      <b>Compare</b><small>HEAD TO HEAD</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('myteams')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a9 9 0 0 0-15-3L3 8"></path><path d="M3 5v3h3"></path><path d="M3 16a9 9 0 0 0 15 3l3-3"></path><path d="M21 19v-3h-3"></path></svg>
-      <b>Sleeper Sync</b><small>SLEEPER &middot; ESPN</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('gamelogs')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
-      <b>Game Logs</b><small>WEEKLY SPLITS</small>
-    </button>
-    <button class="vc-tile" onclick="vcGo('betting')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M21 7l-4 4-3-3-5 5"></path></svg>
-      <b>Betting</b><small>ODDS &amp; PROPS</small>
-    </button>
+  <div class="vcx-scroll" id="vc-scroll">
+    <div class="vcx-now" id="vc-now" hidden>
+      <div class="vcx-hd">RIGHT NOW</div>
+      <button class="vcx-primary" id="vc-primary"><span class="vcx-pic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/></svg></span><span class="vcx-pmain"><b id="vc-primary-title">Open Lineup Command</b><small id="vc-primary-meta">SET YOUR STARTERS</small></span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+    <div class="vcx-grp" data-vc-grp>
+      <div class="vcx-hd">COMPETE</div>
+      <div class="vcx-list">
+<button class="vcx-row" data-vc-go="lineup"><span class="vcx-ic vcx-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/></svg></span><span class="vcx-lb">Lineup Command</span><span class="vcx-bd" id="vc-bd-lineup" hidden></span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="waivers"><span class="vcx-ic vcx-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M21 7l-4 4-3-3-5 5"/></svg></span><span class="vcx-lb">Waiver Command</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="trades"><span class="vcx-ic vcx-r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3M4 7h13m0 13 3-3-3-3M20 17H7"/></svg></span><span class="vcx-lb">Trade Center</span><span class="vcx-bd" id="vc-bd-trade" hidden></span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="taxi"><span class="vcx-ic vcx-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M9 7V4h6v3"/></svg></span><span class="vcx-lb">Taxi Manager</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <div class="vcx-grp" data-vc-grp>
+      <div class="vcx-hd">EVALUATE</div>
+      <div class="vcx-list">
+<button class="vcx-row" data-vc-go="trade"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3M4 7h13m0 13 3-3-3-3M20 17H7"/></svg></span><span class="vcx-lb">Trade Calculator</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="compare"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg></span><span class="vcx-lb">Player Comparison</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="advstats"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><span class="vcx-lb">Advanced Stats</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="gamelogs"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><span class="vcx-lb">Game Logs</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <div class="vcx-grp" data-vc-grp>
+      <div class="vcx-hd">BUILD</div>
+      <div class="vcx-list">
+<button class="vcx-row" data-vc-go="draft"><span class="vcx-ic vcx-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 12h12M4 18h8M20 6v8M17 11l3 3 3-3"/></svg></span><span class="vcx-lb">Draft Vault</span><span class="vcx-bd" id="vc-bd-draft" hidden></span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="adp"><span class="vcx-ic vcx-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M4 11h16M7 5h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3z"/></svg></span><span class="vcx-lb">ADP Explorer</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="myrankings"><span class="vcx-ic vcx-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></span><span class="vcx-lb">My Rankings</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="seasonsim"><span class="vcx-ic vcx-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M3 12h18M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg></span><span class="vcx-lb">Season Sim</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <div class="vcx-grp" data-vc-grp>
+      <div class="vcx-hd">ACCOUNT</div>
+      <div class="vcx-list">
+<button class="vcx-row" data-vc-go="myteams"><span class="vcx-ic vcx-m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a9 9 0 0 0-15-3L3 8M3 5v3h3M3 16a9 9 0 0 0 15 3l3-3M21 19v-3h-3"/></svg></span><span class="vcx-lb">Sleeper Sync</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="betting"><span class="vcx-ic vcx-m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M21 7l-4 4-3-3-5 5"/></svg></span><span class="vcx-lb">Betting</span><span class="vcx-nt">DESKTOP</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <div class="vcx-empty" id="vc-empty" hidden>Nothing in Vault matches that.</div>
   </div>
   <div class="vc-league" id="vc-league" hidden>
     <span class="vc-lg-av" id="vc-lg-av">VF</span>
-    <span class="vc-lg-main">
-      <b id="vc-lg-name">League</b>
-      <small id="vc-lg-meta"></small>
-    </span>
+    <span class="vc-lg-main"><b id="vc-lg-name">League</b><small id="vc-lg-meta"></small></span>
     <button class="vc-lg-switch" onclick="vcClose();setTimeout(function(){var t=document.querySelector('.vlg-trigger');if(t)t.click();},260)">Switch</button>
   </div>
 </div>
@@ -4588,26 +4585,272 @@ function openConnect(){
 </div>
 <script>
 /* Vault Command sheet, mobile dock shield */
-function vcToggle(){ var s=document.getElementById('vc-sheet'); if(!s) return; if(s.hidden){ vcOpen(); } else { vcClose(); } }
-function vcOpen(){ var s=document.getElementById('vc-sheet'), d=document.getElementById('vc-dim'); if(s) s.hidden=false; if(d) d.hidden=false; vcRefreshLive(); vcRefreshLeague(); }
-function vcClose(){
-  var s=document.getElementById('vc-sheet'), d=document.getElementById('vc-dim');
-  if(!s || s.hidden){ if(d) d.hidden=true; return; }
-  if(s._vcLeaving) return;
-  s._vcLeaving = true;
-  var rm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  s.classList.add('vc-leaving'); if(d) d.classList.add('vc-leaving');
-  setTimeout(function(){
-    s.hidden=true; s.classList.remove('vc-leaving'); s._vcLeaving=false;
-    if(d){ d.hidden=true; d.classList.remove('vc-leaving'); }
-  }, rm ? 0 : 240);
+/* ════════════════════════════════════════════════════════════════
+   VAULT COMMAND · mobile sheet (ported from Vault Mobile Phase 1)
+   One sheet, 12 grouped destinations, search, real gesture engine:
+   1:1 drag, momentum projection, rubber-band, three detents,
+   interruptible spring. No second "More" modal.
+   ═══════════════════════════════════════════════════════════════ */
+var VC = { H:0, y:0, det:[0,0,0], open:false, drag:null, anim:0 };
+
+function vcEl(){ return document.getElementById('vc-sheet'); }
+function vcDim(){ return document.getElementById('vc-dim'); }
+
+function vcMeasure(){
+  var s = vcEl(); if(!s) return;
+  VC.H = s.offsetHeight || Math.round(innerHeight * 0.92);
+  var mid = Math.max(0, VC.H - Math.min(430, Math.round(innerHeight * 0.56)));
+  VC.det = [0, mid, VC.H];
 }
+
+function vcApply(y, animate){
+  VC.y = y;
+  var s = vcEl(), d = vcDim();
+  if(s){
+    if(!animate) s.style.transition = 'none';
+    s.style.transform = 'translate3d(0,' + y + 'px,0)';
+  }
+  if(d){
+    var t = 1 - Math.min(1, Math.max(0, VC.H ? y / VC.H : 1));
+    d.style.transition = animate ? 'opacity 260ms ease' : 'none';
+    d.style.opacity = String(t * 0.95);
+    d.style.pointerEvents = (VC.H && y > VC.H - 20) ? 'none' : 'auto';
+  }
+}
+
+function vcLiveY(){
+  var s = vcEl(); if(!s) return VC.y;
+  try { var m = new DOMMatrixReadOnly(getComputedStyle(s).transform); if(m && isFinite(m.m42)) return m.m42; } catch(e){}
+  return VC.y;
+}
+
+function vcStop(){
+  var s = vcEl(); if(!s) return;
+  var y = vcLiveY();
+  s.style.transition = 'none';
+  s.style.transform = 'translate3d(0,' + y + 'px,0)';
+  VC.y = y;
+}
+
+function vcReduced(){ try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } }
+
+function vcSpring(target, v0, bounce){
+  vcStop();
+  var s = vcEl(); if(!s){ return; }
+  if(vcReduced()){ vcApply(target); vcSettle(target); return; }
+  var dist = Math.abs(target - VC.y), speed = Math.abs(v0 || 0);
+  var dur = dist <= 0.5 ? 0 : Math.max(170, Math.min(440, (dist / Math.max(420, speed)) * 1000 + 160));
+  var ease = bounce ? 'cubic-bezier(0.34,1.56,0.64,1)' : 'cubic-bezier(0.32,0.72,0,1)';
+  void s.offsetWidth;
+  s.style.transition = 'transform ' + dur + 'ms ' + ease;
+  vcApply(target, true);
+  clearTimeout(VC.anim);
+  VC.anim = setTimeout(function(){ vcSettle(target); }, dur + 20);
+}
+
+/* committed resting state */
+function vcSettle(target){
+  VC.open = VC.H ? target < VC.H - 1 : false;
+  if(!VC.open){
+    var s = vcEl(), d = vcDim();
+    if(s) s.hidden = true;
+    if(d) d.hidden = true;
+    var q = document.getElementById('vc-q');
+    if(q && q.value){ q.value = ''; vcFilter(); }
+  }
+}
+
+function vcProject(v){ var d = 0.998; return (v / 1000) * d / (1 - d); }
+function vcRubber(over, dim){ var c = 0.55; return (over * dim * c) / (dim + c * Math.abs(over)); }
+
+function vcToggle(){ if(VC.open) vcClose(); else vcOpen(); }
+
+function vcOpen(){
+  var s = vcEl(), d = vcDim();
+  if(!s) return;
+  if(d) d.hidden = false;
+  s.hidden = false;
+  vcRefreshLive(); vcRefreshLeague(); vcRefreshNow();
+  vcMeasure();
+  vcApply(VC.H);
+  VC.open = true;
+  requestAnimationFrame(function(){ vcSpring(VC.det[1], 0, false); });
+}
+
+function vcClose(){
+  if(!VC.H) vcMeasure();
+  vcSpring(VC.H, 0, false);
+}
+
+/* ── drag: the sheet's own grab zone only, so the list still scrolls ── */
+(function vcBindDrag(){
+  function onDown(e){
+    var s = vcEl();
+    if(!s || s.hidden || !VC.open) return;
+    if(e.target && e.target.closest && e.target.closest('input,button')) return;
+    var zone = document.getElementById('vc-drag');
+    if(!zone || !zone.contains(e.target)) return;
+    vcStop();
+    clearTimeout(VC.anim);
+    try { s.setPointerCapture(e.pointerId); } catch(err){}
+    VC.drag = { startY:e.clientY, startSheet:vcLiveY(), hist:[[e.clientY, performance.now()]] };
+    addEventListener('pointermove', onMove);
+    addEventListener('pointerup', onUp);
+    addEventListener('pointercancel', onUp);
+  }
+  function onMove(e){
+    if(!VC.drag) return;
+    var y = VC.drag.startSheet + (e.clientY - VC.drag.startY);
+    if(y < 0) y = -vcRubber(-y, VC.H);
+    if(y > VC.H) y = VC.H;
+    VC.drag.hist.push([e.clientY, performance.now()]);
+    if(VC.drag.hist.length > 6) VC.drag.hist.shift();
+    vcApply(y);
+    e.preventDefault();
+  }
+  function onUp(){
+    removeEventListener('pointermove', onMove);
+    removeEventListener('pointerup', onUp);
+    removeEventListener('pointercancel', onUp);
+    if(!VC.drag) return;
+    var h = VC.drag.hist, a = h[0], b = h[h.length - 1];
+    var dt = Math.max(16, b[1] - a[1]);
+    var v = (b[0] - a[0]) / dt * 1000;
+    var moved = Math.abs(VC.drag.startSheet - VC.y) > 3;
+    VC.drag = null;
+    if(!moved) return;
+    var projected = VC.y + vcProject(v);
+    var target = VC.det[0], best = Infinity;
+    VC.det.forEach(function(d){ var gap = Math.abs(d - projected); if(gap < best){ best = gap; target = d; } });
+    vcSpring(target, v, Math.abs(v) > 300 && target !== 0);
+  }
+  addEventListener('pointerdown', onDown, true);
+  addEventListener('resize', function(){ if(VC.open){ vcMeasure(); } });
+})();
+
+/* ── routing: every destination resolves to a route that really exists ── */
+function vcRoute(kind){
+  function page(p){ try { showPage(p); return true; } catch(e){ return false; } }
+  function pfv(v){
+    try { showPage('portfolio'); } catch(e){}
+    try { if(typeof pfSetView === 'function'){ pfSetView(v); return true; } } catch(e){}
+    return false;
+  }
+  switch(kind){
+    case 'lineup':
+      if(document.getElementById('page-lineup')) return page('lineup');
+      return pfv('lineup');
+    case 'waivers': return pfv('waivers');
+    case 'trades':  return pfv('trades');
+    case 'taxi':    return pfv('taxi');
+    case 'compare':
+      if(document.getElementById('page-compare')) return page('compare');
+      return page('research');
+    case 'adp':
+      page('draft');
+      try { if(typeof dvShowADP === 'function') dvShowADP(); } catch(e){}
+      return true;
+    default: return page(kind);
+  }
+}
+
+function vcGo(p){ vcClose(); setTimeout(function(){ vcRoute(p); }, 200); }
+
+/* delegated so search-filtered rows keep working */
+document.addEventListener('click', function(e){
+  var r = e.target.closest && e.target.closest('[data-vc-go]');
+  if(!r) return;
+  vcGo(r.getAttribute('data-vc-go'));
+});
+
+/* ── search across the 12 destinations ── */
+function vcFilter(){
+  var q = (document.getElementById('vc-q') || {}).value || '';
+  q = q.trim().toLowerCase();
+  var shown = 0;
+  document.querySelectorAll('#vc-scroll [data-vc-grp]').forEach(function(g){
+    var any = 0;
+    g.querySelectorAll('[data-vc-go]').forEach(function(r){
+      var hay = (r.querySelector('.vcx-lb') || {}).textContent || '';
+      var grp = (g.querySelector('.vcx-hd') || {}).textContent || '';
+      var hit = !q || hay.toLowerCase().indexOf(q) > -1 || grp.toLowerCase().indexOf(q) > -1;
+      r.hidden = !hit;
+      if(hit){ any++; shown++; }
+    });
+    g.hidden = !any;
+  });
+  var now = document.getElementById('vc-now');
+  if(now) now.hidden = !!q || now.dataset.vcOff === '1';
+  var empty = document.getElementById('vc-empty');
+  if(empty) empty.hidden = shown > 0;
+}
+document.addEventListener('input', function(e){ if(e.target && e.target.id === 'vc-q') vcFilter(); });
+
+/* ── app state readers ───────────────────────────────────────────────
+   `sleeperDraftId` and `myTeamsData` are top-level `let` bindings, so they
+   live in the global LEXICAL scope and never become window properties —
+   window.sleeperDraftId is permanently undefined. Read them by bare name
+   (every classic script shares that scope) and guard for TDZ, since this
+   block is parsed before their declarations further down the file. */
+function vcDraftId(){ try { return sleeperDraftId || ''; } catch(e){ return ''; } }
+function vcTeams(){ try { return myTeamsData || []; } catch(e){ return []; } }
+
+/* ── "right now" · the one thing to do, from real app state ── */
+function vcRefreshNow(){
+  var now = document.getElementById('vc-now');
+  if(!now) return;
+  var live = !!vcDraftId();
+  var t = document.getElementById('vc-primary-title');
+  var m = document.getElementById('vc-primary-meta');
+  var btn = document.getElementById('vc-primary');
+  var teams = vcTeams();
+  var synced = !!teams.length;
+  if(!synced){
+    now.dataset.vcOff = '1';
+    now.hidden = true;
+    return;
+  }
+  now.dataset.vcOff = '0';
+  now.hidden = false;
+  if(live){
+    if(t) t.textContent = 'Your draft is live';
+    if(m) m.textContent = 'OPEN DRAFT VAULT';
+    if(btn) btn.setAttribute('data-vc-go', 'draft');
+  } else {
+    if(t) t.textContent = 'Set your lineups';
+    if(m) m.textContent = teams.length + ' LEAGUES SYNCED';
+    if(btn) btn.setAttribute('data-vc-go', 'lineup');
+  }
+}
+
+/* ── shield badge · LIVE while a draft is connected ──────────────────
+   This also carried a pending-trade count summed off
+   `window._pfLeagueData[].pendingTrades`. That global is real (renderPortfolio
+   fills it), but its entries carry only roster/lineup fields — there is no
+   `pendingTrades` property on them, so the branch could only ever add 0.
+   Dropped rather than left in, so the badge doesn't imply a count it cannot
+   compute. Wiring it needs a real cross-league pending-offer source first. */
+function vcBadge(){
+  var fb = document.getElementById('tb-fab-live');
+  if(!fb) return;
+  var live = !!vcDraftId();
+  fb.hidden = !live;
+  if(live){
+    fb.textContent = 'LIVE';
+    fb.classList.add('live');
+  }
+}
+setInterval(function(){ try { vcBadge(); } catch(e){} }, 5000);
+addEventListener('load', function(){ try { vcBadge(); } catch(e){} });
+
 /* league row at the sheet's foot: mirrors the active league; hidden until synced */
 function vcRefreshLeague(){
   var row=document.getElementById('vc-league'); if(!row) return;
   try{
     var id=(typeof teamsLeagueId!=='undefined'&&teamsLeagueId)||window._currentLeagueId;
-    var all=window.myTeamsData||[];
+    var all=vcTeams();   /* was window.myTeamsData — always undefined, so this
+                            row silently fell back to the header pill and its
+                            meta line (12-team · SF · 2026) rendered empty */
     var lg=all.find(function(l){return l.league_id===id;})||all[0];
     var name, bits=[];
     if(lg){
@@ -4628,15 +4871,17 @@ function vcRefreshLeague(){
     row.hidden=false;
   }catch(e){ row.hidden=true; }
 }
-function vcGo(p){ vcClose(); showPage(p); }
+/* vcGo lives with vcRoute above. A second copy here used to shadow it (later
+   declaration wins in the same script), which sent every sheet row straight to
+   showPage() — blanking the app for the four destinations that are portfolio
+   views, not pages. */
 function vcRefreshLive(){
-  var live = !!(window.sleeperDraftId);
-  var b=document.getElementById('vc-live-badge'); if(b) b.hidden=!live;
-  var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!live;
-  var t=document.getElementById('vc-tile-draft'); if(t) t.classList.toggle('live', live);
-  var sub=document.getElementById('vc-sub-draft'); if(sub) sub.textContent = live ? 'DRAFT IN PROGRESS' : 'RANKINGS & BOARD';
+  var live = !!vcDraftId();
+  var b=document.getElementById('vc-bd-draft');
+  if(b){ b.hidden=!live; b.textContent='LIVE'; b.className='vcx-bd live'; }
+  vcBadge();
 }
-window._fabLiveInterval = setInterval(function(){ try{ var fb=document.getElementById('tb-fab-live'); if(fb) fb.hidden=!window.sleeperDraftId; }catch(e){} }, 5000);
+/* superseded by vcBadge() — it owns #tb-fab-live now */
 
 
 /* ── Player grade sheet: quick 4-factor look from a rankings row ── */
@@ -4727,33 +4972,20 @@ function pgsOpen(name, pos, team){
   /* Home league capsules mirror the native #header-league-select (the
      canonical league list; the header pill menu is a skin over it).
      Clicking a capsule routes through switchGlobalLeague like the select. */
+  /* RETIRED · Home league capsules.
+     The Vault Command redesign owns league switching on mobile now — the
+     Switch League sheet lists every league with the active one marked, and
+     the header pill covers desktop. This strip was a third copy of the same
+     control sitting on top of Team Review.
+     Kept as a no-op rather than deleted because five call sites reference it
+     (the initial build, a MutationObserver and a change listener on
+     #header-league-select, and window._ovCapsRefresh, which other code may
+     call). It also clears a strip left behind by an earlier build. Only the
+     Home strip is affected — Draft Vault's .vcaps quick-nav (#dv-secnav,
+     buildDvNav) is a separate strip and is untouched. */
   function buildOvCaps(){
-    var page=document.getElementById('page-overview'); if(!page) return;
-    var sel=document.getElementById('header-league-select');
     var strip=document.getElementById('ov-league-caps');
-    var opts=sel?[].slice.call(sel.options).filter(function(o){return o.value;}):[];
-    if(!opts.length){ if(strip) strip.remove(); return; }
-    if(!strip){
-      strip=document.createElement('div');
-      strip.id='ov-league-caps'; strip.className='vcaps';
-      page.insertBefore(strip, page.firstChild);
-    }
-    strip.innerHTML='';
-    opts.forEach(function(o){
-      var b=document.createElement('button');
-      b.className='vcap'+(o.value===sel.value?' on':'');
-      b.textContent=(o.textContent||'').replace(/^🟢\s*/,'').trim();
-      b.onclick=function(){
-        if(o.value===sel.value) return;
-        sel.value=o.value;
-        try{ switchGlobalLeague(o.value); }catch(e){}
-        buildOvCaps();
-      };
-      strip.appendChild(b);
-    });
-    /* keep the active league in view */
-    var on=strip.querySelector('.vcap.on');
-    if(on) on.scrollIntoView({block:'nearest',inline:'center'});
+    if(strip) strip.remove();
   }
   window._ovCapsRefresh = buildOvCaps;
 
@@ -26669,21 +26901,15 @@ function pickYear(year) {
   document.addEventListener('input', e => { if (e.target.id === 'lcInput') runSearch(e.target.value); });
   document.addEventListener('focusin', e => { if (e.target.id === 'lcInput') runSearch(e.target.value); });
 
-  function injectOverviewSubnav() {
-    const host = document.querySelector('#page-overview .proto-page');
-    if (!host || host.querySelector('.lc-subnav')) return;
-    const nav = document.createElement('div');
-    nav.className = 'lc-subnav';
-    nav.setAttribute('role', 'tablist');
-    nav.innerHTML = '<button id="lc-sn-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span aria-hidden="true">'+reIcon('building',{size:14})+'</span> Matchup</button>' +
-      '<button class="on" data-go="overview" data-dynview="dynasty" aria-current="page"><span aria-hidden="true">'+reIcon('grid',{size:14})+'</span> Team Review</button>' +
-      '<button data-go="lineup"><span aria-hidden="true">'+reIcon('bolt',{size:14})+'</span> Lineup Command</button>' +
-      '<button data-go="compare"><span aria-hidden="true">'+reIcon('swap',{size:14})+'</span> Compare</button>';
-    host.insertBefore(nav, host.firstChild);
-  }
+  /* RETIRED · Team Review / Lineup Command / Compare strip on Home.
+     Vault Command carries Lineup Command and Player Comparison as first-class
+     rows now, so this strip was a second route to the same two screens sitting
+     directly under the league capsules. Removed from Home only — #page-lineup
+     and #page-compare keep their own .lc-subnav, which is still how you get
+     back out of those screens. */
 
   function boot() {
-    injectStyles(); injectPage(); injectNavDropdown(); injectOverviewSubnav();
+    injectStyles(); injectPage(); injectNavDropdown();
     let tries = 0;
     const t = setInterval(() => { if (hookShowPage() || ++tries > 40) clearInterval(t); }, 100);
   }
@@ -37744,6 +37970,13 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
      .v-pill--fill  solid capsule behind — segmented filters, main nav
      .v-pill--soft  translucent tint     — mobile dock (icon keeps its colour) */
 .vrail { position:relative; }
+/* …except the mobile dock, which sets position:fixed at the top of this file
+   (~L322) to pin itself to the bottom of the viewport. .vrail is the same
+   specificity (0,1,0) and lands ~37k lines LATER, so it silently demoted the
+   dock to position:relative and the nav scrolled away with the page — landing
+   under the header at the top of the screen. Re-assert it here at (0,2,0).
+   position:fixed is still a containing block, so .v-pill tracks normally. */
+.bottom-tab-bar.vrail { position:fixed; }
 /* Items must paint above the pill. Every wired item computes to static or
    relative today — none are absolutely positioned — so this is safe. */
 .vrail > *:not(.v-pill) { position:relative; z-index:1; }
@@ -38717,6 +38950,14 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   }
 })();
 </script>
+
+
+<!-- Mobile layer. vault-mobile.css is load-bearing, not cosmetic: it carries the
+     [hidden] rule that keeps the Vault Command sheet closed. A visitor pairing
+     this markup with a stale cached copy gets the sheet stuck open over the
+     app, so bump ?v= on every change to either file. -->
+<link rel="stylesheet" href="vault-mobile.css?v=20260727a">
+<script src="vault-mobile.js?v=20260727a" defer></script>
 
 </body>
 </html>
