@@ -24738,6 +24738,27 @@ function pickYear(year) {
     return sorted.length > 1 ? lo / (sorted.length - 1) : 0.5;
   }
   const _norm = s => (window.normName ? normName(s) : String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+  /* Canonical-key helpers, guarded the same way _norm is. This module has to stand
+     alone: scripts/test-grades.mjs loads THIS <script> block on its own and stubs
+     the browser surface, so reaching straight for the shared window.vaultIndexName
+     (defined in a different block, next to normName) threw inside ensure()'s
+     promise, got swallowed by its .catch, and left every grade unbuilt — the exact
+     quiet failure the test exists to catch. Prefer the shared implementation when
+     it's there; fall back to the same rule when it isn't. */
+  const _canon = s => (window.vaultNameKey
+    ? vaultNameKey(s)
+    : _norm(s).replace(/\s+(jr|sr|ii|iii|iv)$/, ''));
+  const _idx = (map, name, val) => {
+    if (window.vaultIndexName) return vaultIndexName(map, name, val);
+    const e = _norm(name); if (e) map[e] = val;
+    const c = _canon(name); if (c && c !== e && map[c] === undefined) map[c] = val;
+  };
+  const _look = (map, name) => {
+    if (window.vaultLookupName) return vaultLookupName(map, name);
+    if (!map || !name) return undefined;
+    const e = map[_norm(name)];
+    return e !== undefined ? e : map[_canon(name)];
+  };
 
   let _p = null, _data = null, _subs = [];
   function ensure() {
@@ -24752,7 +24773,7 @@ function pickYear(year) {
       // spells without his suffix ("Kenneth Walker", "Marvin Harrison",
       // "Brian Thomas") missed his own tape and was graded off the rookie
       // market-rank proxy — a top-50 RB scoring like a devy flyer.
-      for (const n in stats) vaultIndexName(statsMap, n, stats[n]);
+      for (const n in stats) _idx(statsMap, n, stats[n]);
       // team offensive strength = summed top-7 skill-position PPG, ranked to a 0-1 pct
       const teamOff = {};
       for (const n in stats) {
@@ -24772,7 +24793,7 @@ function pickYear(year) {
 
   /* weekly-log profile: ppg, boom/bust %, 20th/85th pct weeks (floor/ceiling) */
   function profileFor(name) {
-    const e = _data && vaultLookupName(_data.statsMap, name);
+    const e = _data && _look(_data.statsMap, name);
     if (!e || !e.season || (e.season.games || 0) < 3) return null;
     const ssn = e.season, wk = (e.weeks || []).map(w => +w.pts).filter(v => !isNaN(v)).sort((a, b) => a - b);
     const q = f => wk.length ? wk[clamp(Math.round(f * (wk.length - 1)), 0, wk.length - 1)] : null;
