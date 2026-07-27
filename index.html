@@ -995,7 +995,12 @@ header{
 .bm-card.just-picked::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1.5px var(--pc,var(--accent));animation:bcLandRing 900ms var(--ease-out) both}
 .bc-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
 .bc-posrk{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--pc,var(--muted))}
-.bc-pick{font-family:var(--font-mono);font-size:9px;color:var(--muted)}
+/* Pick labels sit in opposite top corners: round.pick left, overall right.
+   8.5px so a round-16 slot + a 3-digit overall still clear the 78px content
+   width alongside the position and the grade badge. */
+.bc-slot{font-family:var(--font-mono);font-size:8.5px;font-weight:700;color:var(--text2);letter-spacing:-.02em;white-space:nowrap}
+.bc-pick{font-family:var(--font-mono);font-size:8.5px;color:var(--muted);letter-spacing:-.02em;white-space:nowrap}
+.bc-topl{display:flex;align-items:center;gap:3px;min-width:0}
 .bc-topr{display:flex;align-items:center;gap:4px;min-width:0}
 .bc-grade{font-family:var(--font-mono);font-size:8.5px;font-weight:800;line-height:1.3;letter-spacing:.02em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,currentColor 14%,transparent);cursor:help}
 .bth-grade{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.03em;margin-top:2px;text-transform:none;cursor:help}
@@ -4226,6 +4231,8 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       </div>
       <button class="dc-modal-x" onclick="chooseBrowseRankings()" aria-label="Close">✕</button>
     </div>
+    <!-- Your draft grade, painted + animated by dvPaintDraftRecap() -->
+    <div class="dvr" id="dcp-recap" hidden></div>
     <div class="dcp-choices">
       <button class="dcp-choice" onclick="chooseViewCompleted()">
         <span class="dcp-choice-icon"><span data-reicon="check" data-rsize="20"></span></span>
@@ -5494,6 +5501,8 @@ function pgsOpen(name, pos, team){
           <div class="dsc-stat dsc-grade" id="ds-grade-card" title="Live draft grade — your starting lineup's 4-factor score (Upside · Floor · Risk · Situational)">
             <span class="ds-stat-val ds-grade-letter" id="ds-grade-letter">—</span>
             <span class="dsc-lbl">Draft Grade <span class="ds-grade-score" id="ds-grade-score"></span></span>
+            <!-- live 4-factor read of your starting lineup, filled by dvUpdateGradeCard -->
+            <span class="ds-gfac" id="ds-grade-factors" aria-label="Your starting lineup by factor"></span>
             <span id="ds-stat-mine" style="display:none">—</span>
           </div>
         </div>
@@ -5678,6 +5687,7 @@ function pgsOpen(name, pos, team){
       <button class="pm-sortchip"    id="pmsort-rdr" onclick="setSort('redraft-col')"><span class="pm-chip-dot" style="background:#7bd0ff"></span>Redraft</button>
       <button class="pm-sortchip"    id="pmsort-adp" onclick="setSort('adp-col')"><span class="pm-chip-dot" style="background:#a78bfa"></span>ADP</button>
       <button class="pm-sortchip" id="pmsort-my" onclick="setSort('my-col')"><span class="pm-chip-dot" style="background:#3DCC7A"></span>Mine</button>
+      <button class="pm-sortchip" id="pmsort-pg" onclick="setSort('pg-col')"><span class="pm-chip-dot" style="background:var(--gold)"></span>Pick grade</button>
     </div>
     <!-- 4-factor grade key: hover any item for the full calculation -->
     <div class="dv-factor-key" id="dv-factor-key">
@@ -5713,7 +5723,7 @@ function pgsOpen(name, pos, team){
           <th class="fhdr" id="hdr-ffl" style="color:var(--rb)" title="Floor — weekly safety / consistency (low bust rate + weekly floor + availability)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></th>
           <th class="fhdr" id="hdr-frk" style="color:var(--red)" title="Risk — injury / volatility / age (lower is safer)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></th>
           <th class="fhdr" id="hdr-fsi" style="color:var(--wr)" title="Situational — fit to your roster + league settings (need, scoring, team offense)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></th>
-          <th class="fhdr" id="hdr-pgrade" style="color:var(--gold)" title="Pick grade — the letter this pick would earn at your next slot (value vs. his price, tilted by player quality). Fills in during a connected draft and recalculates after every pick. Hover a cell to see why."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M9 14.5 7.5 22 12 19l4.5 3-1.5-7.5"/></svg></th>
+          <th class="fhdr col-hdr-sortable" id="hdr-pgrade" onclick="setSort('pg-col')" style="color:var(--gold);cursor:pointer" title="Pick grade — the letter this pick would earn at your next slot (value vs. his price, tilted by player quality). Fills in during a connected draft and recalculates after every pick. Click to sort best grade first; hover a cell to see why."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M9 14.5 7.5 22 12 19l4.5 3-1.5-7.5"/></svg> <span class="sort-ind" id="ind-pg">↕</span></th>
           <th id="hdr-watch2"></th>
         </tr>
       </thead>
@@ -5725,6 +5735,7 @@ function pgsOpen(name, pos, team){
       <button class="plist-msort-btn" id="msort-dynasty" onclick="setSort('dynasty-col')">Dynasty ▾</button>
       <button class="plist-msort-btn" id="msort-redraft" onclick="setSort('redraft-col')">Redraft</button>
       <button class="plist-msort-btn" id="msort-adp" onclick="setSort('adp-col')">ADP</button>
+      <button class="plist-msort-btn" id="msort-pg" onclick="setSort('pg-col')">Pick grade</button>
     </div>
     <!-- Mobile: div rows injected here by renderList -->
     <div id="plist-mobile"></div>
@@ -7143,6 +7154,48 @@ function normName(s) {
   return out;
 }
 
+/* ── Canonical join key across data sources ──────────────────────────
+   Our three sources spell the same player differently: FantasyCalc and Sleeper
+   say "Kenneth Walker", nflverse says "Kenneth Walker III". normName leaves
+   those as two different keys, so every nflverse-backed join (headshot, Grade
+   Keys, durability history) silently missed 16 players — six inside the top 80,
+   and a four-season starting RB graded `hasData:false`, "estimated from market
+   rank, no recent stats yet".
+
+   _fuzzy() (see getNflversePlayer) already solved this by stripping suffixes on
+   retry. This is the same rule expressed as a KEY, so the maps get indexed once
+   instead of every caller re-scanning them — _fuzzy walks Object.keys() per
+   lookup, which is fine for one player profile and hopeless for a 400-row board.
+
+   Suffix list matches _fuzzy exactly. Deliberately no bare "V": it would eat a
+   real last name, and no source uses it. */
+const _VAULT_NAME_ALIAS = {
+  'kenneth gainwell': 'kenny gainwell',   // FC/Sleeper spelling → nflverse's
+};
+function vaultNameKey(s){
+  const k = normName(s).replace(/\s+(jr|sr|ii|iii|iv)$/, '');
+  return _VAULT_NAME_ALIAS[k] || k;
+}
+/* Index an entry under its exact normName key AND its canonical key.
+   Exact always wins; the canonical alias is only written into a FREE slot, so a
+   genuine second player can never be shadowed by someone else's suffix. */
+function vaultIndexName(map, name, value){
+  const exact = normName(name);
+  if (exact) map[exact] = value;
+  const canon = vaultNameKey(name);
+  if (canon && canon !== exact && map[canon] === undefined) map[canon] = value;
+}
+/* Read a map indexed by vaultIndexName (or a plain normName map — the exact key
+   is tried first either way, so this is safe on both). */
+function vaultLookupName(map, name){
+  if (!map || !name) return undefined;
+  const e = map[normName(name)];
+  return e !== undefined ? e : map[vaultNameKey(name)];
+}
+window.vaultNameKey = vaultNameKey;
+window.vaultIndexName = vaultIndexName;
+window.vaultLookupName = vaultLookupName;
+
 function findPlayer(name) {
   const n = normName(name);
   return PLAYERS.find(p => normName(p.name) === n)
@@ -7165,7 +7218,11 @@ async function openPlayerStats(normN, name, pos, team) {
   const body  = document.getElementById('ps-body');
   if (!modal) return;
 
-  const sleeperId = PLAYER_IDS[name] || sleeperPlayerMap[normN]?.player_id || null;
+  // Through the shared resolver so a name Sleeper carries twice (Kenneth Walker)
+  // opens the right player's stats, not the retired namesake's.
+  const sleeperId = (typeof vaultPidFor === 'function')
+    ? (vaultPidFor(name) || null)
+    : (PLAYER_IDS[name] || sleeperPlayerMap[normN]?.player_id || null);
   _psPlayer = { name, pos, team, sleeperId };
   _psData   = null;
   _psTab    = 'weekly';
@@ -10215,15 +10272,19 @@ let sleeperADP = {};
 async function fetchSleeperPlayers() {
   if (sleeperPlayersLoaded) return;
 
-  const CACHE_KEY = 'snapdraft-pidmap-v4'; 
-  const CACHE_TIME = 'snapdraft-pidmap-time-v4';
+  // v5: the cache now carries the canonical name→pid map alongside pid→name.
+  // A pid→name map alone cannot answer "which pid IS this player" when Sleeper
+  // ships two pids for one name (see _pidPref below), and rebuilding the ranking
+  // needs fields (active/team/search_rank) that pid→name threw away.
+  const CACHE_KEY = 'snapdraft-pidmap-v5';
+  const CACHE_TIME = 'snapdraft-pidmap-time-v5';
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     const lastFetch = parseInt(localStorage.getItem(CACHE_TIME)||'0');
-    
+
     if (cached && Date.now() - lastFetch < 7*86400000) {
-      const pidMap = JSON.parse(cached);
-      _applyPidMap(pidMap);
+      const c = JSON.parse(cached);
+      _applyPidMap(c.p || c, c.n || null);   // c.n absent = pre-v5 shape
       return;
     }
   } catch(e) {}
@@ -10234,25 +10295,57 @@ async function fetchSleeperPlayers() {
     const data = await res.json();
 
     const POSITIONS = new Set(['QB','RB','WR','TE','K','DEF']);
-    
-    const pidMap = {}; 
-    const nameADP = {}; 
+
+    const pidMap = {};
+    const nameADP = {};
+
+    // ── Which pid actually IS this player? ──────────────────────────────
+    // Sleeper carries multiple pids for some names: a retired or never-active
+    // player and the current starter. "Kenneth Walker" is BOTH pid 4634 (WR, no
+    // team, active:false, search_rank 9999999) and pid 8151 (the KC RB,
+    // search_rank 7). Object iteration put 4634 first, so every name→pid lookup
+    // resolved to the wrong man — the board's Draft button posted his id to
+    // Sleeper, and Waiver Command needed a name-based workaround to stop showing
+    // a rostered player as a phantom free agent. 36 names collide across skill
+    // positions; 6 resolved to the wrong player.
+    //
+    // So rank the candidates instead of taking whichever came first: on an NFL
+    // roster beats merely active beats inactive, then Sleeper's own search_rank
+    // (its relevance ordering — 9999999 means "nobody is looking for this guy")
+    // breaks the tie.
+    const _pidPref = p => (p.active && p.team) ? 2 : p.active ? 1 : 0;
+    const _pidSr   = p => (typeof p.search_rank === 'number' ? p.search_rank : Infinity);
+    const best = {};   // normName → {pid, name, pref, sr}
 
     Object.entries(data).forEach(([pid, p]) => {
       if (!p.first_name || !p.last_name) return;
       if (!POSITIONS.has(p.position)) return;
       const fullName = (p.first_name + ' ' + p.last_name).trim();
       pidMap[pid] = fullName;
-      if (p.search_rank) nameADP[fullName] = p.search_rank;
+      const k = normName(fullName), pref = _pidPref(p), sr = _pidSr(p);
+      const cur = best[k];
+      if (!cur || pref > cur.pref || (pref === cur.pref && sr < cur.sr)) {
+        best[k] = { pid: String(pid), name: fullName, pref, sr };
+      }
     });
 
-    
+    // name→pid from the winners only, so search_rank and the id agree on one
+    // player. Canonical (suffix-stripped) aliases fill free slots only — same
+    // exact-wins rule as vaultIndexName.
+    const namePid = {};
+    Object.keys(best).forEach(k => { namePid[k] = best[k].pid; });
+    Object.keys(best).forEach(k => {
+      const c = vaultNameKey(best[k].name);
+      if (c && c !== k && namePid[c] === undefined) namePid[c] = best[k].pid;
+    });
+    Object.keys(best).forEach(k => { if (best[k].sr !== Infinity) nameADP[best[k].name] = best[k].sr; });
+
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(pidMap));
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ p: pidMap, n: namePid }));
       localStorage.setItem(CACHE_TIME, Date.now().toString());
     } catch(e) {}
 
-    _applyPidMap(pidMap);
+    _applyPidMap(pidMap, namePid);
 
     
     const newADP = {};
@@ -10269,13 +10362,13 @@ async function fetchSleeperPlayers() {
   }
 }
 
-function _applyPidMap(pidMap) {
-  
-  
-  
+function _applyPidMap(pidMap, namePid) {
+  // Canonical name→pid, ranked by fetchSleeperPlayers (see _pidPref). This is
+  // the authority for "which Sleeper id is this player"; _pidByName's reverse
+  // index over globalPidToName cannot be, because two pids share one name.
+  if (namePid) window._vaultNamePid = namePid;
+  window._pidByNameMap = null;   // stale reverse index must not survive this
 
-  
-  
   Object.entries(pidMap).forEach(([pid, sleeperName]) => {
     const pidStr = String(pid);
     
@@ -10418,7 +10511,11 @@ const PLAYER_IDS = {
   "Joe Burrow":"6770",
   "Jalen Hurts":"5850",
   "Lamar Jackson":"4881",
-  "Patrick Mahomes II":"4358",
+  // 4358 is Austin Duke (an unrostered WR) in Sleeper's DB, not Mahomes — he is
+  // 4046. Harmless until now only because the app spells him "Patrick Mahomes",
+  // so this key never matched; the ranked name→pid map (see fetchSleeperPlayers)
+  // outranks this table either way.
+  "Patrick Mahomes II":"4046",
   "Christian McCaffrey":"4034",
   "Saquon Barkley":"4035",
   "Derrick Henry":"3198",
@@ -10427,9 +10524,24 @@ const PLAYER_IDS = {
   "George Kittle":"4866",
 };
 
+/* One place that answers "what Sleeper id goes with this name", for display.
+   Order matters: an explicit sid from the caller wins, then the ranked canonical
+   map (the only source that resolves duplicate names correctly), then the two
+   name-keyed maps — which are last-write-wins and so can hold a stale or wrong
+   id for a collided name. */
+function vaultPidFor(name, sid) {
+  sid = String(sid || '');
+  if (/^\d+$/.test(sid)) return sid;
+  if (!name) return '';
+  let p = null;
+  try { p = _pidByName(name); } catch(e) {}
+  if (p) return String(p);
+  return String(PLAYER_IDS[name] || vaultLookupName(sleeperPlayerMap, name)?.player_id || '');
+}
+window.vaultPidFor = vaultPidFor;
+
 function getPlayerHeadshotUrl(name) {
-  const sid = PLAYER_IDS[name] || sleeperPlayerMap[normName(name)]?.player_id || '';
-  return vaultHeadshot(name, sid, 48) || null;
+  return vaultHeadshot(name, vaultPidFor(name), 48) || null;
 }
 
 /* ── High-res headshots ─────────────────────────────────────────────
@@ -10447,7 +10559,10 @@ function _vhBuild() {
   const stats = (season && cache[season] && cache[season].stats) || (Object.values(cache)[0] || {}).stats;
   if (!stats) return;
   const m = {};
-  for (const n in stats) { const h = stats[n] && stats[n].headshot; if (h) m[normName(n)] = h; }
+  // Indexed under both the exact and the suffix-stripped key — nflverse says
+  // "Kenneth Walker III" where the board says "Kenneth Walker", and a name miss
+  // here means the grey position placeholder instead of a face.
+  for (const n in stats) { const h = stats[n] && stats[n].headshot; if (h) vaultIndexName(m, n, h); }
   window._vhMap = m;
 }
 function vaultHeadshot(name, sid, px) {
@@ -10458,7 +10573,7 @@ function vaultHeadshot(name, sid, px) {
   }
   try {
     _vhBuild();
-    const h = window._vhMap && name ? window._vhMap[normName(name)] : null;
+    const h = name ? vaultLookupName(window._vhMap, name) : null;
     if (h) return h.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_' + (px * 2) + ',h_' + (px * 2) + ',c_thumb,g_face/');
   } catch (e) {}
   sid = String(sid || '');
@@ -10499,7 +10614,7 @@ window.vhImgRetry = vhImgRetry;
    position-tinted initials, so a failed photo degrades to initials. */
 function rpAvatarHtml(name, sid, pos, px) {
   px = px || 34;
-  sid = sid || (window.sleeperPlayerMap && sleeperPlayerMap[normName(name || '')]?.player_id) || '';
+  sid = (typeof vaultPidFor === 'function') ? vaultPidFor(name, sid) : (sid || '');
   const ini = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const c = { QB: 'var(--qb)', RB: 'var(--rb)', WR: 'var(--wr)', TE: 'var(--te)' }[pos] || 'var(--muted)';
   const ph = vaultHeadshot(name, sid, px);
@@ -10878,8 +10993,16 @@ window.VaultDurability = (function(){
           if (!f) return;
           for (const n in f){
             const g = (f[n] && f[n].season && f[n].season.games) || 0;
-            const k = normName(n);
-            (_hist[k] = _hist[k] || [null, null])[i] = g;
+            // Exact + canonical key (nflverse "Kenneth Walker III" vs the board's
+            // "Kenneth Walker"). Both keys must point at the SAME array — this
+            // accumulates one slot per season file, so aliasing to a copy would
+            // leave whichever key the second file didn't touch half-filled, and a
+            // half-filled entry reads as "missed a whole season" to priorRisk().
+            const k = normName(n), c = vaultNameKey(n);
+            let arr = _hist[k] || (c !== k ? _hist[c] : null) || [null, null];
+            arr[i] = g;
+            _hist[k] = arr;
+            if (c !== k && !_hist[c]) _hist[c] = arr;
           }
         });
         return _hist;
@@ -10892,7 +11015,7 @@ window.VaultDurability = (function(){
   // = a season missed entirely (17 games); absent from both = too new to judge.
   function priorRisk(name){
     if (!_hist || !name) return 0;
-    const h = _hist[normName(name)];
+    const h = vaultLookupName(_hist, name);
     if (!h) return 0;
     let [g1, g2] = h;
     if (g1 == null && g2 == null) return 0;
@@ -10943,9 +11066,20 @@ function _dvIsPPR(){
 }
 // The Draft Vault's league context: real scoring, superflex, and YOUR open
 // starter slots. Everything the shared engine needs to specialise Situational.
+// The board's Dynasty/Redraft format. `_dvMode` is the right signal and
+// `_draftIsDynasty` is not: the latter is inferred from `rounds >= 15`
+// (see syncSleeper), so a 16-round REDRAFT league graded as dynasty, and the
+// toolbar toggle moved values, ADP and My Rankings while leaving the Grade Keys
+// on the draft's guessed format. _dvAutoMode() resolves _dvMode from the draft
+// name, then the league's own settings.type, and only falls back to the round
+// count — and the user can override it. Same precedence the FantasyCalc value
+// context already uses (see fcActiveCtx).
+function _dvGradeFmtIsDyn(){
+  return window._dvMode ? window._dvMode !== 'redraft' : !!window._draftIsDynasty;
+}
 function _dvGradeCtx(rosterNeed){
   return {
-    dynasty: !!window._draftIsDynasty,
+    dynasty: _dvGradeFmtIsDyn(),
     ppr: _dvIsPPR(),
     teams: (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || 12,
     slots: DVF_SLOTS,
@@ -10982,7 +11116,11 @@ function _dvFactorsSig(){
   return [
     PLAYERS.length, rf,
     !!(window.VaultGrades && VaultGrades.ready()),
-    !!window._draftIsDynasty, !!window._draftIsSuperflex,
+    // The RESOLVED format, not the raw draft flag — the index is keyed on
+    // everything factorsFor reads, and ctx.dynasty now follows _dvMode. Omitting
+    // it meant flipping the toggle was served the stale cached index, so the
+    // grades never moved even once the ctx was right.
+    _dvGradeFmtIsDyn(), !!window._draftIsSuperflex,
     (typeof NUM_TEAMS!=='undefined' && NUM_TEAMS) || 12,
     (function(){ try{ return _dvIsPPR(); }catch(e){ return null; } })(),
     need ? need.QB+'/'+need.RB+'/'+need.WR+'/'+need.TE : '-',
@@ -11087,22 +11225,72 @@ function dvTeamGrade(){
   const [letter,desc,color] = dvGradeBand(score);
   return { letter, desc, score, color, factors:avg, comp, nStarters:starters.length, nRoster:roster.length };
 }
+/* The four factor chips, shared by the cockpit grade card and the post-draft
+   recap so both surfaces describe a build the same way.
+   Each chip is the factor's own icon + the value. The icon carries the identity
+   (same four glyphs as the Grade Keys legend directly below the card and as the
+   board's factor columns), so the reading never rests on colour alone — which
+   matters here because Upside's gold and Risk's red are the pair most likely to
+   be confused.
+   Values keep one decimal: these are averages across 7-8 starters, so whole
+   numbers would swallow most of the movement between picks. */
+const DVF_NAME = { upside:'Upside', floor:'Floor', risk:'Risk', situational:'Situational' };
+const DVF_HINT = { upside:'ceiling / boom weeks', floor:'weekly safety',
+                   risk:'injury · volatility (lower = safer)', situational:'fit to your roster' };
+function dvGradeFactorChips(g, cls){
+  return ['upside','floor','risk','situational'].map(k => {
+    const v = g.factors[k];
+    const tip = `${DVF_NAME[k]} ${v.toFixed(1)}/10 — ${DVF_HINT[k]}`
+              + ` · averaged across your ${g.nStarters} starters`;
+    return `<span class="${cls||'ds-gfac-i'}" style="color:${DVF_COL[k]}"`
+         + ` data-tip="${tip.replace(/"/g,'&quot;')}"`
+         + ` aria-label="${DVF_NAME[k]} ${v.toFixed(1)} out of 10">`
+         + `${DVF_ICON[k]}<b>${v.toFixed(1)}</b></span>`;
+  }).join('');
+}
+/* Repaint in place, and pulse only the chips whose value actually moved.
+   Colour/opacity at ≤150ms may keep plain `ease` (motion system §1); nothing
+   here transforms, so a grid cell can never be pushed around by the animation. */
+function dvPaintGradeFactors(el, g){
+  const prev = el._dvFacPrev || null;
+  el.innerHTML = dvGradeFactorChips(g);
+  const now = {};
+  ['upside','floor','risk','situational'].forEach(k => { now[k] = +g.factors[k].toFixed(1); });
+  if (prev){
+    ['upside','floor','risk','situational'].forEach((k, i) => {
+      if (prev[k] === now[k]) return;
+      const chip = el.children[i]; if (!chip) return;
+      chip.classList.remove('ds-gfac-bump');
+      void chip.offsetWidth;              // forced reflow, not rAF — a backgrounded
+      chip.classList.add('ds-gfac-bump'); // tab never runs rAF and would strand this
+    });
+  }
+  el._dvFacPrev = now;
+}
+
 // Paint the cockpit Draft Grade card (replaces the old Roster count).
 function dvUpdateGradeCard(){
   const letterEl = document.getElementById('ds-grade-letter');
   if (!letterEl) return;
   const scoreEl = document.getElementById('ds-grade-score');
   const card = document.getElementById('ds-grade-card');
+  const facEl = document.getElementById('ds-grade-factors');
   const g = dvTeamGrade();
   if (!g){
     letterEl.textContent='—'; letterEl.style.color='var(--muted)';
     if(scoreEl) scoreEl.textContent='';
+    if(facEl) facEl.innerHTML='';
     if(card) card.title='Draft grade appears once you draft skill players (needs last-season data)';
     return;
   }
   letterEl.textContent = g.letter; letterEl.style.color = g.color;
   if(scoreEl) scoreEl.textContent = g.score + '/100';
   const r = n => Math.round(n);
+  // Live 4-factor read of your starting lineup. These were only ever in the
+  // card's title attribute, so the one number that moves every pick — how your
+  // build is actually shaped — was invisible. `situational` tracks your open
+  // starter slots, so this genuinely changes as the draft runs.
+  if(facEl) dvPaintGradeFactors(facEl, g);
   if(card){
     card.title = `${g.desc} · grading your ${g.nStarters}-man starting lineup — Upside ${r(g.factors.upside)} · Floor ${r(g.factors.floor)} · Risk ${r(g.factors.risk)} · Situational ${r(g.factors.situational)}`;
     // Fold in the pick-by-pick rollup from the live board, so the card and the
@@ -11179,6 +11367,38 @@ function dvPickWhy(g, name, slotLabel){
   const src = [g.adp != null ? `ADP ${g.adp}` : null, g.rank != null ? `rank #${g.rank}` : null].filter(Boolean).join(' · ');
   return `${g.letter} pick — ${last} at ${slotLabel}: ${v}${src ? ` (${src})` : ''}`
        + (g.q != null ? `; player quality ${g.q.toFixed(1)}/10` : '') + '.';
+}
+
+/* ── Pick grades for the whole board, built once per render ──
+   The PG column and the pick-grade sort both need every available player's
+   grade. Computed independently they'd run ~320 ADP + rankings lookups twice per
+   render, which is the shape of work that made renderList the live-draft
+   stutter. Memoised on a render token rather than a data fingerprint: the token
+   changes exactly once per renderList, so the map can never be served stale, and
+   a caller outside a render (Draft Control) just gets a fresh build. */
+function dvMyNextOverall(){
+  if (typeof myTeam === 'undefined' || myTeam === null) return 0;
+  const slots = PICK_SLOTS[myTeam]; if (!slots) return 0;
+  const slot = slots[getMyRoster().length]; if (!slot) return 0;
+  const [r, p] = slot.split('.').map(Number);
+  if (!r || !p) return 0;
+  return (r - 1) * NUM_TEAMS + p;
+}
+function dvPickGradeMap(){
+  const tok = window._dvRenderToken || 0;
+  if (window._dvPickGrades && window._dvPickGradesTok === tok) return window._dvPickGrades;
+  const overall = dvMyNextOverall();
+  const m = {};
+  if (overall && typeof dvPickScore === 'function' && typeof PLAYERS !== 'undefined'){
+    PLAYERS.forEach(p => {
+      if (!DVF_POS[p.pos]) return;
+      let g = null; try { g = dvPickScore(p.name, p.pos, overall); } catch(e){}
+      if (g) m[normName(p.name)] = g;
+    });
+  }
+  window._dvPickGradesTok = tok;
+  window._dvPickGradeSlot = overall;
+  return (window._dvPickGrades = m);
 }
 
 function paGetPickAssist(){
@@ -11898,7 +12118,7 @@ function setSort(k){
 
   // Fix 2: sync the mobile sort-bar chip highlight
   try {
-    const chipMap = {0:'pmsort-rk','dynasty-col':'pmsort-dyn','redraft-col':'pmsort-rdr','adp-col':'pmsort-adp','my':'pmsort-my'};
+    const chipMap = {0:'pmsort-rk','dynasty-col':'pmsort-dyn','redraft-col':'pmsort-rdr','adp-col':'pmsort-adp','my':'pmsort-my','my-col':'pmsort-my','pg-col':'pmsort-pg'};
     const activeId = chipMap[k];
     if (activeId) document.querySelectorAll('.pm-sortchip').forEach(c => c.classList.toggle('on', c.id === activeId));
   } catch(e){}
@@ -11922,6 +12142,19 @@ function setSort(k){
   if (k === 'adp-col') {
     sortKey = 'adp-col';
     updateColumnHdrIndicators('adp');
+    renderList();
+    return;
+  }
+  if (k === 'pg-col') {
+    // Pick grade only exists relative to YOUR next slot, so there is nothing to
+    // sort by outside a live draft (every cell reads "–"). Say so instead of
+    // silently reordering by nothing.
+    if (!dvMyNextOverall()){
+      toast('Pick grade needs a live draft — it grades players at your next slot');
+      return;
+    }
+    sortKey = 'pg-col';
+    updateColumnHdrIndicators('pg');
     renderList();
     return;
   }
@@ -11964,7 +12197,7 @@ function setSort(k){
 }
 
 function updateColumnHdrIndicators(activeCol){
-  ['dynasty','redraft','adp','my'].forEach(c => {
+  ['dynasty','redraft','adp','my','pg'].forEach(c => {
     const el = document.getElementById('ind-'+c);
     if (el) {
       if (c === activeCol) { el.textContent = '↓'; el.classList.add('active'); }
@@ -12170,6 +12403,11 @@ function setDvMode(m, fromAuto){
     try{ _adpSyncToValueMode('redraft'); }catch(e){}
     renderList();
   }
+  // The format now drives the Grade Keys too (see _dvGradeFmtIsDyn), so the two
+  // other surfaces that render grades have to repaint — renderList alone leaves
+  // the board's pick grades and the cockpit Draft Grade on the old format.
+  try { renderBoard(); } catch(e){}
+  try { dvUpdateGradeCard(); } catch(e){}
 }
 // Auto-pick the mode from the connected league/draft type (only until the user overrides).
 function _dvAutoMode(){
@@ -13897,15 +14135,43 @@ function sortedPlayers(){
   if(sortKey==='adp-col'){
     return bySortedKey(p => _boardAdpSortVal(p.name) || 9999, 1);
   }
+  // Column-header sort: PICK GRADE (best first) — the grade each player would earn
+  // if you took him at YOUR next slot. Shares the one map the PG column renders
+  // from. Anything ungradeable (K/DEF, rookie picks, no ADP, or no next slot at
+  // all) sorts to the bottom rather than tying at zero in the middle.
+  if(sortKey==='pg-col'){
+    const gm = dvPickGradeMap();
+    return bySortedKey(p => { const g = gm[normName(p.name)]; return g ? -g.s : 1e6; }, 1);
+  }
   // "my-col" sort = your My Rankings board order (rank asc), in the ACTIVE mode.
   // Uses the same decorate-sort-undecorate as the other keys: the comparator ran
   // up to two getRankInfo lookups per COMPARISON (O(n log n)), now one per player.
   if(sortKey==='my-col'){
     const f = (window._dvMode==='redraft') ? 'redraft' : 'dynasty';
+    // A player with no rank in the ACTIVE format must sort BELOW every player
+    // who has one. This used to fall straight through to the dynasty board, and
+    // FantasyCalc's 1QB redraft endpoint prices far fewer players than its
+    // dynasty one (~200 vs ~400) — so ~130 unpriced players picked up a dynasty
+    // rank in the same 1..400 range and interleaved through the middle of the
+    // board. A rookie QB with no redraft price landed at #118, ahead of ~85
+    // players who DID have a redraft rank, while the MINE column beside him
+    // showed "—".
+    //
+    // So offset the fallback past the end of the active board instead of
+    // dropping everyone on one sentinel: unranked still sort sensibly among
+    // themselves (by dynasty rank) rather than collapsing into board order.
+    let board = [];
+    try{ board = (window.MyRankings && MyRankings.getBoard(f)) || []; }catch(e){}
+    // Active board empty = data hasn't landed yet. THAT is the case the old
+    // dynasty fallback existed for, so keep it — but only then.
+    const cold = !board.length;
+    const off = cold ? 0 : board.length;
     const gi = (n)=>{
-      let mi = window.MyRankings && MyRankings.getRankInfo(n,f);
-      if(!mi && window.MyRankings) mi = MyRankings.getRankInfo(n,'dynasty'); // fall back to dynasty board so Mine always sorts
-      return mi ? mi.myRank : 99999;
+      if(!window.MyRankings) return 99999;
+      const mi = MyRankings.getRankInfo(n,f);
+      if(mi) return mi.myRank;
+      const dyn = (f==='dynasty') ? null : MyRankings.getRankInfo(n,'dynasty');
+      return dyn ? off + dyn.myRank : 99999;
     };
     return bySortedKey(p => gi(p.name), 1);
   }
@@ -13970,6 +14236,10 @@ function renderList(){
   let overallPick=999;
   if(nextSlot){const[r,pos]=nextSlot.split('.').map(Number);overallPick=(r-1)*NUM_TEAMS+pos;}
 
+  // One token per render — dvPickGradeMap() memoises on it, so the PG column and
+  // the pick-grade sort share a single build and can never read a stale one.
+  window._dvRenderToken = (window._dvRenderToken || 0) + 1;
+
   // Refresh the 4-factor index (Upside/Floor/Risk/Situational) for the board columns.
   // Situational tracks your live roster needs, so rebuild each render.
   try{ dvBuildFactors(); }catch(e){}
@@ -13980,6 +14250,9 @@ function renderList(){
   }
 
   
+  // Pick grades: one build, shared by the PG column below and the pick-grade sort
+  // inside sortedPlayers().
+  const _pgMap = (typeof dvPickGradeMap==='function') ? dvPickGradeMap() : {};
   // Sort once and reuse for both the row build and the tier-break pass below.
   const _sortedList = sortedPlayers();
   window._sortedList = _sortedList;   // exposed for Draft Control (queue/pick in board order)
@@ -14266,7 +14539,8 @@ function renderList(){
         const pgCell = (()=>{
           if (!nextSlot || isDrafted || !DVF_POS[p.pos] || typeof dvPickScore!=='function')
             return `<td class="fcell td-pg" style="color:var(--dim)" data-tip="Pick grade fills in during a connected draft, for players still on the board.">–</td>`;
-          let g=null; try{ g = dvPickScore(p.name, p.pos, overallPick); }catch(e){}
+          // shared with the pick-grade sort — see dvPickGradeMap
+          const g = _pgMap[nn] || null;
           if(!g) return `<td class="fcell td-pg" style="color:var(--dim)">–</td>`;
           let why=''; try{ why = dvPickWhy(g, p.name, _dvPickStr(overallPick, NUM_TEAMS)); }catch(e){}
           return `<td class="fcell td-pg" style="color:${g.color};font-weight:800" data-tip="${_esc(why)}">${g.letter}</td>`;
@@ -14655,6 +14929,120 @@ function isActiveDraftComplete(){
   const totalPicks = (d.teams||0) * (d.rounds||0);
   return totalPicks > 0 && (d.picksCount||0) >= totalPicks;
 }
+/* Your pick-by-pick rollup, computed from draftState rather than read off
+   window._bdTeamAgg. The recap opens from renderDraftSummary(), which returns
+   BEFORE renderBoard() runs — so the board's rollup may not exist yet, and
+   depending on render order for correctness is how you get an empty recap on the
+   one paint that matters. */
+function dvMyPickRollup(){
+  if (typeof myTeam === 'undefined' || myTeam === null) return null;
+  if (typeof dvPickScore !== 'function' || typeof draftState === 'undefined') return null;
+  let sum = 0, n = 0, best = null, worst = null;
+  Object.entries(draftState).forEach(([name, v]) => {
+    if (v.teamIdx !== myTeam || !v.pickNo) return;
+    const fp = findPlayer(name);
+    const pos = fp && fp.pos;
+    if (!pos || !DVF_POS[pos]) return;              // K/DST carry no grade
+    let g = null; try { g = dvPickScore(name, pos, v.pickNo); } catch(e){}
+    if (!g) return;
+    sum += g.s; n++;
+    const rec = { name, pos, pickNo: v.pickNo, g };
+    if (!best  || g.s > best.g.s)  best  = rec;
+    if (!worst || g.s < worst.g.s) worst = rec;
+  });
+  return n ? { n, avg: sum / n, best, worst } : null;
+}
+
+/* Post-draft recap: the grade you finished with, with the ring/letter/score
+   arriving rather than just appearing. Re-entrant — called again by
+   VaultGrades.onReady when the modal opened before the stats landed. */
+function dvPaintDraftRecap(){
+  const el = document.getElementById('dcp-recap');
+  if (!el) return;
+  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // Stats not in yet → skeleton in the shape we're about to fill, and repaint
+  // once. A skeleton, not a spinner: we already know the layout (motion §3).
+  if (!(window.VaultGrades && VaultGrades.ready())){
+    el.hidden = false;
+    el.innerHTML = `<div class="dvr-ring-wrap"><div class="skel dvr-skel-ring"></div></div>
+      <div class="dvr-body"><div class="skel dvr-skel-l1"></div><div class="skel dvr-skel-l2"></div><div class="skel dvr-skel-l3"></div></div>`;
+    if (!el._dvrWaiting && window.VaultGrades){
+      el._dvrWaiting = true;
+      VaultGrades.onReady(() => { el._dvrWaiting = false; try{ dvPaintDraftRecap(); }catch(e){} });
+    }
+    return;
+  }
+
+  const g = dvTeamGrade();
+  if (!g){ el.hidden = true; el.innerHTML = ''; return; }
+  const roll = dvMyPickRollup();
+
+  const R = 38, C = 2 * Math.PI * R;
+  const frac = Math.max(0, Math.min(1, g.score / 100));
+  const pk = (r) => `${r.name.split(' ').pop()} <b style="color:${r.g.color}">${r.g.letter}</b> <span>at ${_dvPickStr(r.pickNo, NUM_TEAMS)}</span>`;
+
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="dvr-ring-wrap">
+      <svg class="dvr-ring" width="88" height="88" viewBox="0 0 88 88" aria-hidden="true">
+        <circle cx="44" cy="44" r="${R}" class="dvr-ring-bg" stroke-width="7" fill="none"/>
+        <circle cx="44" cy="44" r="${R}" class="dvr-ring-fg" stroke-width="7" fill="none"
+                stroke-linecap="round" stroke="${g.color}"
+                stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/>
+      </svg>
+      <div class="dvr-ring-mid">
+        <span class="dvr-letter" style="color:${g.color}">${g.letter}</span>
+        <span class="dvr-score"><b id="dvr-score-n">0</b>/100</span>
+      </div>
+    </div>
+    <div class="dvr-body">
+      <div class="dvr-desc" style="color:${g.color}">${g.desc}</div>
+      <div class="dvr-sub">Your ${g.nStarters}-man starting lineup${roll ? ` · ${dvPickLetter(roll.avg)} across ${roll.n} graded picks` : ''}</div>
+      <div class="ds-gfac dvr-facs">${dvGradeFactorChips(g)}</div>
+      ${roll && roll.best ? `<div class="dvr-pk"><span class="dvr-pk-k">Best</span>${pk(roll.best)}</div>` : ''}
+      ${roll && roll.worst && roll.worst !== roll.best ? `<div class="dvr-pk"><span class="dvr-pk-k">Toughest</span>${pk(roll.worst)}</div>` : ''}
+    </div>`;
+
+  const scoreEl = el.querySelector('#dvr-score-n');
+  const ring    = el.querySelector('.dvr-ring-fg');
+  const target  = (C * (1 - frac)).toFixed(1);
+
+  // Final state written FIRST, so a tab that never paints (no rAF, no
+  // transitions) still shows the right number and a filled ring.
+  if (scoreEl) scoreEl.textContent = String(g.score);
+  if (reduce){ if (ring) ring.style.strokeDashoffset = target; return; }
+
+  // Ring travels to its endpoint: --ease-out on stroke-dashoffset. NOT
+  // --ease-spring — overshoot is only ever safe on transform, and an overshooting
+  // dashoffset would visibly rewind past the arc.
+  if (ring){
+    ring.style.transition = 'none';
+    ring.style.strokeDashoffset = C.toFixed(1);
+    void ring.getBoundingClientRect();          // forced reflow, never rAF
+    ring.style.transition = 'stroke-dashoffset 900ms var(--ease-out)';
+    ring.style.strokeDashoffset = target;
+  }
+  // Letter + chips arrive in place → --ease-spring, on transform only.
+  el.classList.remove('dvr-in');
+  void el.offsetWidth;
+  el.classList.add('dvr-in');
+
+  // Count-up is the one rAF here, and it's cosmetic: the final value is already
+  // in the DOM above, so a throttled tab loses the animation, not the number.
+  if (scoreEl && g.score > 0){
+    const dur = 900, t0 = performance.now();
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    const tick = now => {
+      const t = Math.min(1, (now - t0) / dur);
+      scoreEl.textContent = String(Math.round(g.score * ease(t)));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    scoreEl.textContent = '0';
+    requestAnimationFrame(tick);
+  }
+}
+
 function showDraftCompletePrompt(){
   const m = document.getElementById('draft-complete-modal');
   if(!m) return;
@@ -14665,6 +15053,9 @@ function showDraftCompletePrompt(){
     sub.textContent = total ? `Review all ${total} picks & your roster` : 'Review the final board & your roster';
   }
   m.classList.remove('gone');
+  // Paint after the modal is visible — the ring animates from a real layout, and
+  // a hidden element has no box to reflow.
+  try { dvPaintDraftRecap(); } catch(e){}
 }
 function chooseViewCompleted(){
   window._completedDraftChoice = 'view';
@@ -14773,8 +15164,14 @@ function renderBoard(){
 
   const POSCOL={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
   // Local avatar builder (mirrors the ADP board's _bdAvatar, which is out of scope here)
+  // PLAYERS comes from RosterAudit and carries no sleeperId, so pk.sid is empty
+  // and the Sleeper-thumb fallback inside vaultHeadshot could never fire — an
+  // nflverse name miss meant the grey position box, not a photo. Resolve the pid
+  // by name so rookies and missed-season vets (absent from nflverse entirely)
+  // still get a face.
   const _bdAv=(name,sid,pos)=>{
-    const u=(typeof vaultHeadshot==='function')?vaultHeadshot(name,sid||'',48):'';
+    const _sid=(typeof vaultPidFor==='function')?vaultPidFor(name,sid):(sid||'');
+    const u=(typeof vaultHeadshot==='function')?vaultHeadshot(name,_sid,48):'';
     return u?`<img class="adp-bd-av" src="${u}" onerror="this.outerHTML='<div class=\\'adp-bd-av-fb\\'>${pos||'?'}</div>'" loading="lazy" alt="">`:`<div class="adp-bd-av-fb">${pos||'?'}</div>`;
   };
 
@@ -14882,9 +15279,17 @@ function renderBoard(){
         const bcFirst=_nt.length>1?_nt[0]:'';
         const bcLast=_nt.length>1?_nt.slice(1).join(' '):(_nt[0]||'');
         const justCls=(window._bdJustPicked && window._bdJustPicked[key])?' just-picked':'';
+        // Both pick numbers, in opposite corners: the round.pick slot top-left
+        // (the label every other Vault surface uses — ADP column, mobile cards,
+        // pick-grade tooltips, and the empty cell right beside this one) and the
+        // overall pick number top-right. The cell used to show pk.r0, the
+        // player's board RANK, which said nothing about the pick — so the rank
+        // moves into the hover title rather than disappearing.
+        const _pkSlot=pk.pickNo?_dvPickStr(pk.pickNo,NUM_TEAMS):_dvPadSlot(PICK_SLOTS[origTeamIdx]?.[r-1]||`${r}.?`);
+        const _pkTitle=`${pk.name} · pick ${_pkSlot}${pk.pickNo?` (#${pk.pickNo} overall)`:''}${pk.r0?` · board rank #${pk.r0}`:''}${isTraded?` · traded to ${TEAMS[pk.ownerIdx]||''}`:''}`;
         rows+=`<td style="${tdBase};background:${isMyCol?'#5b8dee0d':''}">
-          <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}${justCls}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${pk.name.replace(/"/g,'&quot;')}${isTraded?' · traded to '+(TEAMS[pk.ownerIdx]||'').replace(/"/g,'&quot;'):''}">
-            <div class="bc-top"><span class="bc-posrk">${pk.pos}</span><span class="bc-topr"><span class="bc-pick">#${pk.r0||'—'}</span>${pk.g?`<span class="bc-grade" data-tip="${dvPickWhy(pk.g,pk.name,_dvPickStr(pk.pickNo,NUM_TEAMS)).replace(/"/g,'&quot;')}" style="color:${pk.g.color}">${pk.g.letter}</span>`:''}</span></div>
+          <div class="board-cell filled${isMyCol?' me':''}${isTraded?' traded':''}${justCls}" style="--pc:${pkC}" onclick="openPlayerProfile('${pkSn}','${pk.sid||''}','${pk.pos}','')" title="${_pkTitle.replace(/"/g,'&quot;')}">
+            <div class="bc-top"><span class="bc-topl"><span class="bc-slot">${_pkSlot}</span><span class="bc-posrk">${pk.pos}</span></span><span class="bc-topr"><span class="bc-pick">${pk.pickNo?'#'+pk.pickNo:'—'}</span>${pk.g?`<span class="bc-grade" data-tip="${dvPickWhy(pk.g,pk.name,_pkSlot).replace(/"/g,'&quot;')}" style="color:${pk.g.color}">${pk.g.letter}</span>`:''}</span></div>
             <div class="bc-body">
               <div class="bc-txt">
                 ${bcFirst?`<div class="bc-first">${bcFirst}</div>`:''}<div class="bc-name" style="color:${ownerC}">${bcLast}</div>
@@ -14896,8 +15301,8 @@ function renderBoard(){
         </td>`;
       } else {
         
-        const slotLabel=PICK_SLOTS[origTeamIdx]?.[r-1]||`${r}.?`;
-        
+        const slotLabel=_dvPadSlot(PICK_SLOTS[origTeamIdx]?.[r-1]||`${r}.?`);
+
         const tradedTo=slotOwner[`${r}-${origTeamIdx}`];
         const isTraded=tradedTo!==undefined&&tradedTo!==origTeamIdx;
         rows+=`<td style="${tdBase};background:${isMyCol?'#5b8dee06':''}">
@@ -14930,13 +15335,16 @@ function renderBoardMobile(pickLookup, manualByTeam) {
     for (let col = 0; col < NUM_TEAMS; col++) {
       const key = `${col}-${r}`;
       const pk = pickLookup[key];
-      const slotLabel = PICK_SLOTS[col]?.[r-1] || `${r}.?`;
+      const slotLabel = _dvPadSlot(PICK_SLOTS[col]?.[r-1] || `${r}.?`);
       const tradedTo = slotOwner[`${r}-${col}`];
       const isTraded = tradedTo !== undefined && tradedTo !== col;
       const isMyCol = col === myTeam;
       if (pk) {
         const c = COLORS[pk.ownerIdx % COLORS.length];
-        const rank = findPlayer(pk.name)?.r0 || '';
+        // Match the desktop cell: .bm-slot already carries the round.pick label,
+        // so this corner becomes the overall pick number rather than the board
+        // rank it used to show.
+        const rank = pk.pickNo || '';
         const hsUrl = getPlayerHeadshotUrl(pk.name);
         const hsHtml = hsUrl
           ? `<img class="bm-img" src="${hsUrl}" alt="" loading="lazy" onerror="this.style.display='none'">`
@@ -20067,8 +20475,20 @@ async function _wcLoadLeague(d, force){
   window._wcCache[lid] = entry;
   return entry;
 }
-// pid lookup by name from the global pid map (reverse index, built once)
+// pid lookup by name. The ranked map built in fetchSleeperPlayers wins: reverse-
+// indexing globalPidToName is first-wins over Sleeper's own iteration order, and
+// where two pids share a name that picked the retired player (Kenneth Walker →
+// 4634, the inactive WR, over 8151, the KC RB). The reverse index stays as the
+// fallback for pids that only PLAYER_IDS or RosterAudit know about.
 function _pidByName(name){
+  if(!name) return null;
+  const canon = window._vaultNamePid;
+  if(canon){
+    const hit = (typeof vaultLookupName === 'function')
+      ? vaultLookupName(canon, name)
+      : canon[normName(name)];
+    if(hit) return hit;
+  }
   if(!window._pidByNameMap){
     const m = {};
     if(typeof globalPidToName !== 'undefined') Object.entries(globalPidToName).forEach(([pid,nm]) => { if(!m[nm]) m[nm]=pid; });
@@ -21855,6 +22275,14 @@ function _dvSleeperAdpKey(mode, sf){
   return sf ? 'dynasty_sf' : 'dynasty_1qb';
 }
 // overall avg pick (e.g. 27.4) → "3.04" round.pick for a given team count
+/* PICK_SLOTS stores unpadded labels ("1.1", "3.1") while _dvPickStr pads
+   ("1.01", "9.07"). Now that filled board cells print the slot, the two would
+   disagree inside one column — a filled 1.01 directly above an empty 1.1. Pad
+   the stored labels wherever they're shown next to a derived one. */
+const _dvPadSlot = s => {
+  const m = String(s||'').match(/^(\d+)\.(\d+)$/);
+  return m ? `${m[1]}.${m[2].padStart(2,'0')}` : String(s||'');
+};
 function _dvPickStr(overall, teams){
   const n = Math.max(1, Math.round(overall));
   return (Math.floor((n - 1) / teams) + 1) + '.' + String(((n - 1) % teams) + 1).padStart(2, '0');
@@ -24320,7 +24748,11 @@ function pickYear(year) {
       window.VaultDurability ? VaultDurability.ensure().catch(() => null) : null  // 3yr injury history
     ]).then(([stats]) => {
       const statsMap = {};
-      for (const n in stats) statsMap[_norm(n)] = stats[n];
+      // Exact + suffix-stripped key. Without this, every player the market
+      // spells without his suffix ("Kenneth Walker", "Marvin Harrison",
+      // "Brian Thomas") missed his own tape and was graded off the rookie
+      // market-rank proxy — a top-50 RB scoring like a devy flyer.
+      for (const n in stats) vaultIndexName(statsMap, n, stats[n]);
       // team offensive strength = summed top-7 skill-position PPG, ranked to a 0-1 pct
       const teamOff = {};
       for (const n in stats) {
@@ -24340,7 +24772,7 @@ function pickYear(year) {
 
   /* weekly-log profile: ppg, boom/bust %, 20th/85th pct weeks (floor/ceiling) */
   function profileFor(name) {
-    const e = _data && _data.statsMap[_norm(name)];
+    const e = _data && vaultLookupName(_data.statsMap, name);
     if (!e || !e.season || (e.season.games || 0) < 3) return null;
     const ssn = e.season, wk = (e.weeks || []).map(w => +w.pts).filter(v => !isNaN(v)).sort((a, b) => a - b);
     const q = f => wk.length ? wk[clamp(Math.round(f * (wk.length - 1)), 0, wk.length - 1)] : null;
@@ -37427,7 +37859,14 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft .ds-card.dsc{
   background:var(--s1)!important; border:1px solid var(--border)!important;
   border-radius:12px!important; padding:0!important; overflow:hidden;
-  display:grid!important; grid-template-columns:1.4fr .7fr .7fr .9fr 1.2fr 1.55fr; gap:0!important;
+  /* Draft Grade (col 4) carries a letter, a score AND the four factor values now,
+     so it takes width off Left/Drafted — those hold a single 2-3 digit number and
+     were the widest-per-glyph cells in the strip. */
+  /* minmax(0,…) on the grade column: a bare `fr` carries an auto minimum, so a
+     4-character factor value (10.0) would widen the column and shove every other
+     cell in the strip. Capping the minimum keeps the layout still and lets the
+     clamp above absorb the extra characters instead. */
+  display:grid!important; grid-template-columns:1.3fr .52fr .52fr minmax(0,1.45fr) 1.1fr 1.4fr; gap:0!important;
 }
 #page-draft .dsc-pickblock, #page-draft .dsc-stat, #page-draft .dsc-clockwrap{
   background:transparent!important; border:none!important; border-radius:0!important;
@@ -38184,6 +38623,136 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 
 /* Undrafted slots stay compact — don't inherit the tall card height. */
 .board-cell.empty{min-height:0}
+
+/* ══════════════════════════════════════════════════════════════════════
+   LIVE 4-FACTOR STRIP · the cockpit Draft Grade card + the post-draft recap
+   Sits after dv-shadcn-restyle so it wins without !important (the grade card
+   is restyled there and again by liquid-glass-overhaul).
+   The card gives us ~109px of inner width, so: letter + one decimal, no labels,
+   and wrap to 2x2 rather than overflow when the grid column narrows.
+   ══════════════════════════════════════════════════════════════════════ */
+/* One row, never wrapped. Four chips at full size want ~210px and this grid
+   column runs ~170-250px depending on viewport, so the type SCALES rather than
+   wrapping: clamp tracks the column (which is an fr of the viewport) and holds a
+   12px floor at the narrow end and a 17px ceiling at the wide end. nowrap is the
+   guarantee — a wrapped 2x2 was the alternative and reads worse. */
+/* No `width:100%`. Below 700px the summary strip becomes a horizontally-snapping
+   carousel of content-sized cells (`flex:0 0 auto`), so a percentage width pins
+   this row to the 84px cell and clips it instead of letting the cell grow to fit.
+   Shrink-to-content works on both: the parent is a centred flex column, so the
+   row still centres on desktop. */
+.ds-gfac{
+  display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;
+  gap:clamp(5px,0.7vw,12px);margin-top:7px;min-width:0;
+}
+/* Sized for the WORST case, not the common one: a factor can reach 10.0, which
+   is four characters where 6.4 is three — ~8px wider per chip, 32px across the
+   row. Verified at 1024/1280/1600 with all four at 10.0. */
+.ds-gfac-i{
+  display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
+  font-family:var(--font-mono);font-size:clamp(11px,1.05vw,17px);font-weight:700;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;cursor:help;line-height:1;
+  white-space:nowrap;
+}
+/* Icon tracks the number so the pair scales together; held just under the grade
+   letter, which stays the headline. */
+.ds-gfac-i svg{width:1em;height:1em;flex-shrink:0;opacity:.92}
+.ds-gfac-i b{font-weight:700}
+/* This cell carries the most per pixel in the strip — buy the row ~20px by
+   trimming its side padding only (the others keep 20px). */
+#page-draft .dsc-stat.dsc-grade{padding-left:10px!important;padding-right:10px!important}
+
+/* Mobile (≤700px) the summary is a horizontal snap carousel and the cells are
+   flex items that still carry the default shrink:1 against a min-width:84px —
+   so this cell was collapsing to 84px and clipping the row. Don't let the one
+   cell whose content is wider than its minimum shrink below it; sizing to
+   max-content keeps the row intact without hard-coding a width. Cross-axis
+   stretch is only cancelled above 700px, so centre it here too. */
+@media (max-width:700px){
+  #page-draft .dsc-stat.dsc-grade{flex-shrink:0;align-items:center}
+}
+/* Value changed on this pick — a brief lift, colour/opacity only. Never a
+   transform: this lives inside a CSS grid cell and must not shove its siblings. */
+@keyframes dsGfacBump{
+  0%  {opacity:.35;filter:brightness(1.9)}
+  100%{opacity:1;  filter:brightness(1)}
+}
+.ds-gfac-bump{animation:dsGfacBump 420ms var(--ease-out) both}
+@media (prefers-reduced-motion:reduce){
+  .ds-gfac-bump{animation:none}
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   POST-DRAFT RECAP · the grade block inside #draft-complete-modal
+   ══════════════════════════════════════════════════════════════════════ */
+.dvr{
+  display:flex;align-items:center;gap:18px;
+  padding:16px 4px 18px;margin-bottom:4px;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.dvr[hidden]{display:none}
+.dvr-ring-wrap{position:relative;flex-shrink:0;width:88px;height:88px}
+.dvr-ring{transform:rotate(-90deg)}          /* 12 o'clock start */
+.dvr-ring-bg{stroke:var(--border2)}
+.dvr-ring-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.dvr-letter{font-family:var(--font-sans);font-size:29px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.dvr-score{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.dvr-score b{color:var(--text2);font-weight:700}
+.dvr-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.dvr-desc{font-family:var(--font-sans);font-size:16px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.dvr-sub{font-family:var(--font-sans);font-size:11.5px;color:var(--muted);line-height:1.35}
+/* The recap body is ~380px wide, so the chips get a single row here rather than
+   the cockpit cell's 2x2 — and a little more size with it. */
+.dvr-facs{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:6px 16px;margin-top:4px}
+.dvr-facs .ds-gfac-i{font-size:16px}
+.dvr-facs .ds-gfac-i svg{width:14px;height:14px}
+.dvr-pk{font-family:var(--font-sans);font-size:11.5px;color:var(--text2);display:flex;align-items:baseline;gap:6px}
+.dvr-pk-k{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex-shrink:0;min-width:52px}
+.dvr-pk span{color:var(--muted);font-size:10.5px}
+
+/* Arrival. Overshoot lives ONLY on transform (motion system): the letter pops
+   with --ease-spring, the chips rise with --ease-out, and the ring's
+   stroke-dashoffset is transitioned in JS with --ease-out. */
+@keyframes dvrPop{
+  0%  {transform:scale(.55);opacity:0}
+  100%{transform:scale(1);  opacity:1}
+}
+@keyframes dvrRise{
+  0%  {transform:translateY(6px);opacity:0}
+  100%{transform:translateY(0);  opacity:1}
+}
+.dvr-in .dvr-letter{animation:dvrPop 500ms var(--ease-spring) both 120ms}
+.dvr-in .dvr-score{animation:dvrRise 380ms var(--ease-out) both 260ms}
+.dvr-in .dvr-desc {animation:dvrRise 380ms var(--ease-out) both 60ms}
+.dvr-in .dvr-sub  {animation:dvrRise 380ms var(--ease-out) both 120ms}
+.dvr-in .dvr-facs .ds-gfac-i:nth-child(1){animation:dvrRise 340ms var(--ease-out) both 200ms}
+.dvr-in .dvr-facs .ds-gfac-i:nth-child(2){animation:dvrRise 340ms var(--ease-out) both 260ms}
+.dvr-in .dvr-facs .ds-gfac-i:nth-child(3){animation:dvrRise 340ms var(--ease-out) both 320ms}
+.dvr-in .dvr-facs .ds-gfac-i:nth-child(4){animation:dvrRise 340ms var(--ease-out) both 380ms}
+.dvr-in .dvr-pk:nth-of-type(1){animation:dvrRise 340ms var(--ease-out) both 440ms}
+.dvr-in .dvr-pk:nth-of-type(2){animation:dvrRise 340ms var(--ease-out) both 500ms}
+
+/* Skeletons while nflverse stats land — the shape is known, so no spinner. */
+.dvr-skel-ring{width:88px;height:88px;border-radius:50%}
+.dvr-skel-l1{height:16px;width:52%;border-radius:6px}
+.dvr-skel-l2{height:11px;width:74%;border-radius:6px}
+.dvr-skel-l3{height:11px;width:44%;border-radius:6px}
+
+@media (max-width:560px){
+  .dvr{gap:13px;padding:13px 2px 15px}
+  .dvr-ring-wrap,.dvr-skel-ring{width:70px;height:70px}
+  .dvr-ring{width:70px;height:70px}
+  .dvr-letter{font-size:24px}
+  .dvr-desc{font-size:14.5px}
+  .dvr-pk-k{min-width:46px}
+  /* four chips no longer fit one row beside a 70px ring — wrap to 2x2 */
+  .dvr-facs{gap:5px 14px}
+  .dvr-facs .ds-gfac-i{font-size:14px}
+}
+@media (prefers-reduced-motion:reduce){
+  .dvr-in .dvr-letter,.dvr-in .dvr-score,.dvr-in .dvr-desc,.dvr-in .dvr-sub,
+  .dvr-in .dvr-facs .ds-gfac-i,.dvr-in .dvr-pk{animation:none}
+}
 </style>
 <script id="draft-board-caustics-js">
 /* Pause the my-column caustics drift during scroll so compositing doesn't
