@@ -4738,7 +4738,10 @@ function vcRoute(kind){
   }
   switch(kind){
     case 'lineup':
-      if(document.getElementById('page-lineup')) return page('lineup');
+      /* Portfolio's Lineup Command (pf-view-lineup), not the My Team one
+         (#page-lineup). Both are titled "Lineup Command"; Portfolio's is the
+         cross-league one that pushes straight to Sleeper, which is what this
+         row and the RIGHT NOW primary both mean. */
       return pfv('lineup');
     case 'waivers': return pfv('waivers');
     case 'trades':  return pfv('trades');
@@ -38956,8 +38959,8 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
      [hidden] rule that keeps the Vault Command sheet closed. A visitor pairing
      this markup with a stale cached copy gets the sheet stuck open over the
      app, so bump ?v= on every change to either file. -->
-<link rel="stylesheet" href="vault-mobile.css?v=20260727a">
-<script src="vault-mobile.js?v=20260727a" defer></script>
+<link rel="stylesheet" href="vault-mobile.css?v=20260727b">
+<script src="vault-mobile.js?v=20260727b" defer></script>
 
 </body>
 </html>

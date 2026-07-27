@@ -370,6 +370,26 @@
     -webkit-appearance:none;appearance:none;
   }
   .vcx-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+  /* index.html ~L1968 styles every input[type=search] with !important: a
+     hardcoded navy fill plus its own border and radius. That paints a second
+     nested pill inside .vcx-search and ignores the theme completely — in onyx
+     the wrapper is neutral #1c1e24 while the input stayed navy. The wrapper
+     owns the surface, so strip the input back to bare. Same rule pins a
+     crimson :focus ring, so the ring moves to the wrapper where it can read
+     --accent2 and follow the theme (steel-blue in onyx, red elsewhere). */
+  .vcx-search input[type="search"]{
+    background:transparent!important;
+    border:none!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+  .vcx-search input[type="search"]:focus{
+    border:none!important;box-shadow:none!important;outline:none!important;
+  }
+  .vcx-search:focus-within{
+    border-color:color-mix(in srgb,var(--accent2) 55%,transparent);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent2) 14%,transparent);
+  }
   .vcx-x{
     flex:none;width:44px;height:44px;border-radius:12px;background:var(--s2);
     border:1px solid var(--border2);color:var(--text2);
