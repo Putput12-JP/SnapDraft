@@ -20434,7 +20434,11 @@ async function _wcLoadLeague(d, force){
   const lid = d.lg.league_id;
   const c = window._wcCache[lid];
   if(!force && c && Date.now()-c.at < 120*1000) return c;
-  const rosters = await fetch(`https://api.sleeper.app/v1/league/${lid}/rosters`).then(r=>r.json()).catch(()=>[]);
+  // Everything below this line is platform-agnostic — it works off pids, names
+  // and _tcVal — so ESPN only has to swap in its own Sleeper-shaped rosters.
+  const rosters = (typeof vpPlat==='function' && vpPlat(d.lg)==='espn')
+    ? (((await buildEspnContext(lid).catch(()=>null)) || {}).rosters || [])
+    : await fetch(`https://api.sleeper.app/v1/league/${lid}/rosters`).then(r=>r.json()).catch(()=>[]);
   const myRoster = rosters.find(r => r.roster_id === d.myRosterId) || null;
   // Rostered player IDs across every team — anyone NOT here is a free agent.
   const rosteredPids = new Set();
@@ -20507,6 +20511,124 @@ function _wcDroppables(d, entry){
     .sort((a,b)=>a.val-b.val);
 }
 
+// ── Weekly projections, read from the league's OWN platform ─────────────
+// Sleeper league → Sleeper's projection feed, ESPN league → ESPN's, so the
+// number on a waiver row is the number that platform will actually score.
+//
+// The week is the NEXT NFL week, not the league row's season: a claim you make
+// today scores in the upcoming week whichever season the league page is showing.
+// Sleeper reports week 0 for the whole offseason with display_week pointing at
+// the opener, and reading `lg.season` is what left every incoming rookie without
+// a projection — they don't exist in last season's feed.
+window._wcProjCache = window._wcProjCache || {};
+async function _wcUpcoming(){
+  if(window._wcUpcomingMemo) return window._wcUpcomingMemo;
+  let st = {};
+  try { st = await fetch('https://api.sleeper.app/v1/state/nfl').then(r=>r.json()); } catch(e){}
+  return (window._wcUpcomingMemo = {
+    season: String(st.season || new Date().getFullYear()),
+    week: Math.max(1, st.week || st.display_week || 1)
+  });
+}
+async function _wcSleeperProjFeed(lg, season, week){
+  if(typeof _rdvFetchProjections!=='function') return null;
+  const map = await _rdvFetchProjections(season, week);
+  // Score the raw stat line with THIS league's full scoring_settings, the same
+  // way the matchup card does — a half-PPR league must not read PPR points.
+  const scoring = (lg && lg.scoring_settings) || 1;
+  const byPid = {}, byName = {};
+  Object.keys(map||{}).forEach(pid => {
+    const r = map[pid];
+    const pts = (typeof _rdvProjPts==='function') ? _rdvProjPts(r.stats, scoring) : null;
+    if(pts == null) return;
+    const e = { pts, pos:r.pos||'', team:r.team||'' };
+    byPid[String(pid)] = e;
+    if(r.name) byName[normName(r.name)] = e;
+  });
+  return { byPid, byName, week, season, source:'SLEEPER' };
+}
+// ESPN publishes projections inside the league's own player pool, already in
+// that league's scoring. statSourceId 1 = projected (0 = actual).
+async function _wcEspnProjFeed(lg, season, week){
+  if(!lg || !lg._espnId) return null;
+  const filter = { players: {
+    filterStatus: { value: ['FREEAGENT','WAIVERS','ONTEAM'] },
+    limit: 500,
+    sortPercOwned: { sortPriority:1, sortAsc:false }
+  }};
+  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${lg._espnId}?view=kona_player_info&scoringPeriodId=${week}`;
+  const data = await fetch(url, { headers:{ accept:'application/json', 'x-fantasy-filter':JSON.stringify(filter) } })
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  if(!data || !Array.isArray(data.players)) return null;
+  const byPid = {}, byName = {};
+  data.players.forEach(row => {
+    const pl = row.player || {};
+    const nm = pl.fullName; if(!nm) return;
+    const stat = (pl.stats||[]).find(s => s.statSourceId===1 && s.scoringPeriodId===week);
+    if(!stat || stat.appliedTotal == null) return;
+    const e = { pts: stat.appliedTotal, pos: ESPN_POS[pl.defaultPositionId]||'', team: ESPN_PRO[pl.proTeamId]||'' };
+    const key = normName(nm);
+    byName[key] = e;
+    // ESPN carries no Sleeper id, so join by name — the same bridge
+    // buildEspnContext uses to give ESPN rosters Sleeper pids.
+    const sid = (typeof sleeperPlayerMap!=='undefined' && sleeperPlayerMap[key]) ? sleeperPlayerMap[key].player_id : null;
+    if(sid) byPid[String(sid)] = e;
+  });
+  return { byPid, byName, week, season, source:'ESPN' };
+}
+async function _wcProjFeed(lg){
+  const { season, week } = await _wcUpcoming();
+  const espn = !!(typeof vpPlat==='function' && lg && vpPlat(lg)==='espn');
+  const key = ((lg&&lg.league_id)||'-') + '|' + season + '|' + week;
+  if(window._wcProjCache[key]) return window._wcProjCache[key];
+  let feed = null;
+  try { feed = espn ? await _wcEspnProjFeed(lg, season, week) : await _wcSleeperProjFeed(lg, season, week); }
+  catch(e){ console.warn('[Vault] projection feed failed:', e); }
+  // An unreachable feed must not blank the card — the rows still carry value,
+  // trend and bid, they just lose the projection line.
+  const out = feed || { byPid:{}, byName:{}, week, season, source: espn?'ESPN':'SLEEPER' };
+  window._wcProjCache[key] = out;
+  return out;
+}
+try { window._wcProjFeed = _wcProjFeed; } catch(e){}
+
+// The league descriptor every waiver path reads normally comes from
+// window._pfLeagueData, which only exists once renderPortfolio() has run. My
+// Team's redraft Roster Preview surfaces this same board on a cold load — and
+// Browse/Claim are reachable from there — so fall back to building the handful
+// of fields _wcLoadLeague / _wcDroppables actually touch straight off
+// myTeamsData plus the public roster list.
+async function _wcLeagueCtx(lid){
+  const hit = (window._pfLeagueData||[]).find(x => x.lg && x.lg.league_id === lid);
+  if(hit && hit.myRosterId != null) return hit;
+  const lg = ((typeof myTeamsData!=='undefined' && myTeamsData) || []).find(l => l.league_id === lid);
+  if(!lg) return null;
+  // ESPN: buildEspnContext returns Sleeper-shaped rosters (pids mapped by name),
+  // so everything downstream is platform-agnostic. Writes are Sleeper-only, so
+  // canPush stays false and the Claim button never appears.
+  if(typeof vpPlat==='function' && vpPlat(lg) === 'espn'){
+    const tid = (typeof espnSelectedTeam==='function') ? espnSelectedTeam(lid) : null;
+    if(tid == null) return null;                      // user hasn't picked their ESPN team yet
+    const c = await buildEspnContext(lid).catch(()=>null);
+    const mine = c && (c.rosters||[]).find(r => String(r.roster_id) === String(tid));
+    if(!mine) return null;
+    return { lg, myRosterId: mine.roster_id, myReserve: [], myTaxi: [],
+             rosterPositions: lg.roster_positions || [], canPush: false };
+  }
+  const rosters = await fetch(`https://api.sleeper.app/v1/league/${lid}/rosters`).then(r=>r.json()).catch(()=>[]);
+  const mine = (rosters||[]).find(r => r.owner_id === myTeamsUserId || (r.co_owners||[]).includes(myTeamsUserId));
+  if(!mine) return null;
+  return {
+    lg,
+    myRosterId: mine.roster_id,
+    myReserve: (mine.reserve||[]).map(String),
+    myTaxi: (mine.taxi||[]).map(String),
+    rosterPositions: lg.roster_positions || (lg.settings && lg.settings.roster_positions) || [],
+    canPush: true
+  };
+}
+try { window._wcLeagueCtx = _wcLeagueCtx; } catch(e){}
+
 async function renderWaiverCommand(force){
   const el = document.getElementById('pf-waiver-command');
   if(!el) return;
@@ -20545,7 +20667,16 @@ async function renderWaiverCommand(force){
       const worst = drops[0] || null;
       const diff = bestFA && worst ? bestFA.val - worst.val : (bestFA ? bestFA.val : 0);
       const issues = pfRosterIssues(d, meta);
-      rows.push({ d, e, openSpots, faabLeft, budget, bestFA, worst, diff, issues });
+      // Weekly projection for the top target, from this league's own platform.
+      let proj = null, projSrc = '';
+      if(bestFA){
+        try {
+          const feed = await _wcProjFeed(d.lg);
+          const hit = feed.byPid[String(bestFA.pid)] || feed.byName[normName(bestFA.name)] || null;
+          if(hit && hit.pts != null){ proj = hit.pts; projSrc = feed.source + ' WK' + feed.week; }
+        } catch(e){}
+      }
+      rows.push({ d, e, openSpots, faabLeft, budget, bestFA, worst, diff, issues, proj, projSrc });
     }catch(err){}
   }
   rows.sort((a,b)=>b.diff-a.diff);
@@ -20575,6 +20706,7 @@ async function renderWaiverCommand(force){
     return `<tr class="cx-main">
       <td class="l"><div class="cx-lg"><span class="cx-lgb">${_cxInit(r.d.lg.name)}</span><div><div class="cx-lgn">${r.d.lg.name}</div>${dropMeta?`<div class="cx-lgm">${dropMeta}</div>`:''}</div></div></td>
       <td class="l">${r.bestFA?`<div class="cx-lg"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(r.bestFA.name,r.bestFA.pid,30):'')}" onerror="this.style.visibility='hidden'" style="width:30px;height:30px;border-radius:8px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0"><div><div class="cx-lgn">${r.bestFA.name}${r.bestFA.pos?` <span class="cx-pos ${r.bestFA.pos}">${r.bestFA.pos}</span>`:''}</div><div class="cx-lgm">value ${r.bestFA.val.toLocaleString()}</div></div></div>`:'<span class="cx-mut">No upgrade available</span>'}</td>
+      <td>${r.proj!=null?`<span class="cx-num" title="${r.projSrc} projection">${r.proj.toFixed(1)}</span>`:'<span class="cx-mut">—</span>'}</td>
       <td>${r.diff>0?`<span class="cx-num pos">+${r.diff.toLocaleString()}</span>`:'<span class="cx-mut">—</span>'}</td>
       <td>${r.openSpots>0?`<span class="cx-badge cx-b-green">${r.openSpots} spot${r.openSpots>1?'s':''}</span>`:'<span class="cx-badge cx-b-muted">roster full</span>'}</td>
       <td><div class="cx-faab"><span class="cx-num">$${r.faabLeft}</span><span class="bar"><i style="width:${pct}%"></i></span></div></td>
@@ -20599,7 +20731,7 @@ async function renderWaiverCommand(force){
     <div class="cx-card">
       <div class="cx-head"><div><div class="cx-title">${_cxIc('target')}Best available by league</div><div class="cx-desc">Top unrostered value vs. your worst droppable</div></div><span class="cx-badge cx-b-muted">sorted by upgrade</span></div>
       <div class="cx-twrap"><table class="cx-tbl">
-        <thead><tr><th class="l">League</th><th class="l">Top available</th><th>Upgrade</th><th>Open</th><th>FAAB left</th><th></th></tr></thead>
+        <thead><tr><th class="l">League</th><th class="l">Top available</th><th>Proj</th><th>Upgrade</th><th>Open</th><th>FAAB left</th><th></th></tr></thead>
         <tbody>${rowHtml}</tbody>
       </table></div>
     </div>
@@ -20610,7 +20742,7 @@ try { window.renderWaiverCommand = renderWaiverCommand; } catch(e){}
 
 // League FA browser: top free agents in one league, claim any of them.
 async function wcLeagueBrowser(lid){
-  const d = _tcLeagues().find(x => x.lg.league_id===lid);
+  const d = _tcLeagues().find(x => x.lg.league_id===lid) || await _wcLeagueCtx(lid).catch(()=>null);
   if(!d) return;
   const e = await _wcLoadLeague(d).catch(()=>null);
   if(!e) return;
@@ -20632,7 +20764,7 @@ try { window.wcLeagueBrowser = wcLeagueBrowser; } catch(e){}
 
 // Claim modal: FAAB bid + optional/required drop → submit_waiver_claim.
 async function wcClaimModal(lid, playerName){
-  const d = _tcLeagues().find(x => x.lg.league_id===lid);
+  const d = _tcLeagues().find(x => x.lg.league_id===lid) || await _wcLeagueCtx(lid).catch(()=>null);
   if(!d) return;
   const e = await _wcLoadLeague(d).catch(()=>null);
   if(!e) return;
@@ -30354,9 +30486,28 @@ function pickYear(year) {
 .rrp-wt-why{font-size:var(--t-micro,10px);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
 .rrp-wt-bid{flex-shrink:0;text-align:right}
 .rrp-wt-bid b{display:block;font-family:var(--font-mono);font-size:var(--t-secondary,13px);font-weight:800;color:var(--value)}
-.rrp-wt-bid small{font-size:var(--t-nano,9px);color:var(--muted);font-family:var(--font-mono)}
-.rrp-wt-foot{margin-top:12px;padding:9px 12px;border-radius:10px;background:var(--s2);border:1px solid var(--border);font-size:var(--t-micro,10px);font-family:var(--font-mono);color:var(--muted)}
+.rrp-wt-bid small{font-size:var(--t-nano,9px);color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em}
+/* A $1 depth flier shouldn't read as green as a league-winner. */
+.rrp-wt-bid.t-BENCH b{color:var(--accent2)}
+.rrp-wt-bid.t-DEPTH b,.rrp-wt-bid.t-SPEC b{color:var(--muted)}
+/* Two stacked rows — the card column is ~340px even on a wide viewport, so a
+   single flex line wraps unpredictably. Row 1 is the meta sentence, row 2 pairs
+   the feed source with the actions in space that was empty anyway. */
+.rrp-wt-foot{margin-top:12px;padding:9px 12px;border-radius:10px;background:var(--s2);border:1px solid var(--border);font-size:var(--t-micro,10px);font-family:var(--font-mono);color:var(--muted);display:flex;flex-direction:column;gap:8px}
 .rrp-wt-foot b{color:var(--red2);font-weight:700}
+.rrp-wt-foot b.up{color:var(--value)}
+.rrp-wt-meta{min-width:0;letter-spacing:.04em;line-height:1.6}
+.rrp-wt-meta .seg{white-space:nowrap}
+.rrp-wt-actrow{display:flex;align-items:center;gap:10px}
+.rrp-wt-src{flex:1;min-width:0;letter-spacing:.06em;opacity:.75}
+.rrp-wt-acts{display:flex;gap:7px;flex-shrink:0}
+.rrp-wt-btn{padding:5px 11px;border-radius:8px;background:var(--s3);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--font-mono);font-size:var(--t-nano,9px);font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  cursor:pointer;white-space:nowrap;transition:background .16s,border-color .16s,color .16s}
+.rrp-wt-btn:hover{background:var(--s4,var(--s3));border-color:var(--border3,var(--border2));color:var(--text)}
+.rrp-wt-btn.primary{background:color-mix(in srgb,var(--value) 13%,transparent);border-color:color-mix(in srgb,var(--value) 34%,transparent);color:var(--value)}
+.rrp-wt-btn.primary:hover{background:color-mix(in srgb,var(--value) 20%,transparent);border-color:color-mix(in srgb,var(--value) 50%,transparent)}
+@media(max-width:520px){.rrp-wt-src{display:none}.rrp-wt-acts{flex:1}.rrp-wt-btn{flex:1;text-align:center}}
 
 /* trade angles */
 .rrp-tr-angle{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--s2);border:1px solid var(--border);margin-bottom:12px}
@@ -31500,6 +31651,151 @@ window._gcMatchupHTML=function(d){
   return '<div class="vtr-layout">'+_ovcRow('mob')+card+rail+'</div>';
 };
 
+/* ── Compact waiver card (redraft Roster Preview) powered by Waiver Command ──
+   The legacy path below builds its free-agent pool from window.PLAYERS — the
+   400-deep board — which is empty on a cold My Team load, so the card fell
+   straight through to "your roster is deep" no matter how good the wire was.
+   Waiver Command already solves this properly: _wcLoadLeague scans the whole
+   ~4k Sleeper pid map, drops everyone rostered (by pid AND name), and prices
+   the rest on THIS league's format board. Reuse it, layer this week's Sleeper
+   projection on top, and hand off to the same Claim / Browse flow.
+   Returns false when it can't resolve a Sleeper league, so ESPN and any
+   pre-boot state still get the legacy path. */
+/* Suggested FAAB, priced off what the player would actually BE on your roster.
+   The old sizing handed the top target 42% of the remaining budget no matter
+   who it was, so a QB13 in a 1QB league — worth less than this roster's 13th
+   player — came out at $42. Nobody bids that. Real FAAB is quoted as a share
+   of the SEASON budget and keys entirely on whether the add cracks your
+   lineup: a league-winning starter goes 25–45%, a bench upgrade single digits,
+   a speculative depth add is a dollar.
+   `s` is the roster shape from _wcRosterShape(); returns {bid, tier}. */
+function _wcFaabBid(v, s, budget, faabLeft){
+  var pct, tier;
+  if(s.top<=0){
+    // Nothing rostered yet (a pre-draft league) — there is no lineup to price
+    // against, so rank the player inside the pool instead. Without this every
+    // tier test falls through to DEPTH and the best asset on the board gets
+    // quoted at a dollar.
+    var rel=s.poolTop>0 ? Math.min(1, v/s.poolTop) : 0;
+    return { bid: Math.min(faabLeft, Math.max(v>0?1:0, Math.round(budget*(0.05+0.40*rel)))),
+             tier: rel>=0.7?'CORE':rel>=0.4?'STARTER':rel>=0.15?'BENCH':'DEPTH' };
+  }
+  if(s.medStart>0 && v>=s.medStart){                  // would slot into the top half of your lineup
+    pct=0.26+0.20*Math.min(1,(v-s.medStart)/Math.max(1,s.top-s.medStart)); tier='CORE';
+  } else if(s.weakStart>0 && v>=s.weakStart){         // beats your worst starter
+    pct=0.09+0.15*((v-s.weakStart)/Math.max(1,s.medStart-s.weakStart)); tier='STARTER';
+  } else if(s.benchTop>0 && v>=s.benchTop){           // beats your best bench player
+    pct=0.03+0.05*((v-s.benchTop)/Math.max(1,s.weakStart-s.benchTop)); tier='BENCH';
+  } else if(v>s.floor){                                // only beats what you'd cut
+    pct=0.005+0.015*(s.benchTop>0?Math.min(1,v/s.benchTop):0); tier='DEPTH';
+  } else { pct=0; tier='SPEC'; }
+  var bid=Math.min(faabLeft, Math.round(budget*pct));
+  if(!bid && faabLeft>0 && v>s.floor) bid=1;          // a real target is never a $0 claim
+  return { bid:bid, tier:tier };
+}
+/* Value landmarks on your own active roster: the line between a starter, a
+   bench body, and a cut. Everything the bid model needs in one pass. */
+function _wcRosterShape(d, drops){
+  var BENCHY={BN:1,IR:1,TAXI:1};
+  var slots=(d.rosterPositions||[]).filter(function(x){ return !BENCHY[x]; }).length || 9;
+  var vals=drops.map(function(x){ return x.val||0; }).sort(function(a,b){ return b-a; });
+  var st=vals.slice(0, slots);
+  return {
+    top: vals[0]||0,
+    medStart: st.length ? st[Math.floor((st.length-1)/2)] : 0,
+    weakStart: st.length ? st[st.length-1] : 0,
+    benchTop: vals.length>slots ? vals[slots] : 0,
+    floor: vals.length ? vals[vals.length-1] : 0
+  };
+}
+
+async function _ovRenderRedraftWaiverWC(ctx, el, budget, faabLeft, hasFaab){
+  if(typeof _wcLeagueCtx!=='function' || typeof _wcLoadLeague!=='function') return false;
+  var d=await _wcLeagueCtx(ctx.leagueId).catch(function(){return null;});
+  if(!d) return false;
+  // Price the pool on this league's board before scanning — _wcLoadLeague caches
+  // its sorted result for 120s, so a bucket landing afterwards bakes in the
+  // wrong values (the same reason renderWaiverCommand warms first).
+  if(typeof _tcWarmBuckets==='function'){ try{ await _tcWarmBuckets([d], 3000); }catch(e){} }
+  var entry=await _wcLoadLeague(d);
+  if(!entry) return false;
+  // Projections come from THIS league's platform, for the upcoming NFL week.
+  var feed=await _wcProjFeed(d.lg);
+  var SKILL={QB:1,RB:1,WR:1,TE:1};
+  // faSorted carries no team and often no position (its posOf reads PLAYERS,
+  // which boots empty). The feed is keyed by the same Sleeper pid and has both,
+  // plus the points — one lookup fills all three. Name is the fallback join:
+  // ESPN has no Sleeper pid, and Sleeper's own feed misses anyone the pid map
+  // spells differently.
+  // faSorted is the whole ~4k pool, so enrich lazily and stop at four — the
+  // team/trend lookups are per-player map hits and must not run pool-wide.
+  var fas=[], pool=entry.faSorted||[];
+  for(var fi=0; fi<pool.length && fas.length<4; fi++){
+    var fp=pool[fi];
+    var pr=feed.byPid[String(fp.pid)] || feed.byName[normName(fp.name)] || null;
+    var fpos=fp.pos||(pr&&pr.pos)||'';
+    if(!SKILL[fpos]) continue;
+    // A player off the weekly slate (bye, just signed) has no feed row, so team
+    // falls through to the value board / nflverse or he renders as "FA".
+    var fteam=(pr&&pr.team)||fp.team||'';
+    if(!fteam){ try{ var _fc=(typeof getFCValue==='function')&&getFCValue(fp.name); if(_fc&&_fc.team) fteam=_fc.team; }catch(e){} }
+    if(!fteam){ try{ var _nv=(typeof window.getNflversePlayer==='function')&&window.getNflversePlayer(fp.name); if(_nv&&_nv.team) fteam=_nv.team; }catch(e){} }
+    fas.push({ name:fp.name, pid:fp.pid, val:fp.val, pos:fpos, team:fteam,
+               pts:(pr&&pr.pts!=null?pr.pts:null), tr:_rdvTrend(fp.name) });
+  }
+  if(!fas.length) return false;
+
+  var drops=(typeof _wcDroppables==='function') ? _wcDroppables(d, entry) : [];
+  var worst=drops[0]||null;
+  var cap=(d.rosterPositions||[]).length;
+  var active=[].concat((entry.myRoster||{}).players||[]).map(String)
+    .filter(function(pid){ return (d.myReserve||[]).indexOf(pid)<0 && (d.myTaxi||[]).indexOf(pid)<0; });
+  var openSpots=Math.max(0, cap-new Set(active).size);
+  var upgrade=(worst?fas[0].val-worst.val:fas[0].val);
+  var shape=_wcRosterShape(d, drops);
+  shape.poolTop=fas[0].val||0;   // pre-draft anchor, see _wcFaabBid
+
+  var rows=fas.map(function(p,i){
+    var col=_RDV_POSC[p.pos]||'var(--muted)';
+    var b=_wcFaabBid(p.val||0, shape, budget, faabLeft);
+    // Week and feed source live once in the footer, so the row just carries the
+    // number.
+    var why=(p.val||0).toLocaleString()+' val'
+      + (p.pts!=null?(' · proj '+p.pts.toFixed(1)):'')
+      + (p.tr?(' · '+(p.tr>0?'▲':'▼')+Math.abs(p.tr)+' 7d'):'');
+    var ph=vaultHeadshot(p.name,p.pid,36);
+    return '<div class="rrp-wt" style="cursor:pointer" onclick="openPlayerProfile(\''+ppArg(p.name)+'\',\''+(p.pid||'')+'\',\''+(p.pos||'')+'\',\''+(p.team||'')+'\')">'
+      + '<div class="rrp-wt-ph">'+(ph?'<img src="'+ph+'" onerror="this.style.display=\'none\'">':'')+'</div>'
+      + '<div class="rrp-wt-main"><div class="rrp-wt-nm">'+_rrpEsc(p.name)+'<span class="pos" style="color:'+col+'">'+p.pos+' · '+(p.team||'FA')+'</span></div><div class="rrp-wt-why">'+why+'</div></div>'
+      + '<div class="rrp-wt-bid t-'+b.tier+'">'+(hasFaab?('<b>$'+b.bid+'</b><small>'+b.tier+'</small>'):'<b>#'+(i+1)+'</b><small>'+b.tier+'</small>')+'</div>'
+      + '</div>';
+  }).join('');
+
+  var conn={connected:false};
+  try{ if(window.VaultSleeper) conn=await VaultSleeper.status(); }catch(e){}
+  // Name the baseline. A bare "+332 upgrade" reads like a win next to a $1
+  // DEPTH bid; "+332 over Iosivas" says exactly what it's measured against.
+  var meta=[];
+  if(worst && upgrade>0) meta.push('<b class="up">+'+upgrade.toLocaleString()+'</b> OVER '+_rrpEsc(_rdvSurname(worst.name)).toUpperCase());
+  meta.push(openSpots>0 ? (openSpots+' OPEN SPOT'+(openSpots>1?'S':'')) : 'ROSTER FULL');
+  // Say which feed the proj numbers came from — Sleeper and ESPN score the same
+  // player differently, and the card gets read next to that platform's own app.
+  // It rides the button row rather than the meta line: that space is empty
+  // anyway, and the meta line is already the one that wraps.
+  var src=fas.some(function(p){ return p.pts!=null; })
+    ? '<span class="rrp-wt-src">'+feed.source+' PROJ · WK'+feed.week+'</span>' : '<span class="rrp-wt-src"></span>';
+  var acts=(conn.connected
+      ? '<button class="rrp-wt-btn primary press press-btn" onclick="event.stopPropagation();wcClaimModal(\''+ctx.leagueId+'\',\''+ppArg(fas[0].name)+'\')">Claim '+_rrpEsc(_rdvSurname(fas[0].name))+'</button>'
+      : '')
+    + '<button class="rrp-wt-btn press press-btn" onclick="event.stopPropagation();wcLeagueBrowser(\''+ctx.leagueId+'\')">Browse all</button>';
+  // Break BETWEEN segments, never inside one — a wrapped "ROSTER / FULL" reads
+  // like two separate facts.
+  var metaHtml=meta.map(function(m){ return '<span class="seg">'+m+'</span>'; }).join(' · ');
+  el.innerHTML=rows+'<div class="rrp-wt-foot"><span class="rrp-wt-meta">'+metaHtml+'</span>'
+    + '<span class="rrp-wt-actrow">'+src+'<span class="rrp-wt-acts">'+acts+'</span></span></div>';
+  return true;
+}
+
 /* ── Waiver wire table: free agents ranked for your roster, FAAB-sized ── */
 async function _ovRenderRedraftWaiver(){
   var ctx=window._rdvCtx, el=document.getElementById('rdv-waiver'); if(!el||!ctx) return;
@@ -31519,6 +31815,13 @@ async function _ovRenderRedraftWaiver(){
     var used=(myR&&myR.settings&&myR.settings.waiver_budget_used)||0;
     var faabLeft=Math.max(0,budget-used);
     var hasFaab=!!(_wlg&&_wlg.settings&&_wlg.settings.waiver_budget);
+    // Compact card runs on Waiver Command's pool and its own per-platform
+    // projection feed. It only bails when the league can't be resolved at all,
+    // in which case the legacy scan below still has the roster context it needs.
+    if(window._rrpCompactWaiver){
+      var _wcOk=await _ovRenderRedraftWaiverWC(ctx, el, budget, faabLeft, hasFaab).catch(function(e){ console.warn('[Vault] waiver-command card failed:', e); return false; });
+      if(_wcOk) return;
+    }
     var avail=(window.PLAYERS||[]).filter(function(p){ return p.name && ['QB','RB','WR','TE'].indexOf(p.pos)>=0 && !rostered.has(p.name.toLowerCase()); })
       .map(function(p){ var pr=(p.sleeperId&&proj[p.sleeperId])?_rdvProjPts(proj[p.sleeperId].stats,scoring):null;
         return {name:p.name,pos:p.pos,team:p.team,sid:p.sleeperId,rd:_rdvVal(p.name),pr:pr,tr:(p.trend_7d!=null?p.trend_7d:_rdvTrend(p.name))}; })
