@@ -11,7 +11,7 @@
   --s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
   --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
   --dim:#1b2740;
-  --text:#eaf2fc;--text2:#bdcce2;--muted:#7d8ca3;
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#808fa6;
   --primary:#bec6e0;--on-primary:#0a1424;--primary-c:var(--s1);
   --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
   --red:#e23a4e;--red2:#ff5a6e;
@@ -19,6 +19,7 @@
   --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
   --green:var(--rb);
   --suggest:#7bd0ff;--value:#3DCC7A;--reach:#e23a4e;--gold:#f5c842;--navy:#070d18;
+  --violet:#a78bfa;   /* ADP / secondary-source accent. Inverts like the position colours. */
   --glass-1:rgba(14,22,38,0.55);--glass-2:rgba(20,30,48,0.55);
   --blur-md:blur(22px);--blur-sm:blur(14px);
   --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
@@ -75,13 +76,16 @@
   --bg:#f4efe4;--surface:#fffdf8;
   --s1:#fffdf8;--s2:#f3eede;--s3:#ece5d4;--s4:#e1d8c4;--s-bright:#ffffff;
   --border:rgba(29,40,66,0.10);--border2:rgba(29,40,66,0.17);--border3:rgba(29,40,66,0.28);
-  --text:#1d2433;--text2:#3a4658;--muted:#6e7582;--dim:#ece5d4;
+  --text:#1d2433;--text2:#3a4658;--muted:#606774;--dim:#ece5d4;
   --primary:#16233a;--on-primary:#ffffff;
   --accent:#16233a;--accent2:#2c4063;--accent3:#4a5d80;
-  --red:#c52d3a;--red2:#d8434f;
+  /* Semantic colours are tuned to clear WCAG AA (4.5:1) down to --s3, the
+     darkest surface they routinely sit on — not just on --s1. */
+  --red:#c22a37;--red2:#c12c38;
   --sky:#1f4e87;--sky-dim:#16395f;
-  --qb:#c52d3a;--rb:#0a7a4c;--wr:#1f6fb0;--te:#a76a16;
-  --suggest:#1f4e87;--value:#0a7a4c;--reach:#c52d3a;--gold:#a76a16;--navy:#16233a;
+  --qb:#c22a37;--rb:#067648;--wr:#1a6aab;--te:#955804;
+  --suggest:#1f4e87;--value:#067648;--reach:#c22a37;--gold:#955804;--navy:#16233a;
+  --violet:#6d3fc4;
   --glass-1:rgba(255,255,255,0.62);--glass-2:rgba(248,244,235,0.62);
   --pos-ink:#ffffff;   /* light theme's position colours are dark — flip the ink */
   --shadow-card:0 20px 48px -22px rgba(41,50,66,0.24),0 1px 0 rgba(255,255,255,0.5) inset;
@@ -92,12 +96,13 @@
   --bg:#0e0f13;--surface:#16171c;
   --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
   --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
-  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#868c9b;--dim:#23252c;
   --primary:#8fb4e0;--on-primary:#0b1420;--primary-c:var(--s1);
   --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
   --red:#e23a4e;--red2:#ff5a6e;
   --sky:#5e7c9c;--sky-dim:#43607d;
   --suggest:#8fb4e0;--value:#5fe09a;--reach:#e23a4e;--gold:#8fb4e0;--navy:#0e0f13;
+  --violet:#a78bfa;
   --glass-1:rgba(24,25,30,0.55);--glass-2:rgba(30,32,38,0.55);
   --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
 }
@@ -171,6 +176,36 @@
   border:1px solid rgba(255,255,255,0.07);
   backdrop-filter:var(--blur-sm);
   -webkit-backdrop-filter:var(--blur-sm);
+  border-radius:var(--radius-md);
+}
+
+
+/* ── 3b. CARD SURFACES ──────────────────────────────────────────────
+   Vault has exactly TWO card radii. Reach for these instead of picking
+   a number — the audit that introduced this found 9 different radii
+   across 102 rendered cards (8/9/10/11/12/13/14/16/18/20/28px).
+
+     .v-card        panel  — a page's primary content card   16px
+     .v-card-inset  inset  — a tile/row INSIDE a panel        10px
+
+   Rules:
+   · Radius is a function of NESTING, not of page. A card that sits
+     inside another card is an inset; everything else is a panel.
+   · Never nest an inset inside an inset — flatten the markup instead.
+   · Shadows are deliberately NOT part of these primitives. Several
+     pages (Portfolio, Lineup, Compare) are intentionally flat; add
+     var(--shadow-card) per-surface only when elevation is meaningful.
+   ──────────────────────────────────────────────────────────────────── */
+
+.v-card {
+  background:var(--s1);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-lg);
+}
+
+.v-card-inset {
+  background:var(--s2);
+  border:1px solid var(--border);
   border-radius:var(--radius-md);
 }
 
