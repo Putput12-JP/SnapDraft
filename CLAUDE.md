@@ -154,18 +154,59 @@ Every primitive degrades in the `prefers-reduced-motion:reduce` blocks that sit
 directly under each one. **Add new motion to the existing block**, don't create
 another — there are already several scattered through `index.html`.
 
+## Segmented controls — `.vseg`
+
+There is **one** segmented control. It lives in `vault-ds.css` §20; the box, the
+type ramp and the hit area all come from there. **A new filter strip is
+`<div class="vseg">` with `<button>` children and no CSS of its own.**
+
+Vault used to carry 28 of these — `.rh-seg`, `.dvc-seg`, `.mr-seg`, `.adp-seg`,
+`.tc-seg`, `.bt-seg`, `.lr-srctoggle` and the rest — each with its own surface,
+border, radius, padding and active fill. Those class names still exist in markup
+(JS queries them, several are built from template literals) but they are now
+**aliases onto `.vseg`**, listed in §20. Don't add a new alias; use `.vseg`.
+
+- **The pill owns "active".** `vaultRails()` paints the active background, so
+  `.vseg` sets no background on `.on`. A strip that paints its own gives you a
+  chip inside a chip. The only fill is the `:not(.vrail)` fallback, which
+  switches itself off the moment the rail wires. **Wire the strip in `RAILS`**
+  rather than styling `.on`.
+- **Variants, not new boxes:** `.sm` / `.lg` size, `.fluid` even split,
+  `.scroll` overflow, `.free` no container (mobile caps, profile tabs),
+  `.bar` underline tabs.
+- **Retint with the vars.** A scoped skin sets `--vseg-bg` / `--vseg-border` /
+  `--vseg-ink` — see `#page-betting .bt-seg`, which is one line. Re-declaring
+  the box is how the fragmentation started.
+- **Mobile hit area is handled.** Segments are 36px visually under 768px with a
+  transparent `::after` extending them to 44px. Don't add `min-height:44px` to
+  the button — that grows the strip to 50px, which is what the old
+  `button.sbtn, button.la-tab` touch rule did.
+- **Buttons that also exist standalone** (`.sbtn`, `.fbtn`, `.la-tab`) have
+  their chrome stripped by a `!important` reset in §20. The standalone rules for
+  those classes are guarded — `#page-draft .controls :not(.dvc-seg) > .sbtn`,
+  `.sbtn:not(.dv-mode):not(.sort-mode)` — because they are ID-scoped
+  `!important` and would otherwise out-specify the primitive. If you add a
+  standalone rule for one of these classes, guard it the same way.
+
+Excluded on purpose, same list as `RAILS`: `.lh-tabsel` (mobile dropdown),
+`.bottom-tab-bar` and `.nav.desktop-nav` (nav, pinned to `--primary`),
+`#vp-platforms` (vertical).
+
 ## CSS cascade
 
-`index.html` carries large late override blocks, several using `!important`
-(e.g. the `.la-tab` restyle ~L2022). **Before editing any CSS, find which rule
-actually wins** — the obvious edit is frequently dead code. New motion/draft CSS
-must land *after* the `dv-shadcn-restyle` block.
+`index.html` carries large late override blocks, several using `!important`.
+**Before editing any CSS, find which rule actually wins** — the obvious edit is
+frequently dead code. New motion/draft CSS must land *after* the
+`dv-shadcn-restyle` block.
 
 Three things that cost real time here:
 
 - **Count specificity properly before assuming you win.**
   `.rh-scope .rh-seg.pos .rh-segbtn.on` is (0,5,0), not (0,4,0) — the scope
-  class counts. Several of these strips are scoped that way.
+  class counts. Several of these strips are scoped that way. Note that
+  `vault-ds.css` is a `<link>` in `<head>`, so every `<style>` block in
+  `index.html` wins any tie against it — a DS primitive only takes effect once
+  the competing declarations are deleted, not merely out-written.
 - **A losing `var()` does not fall through.** A declaration that wins the
   cascade but is invalid at computed-value time (e.g. `color:var(--pc)` where
   `--pc` is unset) makes the property `unset`/inherit — it does *not* defer to

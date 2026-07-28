@@ -151,7 +151,7 @@ window.VAULT_SHOT_DRAFT="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBM
      in vault-ds.css (.spinner, .press, .rail). If a visitor pairs fresh markup
      with a cached stylesheet, every loading state renders as an invisible blank
      span. Bump this date whenever vault-ds.css changes. -->
-<link href="vault-ds.css?v=20260728c" rel="stylesheet">
+<link href="vault-ds.css?v=20260728d-vseg" rel="stylesheet">
 <style>
 /* tokens, themes, and .v-* components live in vault-ds.css */
 [data-theme="medium"] { --bg:#0c1119; --s1:#121a25; --s2:#19222f; }
@@ -505,14 +505,11 @@ header{
 #resync-btn{display:inline-flex;align-items:center;justify-content:center}
 .controls{padding:8px 12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;overflow-x:visible;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:30px;z-index:97}
 .controls::-webkit-scrollbar{display:none}
-.fbtn{padding:7px 12px;border-radius:8px;border:1.5px solid var(--dim);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:11px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s,opacity .15s;touch-action:manipulation;min-height:38px}
-.fbtn:hover{border-color:var(--text);color:var(--text)}
-.fbtn.on{color:#111;font-weight:700}
-.fbtn.all.on{background:var(--text);border-color:var(--text)}
-.fbtn.QB.on{background:var(--qb);border-color:var(--qb)}
-.fbtn.RB.on{background:var(--rb);border-color:var(--rb)}
-.fbtn.WR.on{background:var(--wr);border-color:var(--wr)}
-.fbtn.TE.on{background:var(--te);border-color:var(--te)}
+/* .fbtn is the draft position filter and lives only inside .dvc-seg.pos-seg,
+   so the strip styles it (.vseg, vault-ds.css §20) and the position tint is
+   the :not(.vrail) fallback further down. The standalone-chip look it used to
+   carry here — 1.5px border, its own weight, a solid position fill — is what
+   made Format and Pos render differently side by side. */
 .sgrp{display:flex;gap:4px;border-left:1.5px solid var(--dim);padding-left:8px;align-items:center;flex-shrink:0}
 .slbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-family:var(--font-mono);white-space:nowrap}
 /* Primary sort+source mode buttons (RosterAudit / Fantasy Calc / My Rankings) */
@@ -547,7 +544,7 @@ header{
 .sbtn{padding:6px 10px;border-radius:7px;border:1.5px solid var(--dim);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:10px;cursor:pointer;transition:border-color 150ms ease,color 150ms ease,background 150ms ease,transform var(--dur-release) var(--ease-spring);touch-action:manipulation;min-height:36px;flex-shrink:0;white-space:nowrap}
 .sbtn:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
 .sbtn:hover{border-color:var(--accent2);color:var(--accent2)}
-.sbtn.on{background:var(--s3);border-color:var(--accent);color:var(--accent3);font-weight:700}
+.sbtn:not(.dv-mode):not(.sort-mode).on{background:var(--s3);border-color:var(--accent);color:var(--accent3);font-weight:700}
 .cright{display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px;border-left:1.5px solid var(--dim);padding-left:8px}
 .hgbtn{padding:7px 11px;border-radius:8px;border:1.5px solid var(--dim);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:11px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s,opacity .15s;touch-action:manipulation;min-height:38px}
 .hgbtn.on{background:var(--s3);border-color:var(--accent3);color:var(--accent3)}
@@ -719,15 +716,13 @@ header{
 /* Fix 2: mobile sort bar, hidden on desktop, sticky chip row on mobile */
 .pm-sortbar{display:none}
 @media(max-width:700px){
-  .pm-sortbar{display:flex;align-items:center;gap:5px;overflow-x:auto;scrollbar-width:none;
-    padding:7px 10px;position:sticky;top:0;z-index:96;background:var(--bg);
-    border-bottom:1px solid var(--border);margin:0 -2px 6px}
-  .pm-sortbar::-webkit-scrollbar{display:none}
+  /* The mobile SORT row is a one-of-N strip like every other, so it is a
+     .vseg.free (vault-ds.css §20) — it sat directly under the Format/Pos
+     strips on the draft page wearing a completely different chip. */
+  .pm-sortbar{display:flex;padding:7px 10px;position:sticky;top:0;z-index:96;
+    background:var(--bg);border-bottom:1px solid var(--border);margin:0 -2px 6px}
   .pm-sortbar-lbl{font-size:9px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.1em;flex-shrink:0}
-  .pm-sortchip{flex-shrink:0;display:inline-flex;align-items:center;gap:4px;padding:6px 11px;border-radius:8px;
-    background:var(--s2);border:1px solid var(--border2);color:var(--text2);font-family:var(--font-mono);
-    font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background 120ms ease,border-color 120ms ease,color 120ms ease,box-shadow 120ms ease,transform 120ms ease,opacity 120ms ease}
-  .pm-sortchip.on{background:rgba(204,0,60,0.16);border-color:var(--accent);color:#fff}
+  .pm-sortchip{flex-shrink:0}
   .pm-chip-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
   #pmsort-my{display:none}            /* shown only after a CSV import (toggled in updateSortBtns) */
   #pmsort-my.has-my{display:inline-flex}
@@ -1288,7 +1283,7 @@ header{
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #sb-settings{flex:0 0 auto;padding:9px 12px;font-size:13px}
   /* position filter chips fill the first row evenly */
-  .controls .fbtn{flex:1 1 0;min-width:0;padding:7px 4px;font-size:11px}
+  .controls .fbtn{flex:1 1 0;min-width:0;padding:0 4px;font-size:11px}
 }
 @media(max-width:360px){
   .mth-hero-val{font-size:var(--t-secondary)}
@@ -1603,13 +1598,12 @@ header{
 .ov-card-label{font-size:10px;font-weight:600;color:var(--muted);font-family:var(--font-sans);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
 .ov-identity-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
 .ov-window-name{font-size:20px;font-weight:800;color:var(--accent2);margin-bottom:4px}
-.la-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto;scrollbar-width:none}
-.la-tabs::-webkit-scrollbar{display:none}
-.la-tab{padding:10px 16px;background:transparent;border:none;color:var(--muted);font-family:var(--font-mono);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.05em;white-space:nowrap;position:relative;transition:color .15s;flex-shrink:0}
-.la-tab:hover{color:var(--text)}
-.la-tab.on{color:var(--accent2)}
-.la-tab.on::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--accent2);border-radius:1px 1px 0 0}
-@media(max-width:700px){.la-tab{padding:8px 12px;font-size:10px}}
+/* Underline sub-tabs are .vseg.bar (vault-ds.css §20): the strip draws the
+   hairline, the travelling .v-pill--bar draws the indicator. The ::after bar
+   that used to live here was the second of two indicators — see the note by
+   the pill rules near the bottom of this file. */
+.la-tabs{margin-bottom:20px}
+.la-tab{flex-shrink:0}
 .tier-juggernaut{color:#ffd166;font-weight:700}
 .tier-balanced{color:var(--muted)}
 .tier-pretender{color:var(--rb)}
@@ -1778,8 +1772,9 @@ h1,h2,h3,.page-title,.tpage-title,.ov-title{
 /* Research stat table rows, no dividers, padding, hover bg */
 .res-stat-table tr:hover td{background:rgba(255,255,255,0.04)}
 .res-stat-table td{padding:14px 8px;border-bottom:none}
-/* sbtn active, crimson gradient */
-.sbtn.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+/* sbtn active, crimson gradient — standalone toolbar buttons only; the ones
+   inside a segmented strip get the travelling pill instead. */
+.sbtn:not(.dv-mode):not(.sort-mode).on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
 /* League analyzer header glass */
 #power-rankings-wrap{
   background:var(--glass-1);
@@ -2000,7 +1995,11 @@ header {
 
 
 /* ── sbtn filter buttons ── */
-.sbtn {
+/* The :not() guard keeps this off the .sbtn that sit INSIDE a segmented strip
+   (.dv-mode, .sort-mode). This rule is !important at (0,1,0) and would
+   otherwise out-rank .dvc-seg > button, which is how Format ended up 11px
+   while Pos next to it was 12.5px. */
+.sbtn:not(.dv-mode):not(.sort-mode) {
   font-family:var(--font-sans)!important;
   font-size:11px!important;
   font-weight:500!important;
@@ -2029,19 +2028,8 @@ header {
 .hbtn:hover { border-color:rgba(255,255,255,0.22)!important; color:var(--text)!important; }
 
 /* ── la-tabs (sub-tabs) ── */
-.la-tabs { border-bottom:1px solid rgba(255,255,255,0.07)!important; }
-.la-tab {
-  font-family:var(--font-mono)!important;
-  font-size:11px!important;
-  letter-spacing:0.06em!important;
-  text-transform:uppercase!important;
-  color:var(--muted)!important;
-  border-bottom:2px solid transparent!important;
-  padding:10px 16px!important;
-  transition:color 150ms, border-color 150ms!important;
-}
-.la-tab:hover { color:var(--text)!important; }
-.la-tab.on { color:var(--text)!important; border-bottom-color:var(--accent)!important; font-weight:600!important; }
+/* The second .la-tabs definition — a mono/uppercase restyle plus a hardcoded
+   rgba border that never flipped for light mode — is folded into .vseg.bar. */
 
 /* ── MY TEAM page, ov-* classes ── */
 .ov-page { padding:32px 24px!important; max-width:1200px!important; }
@@ -2567,9 +2555,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .ps-modal-inner{background:#0c1324!important;border:1px solid rgba(204,0,60,0.25)!important;box-shadow:0 0 60px rgba(204,0,60,0.12)!important;border-radius:2px!important;}
 #ps-header{border-bottom:1px solid var(--border2);padding-bottom:0!important;}
 #ps-tabs{border-bottom:1px solid var(--border2);padding:0 24px!important;margin-bottom:0!important;}
-#ps-tabs .la-tab{font-family:'JetBrains Mono',var(--font-mono)!important;font-size:10px!important;letter-spacing:0.1em!important;text-transform:uppercase!important;padding:10px 0!important;margin-right:20px!important;border-bottom:2px solid transparent!important;border-radius:0!important;background:transparent!important;color:var(--muted)!important;transition:color 150ms,border-color 150ms!important;}
-#ps-tabs .la-tab:hover{color:var(--text)!important;}
-#ps-tabs .la-tab.on{color:#ffb3b6!important;border-bottom-color:var(--accent)!important;background:transparent!important;}
+/* The player-stats modal used to run its own mono/uppercase skin of .la-tab —
+   the last scoped variant of the underline strip. It is .vseg.bar like every
+   other one now; only the horizontal rhythm is still specific to the modal. */
+#ps-tabs > button{margin-right:20px;padding:0!important;}
 .ps-kpi{background:var(--s1)!important;border:1px solid var(--border2)!important;border-radius:2px!important;padding:12px 14px!important;}
 .ps-kpi-val{font-family:'JetBrains Mono',var(--font-mono)!important;font-size:var(--t-h1)!important;font-weight:700!important;line-height:1!important;margin-bottom:4px!important;}
 .ps-kpi-label{font-family:'JetBrains Mono',var(--font-mono)!important;font-size:var(--t-nano)!important;letter-spacing:0.1em!important;text-transform:uppercase!important;color:var(--muted)!important;}
@@ -2785,7 +2774,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   /* ── Sub-tabs styling now handled below (wrap to 2 rows instead of scroll) ── */
 
   /* ── Touch target hardening across the app ── */
-  button.sbtn, button.la-tab, button.tab-btn {
+  /* .sbtn / .la-tab dropped out: both live inside segmented strips, which
+     carry their own 44px hit-slop now (vault-ds.css §20). Forcing 44px on the
+     button here instead grew the strip to 50px. */
+  button.tab-btn {
     min-height: 44px;
     touch-action: manipulation;
   }
@@ -5841,13 +5833,10 @@ function pgsOpen(name, pos, team){
 .tc-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
 
 /* segmented control */
-.tc-seg{display:inline-flex;background:var(--bg);border:1px solid var(--border2);border-radius:11px;padding:3px;gap:2px}
-.tc-seg button{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;border:none;cursor:pointer;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:700;letter-spacing:-.01em;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s,opacity .15s;position:relative}
-.tc-seg button.on{background:var(--s3);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--te) 40%,transparent)}
-.tc-seg button.on::after{content:'';position:absolute;left:20%;right:20%;bottom:2px;height:2px;border-radius:2px;background:var(--te)}
-.tc-seg.sm button{padding:6px 13px;font-size:var(--t-label)}
-.tc-seg.blue button.on{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent2) 45%,transparent)}
-.tc-seg.blue button.on::after{background:var(--accent2)}
+/* Box, buttons and .sm are .vseg (vault-ds.css §20). The ::after underline the
+   active tab used to draw is gone — the strip already has a travelling pill,
+   and the two together read as two indicators. .tc-seg.blue only ever changed
+   that underline's colour, so it is a no-op class now. */
 .tc-seg span{font-size:var(--t-secondary);opacity:.6}
 .tc-seg button.on span{opacity:1}
 
@@ -6020,10 +6009,10 @@ function pgsOpen(name, pos, team){
 @media(prefers-reduced-motion:reduce){ .tc-rise{transition-duration:.01ms} }
 
 /* ── TRADE ENGINES — Matchmaker · Exploit · Ideas ── */
-.tc-eng-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.tc-eng-tab{display:flex;align-items:center;gap:8px;padding:9px 15px;border-radius:11px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,color .15s,background .15s,transform var(--dur-release) var(--ease-spring)}
-.tc-eng-tab:hover{border-color:var(--border3);color:var(--text2)}
-.tc-eng-tab.on{background:var(--s3);color:var(--text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--te) 40%,transparent)}
+/* Matchmaker/Exploit/Ideas is a mode selector — RAILS already treats it as one
+   — so it is a .vseg strip now instead of three standalone bordered chips. */
+.tc-eng-tabs{margin-bottom:16px}
+.tc-eng-tab{transition:color .12s,transform var(--dur-release) var(--ease-spring)}
 .tc-eng-tab:active{transform:scale(var(--press-btn))}
 .tc-eng-tab .n{font-family:var(--font-mono);font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--text2)}
 .tc-eng-sub{font-family:var(--font-sans);font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:14px}
@@ -6053,9 +6042,8 @@ function pgsOpen(name, pos, team){
 }
 @media(max-width:700px){
   .tc-head h1{font-size:28px!important}
-  .tc-mode-tabs{width:100%}
-  .tc-mode-tabs.tc-seg{display:flex}
-  .tc-mode-tabs.tc-seg button{flex:1;justify-content:center}
+  .tc-mode-tabs{width:100%;display:flex}
+  .tc-mode-tabs > button{flex:1 1 0}
   .tc-strip{padding:11px 13px}
   .tc-pickers{width:100%;justify-content:space-between}
   .tc-tpick,.tc-tpick-btn{flex:1;min-width:0}
@@ -22937,9 +22925,9 @@ function pickYear(year) {
     /* Keep header icons tappable on touch widths (44px hit-area) */
     #theme-toggle, #settings-btn, #resync-btn{ display:flex!important; width:44px!important; height:44px!important; }
     .glassnav .gn-ic{ width:44px; height:44px; }
-    /* Market / Mine segmented toggle — bump container + buttons together to 48/44 (use IDs to beat later .lr-srctoggle rules) */
-    #ov-srctoggle, #lr-srctoggle{ height:48px!important; padding:0 4px!important; }
-    #ov-srctoggle button, #lr-srctoggle button{ min-height:44px!important; line-height:44px!important; padding:0 14px!important; font-size:11px!important; }
+    /* The Market/Mine toggle used to need an ID-scoped 48/44 patch here to beat
+       the later .lr-srctoggle rules. It is a .vseg now and gets the same 44px
+       hit-slop as every other strip (vault-ds.css §20). */
     /* Sync with Sleeper pill */
     .proto-btn-ghost{ min-height:44px; padding:11px 20px; }
   }
@@ -23002,13 +22990,17 @@ function pickYear(year) {
 
   /* Toolbar: flat surface, compact sans controls */
   #page-draft .controls{ background:var(--surface)!important; border-bottom:1px solid var(--border)!important; border-top:1px solid var(--border)!important; padding:10px 14px!important; gap:7px!important; backdrop-filter:none!important; }
-  #page-draft .controls .fbtn{ font-family:var(--font-sans)!important; font-weight:600!important; font-size:12px!important; letter-spacing:0!important; text-transform:none!important; border:1px solid var(--border)!important; border-radius:7px!important; color:var(--muted)!important; padding:7px 13px!important; }
-  #page-draft .controls .fbtn:hover{ color:var(--text)!important; border-color:var(--border2)!important; }
-  /* position-filter active keeps its color fill (informative) */
+  /* .fbtn only ever appears inside .dvc-seg.pos-seg, so its standalone chrome
+     is now .vseg's job (vault-ds.css §20). */
   #page-draft .sgrp{ border-left:1px solid var(--border)!important; padding-left:8px!important; gap:5px!important; }
   #page-draft .slbl{ font-family:var(--font-mono)!important; color:var(--muted)!important; }
-  #page-draft .controls .sbtn, #page-draft .controls .hgbtn{ font-family:var(--font-sans)!important; font-weight:600!important; font-size:12px!important; letter-spacing:0!important; text-transform:none!important; border:1px solid var(--border2)!important; border-radius:7px!important; background:var(--s2)!important; color:var(--text2)!important; padding:7px 11px!important; }
-  #page-draft .controls .sbtn:hover, #page-draft .controls .hgbtn:hover{ color:var(--text)!important; border-color:var(--border3)!important; }
+  /* Standalone toolbar buttons only. The `:not(.dvc-seg) >` guard keeps this
+     off .sbtn that sits INSIDE a segmented strip (.dv-mode, .sort-mode) —
+     those are .vseg buttons and this rule is !important, so without the guard
+     it would out-specify the primitive and put a bordered chip inside the
+     strip. */
+  #page-draft .controls :not(.dvc-seg) > .sbtn, #page-draft .controls .hgbtn{ font-family:var(--font-sans)!important; font-weight:600!important; font-size:12px!important; letter-spacing:0!important; text-transform:none!important; border:1px solid var(--border2)!important; border-radius:7px!important; background:var(--s2)!important; color:var(--text2)!important; padding:7px 11px!important; }
+  #page-draft .controls :not(.dvc-seg) > .sbtn:hover, #page-draft .controls .hgbtn:hover{ color:var(--text)!important; border-color:var(--border3)!important; }
   /* value-source selected = solid accent (clear either/or). boolean toggles = subtle tint */
   #page-draft .sort-mode.on{ background:var(--accent)!important; border-color:var(--accent)!important; color:#fff!important; }
   #page-draft #sb-hidepicks.on, #page-draft #sb-watch.on, #page-draft .hgbtn.on{ background:color-mix(in srgb, var(--accent) 14%, transparent)!important; border-color:var(--accent)!important; color:var(--text)!important; }
@@ -23023,18 +23015,13 @@ function pickYear(year) {
   #page-draft .controls.dvc .dvc-search input{ flex:1; min-width:0; background:transparent!important; border:none!important; outline:none!important; box-shadow:none!important; color:var(--text)!important; font-family:var(--font-sans)!important; font-size:13.5px!important; padding:0!important; }
   .dvc-search input::placeholder{ color:var(--muted); }
   .dvc-search .search-clear{ flex-shrink:0; padding:2px 4px; }
-  .dvc-seg{ display:flex; align-items:center; background:var(--s2); border:1px solid var(--border); border-radius:8px; padding:3px; gap:2px; flex-shrink:0; }
-  #page-draft .controls.dvc .dvc-seg .fbtn,
-  #page-draft .controls.dvc .dvc-seg .sbtn{ border:0!important; background:transparent!important; color:var(--muted)!important; font-family:var(--font-sans)!important; font-size:11px!important; font-weight:700!important; letter-spacing:.03em!important; text-transform:none!important; padding:6px 11px!important; border-radius:6px!important; cursor:pointer; }
-  #page-draft .controls.dvc .dvc-seg .fbtn:hover,
-  #page-draft .controls.dvc .dvc-seg .sbtn:hover{ color:var(--text)!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn.on{ color:#fff!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn.all.on{ background:var(--accent)!important; color:#fff!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn.QB.on{ background:var(--qb)!important; color:var(--pos-ink)!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn.RB.on{ background:var(--rb)!important; color:var(--pos-ink)!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn.WR.on{ background:var(--wr)!important; color:var(--pos-ink)!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn.TE.on{ background:var(--te)!important; color:var(--pos-ink)!important; }
-  #page-draft .controls.dvc .src-seg .sbtn.on{ background:var(--accent)!important; color:#fff!important; }
+  /* .dvc-seg box + its button reset are .vseg (vault-ds.css §20). What stays is
+     the position tint, and only as the pre-rail fallback. */
+  #page-draft .controls.dvc .pos-seg:not(.vrail) .fbtn.all.on{ background:var(--accent)!important; color:#fff!important; }
+  #page-draft .controls.dvc .pos-seg:not(.vrail) .fbtn.QB.on{ background:var(--qb)!important; color:var(--pos-ink)!important; }
+  #page-draft .controls.dvc .pos-seg:not(.vrail) .fbtn.RB.on{ background:var(--rb)!important; color:var(--pos-ink)!important; }
+  #page-draft .controls.dvc .pos-seg:not(.vrail) .fbtn.WR.on{ background:var(--wr)!important; color:var(--pos-ink)!important; }
+  #page-draft .controls.dvc .pos-seg:not(.vrail) .fbtn.TE.on{ background:var(--te)!important; color:var(--pos-ink)!important; }
   .dvc-icon{ width:36px; height:36px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid var(--border2); background:var(--s2); color:var(--text2); cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s,opacity .15s; }
   .dvc-icon svg{ width:16px; height:16px; }
   .dvc-icon:hover{ color:var(--text); border-color:var(--border3); }
@@ -23072,9 +23059,7 @@ function pickYear(year) {
   /* Option A: Dynasty/Redraft mode toggle, collapses the two value columns to ONE.
      NOTE: don't use display:none on a middle cell, it desyncs the <colgroup> mapping
      and squishes ADP. Instead collapse the column to 0 width and clip its content. */
-  #page-draft .mode-seg{ border-color:var(--accent2)!important; }
-  #page-draft .controls.dvc .mode-seg .dv-mode{ font-weight:700!important; color:var(--muted)!important; }
-  #page-draft .controls.dvc .mode-seg .dv-mode.on{ background:var(--accent)!important; color:#fff!important; border-radius:6px!important; }
+  /* mode-seg box + active fill → .vseg + the rail pill. */
   #page-draft .plist-table.dv-mode-dyn #hdr-redraft,
   #page-draft .plist-table.dv-mode-dyn .td-redraft,
   #page-draft .plist-table.dv-mode-rdr #hdr-dynasty,
@@ -23257,16 +23242,13 @@ function pickYear(year) {
   .res-search-ic{ color:var(--muted); display:inline-flex; flex-shrink:0; } .res-search-ic svg{ width:16px; height:16px; }
   #page-research .res-search input{ flex:1; min-width:0; background:transparent!important; border:none!important; outline:none!important; box-shadow:none!important; color:var(--text)!important; font-family:var(--font-sans)!important; font-size:13.5px!important; padding:0!important; }
   #page-research .res-search input::placeholder{ color:var(--muted); }
-  .res-seg{ display:flex; align-items:center; background:var(--s2); border:1px solid var(--border); border-radius:9px; padding:3px; gap:2px; flex-shrink:0; }
-  .res-segbtn{ border:0; background:transparent; color:var(--muted); font-family:var(--font-sans); font-size:11px; font-weight:700; letter-spacing:.03em; padding:7px 12px; border-radius:7px; cursor:pointer; transition:color .12s, background .12s; }
-  .res-segbtn:hover{ color:var(--text); }
-  .res-pos-seg .res-segbtn.on{ color:#fff; }
-  .res-pos-seg .res-segbtn.all.on{ background:var(--accent); color:#fff; }
-  .res-pos-seg .res-segbtn.QB.on{ background:var(--qb); color:var(--pos-ink); }
-  .res-pos-seg .res-segbtn.RB.on{ background:var(--rb); color:var(--pos-ink); }
-  .res-pos-seg .res-segbtn.WR.on{ background:var(--wr); color:var(--pos-ink); }
-  .res-pos-seg .res-segbtn.TE.on{ background:var(--te); color:var(--pos-ink); }
-  .res-mode-seg .res-segbtn.on{ background:var(--accent); color:#fff; }
+  /* Box + buttons are .vseg (vault-ds.css §20). Only the position tint stays,
+     and only until vaultRails() claims the strip. */
+  .res-pos-seg:not(.vrail) .res-segbtn.all.on{ background:var(--accent)!important; color:#fff; }
+  .res-pos-seg:not(.vrail) .res-segbtn.QB.on{ background:var(--qb)!important; color:var(--pos-ink); }
+  .res-pos-seg:not(.vrail) .res-segbtn.RB.on{ background:var(--rb)!important; color:var(--pos-ink); }
+  .res-pos-seg:not(.vrail) .res-segbtn.WR.on{ background:var(--wr)!important; color:var(--pos-ink); }
+  .res-pos-seg:not(.vrail) .res-segbtn.TE.on{ background:var(--te)!important; color:var(--pos-ink); }
   .res-select{ height:38px; padding:0 32px 0 13px; border-radius:9px; border:1px solid var(--border); background-color:var(--s2); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238794a6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 11px center; background-size:13px; color:var(--text2); font-family:var(--font-sans); font-size:12.5px; font-weight:600; cursor:pointer; -webkit-appearance:none; appearance:none; transition:border-color .15s; max-width:170px; }
   .res-select:hover{ border-color:var(--border3); color:var(--text); }
   .res-select:focus{ outline:none; border-color:var(--accent); }
@@ -23327,12 +23309,11 @@ function pickYear(year) {
   #page-teams .lr-head-r{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   #page-teams .lr-srcpill{ display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 13px; border-radius:9px; border:1px solid var(--border2); background:var(--s2); color:var(--text2);  font-family:var(--font-sans); font-size:var(--t-secondary); font-weight:600; white-space:nowrap; }
   #page-teams .lr-srcdot{ width:7px; height:7px; border-radius:50%; background:var(--rb); box-shadow:0 0 0 3px color-mix(in srgb, var(--rb) 22%, transparent); }
-  .lr-srctoggle{ display:inline-flex; align-items:center; gap:5px; height:36px; padding:0 6px 0 12px; border-radius:9px; border:1px solid var(--border2); background:var(--s2); }
-  .lr-srctoggle .lr-srcdot{ width:7px; height:7px; border-radius:50%; background:var(--rb); box-shadow:0 0 0 3px color-mix(in srgb, var(--rb) 22%, transparent); }
-  .lr-srctoggle button{ height:26px; padding:0 12px; border:none; background:transparent; color:var(--muted); font-family:var(--font-sans); font-size:var(--t-micro); font-weight:700; letter-spacing:.06em; text-transform:uppercase; border-radius:6px; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s,opacity .15s; }
-  .lr-srctoggle button:hover{ color:var(--text2); }
-  .lr-srctoggle button.on{ background:var(--s4); color:var(--text); }
-  .lr-srctoggle button[data-src="my"].on{ background:linear-gradient(135deg,#179f5c,var(--rb)); color:#04120b; }
+  /* Box + buttons are .vseg (vault-ds.css §20). The 26px button height that
+     lived here, times the mobile scale(.92) below, is what shipped the 24px
+     touch targets in the 2026-06-29 responsiveness check. */
+  .lr-srctoggle{ padding-left:12px; }
+  .lr-srctoggle .lr-srcdot{ width:7px; height:7px; border-radius:50%; background:var(--rb); box-shadow:0 0 0 3px color-mix(in srgb, var(--rb) 22%, transparent); flex-shrink:0; }
   #page-teams .lr-select{ height:36px; padding:0 30px 0 13px; border-radius:9px; border:1px solid var(--border); background-color:var(--s2); color:var(--text2); font-family:var(--font-sans); font-size:var(--t-secondary); font-weight:600; cursor:pointer; -webkit-appearance:none; appearance:none; transition:border-color .15s;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238794a6' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 11px center; background-size:13px; }
   #page-teams .lr-select:hover{ border-color:var(--border3); color:var(--text); }
@@ -23342,10 +23323,8 @@ function pickYear(year) {
   #page-teams .lr-refresh:hover{ color:var(--text); border-color:var(--border3); }
   #page-teams .lr-refresh:active svg{ transform:rotate(-90deg); transition:transform .3s; }
 
-  #page-teams .lr-tabs{ display:flex; align-items:center; gap:2px; border-bottom:1px solid var(--border); margin-bottom:20px; }
-  #page-teams .lr-tab{ border:0; background:transparent; color:var(--muted); font-family:var(--font-sans); font-size:var(--t-secondary); font-weight:600; padding:11px 14px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .12s; }
-  #page-teams .lr-tab.on{ color:var(--text); border-bottom-color:var(--accent); }
-  #page-teams .lr-tab:hover{ color:var(--text); }
+  /* box + buttons → .vseg.bar (vault-ds.css §20) */
+  #page-teams .lr-tabs{ margin-bottom:20px; }
   #page-teams .lr-share{ margin-left:auto; color:var(--sky)!important; }
 
   #page-teams .lr-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
@@ -24784,9 +24763,8 @@ function pickYear(year) {
 
   /* 3 ─ League Analyzer: kill the horizontal overflow */
   #page-teams .proto-page{ max-width:100% !important; overflow-x:hidden !important; padding-left:16px !important; padding-right:16px !important; }
-  #page-teams .lr-tabs{ flex-wrap:nowrap !important; overflow-x:auto !important; -webkit-overflow-scrolling:touch; scrollbar-width:none; min-width:0; }
-  #page-teams .lr-tabs::-webkit-scrollbar{ display:none; }
-  #page-teams .lr-tab{ flex:0 0 auto !important; white-space:nowrap; }
+  #page-teams .lr-tabs{ min-width:0; }
+  #page-teams .lr-tab{ flex:0 0 auto !important; }
   #page-teams .lr-head{ gap:12px !important; }
   #page-teams .lr-head-r{ width:100%; flex-wrap:wrap; }
 
@@ -25601,10 +25579,7 @@ function pickYear(year) {
     .mr-abtn.danger:hover{border-color:var(--accent);color:var(--accent2)}
     /* controls */
     #page-myrankings .mr-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px}
-    .mr-seg{display:inline-flex;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
-    .mr-seg button{padding:7px 16px;border:none;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:7px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s,opacity .15s}
-    .mr-seg button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
-    .mr-seg.posseg button.on{background:var(--s4);color:var(--text)}
+    /* .mr-seg box + gradient active fill → .vseg (vault-ds.css §20). */
     .mr-ctl-label{font-size:var(--t-nano);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-mono)}
     .mr-sync-ind{font-size:var(--t-nano);font-weight:700;color:var(--rb);font-family:var(--font-mono);letter-spacing:.04em;opacity:.8;white-space:nowrap}
     .mr-grp{display:flex;align-items:center;gap:7px}
@@ -25738,11 +25713,8 @@ function pickYear(year) {
 #P .mr-grp{display:flex;align-items:center;gap:8px}
 #P .mr-ctl-label{font-size:var(--t-nano);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-mono)}
 #P .mr-sync-ind{font-size:var(--t-nano);font-weight:700;color:var(--rb);font-family:var(--font-mono);letter-spacing:.04em;opacity:.8;white-space:nowrap}
-#P .mr-seg{display:inline-flex;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
-#P .mr-seg button{padding:7px 15px;border:none;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:7px;cursor:pointer;transition:.15s}
-#P .mr-seg button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
-#P .mr-seg.posseg button.on{background:var(--s4);color:var(--text)}
-#P .mr-seg.cmpsrc button.on{background:var(--s4);color:var(--text)}
+/* The #P copy of .mr-seg was a verbatim duplicate of the block above, ID-scoped
+   purely to win the cascade. Both are .vseg now. */
 #P .mr-spacer{flex:1}
 #P .mr-search{display:flex;align-items:center;gap:7px;background:var(--s2);border:1.5px solid var(--border2);border-radius:9px;padding:0 11px;min-width:180px}
 #P .mr-search span{color:var(--muted);font-size:var(--t-body)}
@@ -27264,9 +27236,7 @@ function pickYear(year) {
     #page-lineup .lc-bar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px}
     #page-lineup .lc-bar-title{font-size:var(--t-body);font-weight:700}#page-lineup .lc-bar-title small{display:block;font-size:var(--t-label);color:var(--muted);font-weight:400;margin-top:2px}
     #page-lineup .lc-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-    #page-lineup .lc-fmt{display:flex;gap:2px;background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:3px}
-    #page-lineup .lc-fmt button{border:none;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:var(--t-label);font-weight:600;padding:6px 11px;border-radius:7px;cursor:pointer;transition:background .14s,border-color .14s,color .14s,box-shadow .14s,transform .14s,opacity .14s}
-    #page-lineup .lc-fmt button.on{background:var(--s3);color:var(--text)}
+    /* box + buttons → .vseg (vault-ds.css §20) */
     #page-lineup .lc-wk{display:flex;align-items:center;gap:7px;background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:var(--t-secondary);color:var(--text)}
     #page-lineup .lc-wk-sel{appearance:none;-webkit-appearance:none;background:transparent;border:none;color:var(--text);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;cursor:pointer;padding:2px 16px 2px 2px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6' viewBox='0 0 8 6'%3E%3Cpath fill='%238794a6' d='M0 0h8L4 6z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 2px center}
     #page-lineup .lc-wk-sel option{background:var(--s1);color:var(--text)}
@@ -27326,14 +27296,15 @@ function pickYear(year) {
     /* mobile sub-nav: switch Team Review ↔ Lineup Command (desktop uses the dropdown) */
     .lc-subnav{display:none}
     @media(max-width:768px){
-      .lc-subnav{display:flex;gap:4px;background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:4px;margin-bottom:16px}
-      .lc-subnav button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;border:none;background:transparent;color:var(--muted);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;padding:11px 8px;border-radius:10px;cursor:pointer;min-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      /* box + buttons → .vseg (vault-ds.css §20); only the fluid split and the
+         label truncation are specific to this strip */
+      .lc-subnav{display:flex;margin-bottom:16px}
+      .lc-subnav button{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis}
       .lc-subnav button span{font-size:var(--t-body);flex-shrink:0}
-      .lc-subnav button.on{background:rgba(226,58,78,.16);color:var(--text);box-shadow:inset 0 0 0 1px rgba(226,58,78,.4)}
+      .lc-subnav button.on{color:var(--text)}
     }
     @media(max-width:400px){
-      .lc-subnav{gap:2px;padding:3px}
-      .lc-subnav button{font-size:var(--t-label);gap:4px;padding:11px 4px;letter-spacing:-.01em}
+      .lc-subnav button{font-size:var(--t-label);gap:4px;padding:0 4px;letter-spacing:-.01em}
       .lc-subnav button span{font-size:var(--t-secondary)}
     }
     /* ── responsive ── */
@@ -28958,19 +28929,14 @@ function pickYear(year) {
     ${S} .rh-title{font-size:clamp(26px,3vw,32px);font-weight:800;letter-spacing:-.035em;line-height:1;font-family:var(--font-sans)}
     ${S} .rh-rule{width:38px;height:3px;background:var(--accent);border-radius:2px;margin:11px 0 9px}
     ${S} .rh-sub{font-size:var(--t-secondary);color:var(--muted);line-height:1.5;max-width:540px;font-family:var(--font-sans)}
-    ${S} .rh-modeseg{display:flex;gap:3px;background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:4px}
-    ${S} .rh-modeseg button{display:flex;align-items:center;gap:7px;border:none;background:transparent;color:var(--muted);font-size:var(--t-secondary);font-weight:600;padding:8px 15px;border-radius:8px;cursor:pointer;font-family:var(--font-sans)}
-    ${S} .rh-modeseg button svg{width:15px;height:15px;stroke-linecap:round;stroke-linejoin:round}
-    ${S} .rh-modeseg button:hover{color:var(--text)}
-    ${S} .rh-modeseg button.on{background:rgba(77,134,240,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(77,134,240,.45)}
+    /* .rh-modeseg / .rh-seg / .rh-seg.sm boxes → .vseg (vault-ds.css §20). */
     ${S} .rh-filters{display:flex;align-items:center;gap:28px;flex-wrap:wrap;background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px 18px;margin-bottom:14px}
     ${S} .rh-fgroup{display:flex;flex-direction:column;gap:8px}
     ${S} .rh-flabel{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
-    ${S} .rh-seg{display:flex;gap:4px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:4px}
-    ${S} .rh-segbtn{border:none;background:transparent;color:var(--muted);font-size:var(--t-secondary);font-weight:600;padding:7px 18px;border-radius:7px;cursor:pointer;transition:background .14s,border-color .14s,color .14s,box-shadow .14s,transform .14s,opacity .14s;font-family:var(--font-sans)}
-    ${S} .rh-segbtn:hover{color:var(--text)}
-    ${S} .rh-segbtn.on{background:var(--sky);color:#fff}
-    ${S} .rh-seg.pos .rh-segbtn.on{background:var(--pc);color:#0c1119;box-shadow:none}
+    /* .rh-segbtn's own box + active fill are gone: the strip is a .vseg and the
+       travelling pill is the active state. Only the position tint stays, and
+       only as the unwired fallback — .vrail--fill zeroes it once wired. */
+    ${S} .rh-seg.pos:not(.vrail) .rh-segbtn.on{background:var(--pc)!important;color:var(--pos-ink)}
     ${S} .rh-tools{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
     ${S} .rh-search{flex:1;min-width:240px;display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:10px 14px;position:relative}
     ${S} .rh-search:focus-within{border-color:var(--rh-border3)}
@@ -29197,9 +29163,6 @@ function pickYear(year) {
     ${S} .rh-filt{display:flex;flex-direction:column;gap:7px}
     ${S} .rh-filt-lab{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
     ${S} .rh-filt select{background:var(--s2);border:1px solid var(--border);color:var(--text);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer;outline:none;min-width:140px}
-    ${S} .rh-seg.sm{padding:3px;gap:3px}
-    ${S} .rh-seg.sm button{border:none;background:transparent;color:var(--muted);font-size:var(--t-secondary);font-weight:600;padding:7px 12px;border-radius:7px;cursor:pointer;transition:background .14s,border-color .14s,color .14s,box-shadow .14s,transform .14s,opacity .14s;white-space:nowrap;font-family:var(--font-sans)}
-    ${S} .rh-seg.sm button:hover{color:var(--text)}${S} .rh-seg.sm button.on{background:var(--sky);color:#fff}
     ${S} .rh-filt-count{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-label);color:var(--muted)}${S} .rh-filt-count b{color:var(--text2)}
     ${S} .rh-fxbar{display:flex;align-items:center;gap:14px;padding:11px 22px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.012);flex-wrap:wrap}
     ${S} .rh-fxbar-lab{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
@@ -29552,9 +29515,8 @@ function pickYear(year) {
     ${S} .pp-ac-av img{width:100%;height:100%;object-fit:cover}
     ${S} .pp-ac-name{font-size:var(--t-secondary);font-weight:600;font-family:var(--font-sans)}
     ${S} .pp-ac-meta{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);white-space:nowrap}
-    ${S} .pp-seg{display:inline-flex;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px;margin-left:auto}
-    ${S} .pp-seg button{padding:6px 13px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;letter-spacing:.08em;cursor:pointer}
-    ${S} .pp-seg button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px -2px rgba(47,99,196,.5)}
+    /* box + buttons → .vseg (vault-ds.css §20) */
+    ${S} .pp-seg{margin-left:auto}
     ${S} .pp-seasondd{position:relative;margin-left:auto;flex-shrink:0}
     ${S} .pp-dd-trigger{display:inline-flex;align-items:center;gap:8px;padding:7px 11px 7px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:700;letter-spacing:.06em;cursor:pointer;transition:border-color 120ms ease,background 120ms ease}
     ${S} .pp-dd-trigger:hover{background:rgba(255,255,255,.09);border-color:var(--accent)}
@@ -29571,8 +29533,11 @@ function pickYear(year) {
        vaultRails() (--soft skin, tinted by the player's position colour via
        --rail-c). The .on background/ring below is the fallback for a page where
        that script never ran — .vrail--soft .on kills both once it has. */
-    ${S} .pp-ptabs{position:relative;display:flex;align-items:stretch;gap:6px;margin:0 0 14px;padding:4px;background:var(--s2);border:1px solid var(--border2);border-radius:15px;overflow-x:auto;scrollbar-width:none}
+    /* Compare tabs: .vseg box, but they stretch and scroll — each tab is a
+       two-line player card, not a label. */
+    ${S} .pp-ptabs{display:flex;align-items:stretch;margin:0 0 14px;overflow-x:auto;scrollbar-width:none}
     ${S} .pp-ptabs::-webkit-scrollbar{display:none}
+    ${S} .pp-ptabs > button{height:auto;padding:6px 12px}
     /* flex-shrink:0 — the strip scrolls; letting tabs squash overlaps the name
        onto the next avatar the moment a fourth tab lands on a phone. */
     ${S} .pp-ptab{display:flex;align-items:center;gap:9px;flex:0 0 auto;padding:7px 8px;border:none;border-radius:11px;background:transparent;cursor:pointer;min-width:0;color:var(--muted)}
@@ -29620,11 +29585,8 @@ function pickYear(year) {
     ${S} .pp-kpi .l{position:relative;font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:7px}
     ${S} .pp-kpi .s{position:relative;font-size:var(--t-micro);color:var(--text2);margin-top:4px;font-family:var(--font-sans)}
     ${S} .pp-kpi .s b{color:var(--rb)}
-    ${S} .pp-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
-    ${S} .pp-tabs::-webkit-scrollbar{display:none}
-    ${S} .pp-tabs button{padding:9px 18px;border:1px solid transparent;border-radius:999px;background:transparent;color:var(--muted);font-size:var(--t-secondary);font-weight:600;white-space:nowrap;cursor:pointer;font-family:var(--font-sans);min-height:40px}
-    ${S} .pp-tabs button:hover{color:var(--text);background:rgba(255,255,255,.06)}
-    ${S} .pp-tabs button.on{background:var(--accent);color:#fff;box-shadow:0 2px 10px -3px rgba(47,99,196,.55)}
+    /* free pills → .vseg.free (vault-ds.css §20) */
+    ${S} .pp-tabs{margin-bottom:14px}
     ${S} .pp-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px;align-items:start}
     ${S} .pp-col{display:flex;flex-direction:column;gap:14px;min-width:0}
     ${S} .pp-card{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:17px 19px;transition:border-color 150ms ease}
@@ -29704,7 +29666,6 @@ function pickYear(year) {
       ${S} .pp-hs .v{font-size:16px}
       ${S} .pp-card{padding:13px}
       ${S} .pp-t th,${S} .pp-t td{padding:8px 5px;font-size:var(--t-label)}
-      ${S} .pp-tabs button{min-height:44px}
       ${S} .pp-ptn b{max-width:104px}
       ${S} .pp-ptx{width:22px;height:22px;opacity:.65}
     }`;
@@ -30533,9 +30494,8 @@ function pickYear(year) {
 .rdv-st .v{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1;font-family:var(--font-mono)}
 .rdv-st .v .u{font-size:11px;color:var(--muted);font-weight:600}
 .rdv-st .d{font-family:var(--font-mono);font-size:9px;margin-top:4px;color:var(--rwin)}
-.rdv-seg{display:flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;background:var(--s2);margin-left:18px}
-.rdv-seg button{font-family:var(--font-sans);font-size:11.5px;font-weight:600;padding:8px 14px;background:transparent;border:none;color:var(--muted);cursor:pointer}
-.rdv-seg button.on{background:rgba(86,182,245,.15);color:var(--rw)}
+/* Box + buttons → .vseg (vault-ds.css §20). */
+.rdv-seg{margin-left:18px}
 .rdv-section{margin-bottom:26px}
 .rdv-sechd{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:13px}
 .rdv-sectitle{font-size:13px;font-weight:700;letter-spacing:.02em;display:flex;align-items:center;gap:9px;white-space:nowrap}
@@ -32345,19 +32305,9 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
 .dv-spacer{ flex:1; }
 .dv-ctl-label{ font-size:9.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; font-family:var(--font-mono); }
 .dv-sync-ind{ font-size:9.5px; font-weight:700; color:var(--rb); font-family:var(--font-mono); letter-spacing:.04em; opacity:.8; white-space:nowrap; }
-#page-draft .controls.dvc .dvc-seg{ background:var(--s2); border:1.5px solid var(--border2)!important; border-radius:10px; padding:3px; gap:2px; }
-#page-draft .mode-seg{ border-color:var(--border2)!important; }
-#page-draft .controls.dvc .dvc-seg .fbtn,
-#page-draft .controls.dvc .dvc-seg .sbtn{ text-transform:uppercase!important; letter-spacing:.04em!important; padding:7px 14px!important; border-radius:7px!important; }
-#page-draft .controls.dvc .mode-seg .dv-mode.on{ background:linear-gradient(135deg,var(--accent),var(--accent2))!important; color:#fff!important; }
-#page-draft .controls.dvc .src-seg .sbtn.on,
-#page-draft .controls.dvc .src-seg .sort-mode.on{ background:var(--s4)!important; border-color:transparent!important; color:var(--text)!important; }
-#page-draft .controls.dvc .pos-seg .fbtn.on,
-#page-draft .controls.dvc .pos-seg .fbtn.all.on{ background:var(--s4)!important; color:var(--text)!important; }
-#page-draft .controls.dvc .pos-seg .fbtn.QB.on{ background:var(--s4)!important; color:var(--qb)!important; }
-#page-draft .controls.dvc .pos-seg .fbtn.RB.on{ background:var(--s4)!important; color:var(--rb)!important; }
-#page-draft .controls.dvc .pos-seg .fbtn.WR.on{ background:var(--s4)!important; color:var(--wr)!important; }
-#page-draft .controls.dvc .pos-seg .fbtn.TE.on{ background:var(--s4)!important; color:var(--te)!important; }
+/* Draft toolbar segments were re-boxed and re-inked three separate times in
+   this file; all three layers are now one .vseg (vault-ds.css §20) plus the
+   travelling pill. */
 #page-draft .controls.dvc .dvc-search{ flex:0 1 280px; min-width:180px; height:36px; border:1.5px solid var(--border2); border-radius:9px; background:var(--s2); }
 #page-draft .controls.dvc .dvc-search:focus-within{ border-color:var(--accent2); }
 /* Source dropdown, matches the segmented controls' height + surface */
@@ -32449,8 +32399,8 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
   /* Format toggle + Pos filters share ONE row; search drops to its own row below */
   #page-draft .controls.dvc{ gap:8px!important; padding:10px 12px!important; flex-wrap:wrap; align-items:center; }
   #page-draft .controls.dvc > .dv-grp{ flex:0 0 auto; }
-  #page-draft .controls.dvc .dvc-seg.mode-seg .sbtn{ padding:6px 10px!important; font-size:11px!important; }
-  #page-draft .controls.dvc .dvc-seg.pos-seg .fbtn{ padding:6px 0!important; min-width:30px!important; font-size:11px!important; }
+  /* segment sizing at this width is .vseg's mobile step (vault-ds.css §20) —
+     it carries the 44px hit-slop these overrides used to shrink away */
   #page-draft .controls.dvc .dvc-search{ flex:1 1 100%; order:10; }
   /* hide the Suggested-players strip on mobile */
   #page-draft #sbar, #page-draft .suggest-bar{ display:none!important; }
@@ -32502,8 +32452,7 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
 /* ════ MOBILE · capsule strips (Home league switcher + Draft section nav) ════ */
 .vcaps{display:none}
 @media(max-width:700px){
-  .vcaps{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:10px 16px 4px}
-  .vcaps::-webkit-scrollbar{display:none}
+  .vcaps{display:flex;padding:10px 16px 4px}
   .vcap{flex:none;font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--text2);background:var(--s2);border:1px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
   .vcap.on{color:var(--on-primary);background:var(--accent2);border-color:var(--accent2);font-weight:700}
   .vcap:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
@@ -32649,7 +32598,6 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .rdv-st{padding:0 8px 0 0;border-left:none}
   .rdv-st .k{font-size:8px}
   .rdv-seg{margin-left:auto;order:2}
-  .rdv-seg button{padding:7px 11px;font-size:10.5px}
   /* stack two-up sections; tighten rhythm */
   .rdv-two{grid-template-columns:1fr;gap:12px}
   .rdv-section{margin-bottom:16px}
@@ -32707,13 +32655,11 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .rh-scope .rh-rule{margin:7px 0 0!important}
   .rh-scope .rh-sub{display:none!important}
   .rh-scope .rh-head{margin-bottom:10px!important;gap:10px!important}
-  .rh-scope .rh-modeseg{padding:3px!important}
-  .rh-scope .rh-modeseg button{flex:1;justify-content:center;padding:9px 10px!important}
+  /* box + hit area come from .vseg (vault-ds.css §20) at this width */
   .rh-scope .rh-filters{gap:8px 14px!important;padding:10px 12px!important;margin-bottom:10px!important}
   .rh-scope .rh-fgroup{flex-direction:row!important;align-items:center;gap:8px!important;flex:1 1 100%;min-width:0}
   .rh-scope .rh-flabel{display:none!important}
-  .rh-scope .rh-seg{flex:1;display:flex}
-  .rh-scope .rh-segbtn{flex:1;text-align:center}
+  .rh-scope .rh-seg{flex:1}
   .rh-scope .rh-tools{gap:8px!important;margin-bottom:8px!important}
   .rh-scope .rh-leaders{display:none!important}
 
@@ -32739,9 +32685,8 @@ body:has(.setup:not(.gone)) .vc-dim{display:none!important}
   .proto-page-hdr .proto-sub{display:none!important}
   .proto-page-hdr > div:last-child{gap:6px!important}
   .proto-page-hdr .proto-btn-ghost{padding:9px 12px!important;font-size:10.5px!important;white-space:nowrap}
-  .lc-subnav{margin:0 0 10px!important;padding:3px!important;gap:3px!important}
-  .lc-subnav button{padding:9px 6px!important;font-size:var(--t-label)!important;line-height:1.2!important;white-space:nowrap!important}
-  .lr-srctoggle{transform:scale(.92);transform-origin:left center}
+  .lc-subnav{margin:0 0 10px!important}
+  .lc-subnav button{padding:0 6px!important;font-size:var(--t-label)!important;line-height:1.2!important}
   /* ── LEAGUE ANALYZER · power table → compact rows ──── */
   /* standings: drop PF/PA on phones, # · team · W-L · value bar */
   .st-hdr span:nth-child(4),.st-hdr span:nth-child(5),
@@ -32948,9 +32893,10 @@ body::after{
 [data-theme="onyx"] .pf-v2-strip,
 [data-theme="onyx"] .trade-glass,
 [data-theme="onyx"] .ld-card,
-[data-theme="onyx"] #page-draft .controls.dvc .dvc-seg,
+/* .dvc-seg dropped out of this list: as a .vseg it paints --vseg-bg/--s2,
+   which is already onyx-correct, and this glass fill is !important at (0,5,0)
+   so it would out-specify the primitive and give onyx its own strip skin. */
 [data-theme="onyx"] #page-draft .controls.dvc .dvc-search,
-[data-theme="onyx"] #pm-sortbar .pm-sortchip,
 [data-theme="onyx"] .data-info-popover,
 [data-theme="onyx"] .vp-selbar,
 [data-theme="onyx"] .lc-mt-menu,[data-theme="onyx"] .rh-mt-menu,
@@ -33021,7 +32967,6 @@ body::after{
   box-shadow:0 0 30px -2px rgba(143,180,224,.55),0 1px 0 rgba(255,255,255,0.08) inset!important;
 }
 /* active sub-nav pill: base theme hardcodes red — retint to steel for onyx */
-[data-theme="onyx"] .lc-subnav button.on{ background:rgba(143,180,224,.16)!important; box-shadow:inset 0 0 0 1px rgba(143,180,224,.42)!important; }
 [data-theme="onyx"] #page-lineup .lc-wpbar i{ background:linear-gradient(90deg,var(--accent),var(--accent2))!important; }
 /* ── ONYX (Platinum): active/solid pills use a light accent fill → force dark ink for legibility ── */
 [data-theme="onyx"] .connect-btn,
@@ -33242,7 +33187,6 @@ body .page,body .page.on{background:transparent!important}
 }
 
 /* ════ DRAFT VAULT control cleanup (desktop Sort segment + mobile consolidation) ════ */
-#page-draft .controls.dvc .sort2-seg .sbtn.on{ background:var(--accent)!important; color:#fff!important; }
 @media(max-width:700px){
   /* ONE clean mobile sort row, Redraft · ADP · Mine (kill the duplicate bar + Rank/Dynasty/dots) */
   #plist-mobile-sort{ display:none!important; }
@@ -33262,17 +33206,11 @@ body .page,body .page.on{background:transparent!important}
 
 /* ════ DRAFT VAULT, remove the black control box at ALL widths + glassify ════ */
 #page-draft .controls.dvc{ background:transparent!important; border-top:none!important; }
-#page-draft .controls.dvc .dvc-seg{
-  background:rgba(17,29,54,0.42)!important;
-  backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%);
-  border:1px solid rgba(123,170,240,0.16)!important;
-}
 #page-draft .controls.dvc .dvc-search{
   background:rgba(17,29,54,0.42)!important;
   backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%);
   border:1px solid rgba(123,170,240,0.16)!important;
 }
-[data-theme="light"] #page-draft .controls.dvc .dvc-seg,
 [data-theme="light"] #page-draft .controls.dvc .dvc-search{
   background:rgba(255,255,255,0.55)!important; border:1px solid rgba(29,40,66,0.14)!important;
 }
@@ -33289,18 +33227,9 @@ body .page,body .page.on{background:transparent!important}
   #page-draft .controls.dvc > .dv-grp{ flex:0 1 auto!important; }
   #page-draft .controls.dvc .mode-seg{ flex:0 0 auto; }
   #page-draft .controls.dvc .pos-seg{ flex:1 1 auto; justify-content:space-between; }
-  /* shrink Format + Pos so they share ONE row (search wraps under) */
-  #page-draft .controls.dvc .mode-seg .sbtn{ padding:8px 9px!important; font-size:11.5px!important; }
-  #page-draft .controls.dvc .pos-seg .fbtn{ padding:8px 8px!important; font-size:11.5px!important; }
-  #page-draft .controls.dvc .dvc-seg{ padding:3px!important; }
-  /* frosted-glass segments */
-  #page-draft .controls.dvc .dvc-seg{
-    background:rgba(17,29,54,0.42)!important;
-    backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%);
-    border:1px solid rgba(123,170,240,0.16)!important; border-radius:13px!important; padding:4px!important;
-  }
-  #page-draft .controls.dvc .dvc-seg .fbtn,
-  #page-draft .controls.dvc .dvc-seg .sbtn{ font-size:12.5px!important; padding:9px 11px!important; border-radius:10px!important; }
+  /* The frosted-glass segment skin that used to live here is retired — the
+     strips are .vseg everywhere now (vault-ds.css §20). The search field keeps
+     the glass; it is not a segmented control. */
   /* search: full-width frosted pill below the filters */
   #page-draft .controls.dvc .dvc-search{
     flex:1 1 100%!important; order:9; height:48px!important; border-radius:14px!important; padding:0 15px!important;
@@ -33311,19 +33240,12 @@ body .page,body .page.on{background:transparent!important}
   #page-draft .controls.dvc .dvc-search input{ font-size:15px!important; }
   #page-draft .controls.dvc .dvc-search-ic svg{ width:18px!important; height:18px!important; }
   /* light theme variants */
-  [data-theme="light"] #page-draft .controls.dvc .dvc-seg,
   [data-theme="light"] #page-draft .controls.dvc .dvc-search{
     background:rgba(255,255,255,0.55)!important; border:1px solid rgba(29,40,66,0.14)!important;
   }
   /* consolidated mobile SORT row → glassy chips to match */
   #pm-sortbar{ background:transparent!important; border-bottom:none!important; padding:4px 2px 8px!important; }
-  #pm-sortbar .pm-sortchip{
-    background:rgba(17,29,54,0.42)!important;
-    backdrop-filter:blur(14px) saturate(150%); -webkit-backdrop-filter:blur(14px) saturate(150%);
-    border:1px solid rgba(123,170,240,0.16)!important; border-radius:11px!important; padding:8px 14px!important; font-size:12px!important;
-  }
-  #pm-sortbar .pm-sortchip.on{ background:linear-gradient(135deg,var(--accent),var(--accent2))!important; border-color:transparent!important; color:#fff!important; }
-  [data-theme="light"] #pm-sortbar .pm-sortchip{ background:rgba(255,255,255,0.55)!important; border:1px solid rgba(29,40,66,0.14)!important; }
+  /* glass chip skin retired with the rest of the draft-page glass — .vseg */
 }
 
 /* ---- accessibility: respect reduced motion ---- */
@@ -34648,10 +34570,11 @@ body .page,body .page.on{background:transparent!important}
 #page-betting .bt-sub{font-size:var(--t-secondary);color:var(--bt-muted);line-height:1.5;max-width:560px}
 #page-betting .bt-live{display:inline-flex;align-items:center;gap:7px;font-family:var(--bt-mono);font-size:var(--t-micro);color:var(--bt-rb);border:1px solid var(--bt-border2);background:var(--bt-s1);padding:7px 12px;border-radius:9999px;white-space:nowrap}
 #page-betting .bt-live .bt-dot{width:7px;height:7px;border-radius:50%;background:var(--bt-rb);box-shadow:0 0 8px var(--bt-rb)}
-#page-betting .bt-seg{display:inline-flex;gap:3px;background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:11px;padding:4px}
-#page-betting .bt-seg button{border:none;background:transparent;color:var(--bt-muted);font-size:var(--t-secondary);font-weight:600;font-family:inherit;padding:8px 15px;border-radius:8px;cursor:pointer}
-#page-betting .bt-seg button:hover{color:var(--bt-text)}
-#page-betting .bt-seg button.on{background:color-mix(in srgb,var(--bt-accent2) 18%,transparent);color:var(--bt-text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bt-accent2) 45%,transparent)}
+/* Betting runs its own token scope, so it RETINTS the shared strip rather than
+   redefining it — this is the pattern any future scoped skin should copy
+   (vault-ds.css §20). */
+#page-betting .bt-seg{ --vseg-bg:var(--bt-s1); --vseg-border:var(--bt-border); --vseg-ink:var(--bt-muted); }
+#page-betting .bt-seg > button:hover, #page-betting .bt-seg > button.on{ color:var(--bt-text); }
 #page-betting .bt-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
 #page-betting .bt-tag{font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--bt-gold);border:1px solid rgba(245,200,66,.3);background:rgba(245,200,66,.08);padding:5px 10px;border-radius:7px}
 #page-betting .bt-spacer{flex:1}
@@ -35296,10 +35219,7 @@ body .page,body .page.on{background:transparent!important}
 .adp-viewbar-left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .adp-seg-group{display:flex;align-items:center;gap:8px}
 .adp-seg-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-.adp-seg{display:inline-flex;background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:3px;gap:2px}
-.adp-seg button{appearance:none;background:transparent;border:none;border-radius:var(--radius-pill);padding:5px 12px;font-family:var(--font-sans);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:color .12s,background .12s;white-space:nowrap}
-.adp-seg button:hover{color:var(--text2)}
-.adp-seg button.on{background:var(--accent);color:#fff}
+/* ADP's pill-radius box + accent fill → the shared .vseg (vault-ds.css §20). */
 .adp-board-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .adp-poschips{display:inline-flex;gap:5px}
 .adp-poschips button{appearance:none;background:var(--s1);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--muted);cursor:pointer;transition:background .12s,border-color .12s,color .12s,box-shadow .12s,transform .12s,opacity .12s}
@@ -35356,7 +35276,6 @@ body .page,body .page.on{background:transparent!important}
 @media(max-width:700px){
   .adp-viewbar{gap:10px}
   .adp-board-controls{gap:10px}
-  .adp-seg button{padding:5px 10px;font-size:11px}
   .adp-bd-name{font-size:11px}
   .adp-movers-cols{grid-template-columns:1fr}
   .adp-mv-name{font-size:12px}
@@ -35365,7 +35284,6 @@ body .page,body .page.on{background:transparent!important}
   .adp-type-btn{padding:7px 13px;font-size:12px}
   .adp-tbl thead th,.adp-tbl tbody td{padding:8px 6px}
   .adp-pl-name{font-size:13px}
-  .adp-scoring-seg button{padding:5px 8px;font-size:9px}
   .adp-controls{gap:7px}
 }
 
@@ -38525,32 +38443,21 @@ else { _ssInjectPage();_ssInjectNav(); }
   background:transparent!important; border-top:none!important; border-bottom:none!important;
   padding:12px 24px 2px!important;
 }
-#page-draft .controls.dvc .dvc-seg{
-  background:var(--s2)!important; border:1px solid var(--border)!important;
-  border-radius:9px!important; padding:3px!important;
-}
-#page-draft .controls.dvc .mode-seg .dv-mode{ text-transform:none!important; letter-spacing:0!important; font-size:12.5px!important; font-weight:600!important; padding:5px 12px!important; border-radius:6px!important; }
-#page-draft .controls.dvc .mode-seg .dv-mode.on{
-  background:var(--accent)!important; color:#fff!important; box-shadow:0 1px 3px rgba(0,0,0,.4);
-}
-#page-draft .controls.dvc .pos-seg{
-  background:var(--s1)!important; border:1px solid var(--border2)!important;
-  border-radius:8px!important; padding:0!important; gap:0!important; overflow:hidden;
-}
-#page-draft .controls.dvc .pos-seg .fbtn{
-  border:none!important; border-right:1px solid var(--border)!important; border-radius:0!important;
-  height:30px; padding:0 12px!important; font-family:var(--font-mono)!important;
-  font-size:11px!important; font-weight:700!important; letter-spacing:.04em!important;
-}
-#page-draft .controls.dvc .pos-seg .fbtn:last-child{ border-right:none!important; }
-#page-draft .controls.dvc .pos-seg .fbtn.on{ background:var(--s3)!important; }
+/* The strip box, the mode-seg type ramp and the joined-cell pos-seg that used
+   to live here are all .vseg now (vault-ds.css §20). The joined-cell look in
+   particular is gone on purpose: it was the only strip in the app with no
+   inner gap, which left the travelling pill nothing to sit inside. */
+/* The select and the search sit in the same row as the two strips, so they take
+   the strip's box: 40px tall (32px segment + 3px inset + 1px border, both
+   sides), 9px radius, --border. They were 32/8 back when pos-seg was a
+   zero-padding joined-cell group; against a .vseg they read 8px short. */
 #page-draft .controls.dvc .dvc-src-select{
-  height:32px!important; border:1px solid var(--border2)!important; border-radius:8px!important;
+  height:40px!important; border:1px solid var(--border)!important; border-radius:9px!important;
   font-size:12.5px!important; font-weight:600!important;
 }
 #page-draft .controls.dvc .dv-spacer{ display:none; }
 #page-draft .controls.dvc .dvc-search{
-  height:32px!important; border:1px solid var(--border2)!important; border-radius:8px!important;
+  height:40px!important; border:1px solid var(--border)!important; border-radius:9px!important;
   flex:1 1 auto!important; max-width:none!important; margin-left:6px;
 }
 #page-draft .controls.dvc .dvc-search:focus-within{
@@ -38679,18 +38586,12 @@ else { _ssInjectPage();_ssInjectNav(); }
 .rh-scope .rh-sub{ font-size:12.5px; color:var(--muted); }
 .rh-scope .rh-head{ margin-bottom:16px!important; }
 
-/* ── Data/Compare mode seg: pill tabs, flat steel active ── */
-.rh-scope .rh-modeseg{ background:var(--s2)!important; border:1px solid var(--border)!important; border-radius:9px!important; padding:3px!important; gap:2px!important; }
-.rh-scope .rh-modeseg button{ border-radius:6px!important; padding:6px 14px!important; font-size:12.5px!important; }
-.rh-scope .rh-modeseg button.on{ background:var(--accent)!important; color:#fff!important; box-shadow:0 1px 3px rgba(0,0,0,.4)!important; }
+/* Data/Compare mode seg + filter segs were restyled here; that look IS the
+   .vseg box now (vault-ds.css §20), so these layers are gone. */
 
 /* ── filters: quiet row instead of a bordered card ── */
 .rh-scope .rh-filters{ background:transparent!important; border:none!important; border-radius:0!important; padding:2px 0!important; gap:18px!important; margin-bottom:12px!important; }
 .rh-scope .rh-flabel{ font-family:var(--font-mono)!important; font-size:9.5px!important; font-weight:700!important; letter-spacing:.1em!important; text-transform:uppercase!important; color:var(--muted)!important; }
-.rh-scope .rh-seg{ background:var(--s2)!important; border:1px solid var(--border)!important; border-radius:9px!important; padding:3px!important; gap:2px!important; }
-.rh-scope .rh-segbtn{ border-radius:6px!important; padding:5px 14px!important; font-size:12.5px!important; font-weight:600!important; }
-.rh-scope .rh-segbtn.on{ background:var(--accent)!important; color:#fff!important; box-shadow:0 1px 3px rgba(0,0,0,.4)!important; }
-.rh-scope .rh-seg.pos .rh-segbtn.on{ background:var(--s4)!important; color:var(--pc)!important; box-shadow:none!important; }
 
 /* ── search / ask / tools: 1px borders, steel focus ring ── */
 .rh-scope .rh-search, .rh-scope .rh-cmp-search, .rh-scope .rh-ask-bar{
@@ -39058,25 +38959,22 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   -webkit-text-fill-color:var(--rail-ink, #fff) !important;
 }
 
-/* The pill IS the active background now, so each strip's own .on fill has to go
-   or you get a chip inside a chip. Scoped to wired strips (.vrail-- is added by
-   JS), so nothing changes if the script never runs.
-
-   These are written per-strip rather than as one `.vrail--fill .on` because the
-   rules they override are themselves !important at higher specificity — e.g.
-   `.rh-scope .rh-seg.pos .rh-segbtn.on` (0,4,0) and
-   `#page-draft .controls.dvc .pos-seg .fbtn.QB.on` (1,4,0). A short selector
-   loses to those even with !important. */
-.rh-scope .rh-seg.pos.vrail--fill .rh-segbtn.on,
-#page-draft .controls.dvc .pos-seg.vrail--fill .fbtn.on,
-.res-seg.res-pos-seg.vrail--fill .res-segbtn.on,
-#adp-poschips.vrail--fill button.on,
+/* This used to be a long per-strip list, because each strip painted its own
+   active fill with !important at (0,4,0)/(1,4,0) and a short neutraliser lost
+   to it. Those fills are gone — .vseg (vault-ds.css §20) leaves `.on`
+   backgroundless and the only strip-owned fills left are guarded by
+   `:not(.vrail)`, so they switch themselves off. What remains are the two
+   strips that are NOT .vseg and still paint their own state: the desktop nav
+   and the mobile dock. */
 .nav.desktop-nav.vrail--fill .on,
 .bottom-tab-bar.vrail--soft .tab-btn.on{
   background:transparent !important;
   box-shadow:none !important;
 }
-/* Ink flips per position colour — set on the strip by vaultRails(). */
+/* Ink flips per position colour — set on the strip by vaultRails(). The
+   position strips need the taller selector because
+   `[data-theme="onyx"] … button.on` sets -webkit-text-fill-color !important at
+   (0,4,0), and that beats `color` at paint time. */
 .rh-scope .rh-seg.pos.vrail--fill .rh-segbtn.on,
 #page-draft .controls.dvc .pos-seg.vrail--fill .fbtn.on,
 .res-seg.res-pos-seg.vrail--fill .res-segbtn.on,
@@ -39084,18 +38982,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .nav.desktop-nav.vrail--fill .on,
 .mr-seg.vrail--fill button.on{
   color:var(--rail-ink, #fff) !important;
-  /* [data-theme="onyx"] .mr-seg button.on sets -webkit-text-fill-color
-     !important, which beats `color` at paint time — so it has to be set too. */
   -webkit-text-fill-color:var(--rail-ink, #fff) !important;
-}
-
-/* .mr-seg's own active fill (grey --s4 on .posseg, gradient elsewhere) has to
-   go so the pill shows through. The rules it beats are not !important, so
-   specificity does not matter here — but #P .mr-seg.posseg button.on carries an
-   ID, which is exactly why this needs !important rather than a longer selector. */
-.mr-seg.vrail--fill button.on{
-  background:transparent !important;
-  box-shadow:none !important;
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -39906,6 +39793,13 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     { sel:'.pp-ptabs', skin:'soft', inset:'4px', radius:'11px' },
     { sel:'.mr-seg:not(.posseg)', skin:'fill', inset:'3px', radius:'7px',
       bg:'linear-gradient(135deg,var(--accent),var(--accent2))', ink:'#fff' },
+    // Free-pill strips: no container box, so the pill is a full-height capsule
+    // rather than something inset into a track.
+    { sel:'.pp-tabs, .vcaps', skin:'fill', inset:'0px', radius:'9999px' },
+    //   #pm-sortbar is a .vseg for its box/type/hit-area but is deliberately
+    //   NOT wired: its `.on` chip is whichever of #pmsort-rk / #pmsort-dyn the
+    //   format toggle hid, so `.on` is routinely display:none. The pill then
+    //   measures 0×0 and parks over the "SORT" label instead of a chip.
     // Everything else with an .on child — wired by class FAMILY, not by
     // modifier, so a new `.rh-seg foo` variant is covered automatically. Order
     // matters: the coloured/position entries above claim their strips first
@@ -39918,7 +39812,8 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     //   #vp-platforms — flex-direction:column; the pill only animates
     //     left/width, so it cannot track a vertical strip
     { sel:'.rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg, .bt-seg,'
-       + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .vcaps, #vp-chips',
+       + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .pp-seg, .rdv-seg,'
+       + ' .lr-srctoggle, #vp-chips',
       skin:'fill', inset:'3px', radius:'7px' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];

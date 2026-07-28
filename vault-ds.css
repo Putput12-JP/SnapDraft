@@ -718,3 +718,246 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   .rail > .pill                     { transition:none !important; }
   .spinner                          { animation:none !important; opacity:.6; }
 }
+
+/* ── 20. SEGMENTED CONTROL ── .vseg ──────────────────────────────────
+   ONE box for every filter strip in the app. Vault used to carry 28 of
+   these, each with its own background, border, radius, padding, type ramp
+   and active fill — the same control rendered eight different ways
+   depending on which page you were on, and at 24px tall on mobile.
+
+     <div class="vseg"><button class="on">Market</button><button>Mine</button></div>
+
+   Rules of the road:
+
+   1. THE PILL OWNS "ACTIVE". `vaultRails()` (§19.2) paints the active
+      background as a travelling pill, so .vseg deliberately sets NO
+      background on `.on` — a strip that paints its own active fill gives
+      you a chip inside a chip. The only active fill here is the
+      `:not(.vrail)` fallback below, which exists purely so an unwired or
+      not-yet-wired strip still shows a selection; it switches itself off
+      the moment vaultRails() adds .vrail.
+   2. CHILDREN ARE `<button>`. Every strip in the app already is. The
+      child selector is `>` so nested controls don't inherit.
+   3. RETINT WITH THE VARS, don't re-declare the box. Betting runs its own
+      token scope (--bt-*), so it sets --vseg-bg/-border/-ink rather than
+      redefining .vseg. Any future scoped skin does the same.
+
+   The legacy class names are aliased onto this rule set rather than
+   renamed in markup — JS across index.html queries them by name
+   (`.rh-seg`, `.dvc-seg .sbtn`, …) and several are built from template
+   literals. Aliasing gets one implementation with none of that risk. New
+   strips should use `.vseg` and add nothing here.
+
+   NOT aliased, on purpose: .lh-tabsel (mobile dropdown, not a strip),
+   .bottom-tab-bar and .nav.desktop-nav (nav — pinned to --primary /
+   --on-primary), #vp-platforms (vertical). Same exclusions as RAILS.   */
+.vseg, .rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg,
+.adp-scoring-seg, .bt-seg, .tc-seg, .tc-eng-tabs, .tc-mode-tabs, .mr-seg,
+.pp-ptabs, .pp-seg, .src-seg, .rdv-seg, .lr-srctoggle, .lc-fmt, .lc-subnav {
+  position:relative;
+  display:inline-flex; align-items:center; flex-shrink:0;
+  gap:2px; padding:3px; max-width:100%;
+  background:var(--vseg-bg, var(--s2));
+  border:1px solid var(--vseg-border, var(--border));
+  border-radius:9px;
+}
+
+/* — the segment — one type ramp, one hit area, no active fill of its own. */
+.vseg > button, .rh-seg > button, .rh-modeseg > button, .res-seg > button,
+.dvc-seg > button, .adp-seg > button, .adp-scoring-seg > button,
+.bt-seg > button, .tc-seg > button, .tc-eng-tabs > button,
+.tc-mode-tabs > button, .mr-seg > button, .pp-ptabs > button,
+.pp-seg > button, .src-seg > button, .rdv-seg > button,
+.lr-srctoggle > button, .lc-fmt > button, .lc-subnav > button,
+.vcaps > button, .pp-tabs > button, .pm-sortbar > button,
+.la-tabs > button, #page-teams .lr-tabs > button {
+  position:relative;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  min-height:32px; padding:0 14px;
+  border:0; background:transparent; border-radius:6px;
+  color:var(--vseg-ink, var(--muted));
+  font-family:var(--font-sans); font-size:12.5px; font-weight:600;
+  letter-spacing:-.01em; white-space:nowrap;
+  cursor:pointer;
+  /* Colour-only feedback under 150ms may stay on plain ease (§19). The pill
+     carries the movement; the segment must not also animate its own box. */
+  transition:color .12s ease;
+}
+
+/* Several strips are built from buttons that ALSO exist standalone elsewhere
+   — .sbtn and .fbtn on the draft toolbar, .la-tab in the league header — and
+   those classes carry their own border, fill and uppercase treatment, some of
+   it !important. Inside a strip the STRIP is the chrome, so the standalone
+   look is stripped here rather than by editing every caller. Specificity is
+   (0,1,1); the few ID-scoped !important rules that outranked it were deleted
+   or narrowed at their source instead. */
+.vseg > button, .rh-seg > button, .rh-modeseg > button, .res-seg > button,
+.dvc-seg > button, .adp-seg > button, .adp-scoring-seg > button,
+.bt-seg > button, .tc-seg > button, .tc-eng-tabs > button,
+.tc-mode-tabs > button, .mr-seg > button, .pp-ptabs > button,
+.pp-seg > button, .src-seg > button, .rdv-seg > button,
+.lr-srctoggle > button, .lc-fmt > button, .lc-subnav > button,
+.vcaps > button, .pp-tabs > button, .pm-sortbar > button,
+.la-tabs > button, #page-teams .lr-tabs > button {
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  text-transform:none !important;
+}
+.vseg > button:hover, .rh-seg > button:hover, .rh-modeseg > button:hover,
+.res-seg > button:hover, .dvc-seg > button:hover, .adp-seg > button:hover,
+.adp-scoring-seg > button:hover, .bt-seg > button:hover,
+.tc-seg > button:hover, .tc-eng-tabs > button:hover,
+.tc-mode-tabs > button:hover, .mr-seg > button:hover,
+.pp-ptabs > button:hover, .pp-seg > button:hover, .src-seg > button:hover,
+.rdv-seg > button:hover, .lr-srctoggle > button:hover,
+.lc-fmt > button:hover, .lc-subnav > button:hover, .vcaps > button:hover,
+.pp-tabs > button:hover, .pm-sortbar > button:hover,
+.la-tabs > button:hover, #page-teams .lr-tabs > button:hover {
+  color:var(--text);
+}
+.vseg > button.on, .rh-seg > button.on, .rh-modeseg > button.on,
+.res-seg > button.on, .dvc-seg > button.on, .adp-seg > button.on,
+.adp-scoring-seg > button.on, .bt-seg > button.on, .tc-seg > button.on,
+.tc-eng-tabs > button.on, .tc-mode-tabs > button.on, .mr-seg > button.on,
+.pp-ptabs > button.on, .pp-seg > button.on, .src-seg > button.on,
+.rdv-seg > button.on, .lr-srctoggle > button.on, .lc-fmt > button.on,
+.lc-subnav > button.on, .vcaps > button.on, .pp-tabs > button.on,
+.pm-sortbar > button.on, .la-tabs > button.on,
+#page-teams .lr-tabs > button.on {
+  color:var(--text);
+}
+
+/* Fallback selection for a strip vaultRails() has not claimed — either never
+   (.pp-tabs is not in RAILS) or not yet, since strips rebuilt from template
+   literals are unwired for a beat. It goes quiet the instant .vrail lands, so
+   it can never double up with the pill. !important because the legacy-chrome
+   reset above is itself !important; this is more specific (0,3,1 vs 0,1,1),
+   which is what wins the tie. */
+.vseg:not(.vrail) > button.on, .rh-seg:not(.vrail) > button.on,
+.rh-modeseg:not(.vrail) > button.on, .res-seg:not(.vrail) > button.on,
+.dvc-seg:not(.vrail) > button.on, .adp-seg:not(.vrail) > button.on,
+.adp-scoring-seg:not(.vrail) > button.on, .bt-seg:not(.vrail) > button.on,
+.tc-seg:not(.vrail) > button.on, .tc-eng-tabs:not(.vrail) > button.on,
+.tc-mode-tabs:not(.vrail) > button.on, .mr-seg:not(.vrail) > button.on,
+.pp-ptabs:not(.vrail) > button.on, .pp-seg:not(.vrail) > button.on,
+.src-seg:not(.vrail) > button.on, .rdv-seg:not(.vrail) > button.on,
+.lr-srctoggle:not(.vrail) > button.on, .lc-fmt:not(.vrail) > button.on,
+.lc-subnav:not(.vrail) > button.on, .vcaps:not(.vrail) > button.on,
+.pp-tabs:not(.vrail) > button.on, .pm-sortbar:not(.vrail) > button.on,
+.la-tabs:not(.vrail) > button.on,
+#page-teams .lr-tabs:not(.vrail) > button.on {
+  background:var(--s4) !important;
+}
+
+.vseg > button svg, .rh-seg > button svg, .rh-modeseg > button svg,
+.res-seg > button svg, .dvc-seg > button svg, .adp-seg > button svg,
+.adp-scoring-seg > button svg, .bt-seg > button svg, .tc-seg > button svg,
+.tc-eng-tabs > button svg, .tc-mode-tabs > button svg,
+.mr-seg > button svg, .pp-ptabs > button svg, .pp-seg > button svg,
+.src-seg > button svg, .rdv-seg > button svg, .lr-srctoggle > button svg,
+.lc-fmt > button svg, .lc-subnav > button svg, .vcaps > button svg,
+.pp-tabs > button svg, .pm-sortbar > button svg, .la-tabs > button svg,
+#page-teams .lr-tabs > button svg {
+  width:15px; height:15px; stroke-linecap:round; stroke-linejoin:round;
+}
+.vseg > button:disabled, .rh-seg > button:disabled,
+.rh-modeseg > button:disabled, .res-seg > button:disabled,
+.dvc-seg > button:disabled, .adp-seg > button:disabled,
+.adp-scoring-seg > button:disabled, .bt-seg > button:disabled,
+.tc-seg > button:disabled, .tc-eng-tabs > button:disabled,
+.tc-mode-tabs > button:disabled, .mr-seg > button:disabled,
+.pp-ptabs > button:disabled, .pp-seg > button:disabled,
+.src-seg > button:disabled, .rdv-seg > button:disabled,
+.lr-srctoggle > button:disabled, .lc-fmt > button:disabled,
+.lc-subnav > button:disabled, .vcaps > button:disabled,
+.pp-tabs > button:disabled, .la-tabs > button:disabled,
+#page-teams .lr-tabs > button:disabled {
+  opacity:.4; cursor:default;
+}
+
+/* — sizes — press depth in §19 works the same way: a denser strip gets a
+   smaller step, not a smaller copy of the same step. */
+.vseg.sm > button, .rh-seg.sm > button, .tc-seg.sm > button,
+.mr-seg.sm > button, .dvc-seg.sm > button {
+  min-height:28px; padding:0 11px; font-size:11.5px;
+}
+.vseg.lg > button { min-height:36px; padding:0 16px; font-size:13px; }
+
+/* — fluid — strip stretches, segments share the width evenly. */
+.vseg.fluid, .rh-scope .rh-seg, .rh-scope .rh-modeseg { display:flex; }
+.vseg.fluid > button, .rh-scope .rh-seg > button,
+.rh-scope .rh-modeseg > button { flex:1 1 0; }
+
+/* — scroll — a strip too wide for its container scrolls rather than wrapping
+   or clipping. The 320px finding in the 2026-06-29 responsiveness check was a
+   tab strip that did neither and put its third tab out of reach. The pill
+   lives INSIDE the strip (§19.2 trap 3), so it scrolls with the segments. */
+.vseg.scroll, .vcaps, .pp-tabs, .pm-sortbar, .pp-ptabs, .la-tabs,
+#page-teams .lr-tabs {
+  overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.vseg.scroll::-webkit-scrollbar, .vcaps::-webkit-scrollbar,
+.pp-tabs::-webkit-scrollbar, .pm-sortbar::-webkit-scrollbar,
+.pp-ptabs::-webkit-scrollbar,
+.la-tabs::-webkit-scrollbar,
+#page-teams .lr-tabs::-webkit-scrollbar { display:none; }
+
+/* — free — no box; the segments float directly on the page (mobile caps strip,
+   player-profile tabs). Same type, same hit area, no container chrome. */
+.vseg.free, .vcaps, .pp-tabs, .pm-sortbar {
+  position:relative;
+  display:flex; align-items:center;
+  background:none; border:0; padding:0; gap:6px;
+}
+.vseg.free > button, .vcaps > button, .pp-tabs > button,
+.pm-sortbar > button {
+  border-radius:var(--radius-pill);
+}
+
+/* — bar — underline tabs. One shared 2px bar travels (.v-pill--bar); the strip
+   only draws the hairline it rides on. Segments square off and sit flush. */
+.vseg.bar, .la-tabs, #page-teams .lr-tabs {
+  position:relative;
+  display:flex; align-items:center;
+  gap:0; padding:0;
+  background:none; border:0; border-radius:0;
+  border-bottom:1px solid var(--border);
+}
+.vseg.bar > button, .la-tabs > button, #page-teams .lr-tabs > button {
+  min-height:40px; padding:0 14px; border-radius:0; flex-shrink:0;
+}
+
+/* — mobile hit area — WCAG 2.5.5 wants 44px; these strips were shipping 24px
+   (26px buttons under a transform:scale(.92) that no longer exists). Growing
+   the segment to 44 would make a 50px-tall strip, so the visual box goes to 36
+   and a transparent ::after carries the rest. Vertical only: horizontal slop
+   would overlap the neighbouring segment and steal its taps. */
+@media (max-width:768px){
+  .vseg > button, .rh-seg > button, .rh-modeseg > button,
+  .res-seg > button, .dvc-seg > button, .adp-seg > button,
+  .adp-scoring-seg > button, .bt-seg > button, .tc-seg > button,
+  .tc-eng-tabs > button, .tc-mode-tabs > button, .mr-seg > button,
+  .pp-ptabs > button, .pp-seg > button, .src-seg > button,
+  .rdv-seg > button, .lr-srctoggle > button, .lc-fmt > button,
+  .lc-subnav > button, .vcaps > button, .pp-tabs > button,
+  .pm-sortbar > button, .la-tabs > button,
+  #page-teams .lr-tabs > button {
+    min-height:36px; padding:0 12px;
+  }
+  .vseg > button::after, .rh-seg > button::after,
+  .rh-modeseg > button::after, .res-seg > button::after,
+  .dvc-seg > button::after, .adp-seg > button::after,
+  .adp-scoring-seg > button::after, .bt-seg > button::after,
+  .tc-seg > button::after, .tc-eng-tabs > button::after,
+  .tc-mode-tabs > button::after, .mr-seg > button::after,
+  .pp-ptabs > button::after, .pp-seg > button::after,
+  .src-seg > button::after, .rdv-seg > button::after,
+  .lr-srctoggle > button::after, .lc-fmt > button::after,
+  .lc-subnav > button::after, .vcaps > button::after,
+  .pp-tabs > button::after, .pm-sortbar > button::after,
+  .la-tabs > button::after,
+  #page-teams .lr-tabs > button::after {
+    content:''; position:absolute; left:0; right:0; top:-4px; bottom:-4px;
+  }
+}
