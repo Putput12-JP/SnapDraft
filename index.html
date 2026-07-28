@@ -20525,8 +20525,8 @@ function _wcDroppables(d, entry){
 // the opener, and reading `lg.season` is what left every incoming rookie without
 // a projection — they don't exist in last season's feed.
 window._wcProjCache = window._wcProjCache || {};
-async function _wcUpcoming(){
-  if(window._wcUpcomingMemo) return window._wcUpcomingMemo;
+async function _wcUpcoming(force){
+  if(window._wcUpcomingMemo && !force) return window._wcUpcomingMemo;
   let st = {};
   try { st = await fetch('https://api.sleeper.app/v1/state/nfl').then(r=>r.json()); } catch(e){}
   return (window._wcUpcomingMemo = {
@@ -20534,9 +20534,9 @@ async function _wcUpcoming(){
     week: Math.max(1, st.week || st.display_week || 1)
   });
 }
-async function _wcSleeperProjFeed(lg, season, week){
+async function _wcSleeperProjFeed(lg, season, week, force){
   if(typeof _rdvFetchProjections!=='function') return null;
-  const map = await _rdvFetchProjections(season, week);
+  const map = await _rdvFetchProjections(season, week, force);
   // Score the raw stat line with THIS league's full scoring_settings, the same
   // way the matchup card does — a half-PPR league must not read PPR points.
   const scoring = (lg && lg.scoring_settings) || 1;
@@ -20580,13 +20580,15 @@ async function _wcEspnProjFeed(lg, season, week){
   });
   return { byPid, byName, week, season, source:'ESPN' };
 }
-async function _wcProjFeed(lg){
-  const { season, week } = await _wcUpcoming();
+// force=true drops both cache layers AND re-reads state/nfl, so Re-scan also
+// picks up a week rollover — the session memo would otherwise pin the old week.
+async function _wcProjFeed(lg, force){
+  const { season, week } = await _wcUpcoming(force);
   const espn = !!(typeof vpPlat==='function' && lg && vpPlat(lg)==='espn');
   const key = ((lg&&lg.league_id)||'-') + '|' + season + '|' + week;
-  if(window._wcProjCache[key]) return window._wcProjCache[key];
+  if(window._wcProjCache[key] && !force) return window._wcProjCache[key];
   let feed = null;
-  try { feed = espn ? await _wcEspnProjFeed(lg, season, week) : await _wcSleeperProjFeed(lg, season, week); }
+  try { feed = espn ? await _wcEspnProjFeed(lg, season, week) : await _wcSleeperProjFeed(lg, season, week, force); }
   catch(e){ console.warn('[Vault] projection feed failed:', e); }
   // An unreachable feed must not blank the card — the rows still carry value,
   // trend and bid, they just lose the projection line.
@@ -20675,7 +20677,7 @@ async function renderWaiverCommand(force){
       let proj = null, projSrc = '';
       if(bestFA){
         try {
-          const feed = await _wcProjFeed(d.lg);
+          const feed = await _wcProjFeed(d.lg, force);
           const hit = feed.byPid[String(bestFA.pid)] || feed.byName[normName(bestFA.name)] || null;
           if(hit && hit.pts != null){ proj = hit.pts; projSrc = feed.source + ' WK' + feed.week; }
         } catch(e){}
@@ -20751,15 +20753,65 @@ async function wcLeagueBrowser(lid){
   const e = await _wcLoadLeague(d).catch(()=>null);
   if(!e) return;
   const fas = e.faSorted.slice(0, 30);
+  // Same weekly projection feed the "Best available by league" table reads, so
+  // the number here can never disagree with the Proj column on the card behind
+  // this modal. One fetch for the whole list — _wcProjFeed is cached per league.
+  const feed = await _wcProjFeed(d.lg).catch(()=>null);
+  const projOf = p => {
+    if(!feed) return null;
+    const hit = feed.byPid[String(p.pid)] || feed.byName[normName(p.name)] || null;
+    return hit && hit.pts != null ? hit.pts : null;
+  };
+  const anyProj = fas.some(p => projOf(p) != null);
+  // Two layouts, one markup. Wide: aligned VALUE / PROJ columns. Narrow: the
+  // modal is only ~291px inside its padding, and two numeric columns starve the
+  // name to ~67px — names wrapped and rows went ragged. So under 480px the
+  // columns collapse into a meta line under the name, which keeps every row one
+  // height and gives the name the full width. Namespaced + shipped with the
+  // modal body so nothing in the page cascade can reach it.
+  const css = `<style>
+    .wcfa-h{position:sticky;top:0;z-index:1;background:var(--s1);display:flex;align-items:center;gap:10px;padding:2px 0 6px;border-bottom:1px solid var(--border2);font-size:9.5px;font-weight:700;letter-spacing:.09em;color:var(--muted)}
+    .wcfa-r{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);font-size:13px}
+    .wcfa-r img{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s2);flex-shrink:0}
+    .wcfa-nm{flex:1;min-width:0;font-weight:600}
+    .wcfa-nm .pos{color:var(--muted);font-size:11px;font-weight:600}
+    .wcfa-v,.wcfa-p{text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+    .wcfa-v{width:46px;color:var(--muted);font-size:12px}
+    .wcfa-p{width:44px;font-size:12.5px;font-weight:700}
+    .wcfa-p.none{color:var(--muted);font-weight:400}
+    .wcfa-b{width:66px;flex-shrink:0;padding:5px 0;border-radius:7px;background:rgba(61,204,122,0.12);border:1px solid rgba(61,204,122,0.3);color:#3DCC7A;font-weight:700;font-size:11.5px;cursor:pointer}
+    .wcfa-sub{display:none;font-size:11px;color:var(--muted);font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums}
+    .wcfa-sub b{color:var(--text);font-weight:700}
+    @media(max-width:480px){
+      .wcfa-h{display:none}
+      .wcfa-v,.wcfa-p{display:none}
+      .wcfa-sub{display:block}
+    }
+  </style>`;
+  const head = `<div class="wcfa-h">
+      <span style="width:26px;flex-shrink:0"></span>
+      <span style="flex:1">PLAYER</span>
+      <span style="width:46px;text-align:right">VALUE</span>
+      <span style="width:44px;text-align:right">PROJ</span>
+      <span style="width:66px"></span>
+    </div>`;
   pfLcModal({
     title: d.lg.name,
-    subtitle: 'Top available free agents by your values',
-    bodyHtml: fas.map(p => `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);font-size:13px">
-        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,28):'')}" onerror="this.style.display='none'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s2)">
-        <span style="flex:1;font-weight:600">${p.name} <span style="color:var(--muted);font-size:11px">${p.pos} ${p.team?'· '+p.team:''}</span></span>
-        <span style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px">${p.val.toLocaleString()}</span>
-        <button onclick="wcClaimModal('${lid}','${p.name.replace(/'/g,"\\'")}')" style="padding:5px 12px;border-radius:7px;background:rgba(61,204,122,0.12);border:1px solid rgba(61,204,122,0.3);color:#3DCC7A;font-weight:700;font-size:11.5px;cursor:pointer">+ Claim</button>
-      </div>`).join('') || '<div style="padding:20px;color:var(--muted)">No ranked free agents found.</div>',
+    subtitle: 'Top available free agents by your values'
+      + (anyProj ? ` · ${feed.source} week ${feed.week} projections` : ''),
+    bodyHtml: (fas.length ? css + head + fas.map(p => {
+      const pr = projOf(p);
+      const shown = pr != null ? pr.toFixed(1) : '—';
+      const tip = pr != null ? ` title="${feed.source} week ${feed.week} projection"` : '';
+      return `<div class="wcfa-r">
+        <img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(p.name,p.pid,28):'')}" onerror="this.style.display='none'">
+        <div class="wcfa-nm"><div>${p.name} <span class="pos">${p.pos} ${p.team?'· '+p.team:''}</span></div>
+          <div class="wcfa-sub">${p.val.toLocaleString()} val · <b>${shown}</b> proj</div></div>
+        <span class="wcfa-v">${p.val.toLocaleString()}</span>
+        <span class="wcfa-p${pr!=null?'':' none'}"${tip}>${shown}</span>
+        <button class="wcfa-b" onclick="wcClaimModal('${lid}','${p.name.replace(/'/g,"\\'")}')">+ Claim</button>
+      </div>`;
+    }).join('') : '') || '<div style="padding:20px;color:var(--muted)">No ranked free agents found.</div>',
     confirmLabel: 'Close',
     onConfirm: async () => {}
   });
@@ -31249,9 +31301,17 @@ window._rrpOpenTrades=_rrpOpenTrades;
 
 /* ── Shared: Sleeper weekly projections feed → pid→{name,pos,team,stats} ── */
 var _RDV_DST={ARI:'Cardinals',ATL:'Falcons',BAL:'Ravens',BUF:'Bills',CAR:'Panthers',CHI:'Bears',CIN:'Bengals',CLE:'Browns',DAL:'Cowboys',DEN:'Broncos',DET:'Lions',GB:'Packers',HOU:'Texans',IND:'Colts',JAX:'Jaguars',KC:'Chiefs',LV:'Raiders',LAC:'Chargers',LAR:'Rams',MIA:'Dolphins',MIN:'Vikings',NE:'Patriots',NO:'Saints',NYG:'Giants',NYJ:'Jets',PHI:'Eagles',PIT:'Steelers',SF:'49ers',SEA:'Seahawks',TB:'Buccaneers',TEN:'Titans',WAS:'Commanders'};
-async function _rdvFetchProjections(season, week){
+// force=true skips the 15-min localStorage window and re-pulls from Sleeper —
+// used by Waiver Command's Re-scan so an explicit refresh really is a refresh.
+window._rdvProjForcedAt = window._rdvProjForcedAt || {};
+async function _rdvFetchProjections(season, week, force){
   var key='rdv-proj-v2-'+season+'-'+week, rows=null;
-  try{ var c=localStorage.getItem(key); if(c){ var o=JSON.parse(c); if(Date.now()-o.t<15*60*1000) rows=o.d; } }catch(e){}
+  // This payload is keyed by season/week only, but Waiver Command asks for it
+  // once PER LEAGUE in a single pass. Collapse a forced refresh to one network
+  // hit — otherwise Re-scan re-pulls ~3k rows once for every league.
+  if(force && Date.now() - (window._rdvProjForcedAt[key]||0) < 30*1000) force = false;
+  if(force) window._rdvProjForcedAt[key] = Date.now();
+  try{ var c=force?null:localStorage.getItem(key); if(c){ var o=JSON.parse(c); if(Date.now()-o.t<15*60*1000) rows=o.d; } }catch(e){}
   if(!rows){
     try{ rows=await fetch('https://api.sleeper.com/projections/nfl/'+season+'/'+week+'?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF&order_by=pts_ppr',{mode:'cors',credentials:'omit'}).then(function(r){return r.ok?r.json():[];}); }catch(e){ rows=[]; }
     try{ localStorage.setItem(key, JSON.stringify({t:Date.now(),d:rows})); }catch(e){}
