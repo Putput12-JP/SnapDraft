@@ -29370,6 +29370,8 @@ function pickYear(year) {
   const fmtI = v => (v == null || !isFinite(v)) ? '—' : Math.round(v).toLocaleString();
   const POS_COLOR = { QB: 'var(--qb)', RB: 'var(--rb)', WR: 'var(--wr)', TE: 'var(--te)' };
 
+  const PP_MAX = 4;               // compare tabs the profile will hold at once
+
   const PLR = {
     name: (function () { try { return localStorage.getItem('vault.pp.player') || null; } catch (e) { return null; } })(),
     season: '2025', tab: 'overview', booted: false, token: 0,
@@ -29384,7 +29386,30 @@ function pickYear(year) {
     search: '', acOpen: false,
     seasonsSeg: ['2025', '2024', '2023'],
     ddOpen: false,                // season dropdown open state
+    // Compare tabs. Each slot parks that player's loaded log/career so flipping
+    // back to a tab is instant; PLR.* above is always the ACTIVE slot's copy.
+    slots: [], active: 0,
   };
+
+  /* Restore the compare set. Falls back to the single saved player, so state
+     written before tabs existed still opens on the right guy. */
+  (function () {
+    let names = [];
+    try { names = JSON.parse(localStorage.getItem('vault.pp.players') || '[]'); } catch (e) {}
+    if (!Array.isArray(names)) names = [];
+    names = names.filter(n => typeof n === 'string' && n.trim()).slice(0, PP_MAX);
+    if (PLR.name && names.indexOf(PLR.name) < 0) names.unshift(PLR.name);
+    PLR.slots = names.slice(0, PP_MAX).map(n => ({ name: n }));
+    PLR.active = Math.max(0, names.indexOf(PLR.name));
+    if (PLR.slots.length) PLR.name = PLR.slots[PLR.active].name;
+  })();
+
+  function persist() {
+    try {
+      localStorage.setItem('vault.pp.player', PLR.name || '');
+      localStorage.setItem('vault.pp.players', JSON.stringify(PLR.slots.map(s => s.name)));
+    } catch (e) {}
+  }
 
   /* ── data loaders (all cached, token-guarded re-renders) ── */
   const _rowsCache = {};
@@ -29551,6 +29576,29 @@ function pickYear(year) {
     ${S} .pp-dd-item:hover{background:var(--s3);color:var(--text)}
     ${S} .pp-dd-item.on{background:var(--accent);color:#fff}
     ${S} .pp-dd-ck{font-size:var(--t-label);opacity:.9}
+    /* Compare tabs. The active tab's fill is the travelling .v-pill wired by
+       vaultRails() (--soft skin, tinted by the player's position colour via
+       --rail-c). The .on background/ring below is the fallback for a page where
+       that script never ran — .vrail--soft .on kills both once it has. */
+    ${S} .pp-ptabs{position:relative;display:flex;align-items:stretch;gap:6px;margin:0 0 14px;padding:4px;background:var(--s2);border:1px solid var(--border2);border-radius:15px;overflow-x:auto;scrollbar-width:none}
+    ${S} .pp-ptabs::-webkit-scrollbar{display:none}
+    /* flex-shrink:0 — the strip scrolls; letting tabs squash overlaps the name
+       onto the next avatar the moment a fourth tab lands on a phone. */
+    ${S} .pp-ptab{display:flex;align-items:center;gap:9px;flex:0 0 auto;padding:7px 8px;border:none;border-radius:11px;background:transparent;cursor:pointer;min-width:0;color:var(--muted)}
+    ${S} .pp-ptab:hover{color:var(--text2)}
+    ${S} .pp-ptab.on{color:var(--text);background:color-mix(in srgb,var(--ptc,var(--accent2)) 15%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ptc,var(--accent2)) 26%,transparent)}
+    ${S} .pp-ptav{position:relative;width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--ptc,var(--border2))}
+    ${S} .pp-ptav img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
+    ${S} .pp-ptn{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left}
+    ${S} .pp-ptn b{font-family:var(--font-sans);font-size:var(--t-label);font-weight:700;letter-spacing:-.01em;line-height:1.15;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:132px}
+    ${S} .pp-ptn i{font-style:normal;font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.07em;color:var(--muted);white-space:nowrap}
+    ${S} .pp-ptab.on .pp-ptn i{color:var(--ptc,var(--accent2))}
+    ${S} .pp-ptx{width:19px;height:19px;flex-shrink:0;border:none;border-radius:6px;background:transparent;color:var(--muted);font-size:10px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 120ms ease,background 120ms ease,color 120ms ease}
+    ${S} .pp-ptab:hover .pp-ptx,${S} .pp-ptab.on .pp-ptx{opacity:.65}
+    ${S} .pp-ptx:hover{opacity:1;background:rgba(226,58,78,.16);color:var(--red2)}
+    ${S} .pp-ptadd{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px dashed var(--border2);border-radius:11px;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;letter-spacing:.09em;cursor:pointer;white-space:nowrap;flex-shrink:0}
+    ${S} .pp-ptadd:hover{color:var(--text);border-color:var(--accent2)}
+    ${S} .pp-ptfull{display:flex;align-items:center;padding:7px 13px;font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.1em;color:var(--muted);white-space:nowrap;flex-shrink:0}
     ${S} .pp-hero{display:flex;align-items:center;gap:20px;padding:20px 22px;background:var(--s1);border:1px solid var(--border2);border-radius:16px;margin-bottom:14px;flex-wrap:wrap}
     ${S} .pp-shot{width:88px;height:88px;border-radius:50%;padding:3px;flex-shrink:0;background:linear-gradient(135deg,var(--s4),var(--s2))}
     ${S} .pp-shot .in{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:var(--t-h1);color:var(--muted)}
@@ -29666,6 +29714,8 @@ function pickYear(year) {
       ${S} .pp-card{padding:13px}
       ${S} .pp-t th,${S} .pp-t td{padding:8px 5px;font-size:var(--t-label)}
       ${S} .pp-tabs button{min-height:44px}
+      ${S} .pp-ptn b{max-width:104px}
+      ${S} .pp-ptx{width:22px;height:22px;opacity:.65}
     }`;
     const el = document.createElement('style'); el.id = 'pp-vault-styles'; el.textContent = css; document.head.appendChild(el);
   }
@@ -29994,12 +30044,15 @@ function pickYear(year) {
     }).join('')}</div>`;
   }
 
+  function acPool() {
+    if (!PLR.idx) return [];
+    const q = PLR.search.trim().toLowerCase();
+    const pool = q ? PLR.idx.filter(p => p.name.toLowerCase().includes(q) || (p.team || '').toLowerCase().includes(q)) : PLR.idx;
+    return pool.slice(0, 8);
+  }
   function acHtml() {
     if (!PLR.acOpen || !PLR.idx) return '';
-    const q = PLR.search.trim().toLowerCase();
-    let pool = PLR.idx;
-    if (q) pool = pool.filter(p => p.name.toLowerCase().includes(q) || (p.team || '').toLowerCase().includes(q));
-    pool = pool.slice(0, 8);
+    const pool = acPool();
     if (!pool.length) return '<div class="pp-ac show"><div class="pp-note" style="padding:8px 10px;margin:0">No players found</div></div>';
     return `<div class="pp-ac show">${pool.map(p => `
       <button class="pp-ac-item" data-pp-pick="${esc(p.name)}">
@@ -30007,6 +30060,49 @@ function pickYear(year) {
         <span class="pp-ac-name">${esc(p.name)}</span>
         <span class="pp-ac-meta">${esc(p.pos)} · ${esc(p.team || '—')} · ${fmt(p.fpts, 0)} FP</span>
       </button>`).join('')}</div>`;
+  }
+
+  /* ── compare tabs ── */
+  function rowForName(n) {
+    const nn = D.normName(n);
+    return (PLR.rows || []).find(r => D.normName(r.name) === nn) || null;
+  }
+  function ptabsHtml() {
+    if (!PLR.slots.length) return '';
+    const posOf = i => {
+      const r = i === PLR.active ? (PLR.row || rowForName(PLR.slots[i].name)) : rowForName(PLR.slots[i].name);
+      return r ? r.pos : null;
+    };
+    const items = PLR.slots.map((s, i) => {
+      const r = i === PLR.active ? (PLR.row || rowForName(s.name)) : rowForName(s.name);
+      const col = POS_COLOR[posOf(i)] || 'var(--muted)';
+      const ini = (s.name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      // The tab carries the headline number, so flipping between tabs is the
+      // comparison — you don't have to hold FP/G in your head.
+      const meta = r ? `${esc(r.pos)} · ${esc(r.team || '—')} · ${fmt(r.fppg)} FP/G` : 'LOADING…';
+      return `<div class="pp-ptab press press-btn${i === PLR.active ? ' on' : ''}" style="--ptc:${col}" data-pp-slot="${i}" role="tab" aria-selected="${i === PLR.active}" title="${esc(s.name)}">
+        <span class="pp-ptav">${r && r.headshot ? `<img src="${esc(ppShot(r.headshot, 28))}" alt="" loading="lazy" onerror="this.remove()">` : ''}${esc(ini)}</span>
+        <span class="pp-ptn"><b>${esc(s.name)}</b><i>${meta}</i></span>
+        ${PLR.slots.length > 1 ? `<button class="pp-ptx" data-pp-close="${i}" title="Remove ${esc(s.name)}" aria-label="Remove ${esc(s.name)}">✕</button>` : ''}
+      </div>`;
+    }).join('');
+    const tail = PLR.slots.length < PP_MAX
+      ? `<button class="pp-ptadd press press-btn" data-pp-add>+ ADD PLAYER</button>`
+      : `<span class="pp-ptfull" title="Four is the max — the next player you search replaces the tab you're on">${PP_MAX} / ${PP_MAX}</span>`;
+    return `<div class="pp-ptabs" role="tablist" style="--rail-c:${POS_COLOR[posOf(PLR.active)] || 'var(--accent2)'}">${items}${tail}</div>`;
+  }
+
+  /* Four tabs don't fit a phone, and the strip is rebuilt on every render, so
+     it comes back scrolled to 0 — park the active tab in view. Instant, not
+     smooth: this is a fresh element, there is no motion to continue. */
+  function ptabScrollIn() {
+    const strip = document.querySelector('#page-playerprofile .pp-ptabs');
+    if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+    const el = strip.querySelector('.pp-ptab.on');
+    if (!el) return;
+    const l = el.offsetLeft - 4, r = l + el.offsetWidth + 8;
+    if (l < strip.scrollLeft) strip.scrollLeft = l;
+    else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth;
   }
 
   // Full list of seasons to offer in the dropdown. Prefer the player's real
@@ -30035,21 +30131,34 @@ function pickYear(year) {
   function ppRender() {
     const mount = document.getElementById('pp-mount');
     if (!mount) return;
+    // A background tab's log/career landing calls soft() → full repaint. Without
+    // this the caret is thrown out of the search box mid-name.
+    const ae = document.activeElement;
+    const keepFocus = ae && ae.id === 'pp-search-input';
+    const caret = keepFocus ? ae.selectionStart : 0;
+    const ph = PLR.slots.length >= PP_MAX ? 'Search — replaces this tab…'
+      : PLR.slots.length ? 'Add a player to compare…' : 'Search any player…';
     mount.innerHTML = `
       <div class="pp-top">
         <div class="pp-crumb">RESEARCH HUB <span style="opacity:.5">▸</span> <b>PLAYER PROFILE</b></div>
         <span class="pp-live">LIVE · NFLVERSE + PROPS FEED</span>
         <div class="pp-searchwrap">
-          <label class="pp-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pp-search-input" placeholder="Search any player…" autocomplete="off" spellcheck="false" value="${esc(PLR.search)}"></label>
+          <label class="pp-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pp-search-input" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false" value="${esc(PLR.search)}"></label>
           <div id="pp-ac-host">${acHtml()}</div>
         </div>
         ${seasonDdHtml()}
       </div>
+      ${ptabsHtml()}
       ${heroHtml()}
       ${kpisHtml()}
       <div class="pp-tabs">${TABS.map(t => `<button data-pp-tab="${t[0]}" class="${PLR.tab === t[0] ? 'on' : ''}">${t[1]}</button>`).join('')}</div>
       <div id="pp-body">${PLR.row ? BODY[PLR.tab]() : ''}</div>
       <div class="pp-note" style="margin-top:16px">Stats via <b>nflverse</b> · schedule via ESPN · ADP via FantasyCalc feed · props via Vault betting feed (hourly cron). Weekly props lead the betting view; season-long markets tuck away once live weekly lines exist.</div>`;
+    if (keepFocus) {
+      const inp = document.getElementById('pp-search-input');
+      if (inp) { inp.focus(); try { inp.setSelectionRange(caret, caret); } catch (e) {} }
+    }
+    ptabScrollIn();
     ppChart();
   }
   function soft() { if (PLR.booted && document.getElementById('pp-mount')) ppRender(); }
@@ -30097,16 +30206,73 @@ function pickYear(year) {
   }
 
   /* ── orchestration ── */
-  function setPlayer(name) {
-    PLR.name = name; PLR.token++;
-    PLR.log = null; PLR.logErr = false; PLR.logKey = '';
-    PLR.career = null; PLR.careerFor = null;
+  /* PLR.* is a working copy of the active slot. Park it before leaving a tab
+     and restore it on arrival, so a player you already looked at comes back
+     without refetching its log or walking the career archive again. */
+  const SLOT_KEYS = ['name', 'row', 'log', 'logKey', 'logErr', 'career', 'careerFor'];
+  function slotSave() {
+    const s = PLR.slots[PLR.active];
+    if (s) SLOT_KEYS.forEach(k => { s[k] = PLR[k]; });
+  }
+  function slotLoad(i) {
+    const s = PLR.slots[i];
+    if (!s) return;
+    SLOT_KEYS.forEach(k => { PLR[k] = s[k] == null ? null : s[k]; });
+    PLR.logKey = s.logKey || ''; PLR.logErr = !!s.logErr;
+  }
+  /* Repaint for whatever slot is active now. The token bump orphans any load
+     still in flight for the tab we left, so a slow log can't land on top of
+     the player you switched to. */
+  function gotoSlot(i) {
+    PLR.active = Math.max(0, Math.min(i, PLR.slots.length - 1));
+    slotLoad(PLR.active);
+    PLR.token++;
     PLR.search = ''; PLR.acOpen = false; PLR.ddOpen = false;
     seasonOpen = false;
-    try { localStorage.setItem('vault.pp.player', name); } catch (e) {}
+    persist();
     refreshRow();
     ppRender();
     loadLog(); loadCareer();
+  }
+  function activateSlot(i) {
+    if (i === PLR.active || i < 0 || i >= PLR.slots.length) return;
+    slotSave();
+    gotoSlot(i);
+  }
+  /* Search pick: focus an existing tab, else open a new one. At PP_MAX the
+     pick takes over the tab you're on rather than silently doing nothing. */
+  function addPlayer(name) {
+    if (!name) return;
+    const nn = D.normName(name);
+    if (PLR.idx && PLR.idx.length) {
+      const hit = PLR.idx.find(p => D.normName(p.name) === nn);
+      if (hit) name = hit.name;
+    }
+    const at = PLR.slots.findIndex(s => D.normName(s.name) === nn);
+    if (at >= 0) {
+      if (at === PLR.active) { PLR.search = ''; PLR.acOpen = false; ppRender(); }
+      else activateSlot(at);
+      return;
+    }
+    slotSave();
+    if (PLR.slots.length >= PP_MAX) PLR.slots[PLR.active] = { name };
+    else { PLR.slots.push({ name }); PLR.active = PLR.slots.length - 1; }
+    gotoSlot(PLR.active);
+  }
+  function removeSlot(i) {
+    if (PLR.slots.length <= 1 || i < 0 || i >= PLR.slots.length) return;
+    slotSave();
+    const wasActive = i === PLR.active;
+    PLR.slots.splice(i, 1);
+    if (PLR.active > i) PLR.active--;
+    if (wasActive) { gotoSlot(Math.min(i, PLR.slots.length - 1)); return; }
+    persist(); ppRender();
+  }
+  /* Popout entry from anywhere in the app: a fresh open starts a fresh set. */
+  function setPlayer(name) {
+    PLR.slots = [{ name }];
+    PLR.active = 0;
+    gotoSlot(0);
   }
   function setSeason(y) {
     PLR.ddOpen = false;
@@ -30114,6 +30280,10 @@ function pickYear(year) {
     PLR.season = y; PLR.token++;
     PLR.log = null; PLR.logErr = false; PLR.logKey = '';
     PLR.rows = null; PLR.row = null;
+    // Every tab's parked row/log is keyed to the old season — drop them, or
+    // flipping tabs after a season change shows the previous season's numbers.
+    // Career is a full-archive walk, so it stays.
+    PLR.slots.forEach(s => { s.row = null; s.log = null; s.logKey = ''; s.logErr = false; });
     ppRender();
     rowsFor(y).then(rows => { PLR.rows = rows; refreshRow(rows); ppRender(); loadLog(); });
   }
@@ -30147,6 +30317,21 @@ function pickYear(year) {
         if (hit) PLR.name = hit.name;
       }
       if (!PLR.name || !PLR.idx.some(p => p.name === PLR.name)) PLR.name = PLR.idx[0] && PLR.idx[0].name;
+      // Same resolve for every restored tab, then drop any that collapsed onto
+      // each other once normalised (Sleeper vs nflverse spelling). Re-derive
+      // the active index from the name afterwards — the tab that was active
+      // may have been the duplicate that got dropped.
+      const seen = {}, uniq = [];
+      PLR.slots.forEach(s => {
+        const hit = PLR.idx.find(p => D.normName(p.name) === D.normName(s.name));
+        if (hit) s.name = hit.name;
+        const k = D.normName(s.name);
+        if (!seen[k]) { seen[k] = 1; uniq.push(s); }
+      });
+      PLR.slots = uniq.length ? uniq : [{ name: PLR.name }];
+      const cur = PLR.slots.findIndex(s => D.normName(s.name) === D.normName(PLR.name || ''));
+      PLR.active = cur >= 0 ? cur : 0;
+      if (PLR.name) PLR.slots[PLR.active].name = PLR.name;
       refreshRow(rows);
       ppRender();
       loadLog(); loadCareer();
@@ -30181,7 +30366,18 @@ function pickYear(year) {
     const t = e.target.closest('[data-pp-tab]');
     if (t) { PLR.tab = t.dataset.ppTab; ppRenderBody(); return; }
     const pick = e.target.closest('[data-pp-pick]');
-    if (pick) { setPlayer(pick.dataset.ppPick); return; }
+    if (pick) { addPlayer(pick.dataset.ppPick); return; }
+    // close before slot: the ✕ sits inside its own tab
+    const cls = e.target.closest('[data-pp-close]');
+    if (cls) { e.stopPropagation(); removeSlot(+cls.dataset.ppClose); return; }
+    const slot = e.target.closest('[data-pp-slot]');
+    if (slot) { activateSlot(+slot.dataset.ppSlot); return; }
+    if (e.target.closest('[data-pp-add]')) {
+      PLR.acOpen = true;
+      const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = acHtml();
+      const inp = document.getElementById('pp-search-input'); if (inp) inp.focus();
+      return;
+    }
     const ddt = e.target.closest('[data-pp-ddtoggle]');
     if (ddt) {
       PLR.ddOpen = !PLR.ddOpen;
@@ -30209,6 +30405,13 @@ function pickYear(year) {
       PLR.acOpen = true;
       const h = document.getElementById('pp-ac-host'); if (h) h.innerHTML = acHtml();
     }
+  });
+  // Enter opens the top match as a tab — typing a name and hitting return is
+  // the fastest way to line up a comparison.
+  document.addEventListener('keydown', e => {
+    if (e.target.id !== 'pp-search-input' || e.key !== 'Enter') return;
+    const top = acPool()[0];
+    if (top) { e.preventDefault(); addPlayer(top.name); }
   });
 
   /* ── injection + nav (unchanged pattern) ── */
@@ -39706,6 +39909,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     // My Rankings: position strip takes the position colour, the Format /
     // Benchmark strips keep their existing accent gradient and just gain travel.
     { sel:'.mr-seg.posseg', skin:'fill', colour:true, inset:'3px', radius:'7px' },
+    // Player Profile compare tabs. --soft, not --fill: each tab keeps its own
+    // ink (name + team line), and the strip sets --rail-c inline to the ACTIVE
+    // player's position colour, so the pill re-tints as it travels.
+    { sel:'.pp-ptabs', skin:'soft', inset:'4px', radius:'11px' },
     { sel:'.mr-seg:not(.posseg)', skin:'fill', inset:'3px', radius:'7px',
       bg:'linear-gradient(135deg,var(--accent),var(--accent2))', ink:'#fff' },
     // Everything else with an .on child — wired by class FAMILY, not by
