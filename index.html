@@ -19305,7 +19305,11 @@ function _pfIrOk(pid, meta, st){
   if(!dsg) return false;                        // Active, no designation
   const status = dsg[0], inj = dsg[1];
   if(status && status !== 'Active') return true; // NFL IR / PUP / NFI / etc.
-  if(inj === 'IR') return true;
+  // IR/PUP/NFI are reserve designations Sleeper always accepts — there is no
+  // reserve_allow_pup setting to gate them, unlike the toggles below. Note a
+  // preseason PUP player carries status:'Active' with injury_status:'PUP', so
+  // the status check above does NOT catch them.
+  if(inj === 'IR' || inj === 'PUP' || inj === 'NFI') return true;
   if(inj === 'Out') return !!(st && st.reserve_allow_out);
   if(inj === 'Doubtful') return !!(st && st.reserve_allow_doubtful);
   if(inj === 'Sus') return !!(st && st.reserve_allow_sus);
