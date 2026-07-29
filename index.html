@@ -35075,6 +35075,84 @@ body .page,body .page.on{background:transparent!important}
   let mineOnly = false;
   let gSort = { key: 'total', dir: -1 }, pSort = { key: 'value', dir: -1 };
 
+  /* ── "My Players" · the user's real Sleeper rosters ──────────────────────
+     This used to call getMyRoster(), which is the DRAFT BOARD roster — objects
+     ({name,pos,round}) off `draftState`, not the synced league roster. Mapping
+     those with String() produced "[object Object]", so the filter could never
+     match a prop row and the tab always came back empty.
+
+     Two sources, in order:
+       1. window._pfLeagueData — pids per league, but only after
+          renderPortfolio() has run. Navigating straight to Betting on a cold
+          load, it hasn't, which is why this can't be the only source.
+       2. Sleeper /rosters for each synced league, through pfFetchRosters() so
+          a post-write bust still applies (the endpoint is CDN-cached 5min).
+     Both sides are collected so a row whose Sleeper id never resolved in the
+     betting feed still matches on its normalised name. */
+  let MINE = null, MINE_PROMISE = null, MINE_TRIED = false;
+  const _lex = fn => { try { return fn(); } catch (e) { return undefined; } };
+  const _nn = s => { const f = F(); return f ? f.normName(s) : String(s || '').toLowerCase().replace(/[^a-z]/g, ''); };
+
+  function minePortfolio() {
+    const lds = window._pfLeagueData;
+    if (!Array.isArray(lds) || !lds.length) return null;
+    const pids = new Set(), names = new Set();
+    lds.forEach(d => {
+      if (!d) return;
+      [].concat(d.myStartable || [], d.myReserve || [], d.myTaxi || [])
+        .forEach(p => { if (p && p !== '0') pids.add(String(p)); });
+      (d.myNames || []).forEach(n => { if (n) names.add(_nn(n)); });
+    });
+    return (pids.size || names.size) ? { pids, names } : null;
+  }
+
+  async function mineSleeper() {
+    const uid = _lex(() => myTeamsUserId) || _lex(() => mySleeperUser && mySleeperUser.user_id);
+    const lgs = (_lex(() => myTeamsData) || []).filter(l => l && l.league_id && l.platform !== 'espn');
+    if (!uid || !lgs.length) return null;
+    /* newest seasons only — a 2024 roster is not "my players" any more */
+    const seasons = [...new Set(lgs.map(l => String(l.season || '')))].sort().reverse().slice(0, 2);
+    const pool = lgs.filter(l => seasons.includes(String(l.season || '')));
+    const pids = new Set();
+    const fetchR = lid => (typeof pfFetchRosters === 'function'
+      ? pfFetchRosters(lid)
+      : fetch('https://api.sleeper.app/v1/league/' + lid + '/rosters').then(r => r.json()).catch(() => []));
+    const all = await Promise.all(pool.map(l => fetchR(l.league_id).catch(() => [])));
+    all.forEach(rosters => {
+      if (!Array.isArray(rosters)) return;
+      const mine = rosters.find(r => r && r.owner_id === uid)
+        || rosters.find(r => r && Array.isArray(r.co_owners) && r.co_owners.includes(uid));
+      if (!mine) return;
+      [].concat(mine.players || [], mine.reserve || [], mine.taxi || [])
+        .forEach(p => { if (p && p !== '0') pids.add(String(p)); });
+    });
+    if (!pids.size) return null;
+    const names = new Set();
+    /* globalPidToName is a top-level `let`, so it is lexical-only — reading it
+       off window gives undefined. Same trap as myTeamsData. */
+    const byId = _lex(() => globalPidToName) || {};
+    pids.forEach(pid => { const n = byId[pid] || (window._raNameBySid && window._raNameBySid[pid]); if (n) names.add(_nn(n)); });
+    return { pids, names };
+  }
+
+  /* Resolves once, then re-renders. Kept as a live promise so a double-click
+     on the toggle can't fire two roster sweeps. MINE_TRIED is what separates
+     "still resolving" from "resolved to nothing" — without it the toggle shows
+     the failure copy for the length of the fetch. */
+  function mineLoad() {
+    if (MINE) return Promise.resolve(MINE);
+    const pf = minePortfolio();
+    if (pf) { MINE = pf; MINE_TRIED = true; return Promise.resolve(MINE); }
+    if (MINE_PROMISE) return MINE_PROMISE;
+    MINE_PROMISE = mineSleeper().then(r => { MINE_PROMISE = null; MINE = r; MINE_TRIED = true; return r; })
+      .catch(() => { MINE_PROMISE = null; MINE_TRIED = true; return null; });
+    return MINE_PROMISE;
+  }
+  /* Dropped on every page entry: the portfolio may have landed since (cheaper
+     source than the fetch), and a trade or waiver push in between would leave
+     a stale set behind. Costs nothing unless the toggle is actually used. */
+  function mineReset() { MINE = null; MINE_TRIED = false; }
+
   const POS_COLOR = { QB: 'var(--bt-qb)', RB: 'var(--bt-rb)', WR: 'var(--bt-wr)', TE: 'var(--bt-te)' };
   const GM_TABS = [['spread', 'Spread'], ['total', 'Total'], ['ml', 'Moneyline']];
   const car = (a, d) => '<span class="bt-car">' + (a ? (d < 0 ? '▼' : '▲') : '↕') + '</span>';
@@ -35453,7 +35531,12 @@ body .page,body .page.on{background:transparent!important}
   function renderProps() {
     const fb = F(), m = fb.MARKET_BY_KEY[curMarket];
     let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
-    if (mineOnly) { try { const mine = new Set((typeof getMyRoster==='function'?getMyRoster():[]).map(String)); rows = rows.filter(r => r.id && mine.has(String(r.id))); } catch(e){} }
+    let mineState = 'off';
+    if (mineOnly) {
+      if (MINE) { mineState = 'on'; rows = rows.filter(r => (r.id && MINE.pids.has(String(r.id))) || MINE.names.has(_nn(r.name))); }
+      else if (!MINE_TRIED) { mineState = 'wait'; rows = []; mineLoad().then(renderProps); }
+      else { mineState = 'fail'; rows = []; }
+    }
     const k = pSort.key;
     rows.sort((a, b) => k === 'name' ? pSort.dir * a.name.localeCompare(b.name)
       : k === 'bestover' ? pSort.dir * (((a.best.over && a.best.over.price) ?? -Infinity) - ((b.best.over && b.best.over.price) ?? -Infinity))
@@ -35502,7 +35585,11 @@ body .page,body .page.on{background:transparent!important}
         '<div class="bt-pl2">' + hs + '<div style="min-width:0"><div class="bt-pn">' + r.name + '</div><div class="bt-pm">' + meta + '</div></div></div>' +
         '<div class="bt-pv"><div class="v">' + lineTxt + '</div><div class="l">' + (r.marketShort || r.marketLabel || '') + '</div></div>' +
         '<div class="bt-obs">' + boxes + '</div></div>';
-    }).join('') : '<div class="bt-empty">No players match these filters.</div>';
+    }).join('')
+      : mineState === 'wait' ? '<div class="bt-empty"><span class="spinner sm"></span><br>Reading your rosters…</div>'
+      : mineState === 'fail' ? '<div class="bt-empty">Couldn\'t read your rosters.<br>Connect Sleeper on the Sync page, then reopen this tab.</div>'
+      : mineState === 'on' ? '<div class="bt-empty">None of your rostered ' + curPos + 's have a ' + (m.label || 'line') + ' line.<br>Try another position or market.</div>'
+      : '<div class="bt-empty">No players match these filters.</div>';
     document.getElementById('bt-v-props').innerHTML = body;
     paintHeadshots('#bt-v-props');
     document.getElementById('bt-count').textContent = rows.length + ' players · ' + books.length + ' books';
@@ -35578,19 +35665,32 @@ body .page,body .page.on{background:transparent!important}
     el.innerHTML = selHTML('bt-mktsel', mks.map(m => [m.key, m.label]), curMarket);
     el.querySelector('select').onchange = e => { curMarket = e.target.value; renderProps(); };
   }
+  function paintMine(btn) {
+    btn.style.color = mineOnly ? 'var(--on-primary)' : '';
+    btn.style.background = mineOnly ? 'var(--bt-accent2)' : '';
+    btn.style.borderColor = mineOnly ? 'transparent' : '';
+    btn.style.fontWeight = mineOnly ? '700' : '';
+    btn.setAttribute('aria-pressed', String(mineOnly));
+  }
   function renderFilters() {
     document.getElementById('bt-controls').style.display = 'flex';
     const isP = view === 'props';
     const sel = document.getElementById('bt-team'), mine = document.getElementById('bt-mine');
     sel.style.display = isP ? '' : 'none';
-    if (mine) mine.style.display = isP ? '' : 'none';
+    /* Only offer the toggle to a connected account — otherwise it is a button
+       that can only ever report failure. */
+    const synced = !!((_lex(() => myTeamsData) || []).length) || Array.isArray(window._pfLeagueData);
+    if (mine) mine.style.display = (isP && synced) ? '' : 'none';
+    if (mine && !synced && mineOnly) { mineOnly = false; paintMine(mine); }
     document.getElementById('bt-search').placeholder = isP ? 'Search player…' : 'Search team…';
     if (!sel.dataset.built) {
       sel.innerHTML = '<option value="">All teams</option>' + F().teams(MODEL).map(c => '<option value="' + c + '">' + c + '</option>').join('');
       sel.dataset.built = '1';
       sel.onchange = () => { teamFilter = sel.value; renderProps(); };
       document.getElementById('bt-search').oninput = e => { searchQ = e.target.value; if (view === 'games') renderGames(); else renderProps(); };
-      if (mine) mine.onclick = () => { mineOnly = !mineOnly; mine.style.color = mineOnly ? 'var(--on-primary)' : ''; mine.style.background = mineOnly ? 'var(--bt-accent2)' : ''; mine.style.borderColor = mineOnly ? 'transparent' : ''; mine.style.fontWeight = mineOnly ? '700' : ''; renderProps(); };
+      /* renderProps owns the resolve — it kicks mineLoad() and re-renders when
+         the rosters land, so this only has to flip the flag and repaint. */
+      if (mine) mine.onclick = () => { mineOnly = !mineOnly; paintMine(mine); renderProps(); };
     }
   }
   function renderNote() {
@@ -35611,7 +35711,8 @@ body .page,body .page.on{background:transparent!important}
     const host = document.getElementById('page-betting');
     if (!host) return;
     injectStyles();
-    if (BOOTED) return;            // already rendered once; keep state
+    mineReset();
+    if (BOOTED) { render(); return; }   // already rendered once; keep state
     if (LOADING) return; LOADING = true;
     host.innerHTML = shell();
     wire();
@@ -39793,7 +39894,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
    ══════════════════════════════════════════════════════════════════════ */
 (function(){
   var RS = null, RS_LOADING = false;
-  var st = { season:'all', sc:'ppr', fmt:'1qb', metric:'playoff' };
+  var st = { season:'2025', sc:'ppr', fmt:'1qb', metric:'playoff' };
 
   var COLOR = {
     'Robust RB':'var(--rb)','Hero RB':'var(--wr)','Zero RB':'var(--qb)','WR Heavy':'var(--te)','Balanced':'var(--accent2)',
@@ -39824,7 +39925,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       '<h2>Redraft Strategy</h2>',
       '<div class="rs-controls">',
         '<div class="adp-seg-group"><span class="adp-seg-label">Season</span>',
-          '<div class="adp-seg" id="rs-seg-season"><button data-v="all" class="on">All</button><button data-v="2023">2023</button><button data-v="2024">2024</button><button data-v="2025">2025</button></div></div>',
+          '<div class="adp-seg" id="rs-seg-season"><button data-v="all">All</button><button data-v="2023">2023</button><button data-v="2024">2024</button><button data-v="2025" class="on">2025</button></div></div>',
         '<div class="adp-seg-group"><span class="adp-seg-label">Scoring</span>',
           '<div class="adp-seg" id="rs-seg-sc"><button data-v="ppr" class="on">PPR</button><button data-v="half">Half</button></div></div>',
         '<div class="adp-seg-group"><span class="adp-seg-label">Format</span>',
@@ -39949,9 +40050,18 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     var sea = (RS.stats.seasons||[]).slice().sort();
     var seasonLab = st.season!=='all' ? st.season
       : (sea.length ? (sea.length>1 ? sea[0]+'–'+sea[sea.length-1] : sea[0]) : '');
+    /* stats.leagues counts the WHOLE corpus, so pairing it with a single-season
+       label reads as "9,860 leagues in 2025" — which is three seasons' worth.
+       A single season gets its own team count instead. */
+    var seasonTeams = ((RS.stats.teams_by_season||{})[st.season])||0;
+    var sampleReason = st.season==='all'
+      ? Number(RS.stats.leagues||0).toLocaleString()+' completed leagues · '+seasonLab
+      /* no scoring/format tail — the segmented controls say that a row above,
+         and the card ellipses anything longer than this */
+      : (seasonTeams ? 'of '+Number(seasonTeams).toLocaleString()+' teams drafted in '+seasonLab
+        : seasonLab+' only');
     host.innerHTML = [
-      card('var(--sky)','teams','Sample','Teams analysed', Number(d.n).toLocaleString(), '',
-        Number(RS.stats.leagues||0).toLocaleString()+' completed leagues · '+seasonLab),
+      card('var(--sky)','teams','Sample','Teams analysed', Number(d.n).toLocaleString(), '', sampleReason),
       card('var(--accent2)','field','Field baseline','Playoff rate', (d.baseline.playoffRate*100).toFixed(1), '%',
         'What an average team does · '+pct(d.baseline.champRate)+' win it all'),
       best ? card('var(--rb)','best','Best build', best.arch, pct0(best.playoffRate), '',
@@ -40057,7 +40167,11 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   function renderHeat(){
     var host = document.getElementById('rs-hm'), cap = document.getElementById('rs-hmcap');
     if (!host) return;
-    var block = RS.pr && RS.pr[st.sc+'|'+st.fmt], d = slice();
+    /* The heatmap is built across every season, so it has to be coloured
+       against the ALL-SEASON baseline — slice() would compare all-season cells
+       to one season's field rate, which now matters because 2025 is the
+       default selection rather than an opt-in. */
+    var block = RS.pr && RS.pr[st.sc+'|'+st.fmt], d = rootSlice();
     if (!block) { host.innerHTML=''; return; }
     var base = d ? d.baseline.playoffRate : 0.5;
     var style = function(rate){
