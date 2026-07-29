@@ -5664,8 +5664,11 @@ function pgsOpen(name, pos, team){
     <!-- Fix 2: Mobile-only sort bar, doubles as a header (shows what the values are) and sort control -->
     <div class="pm-sortbar" id="pm-sortbar">
       <span class="pm-sortbar-lbl">SORT</span>
-      <button class="pm-sortchip on" id="pmsort-rk"  onclick="setSort(0)">Rank</button>
-      <button class="pm-sortchip"    id="pmsort-dyn" onclick="setSort('dynasty-col')"><span class="pm-chip-dot" style="background:var(--gold)"></span>Dynasty</button>
+      <!-- `.on` starts on the Dynasty chip, not Rank: Rank is display:none on this
+           board (≤700px) so it can never show a selection. _pmSyncSortChips()
+           keeps `.on` on whichever format chip is rendered from here on. -->
+      <button class="pm-sortchip"    id="pmsort-rk"  onclick="setSort(0)">Rank</button>
+      <button class="pm-sortchip on" id="pmsort-dyn" onclick="setSort('dynasty-col')"><span class="pm-chip-dot" style="background:var(--gold)"></span>Dynasty</button>
       <button class="pm-sortchip"    id="pmsort-rdr" onclick="setSort('redraft-col')"><span class="pm-chip-dot" style="background:var(--wr)"></span>Redraft</button>
       <button class="pm-sortchip"    id="pmsort-adp" onclick="setSort('adp-col')"><span class="pm-chip-dot" style="background:var(--violet)"></span>ADP</button>
       <button class="pm-sortchip" id="pmsort-my" onclick="setSort('my-col')"><span class="pm-chip-dot" style="background:var(--rb)"></span>Mine</button>
@@ -9572,6 +9575,40 @@ function loadSaved() {
   }
 }
 
+// ── Mobile SORT row (#pm-sortbar) ──────────────────────────────────────────
+// Which chip represents the current sort? Not a straight sortKey→id map: the
+// Rank chip is `display:none!important` on the draft board (≤700px) and the
+// Dynasty/Redraft pair is swapped per format by _dvSyncSortLabels, so a naive
+// map routinely lands `.on` on a chip nobody can see — the row then shows no
+// selection at all, and a rail pill measures the hidden chip 0×0 and parks
+// over the "SORT" label. Every value-column key resolves to whichever format
+// chip is actually rendered.
+function _pmSortChipId(k){
+  var fmtChip = (window._dvMode === 'redraft') ? 'pmsort-rdr' : 'pmsort-dyn';
+  switch (k) {
+    case 'dynasty-col': return 'pmsort-dyn';
+    case 'redraft-col': return 'pmsort-rdr';
+    case 'adp-col': case 'adp-dynasty': case 'adp-redraft': return 'pmsort-adp';
+    case 'my-col': return 'pmsort-my';
+    case 'pg-col': return 'pmsort-pg';
+    // fc-value / ra-value / my-value and the legacy 0 / 3 / 'ra' / 'my' keys all
+    // mean "sorted by the board's value column", which IS the format chip.
+    default: return fmtChip;
+  }
+}
+function _pmSyncSortChips(k){
+  var bar = document.getElementById('pm-sortbar');
+  if (!bar) return;
+  var chips = bar.querySelectorAll('.pm-sortchip');
+  var hidden = function(e){ return !e || getComputedStyle(e).display === 'none'; };
+  var el = document.getElementById(_pmSortChipId(k === undefined ? sortKey : k));
+  // Backstop: a hidden chip can never be the visible selection. Fall back to the
+  // format chip, then to the first chip that is actually rendered.
+  if (hidden(el)) el = document.getElementById((window._dvMode === 'redraft') ? 'pmsort-rdr' : 'pmsort-dyn');
+  if (hidden(el)) el = Array.prototype.find.call(chips, function(c){ return !hidden(c); }) || null;
+  chips.forEach(function(c){ c.classList.toggle('on', c === el); });
+}
+
 function updateSortBtns() {
   // Simplified sort buttons: My Rankings (if imported) + RosterAudit Dynasty + ADPs.
   // Hide the legacy sb1/sb2 buttons since multi-column CSV import is deprecated.
@@ -9634,6 +9671,9 @@ function updateSortBtns() {
   if (sba) { sba.style.display = ''; sba.classList.toggle('on', sortKey === 'adp-dynasty'); }
   const sbr = document.getElementById('sb-adp-redraft');
   if (sbr) { sbr.style.display = ''; sbr.classList.toggle('on', sortKey === 'adp-redraft'); }
+
+  // Mobile sort row — resolve `.on` onto a chip that is actually rendered.
+  try { _pmSyncSortChips(); } catch(e){}
 }
 
 // ════════════════════════════════════
@@ -12092,14 +12132,20 @@ function _dvRenderWhenReady(){
 }
 
 function setSort(k){
+  // Pick grade only exists relative to YOUR next slot, so there is nothing to
+  // sort by outside a live draft (every cell reads "–"). Say so instead of
+  // silently reordering by nothing — and bail BEFORE anything changes, so the
+  // rejected sort doesn't leave the mobile chip highlighting a sort that was
+  // never applied.
+  if (k === 'pg-col' && !dvMyNextOverall()){
+    toast('Pick grade needs a live draft — it grades players at your next slot');
+    return;
+  }
+
   sortKey=k;
 
   // Fix 2: sync the mobile sort-bar chip highlight
-  try {
-    const chipMap = {0:'pmsort-rk','dynasty-col':'pmsort-dyn','redraft-col':'pmsort-rdr','adp-col':'pmsort-adp','my':'pmsort-my','my-col':'pmsort-my','pg-col':'pmsort-pg'};
-    const activeId = chipMap[k];
-    if (activeId) document.querySelectorAll('.pm-sortchip').forEach(c => c.classList.toggle('on', c.id === activeId));
-  } catch(e){}
+  try { _pmSyncSortChips(k); } catch(e){}
 
   // Column-header sorts (StatChasers-style)
   if (k === 'dynasty-col') {
@@ -12124,13 +12170,6 @@ function setSort(k){
     return;
   }
   if (k === 'pg-col') {
-    // Pick grade only exists relative to YOUR next slot, so there is nothing to
-    // sort by outside a live draft (every cell reads "–"). Say so instead of
-    // silently reordering by nothing.
-    if (!dvMyNextOverall()){
-      toast('Pick grade needs a live draft — it grades players at your next slot');
-      return;
-    }
     sortKey = 'pg-col';
     updateColumnHdrIndicators('pg');
     renderList();
@@ -12339,6 +12378,9 @@ function setSortMode(mode){
   // data is fetched and re-render the moment it arrives (prevents the "nothing
   // changes until you navigate away and back" bug).
   try{ _dvRenderWhenReady(); }catch(e){}
+  // RA/FC/Mine all sort the value column, so the mobile chip stays on the format
+  // chip — but it has to be re-asserted, this path never goes through setSort().
+  try{ _pmSyncSortChips(); }catch(e){}
 }
 
 // ===== Option A: Dynasty/Redraft board mode, collapses the two value columns to ONE =====
@@ -12381,6 +12423,9 @@ function setDvMode(m, fromAuto){
     try{ _adpSyncToValueMode('redraft'); }catch(e){}
     renderList();
   }
+  // _dvSyncSortLabels() just swapped which of Dynasty/Redraft is rendered, so the
+  // chip that was carrying `.on` may now be display:none.
+  try{ _pmSyncSortChips(); }catch(e){}
   // The format now drives the Grade Keys too (see _dvGradeFmtIsDyn), so the two
   // other surfaces that render grades have to repaint — renderList alone leaves
   // the board's pick grades and the cockpit Draft Grade on the old format.
@@ -22631,6 +22676,7 @@ async function setAdpFormat(bucket, format, teams) {
   // Set sort + update buttons
   sortKey = bucket === 'dynasty' ? 'adp-dynasty' : 'adp-redraft';
   _adpUpdateButtonLabels();
+  try{ _pmSyncSortChips(); }catch(e){}
   renderList();
 }
 
@@ -33244,7 +33290,11 @@ body .page,body .page.on{background:transparent!important}
     background:rgba(255,255,255,0.55)!important; border:1px solid rgba(29,40,66,0.14)!important;
   }
   /* consolidated mobile SORT row → glassy chips to match */
-  #pm-sortbar{ background:transparent!important; border-bottom:none!important; padding:4px 2px 8px!important; }
+  /* Vertical padding is SYMMETRIC on purpose: the travelling pill is inset from
+     the padding box by a single --rail-inset, so a 4/8 split would leave it 4px
+     taller than the 36px chip on one edge. 6/6 keeps the strip the same 48px
+     tall and lets inset:6px wrap the chip exactly. */
+  #pm-sortbar{ background:transparent!important; border-bottom:none!important; padding:6px 2px!important; }
   /* glass chip skin retired with the rest of the draft-page glass — .vseg */
 }
 
@@ -39796,10 +39846,14 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     // Free-pill strips: no container box, so the pill is a full-height capsule
     // rather than something inset into a track.
     { sel:'.pp-tabs, .vcaps', skin:'fill', inset:'0px', radius:'9999px' },
-    //   #pm-sortbar is a .vseg for its box/type/hit-area but is deliberately
-    //   NOT wired: its `.on` chip is whichever of #pmsort-rk / #pmsort-dyn the
-    //   format toggle hid, so `.on` is routinely display:none. The pill then
-    //   measures 0×0 and parks over the "SORT" label instead of a chip.
+    // The mobile SORT row was held out of RAILS while its `.on` could land on a
+    // hidden chip (Rank is display:none on the draft board, and the
+    // Dynasty/Redraft pair swaps per format) — the pill measured that chip 0×0
+    // and parked over the "SORT" label. _pmSyncSortChips() now resolves `.on`
+    // onto a rendered chip on every sort path, so the strip travels like the
+    // rest. Its own entry rather than the free-pill one above because it keeps
+    // 6px of vertical padding, which the inset has to cancel.
+    { sel:'#pm-sortbar', skin:'fill', inset:'6px', radius:'9999px' },
     // Everything else with an .on child — wired by class FAMILY, not by
     // modifier, so a new `.rh-seg foo` variant is covered automatically. Order
     // matters: the coloured/position entries above claim their strips first
@@ -39873,7 +39927,11 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     }
     var it = activeItem(strip, cfg);
     // Hidden strip (display:none) or nothing selected — park it, don't guess.
-    if (!it || !strip.clientWidth) { p.style.opacity = '0'; return; }
+    // A zero-width active item counts as "nothing selected": some strips toggle
+    // their items with display:none per state (the mobile SORT row swaps its
+    // Dynasty/Redraft chip per format), and measuring a hidden item gives 0/0,
+    // which would paint a 0×0 pill at the strip's left edge.
+    if (!it || !strip.clientWidth || !it.offsetWidth) { p.style.opacity = '0'; return; }
     if (cfg.colour) {
       var key = (it.textContent || '').trim().toUpperCase();
       if (POS_C[key]) {
