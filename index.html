@@ -4481,7 +4481,7 @@ function openConnect(){
 
 <!-- BOTTOM DOCK, mobile only: 4 destinations + the Vault Command shield -->
 <nav class="bottom-tab-bar" id="bottom-tab-bar">
-  <button class="tab-btn on" id="tb-overview" onclick="showPage('overview')" aria-label="Home">
+  <button class="tab-btn on" id="tb-overview" onclick="_ovMobileHome()" aria-label="Home">
     <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"></path></svg></span>
     <span class="tab-label">Home</span>
   </button>
@@ -4526,6 +4526,7 @@ function openConnect(){
       <div class="vcx-hd">COMPETE</div>
       <div class="vcx-list">
 <button class="vcx-row" data-vc-go="lineup"><span class="vcx-ic vcx-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/></svg></span><span class="vcx-lb">Lineup Command</span><span class="vcx-bd" id="vc-bd-lineup" hidden></span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="matchup" data-vc-need="league"><span class="vcx-ic vcx-r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v10H3z"/><path d="M12 5v10M7 19h10M12 15v4"/></svg></span><span class="vcx-lb">Matchup</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button class="vcx-row" data-vc-go="waivers"><span class="vcx-ic vcx-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M21 7l-4 4-3-3-5 5"/></svg></span><span class="vcx-lb">Waiver Command</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button class="vcx-row" data-vc-go="trades"><span class="vcx-ic vcx-r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3M4 7h13m0 13 3-3-3-3M20 17H7"/></svg></span><span class="vcx-lb">Trade Center</span><span class="vcx-bd" id="vc-bd-trade" hidden></span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button class="vcx-row" data-vc-go="taxi"><span class="vcx-ic vcx-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M9 7V4h6v3"/></svg></span><span class="vcx-lb">Taxi Manager</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -4660,6 +4661,7 @@ function vcOpen(){
   if(d) d.hidden = false;
   s.hidden = false;
   vcRefreshLive(); vcRefreshLeague(); vcRefreshNow();
+  try { vcFilter(); } catch(e){}   // re-applies the league gate on data-vc-need rows
   vcMeasure();
   vcApply(VC.H);
   VC.open = true;
@@ -4735,6 +4737,11 @@ function vcRoute(kind){
     case 'waivers': return pfv('waivers');
     case 'trades':  return pfv('trades');
     case 'taxi':    return pfv('taxi');
+    case 'matchup':
+      /* Same switch as the desktop My Team dropdown — available on redraft and
+         dynasty alike; the row is gated on a league being selected, not on type. */
+      try { if(typeof _ovMobileView === 'function'){ _ovMobileView('matchup'); return true; } } catch(e){}
+      return page('overview');
     case 'compare':
       if(document.getElementById('page-compare')) return page('compare');
       return page('research');
@@ -4766,6 +4773,12 @@ function vcFilter(){
       var hay = (r.querySelector('.vcx-lb') || {}).textContent || '';
       var grp = (g.querySelector('.vcx-hd') || {}).textContent || '';
       var hit = !q || hay.toLowerCase().indexOf(q) > -1 || grp.toLowerCase().indexOf(q) > -1;
+      // Rows that need a selected league stay out until there is one. This lives
+      // here, not in a separate pass, because vcFilter owns `hidden` on these rows
+      // and would otherwise un-hide anything gated elsewhere on the next keystroke.
+      if (hit && r.getAttribute('data-vc-need') === 'league') {
+        try { hit = !!(window._ovCanMatchup && window._ovCanMatchup()); } catch(e){}
+      }
       r.hidden = !hit;
       if(hit){ any++; shown++; }
     });
@@ -13385,11 +13398,12 @@ async function renderOverview() {
     </div>`;
   })();
 
-  // ── REDRAFT MATCHUP VIEW, default for redraft leagues (settings.type===0);
-  //     available as a toggle on dynasty leagues. Dynasty render path below is untouched. ──
+  // ── REDRAFT / MATCHUP VIEWS. Redraft leagues (settings.type===0) land on the
+  //     Roster Preview; BOTH league types can switch to the Matchup gamecast from
+  //     the My Team nav menu. Dynasty render path below is untouched. ──
   const _ovIsDyn = _curLeague ? _isDynastyLeague(_curLeague) : true;
-  // Dynasty leagues remember which My Team view is selected (Dynasty ⇄ Matchup).
-  if (_ovIsDyn) { try { window._rdvForceMatchup = (window._ovGetDynView && window._ovGetDynView()==='matchup'); } catch(e){} }
+  // Every league type remembers which My Team view is selected (Team Review ⇄ Matchup).
+  try { window._rdvForceMatchup = (window._ovGetDynView && window._ovGetDynView()==='matchup'); } catch(e){}
   if (ovLeagueId && (!_ovIsDyn || window._rdvForceMatchup)) {
     try {
       window._rdvGamecast = true;
@@ -13407,8 +13421,8 @@ async function renderOverview() {
         playoffOdds:playoffOdds, posRankInfo:_posRankInfo, roster:roster, starters:_starters,
         isDyn:_ovIsDyn, platform:(_curLeague?vpPlat(_curLeague):'sleeper'), playoffStart:_ovPlayoffStart
       };
-      if (!_ovIsDyn) {
-        // Real redraft league → concept-parity Roster Preview.
+      if (!_ovIsDyn && !window._rdvForceMatchup) {
+        // Redraft league, Team Review selected → concept-parity Roster Preview.
         const _rrx = window._rrpExtras || {};
         window._rrpCompactWaiver = true;
         el.innerHTML = window._buildRedraftPreview(Object.assign({}, _rdvPayload, {
@@ -13419,7 +13433,7 @@ async function renderOverview() {
         try { window._ovRenderRedraftRace(); } catch(e){ console.warn('[Vault] redraft race:', e); }
         try { window._ovRenderRedraftWaiver(); } catch(e){ console.warn('[Vault] redraft waiver:', e); }
       } else {
-        // Dynasty "Matchup" toggle → legacy broadcast gamecast (unchanged).
+        // "Matchup" selected (either league type) → broadcast gamecast.
         window._rrpCompactWaiver = false;
         el.innerHTML = window._buildRedraftView(_rdvPayload);
         _ovRendering = false;
@@ -27459,7 +27473,7 @@ function pickYear(year) {
       document.body.appendChild(menu);
       let hideT;
       const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
-      const show = () => { clearTimeout(hideT); place(); const mi=document.getElementById('lc-mt-matchup'); if(mi) mi.style.display = (window._ovCurDyn&&window._ovCurDyn())?'':'none'; menu.classList.add('show'); };
+      const show = () => { clearTimeout(hideT); place(); const mi=document.getElementById('lc-mt-matchup'); if(mi) mi.style.display = (window._ovCanMatchup&&window._ovCanMatchup())?'':'none'; menu.classList.add('show'); };
       const hide = () => { hideT = setTimeout(() => menu.classList.remove('show'), 120); };
       wrap.addEventListener('mouseenter', show); wrap.addEventListener('mouseleave', hide);
       menu.addEventListener('mouseenter', () => clearTimeout(hideT)); menu.addEventListener('mouseleave', hide);
@@ -27480,7 +27494,8 @@ function pickYear(year) {
       const after = document.getElementById('sl-lineup') || sl;
       after.parentNode.insertBefore(bc, after.nextSibling);
     }
-    // mobile more-sheet
+    // mobile more-sheet (legacy: nothing calls openMoreSheet any more — the mobile
+    // nav is the Vault Command sheet, #vc-sheet. Left as-is.)
     const sheet = document.querySelector('#more-sheet .lc-injected');
     if (!sheet) {
       const firstBtn = document.querySelector('#more-sheet button');
@@ -27512,7 +27527,7 @@ function pickYear(year) {
       document.getElementById('sl-overview')?.classList.toggle('active', p === 'overview');
       document.getElementById('sl-lineup')?.classList.toggle('active', p === 'lineup');
       document.getElementById('sl-compare')?.classList.toggle('active', p === 'compare');
-      { const snm = document.getElementById('lc-sn-matchup'); if (snm) snm.style.display = (window._ovCurDyn && window._ovCurDyn()) ? '' : 'none'; }
+      { const snm = document.getElementById('lc-sn-matchup'); if (snm) snm.style.display = (window._ovCanMatchup && window._ovCanMatchup()) ? '' : 'none'; }
       document.querySelectorAll('#lc-mt-menu .lc-mt-item').forEach(it => { let on = it.dataset.go === p; if (on && it.dataset.dynview) on = (it.dataset.dynview === (window._ovGetDynView ? window._ovGetDynView() : 'dynasty')); it.classList.toggle('active', on); });      if (p === 'lineup' || p === 'compare') { try { lcRender(); initLive(); } catch (e) { console.error(e); } }
     };
     // menu item clicks + mobile sub-nav clicks
@@ -31193,15 +31208,33 @@ function _rdvProjPts(stats, scoring){
   var v = scoring===1?stats.pts_ppr : scoring===0.5?stats.pts_half_ppr : stats.pts_std; return (v==null?stats.pts_ppr:v);
 }
 
-/* Switch My Team between the matchup view and the dynasty view (dynasty leagues only). */
+/* Switch My Team between the matchup gamecast and the league's default review view. */
 function _rdvSetView(v){ window._rdvForceMatchup = (v==='matchup'); if(typeof renderOverview==='function') renderOverview(); }
 
-/* ── My Team view dropdown (Dynasty leagues): Dynasty ⇄ Matchup gamecast ── */
+/* ── My Team view dropdown (all league types): Team Review ⇄ Matchup gamecast.
+      The stored value is still 'dynasty' | 'matchup' for back-compat; on a
+      redraft league 'dynasty' means the Roster Preview. ── */
 function _ovGetDynView(){ try{ return localStorage.getItem('vault-ov-dynview')==='matchup'?'matchup':'dynasty'; }catch(e){ return 'dynasty'; } }
-/* Is the currently-selected league a dynasty/keeper league? (drives the header Matchup item) */
-function _ovCurDyn(){ try{ var d=(typeof myTeamsData!=='undefined')?myTeamsData:[]; var lid=window._currentLeagueId||(typeof teamsLeagueId!=='undefined'?teamsLeagueId:null); var lg=lid&&d&&d.find(function(l){return l.league_id===lid;}); return lg?!!_isDynastyLeague(lg):false; }catch(e){ return false; } }
-window._ovCurDyn=_ovCurDyn;
+/* The currently-selected league object, whatever its type. */
+function _ovCurLeague(){ try{ var d=(typeof myTeamsData!=='undefined')?myTeamsData:[]; var lid=window._currentLeagueId||(typeof teamsLeagueId!=='undefined'?teamsLeagueId:null); return (lid&&d&&d.find(function(l){return l.league_id===lid;}))||null; }catch(e){ return null; } }
+/* Is the currently-selected league a dynasty/keeper league? */
+function _ovCurDyn(){ var lg=_ovCurLeague(); try{ return lg?!!_isDynastyLeague(lg):false; }catch(e){ return false; } }
+/* Drives the header Matchup item — available on BOTH redraft and dynasty, it only
+   needs a league selected (the gamecast reads that league's weekly matchup). */
+function _ovCanMatchup(){ return !!_ovCurLeague(); }
+window._ovCurDyn=_ovCurDyn; window._ovCurLeague=_ovCurLeague; window._ovCanMatchup=_ovCanMatchup;
 function _ovSetDynView(v){ v=(v==='matchup'?'matchup':'dynasty'); try{ localStorage.setItem('vault-ov-dynview', v); }catch(e){} window._rdvForceMatchup=(v==='matchup'); if(typeof renderOverview==='function') renderOverview(); }
+/* Mobile Vault Command sheet → the same view switch the desktop dropdown performs.
+   showPage runs first because the sheet opens from any page and _ovSetDynView
+   renders straight away. */
+function _ovMobileView(v){ try{ if(typeof showPage==='function') showPage('overview'); }catch(e){} _ovSetDynView(v); }
+/* The mobile Home tab is the way back out of Matchup — there is no second sheet
+   row for Team Review. Only re-renders when it actually has to switch back. */
+function _ovMobileHome(){
+  if(window._rdvForceMatchup){ _ovMobileView('dynasty'); return; }
+  try{ showPage('overview'); }catch(e){}
+}
+window._ovMobileView=_ovMobileView; window._ovMobileHome=_ovMobileHome;
 function _ovToggleDynMenu(btn){ var dd=btn&&btn.closest('.ovdd'); if(dd) dd.classList.toggle('open'); }
 function _ovDynViewBar(active){
   if(!window._ovDDInit){ window._ovDDInit=true; document.addEventListener('click', function(e){ if(!e.target.closest('.ovdd')) document.querySelectorAll('.ovdd.open').forEach(function(d){d.classList.remove('open');}); }); }
