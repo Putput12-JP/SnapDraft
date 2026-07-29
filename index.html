@@ -6041,6 +6041,18 @@ function pgsOpen(name, pos, team){
 .tc-xc-kind{font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
 .tc-xc-score{margin-left:auto;font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--rb)}
 .tc-xc-why{font-family:var(--font-sans);font-size:12px;line-height:1.55;color:var(--text2)}
+/* ── real-trade-market surfaces (fitted from data/trade_market.json) ── */
+.tc-xc-tag{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border2);border-radius:5px;padding:2px 6px}
+.tc-xc-edge{font-family:var(--font-mono);font-size:9.5px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:5px}
+.tc-eng-prov{display:flex;align-items:center;gap:7px;margin-top:9px;font-family:var(--font-mono);font-size:10px;letter-spacing:.02em;color:var(--muted)}
+.tc-eng-prov b{color:var(--text2);font-weight:700}
+.tc-eng-provdot{width:6px;height:6px;border-radius:50%;background:var(--rb);box-shadow:0 0 0 3px color-mix(in srgb,var(--rb) 18%,transparent);flex-shrink:0}
+/* the receipt line under a Matchmaker row — packages other leagues really sent */
+.tc-wn-comp{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px;font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+.tc-wn-complbl{font-size:8.5px;font-weight:800;letter-spacing:.1em;color:var(--te)}
+.tc-wn-compv{color:var(--text2)}
+.tc-wn-compsep{opacity:.45}
+.tc-wn-compn{opacity:.7}
 .tc-xc-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:10px;border:none;background:var(--s3);color:var(--text);font-family:var(--font-sans);font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,transform var(--dur-release) var(--ease-spring)}
 .tc-xc-btn:hover{background:var(--s4)}
 .tc-xc-btn:active{transform:scale(var(--press-btn))}
@@ -23699,6 +23711,222 @@ function pickYear(year) {
   };
   const TRENDING = ['Jayden Daniels','Marvin Harrison Jr.','Brock Bowers','Drake Maye','Kyren Williams','Breece Hall','Ladd McConkey','Bucky Irving'];
 
+  /* ════════════ REAL TRADE MARKET ════════════
+     Everything in the Trade Engines below used to run on invented constants: a
+     flat ±18% "fair" band, a hand-written PICK_VALUES table, and an acceptance
+     score built from guessed penalties. This module replaces those with numbers
+     fitted from real Sleeper league trades (scripts/build_sleeper_trades.py →
+     data/trade_market.json), served per league format.
+
+     The single most important export is NOT another value column. It is
+     `edge()` — how far the price real leagues pay sits from the calculator.
+     That gap is the buy-low / sell-high signal, and it only exists because we
+     have both numbers.
+
+     Everything degrades to the old behaviour when the file hasn't landed: every
+     getter returns null/1/defaults and callers fall back, so a cold cache or a
+     failed fetch costs nothing.                                              */
+  window.VaultTradeMarket = (function () {
+    'use strict';
+    const BASE = (function () {
+      const h = location.hostname;
+      return (h.includes('github.io') || h.includes('putput12-jp'))
+        ? 'https://putput12-jp.github.io/Vault-Fantasy/data' : '/data';
+    })();
+    const S = { model: null, comps: null, _p: null, _cp: null, _idx: {}, _cidx: {} };
+    const nkey = n => (typeof vaultNameKey === 'function'
+      ? vaultNameKey(n) : String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    /* Cache-bust at the 6h granularity — the same cadence the cron rebuilds on,
+       so a refresh can't serve a model older than one build behind. */
+    const bust = () => Math.floor(Date.now() / 216e5);
+
+    function load() {
+      if (S._p) return S._p;
+      S._p = fetch(`${BASE}/trade_market.json?v=${bust()}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => { S.model = j; return j; })
+        .catch(() => null);
+      return S._p;
+    }
+    /* Comps are ~10x the model's size and only the Matchmaker detail view reads
+       them, so they load on demand rather than on every page view. */
+    function loadComps() {
+      if (S._cp) return S._cp;
+      S._cp = fetch(`${BASE}/trade_comps.json?v=${bust()}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => { S.comps = j; return j; })
+        .catch(() => null);
+      return S._cp;
+    }
+
+    /* Which fitted bucket applies. A superflex QB and a 1QB QB are different
+       assets, and a redraft trade prices nothing like a dynasty one, so the
+       model is fit four ways and we resolve the league's own axes off the same
+       context the FantasyCalc buckets use. */
+    function bucketKey() {
+      let ctx = null;
+      try { if (typeof fcActiveCtx === 'function') ctx = fcActiveCtx(); } catch (e) {}
+      const dyn = ctx ? !!ctx.dyn : true, sf = ctx ? !!ctx.sf : true;
+      return (dyn ? 'dyn' : 'rdr') + '_' + (sf ? 'sf' : '1qb');
+    }
+    /* The resolved bucket, and the key it actually resolved TO — which is not
+       always the one asked for. A redraft league whose bucket hasn't reached
+       the minimum sample yet borrows dynasty's, and the provenance line has to
+       name what it's really showing rather than what was requested. */
+    let _usedKey = null;
+    function B() {
+      const m = S.model;
+      _usedKey = null;
+      if (!m || !m.buckets) return null;
+      const k = bucketKey(), mode = k.split('_')[0];
+      // Fall back within the same mode before crossing modes: a 1QB dynasty
+      // league is far better served by dynasty-SF than by redraft-1QB.
+      const order = [k, mode + '_sf', mode + '_1qb', 'dyn_sf', 'dyn_1qb'];
+      for (const key of order) {
+        if (m.buckets[key]) { _usedKey = key; return m.buckets[key]; }
+      }
+      return null;
+    }
+    function idx() {
+      const b = B(); if (!b) return null;
+      const k = _usedKey;
+      if (S._idx[k]) return S._idx[k];
+      const m = {};
+      // Sleeper ships duplicate names across player ids (Kenneth Walker exists
+      // as both a WR and the RB). `players` is sorted by market value, so FIRST
+      // write wins — otherwise the scrub who happens to share a star's name
+      // silently becomes the star's market row.
+      (b.players || []).forEach(p => { const k2 = nkey(p.name); if (!m[k2]) m[k2] = p; });
+      S._idx[k] = m;
+      return m;
+    }
+
+    // ── pick assets ──────────────────────────────────────────────────────
+    /* Years out from the NEXT rookie draft — the same normalization the corpus
+       uses. Rookie drafts run in May, so from June onward "next year" is the
+       following calendar year. Get this wrong and every pick value is off by a
+       full year of discounting. */
+    function nextRookieYear() {
+      const d = new Date();
+      return d.getUTCMonth() <= 4 ? d.getUTCFullYear() : d.getUTCFullYear() + 1;
+    }
+    const ORD = { '1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5 };
+    function parsePick(name) {
+      const m = /^(\d{4})\s+(1st|2nd|3rd|4th|5th)/.exec(String(name || ''));
+      if (!m) return null;
+      return { season: +m[1], round: ORD[m[2]], out: +m[1] - nextRookieYear() };
+    }
+    /* Sleeper's trade feed carries no draft slot, so the fit knows "a 2027 1st"
+       but not an early vs late one. Keep the existing Early/Mid/Late spread as a
+       RATIO off the hand table and re-base only its level on the real number —
+       that way measured data sets the price and the tiering still works. */
+    function pickValue(name) {
+      const b = B(), p = parsePick(name);
+      if (!b || !p || !b.picks) return null;
+      // A pick whose draft has already happened is a stale key, not a live
+      // asset. Clamping it to 0 priced last May's spent 1st as this year's —
+      // hand it back to PICK_VALUES instead and leave the old behaviour intact.
+      if (p.out < 0 || p.out > 3) return null;
+      const row = b.picks['P' + p.out + 'R' + Math.min(p.round, 5)];
+      if (!row || !row.v) return null;
+      let ratio = 1;
+      try {
+        if (p.round === 1 && typeof PICK_VALUES !== 'undefined') {
+          const mid = PICK_VALUES[p.season + ' 1st Mid'], self = PICK_VALUES[name];
+          if (mid && self) ratio = self / mid;
+        }
+      } catch (e) {}
+      return Math.round(row.v * ratio);
+    }
+
+    // ── players ──────────────────────────────────────────────────────────
+    function row(name) { const m = idx(); return (m && m[nkey(name)]) || null; }
+    /* How far the real market sits from the calculator, as a signed fraction.
+       +0.20 means real leagues pay a 20% premium over FantasyCalc for him. */
+    function edge(name) { const r = row(name); return r ? r.mult - 1 : 0; }
+    /* Trades per 1,000 involving this player — how often he is genuinely in
+       play. A star nobody ever moves is a worse Matchmaker target than a
+       slightly lesser one who changes hands every week. Null, not 0, when he
+       isn't in the model at all: "never traded" and "not enough data" are
+       different claims and the caller must not conflate them. */
+    function liquidity(name) {
+      const r = row(name), b = B();
+      if (!r || !b || !b.liqP90) return null;
+      return Math.min(r.liq / b.liqP90, 1);   // 1.0 == as movable as the format's busiest names
+    }
+    function samples(name) { const r = row(name); return r ? r.n : 0; }
+
+    // ── distributions ────────────────────────────────────────────────────
+    function fair() { const b = B(); return (b && b.fair) || null; }
+    function shapeWeights() { const b = B(); return (b && b.shapes) || null; }
+    function pickShare() { const b = B(); return b ? b.pickShare : null; }
+    function stats() {
+      const m = S.model;
+      if (!m) return null;
+      const b = B();
+      return { trades: m.total_trades, leagues: m.total_leagues, updated: m.updated,
+               bucket: _usedKey || bucketKey(), asked: bucketKey(),
+               borrowed: !!(_usedKey && _usedKey !== bucketKey()),
+               bucketTrades: b ? b.trades : 0 };
+    }
+
+    /* Percentile of a surplus value inside the fitted CDF: what fraction of
+       REAL accepted trades gave that side this much or less. The CDF is stored
+       as 21 evenly spaced quantiles, so we interpolate between them. */
+    function surplusPct(s, cls) {
+      const b = B();
+      const q = b && b.surplus && (b.surplus[cls] || b.surplus.even);
+      if (!q || q.length < 3) return null;
+      if (s <= q[0]) return 0;
+      if (s >= q[q.length - 1]) return 100;
+      for (let i = 1; i < q.length; i++) {
+        if (s <= q[i]) {
+          const span = q[i] - q[i - 1];
+          const f = span > 0 ? (s - q[i - 1]) / span : 0;
+          return ((i - 1) + f) * (100 / (q.length - 1));
+        }
+      }
+      return 100;
+    }
+
+    /* ACCEPTANCE ODDS, calibrated on trades that actually cleared.
+       `recv` / `sent` are market values from the PARTNER'S seat. Their surplus
+       is scored against the distribution of surpluses real managers said yes
+       to — for the shape they are being asked to take, because consolidating
+       and splitting clear at measurably different prices. Returns null when no
+       model is loaded so the caller can keep its old heuristic. */
+    function acceptance(recv, sent, nRecv, nSent) {
+      const r = recv.reduce((a, b) => a + b, 0), s = sent.reduce((a, b) => a + b, 0);
+      if (!s || !B()) return null;
+      const cls = nRecv < nSent ? 'cons' : nRecv > nSent ? 'split' : 'even';
+      const p = surplusPct((r - s) / s, cls);
+      return p == null ? null : Math.max(2, Math.min(98, Math.round(p)));
+    }
+
+    function comps(name) {
+      const c = S.comps;
+      if (!c || !c.buckets) return null;
+      B();                                  // resolve which bucket is really in play
+      const k = _usedKey || bucketKey();
+      const bag = c.buckets[k];
+      if (!bag) return null;
+      if (!S._cidx[k]) {
+        const m = {};
+        // same duplicate-name rule as idx(), keyed here on trade count so the
+        // busier player wins the slot
+        Object.keys(bag).forEach(pid => { const k2 = nkey(bag[pid].name);
+          if (!m[k2] || bag[pid].n > m[k2].n) m[k2] = bag[pid]; });
+        S._cidx[k] = m;
+      }
+      return S._cidx[k][nkey(name)] || null;
+    }
+
+    return { load, loadComps, ready: () => !!B(), row, edge, liquidity, samples,
+             pickValue, fair, shapeWeights, pickShare, acceptance, comps, stats,
+             bucketKey };
+  })();
+
   const TC = {
     mode:'league', vmode:'dyn', vsrc:'market', _vmodeUserSet:false, teamA:'you', teamB:'bb', _inited:false,
     _live:null, _loading:false, _mobSide:'b', _mobPos:'RB',
@@ -23715,7 +23943,13 @@ function pickYear(year) {
     // value of an asset under current value-set
     val(a){
       if(a.type==='pick'){
-        const d = (typeof PICK_VALUES!=='undefined' && PICK_VALUES[a.name]) || 0;
+        // PICK_VALUES is a hand-written table. When the fitted market has landed
+        // it knows what real leagues actually pay for a 1st two years out, so it
+        // wins — and the calculator's verdict moves with it, which is the point:
+        // an engine must never propose a package the verdict then calls lopsided.
+        const real = VaultTradeMarket.pickValue(a.name);
+        const d = real != null ? real
+                : ((typeof PICK_VALUES!=='undefined' && PICK_VALUES[a.name]) || 0);
         return this.vmode==='re' ? 0 : d;
       }
       const isRe = this.vmode==='re';
@@ -24318,6 +24552,33 @@ function pickYear(year) {
     _age(n){ const fc=(typeof getFCValue==='function')&&getFCValue(n); return (fc&&fc.age)||null; },
     _rng(seed){ let s=seed>>>0; return ()=>{ s=(s+0x6D2B79F5)|0; let t=Math.imul(s^(s>>>15),1|s); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; },
 
+    /* How lopsided a package is allowed to be. This used to be a flat ±18% — a
+       number nobody measured. The corpus says the MEDIAN real dynasty trade
+       lands about 25% apart on market values, which is worth sitting with: most
+       trades people actually make are not "fair" by any calculator. So the
+       Matchmaker's cap is the median real gap — no more lopsided than half the
+       trades that genuinely happen — and the Idea Generator gets the looser p75,
+       because its whole job is packages you would not have drawn up.
+
+       Deliberately NOT p90: at ~60% that is the tail where someone got fleeced,
+       and an engine that promises "mutual-win" should not aim there. Both are
+       clamped so a thin bucket can't produce a silly band, and both fall back to
+       the old constants when no model has loaded. */
+    _band(){ const f=VaultTradeMarket.fair(); return Math.max(0.12, Math.min(0.30, (f&&f.p50)||0.18)); },
+    _bandPct(){ return Math.round(this._band()*100); },
+    _bandWide(){ const f=VaultTradeMarket.fair(); return Math.max(this._band(), Math.min(0.40, (f&&f.p75)||0.18)); },
+    _bandWidePct(){ return Math.round(this._bandWide()*100); },
+    /* ...but the band is ASYMMETRIC, because the two directions are not the same
+       decision. Coming out ahead by the full measured gap is fine — that is a
+       good trade to offer, and `_acceptance` decides separately whether they'd
+       take it. OVERPAYING is not: `verdict()` labels anything past 15% "THEY
+       WIN", so a symmetric 24% band would let the Matchmaker hand you a package
+       your own calculator opens by telling you that you lost it. Cap the
+       overpay side at that boundary so an engine never contradicts the verdict
+       it feeds. */
+    _bandOver(){ return Math.min(this._band(), 0.15); },
+    _bandOverPct(){ return Math.round(this._bandOver()*100); },
+
     /* per-team league intelligence: direction, needs, surplus, future lean */
     leagueIntel(){
       const sig=`${this.vmode}|${this.vsrc}|${this.isLive()?this._live.lid:'demo'}|${this.teams().map(t=>t.id).join(',')}`;
@@ -24381,7 +24642,7 @@ function pickYear(year) {
         if(!room.some(p=>gone.has(p.name))) continue;
         const after=room.filter(p=>!gone.has(p.name)).map(p=>this._wnRe(p.name))
           .concat(inc.filter(a=>a.pos===pos).map(a=>this._wnRe(a.name)));
-        if(after.filter(v=>v>=200).length<STN[pos]) return false; // ~200 re ≈ floor of a startable body on the FantasyCalc scale
+        if(after.filter(v=>v>=this._STARTABLE).length<STN[pos]) return false; // floor of a startable body on the FantasyCalc redraft scale
       }
       return true;
     },
@@ -24396,13 +24657,28 @@ function pickYear(year) {
       const send=(get||[]).map(a=>({name:a.name,pos:a.pos,v:this._mkt(a.name,a.pos)}));
       const rSum=recv.reduce((s,a)=>s+a.v,0), sSum=send.reduce((s,a)=>s+a.v,0);
       if(!sSum) return 50;
-      let p=50+Math.max(-40,Math.min(40,((rSum-sSum)/sSum)*100*2.2)); // net value to them drives everything
+      /* The base number is measured, not guessed: score the partner's surplus
+         against the distribution of surpluses managers in real Sleeper leagues
+         actually said yes to, for the package shape they're being handed —
+         consolidating and splitting clear at different prices, and the old
+         symmetric curve could not see that. The 50 + 2.2x slope below is the
+         pre-data fallback and only runs when the model hasn't loaded. */
+      const fitted=VaultTradeMarket.acceptance(recv.map(a=>a.v), send.map(a=>a.v), recv.length, send.length);
+      let p = fitted!=null ? fitted
+            : 50+Math.max(-40,Math.min(40,((rSum-sSum)/sSum)*100*2.2));
       if(team._topMkt==null) team._topMkt=(team.players||[]).reduce((m,x)=>Math.max(m,this._mkt(x.name,x.pos)),0);
+      /* Structural nudges on top. The two SHAPE penalties are halved once the
+         fitted base is in play, because the surplus CDF is already conditioned
+         on shape class and charging for it twice buries every package deal.
+         The roster-context terms are not halved — the corpus can't see whose
+         crown jewel a player is or which way a manager's timeline points, so
+         those stay at full strength. */
+      const k = fitted!=null ? 0.5 : 1;
       const bigOut=send.reduce((m,a)=>Math.max(m,a.v),0);
       if(bigOut>0&&bigOut>=team._topMkt*0.95) p-=18;   // asking for their crown jewel — endowment tax
       const bestIn=recv.reduce((m,a)=>Math.max(m,a.v),0);
-      if(bigOut>0&&bestIn<bigOut*0.6) p-=14;           // quantity-for-quality discount: scraps for a stud
-      if(recv.length>send.length+1) p-=6;              // roster-clogger package
+      if(bigOut>0&&bestIn<bigOut*0.6) p-=14*k;         // quantity-for-quality discount: scraps for a stud
+      if(recv.length>send.length+1) p-=6*k;            // roster-clogger package
       const givesFuture=recv.some(a=>a.pos==='PICK'||(this._age(a.name)||99)<=24);
       if(team.wantsFuture===givesFuture) p+=10;        // matches their timeline
       const nd=team.needs&&team.needs[0]&&team.needs[0].pos;
@@ -24424,7 +24700,7 @@ function pickYear(year) {
         return s;
       };
       const ok=pk=>this._lineupOk(me,pk,incoming);
-      const lo=target*0.82, hi=target*1.18;
+      const bw=this._band(), lo=target*(1-bw), hi=target*(1+this._bandOver());
       let best=null;
       pool.forEach(a=>{ if(a.dyn>=lo&&a.dyn<=hi&&ok([a])){ const sc=pref(a)-Math.abs(a.dyn-target)/target; if(!best||sc>best.sc)best={pk:[a],sc}; } });
       if(best)return best.pk;
@@ -24456,15 +24732,22 @@ function pickYear(year) {
             const tDyn=this._wnDyn(p.name); if(!tDyn)return;
             const pkg=this._pkgFor(me,r,tDyn,[{name:p.name,pos:p.pos}]); if(!pkg)return;
             const sDyn=pkg.reduce((s,a)=>s+a.dyn,0);
-            const netPct=((sDyn-tDyn)/tDyn)*100; if(Math.abs(netPct)>18)return;
+            const netPct=((sDyn-tDyn)/tDyn)*100; if(netPct>this._bandOverPct()||netPct< -this._bandPct())return;
             const gainFloor=this._wnRe(p.name)-nd.floor; if(gainFloor<=0)return;
             const givesFuture=pkg.some(a=>a.pos==='PICK'||(a.age&&a.age<=24));
             const theirNeed=r.needs[0]&&r.needs[0].pos;
             const theirFit=(r.wantsFuture&&givesFuture)||pkg.some(a=>a.pos===theirNeed);
             const accept=this._acceptance(r,pkg,[{name:p.name,pos:p.pos}]);
             if(accept<25)return; // they'd never say yes — don't even show it
-            const fair=1-Math.min(Math.abs(netPct)/18,1);
-            const fit=Math.round(45*fair + 35*Math.min(gainFloor/1500,1) + 20*(theirFit?1:0));
+            const fair=1-Math.min(Math.abs(netPct)/this._bandPct(),1);
+            /* Liquidity: how often this player really changes hands in this
+               format, relative to the busiest names in it. A star nobody ever
+               moves is a worse target than a slightly lesser one who is
+               genuinely in play — and that is not knowable from a roster.
+               Neutral 0.5 when he isn't in the model, so an unknown player is
+               neither rewarded nor punished. */
+            const liq=VaultTradeMarket.liquidity(p.name);
+            const fit=Math.round(40*fair + 30*Math.min(gainFloor/1500,1) + 18*(theirFit?1:0) + 12*(liq==null?0.5:liq));
             out.push({ pos:nd.pos, teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir, dirCls:r.dirCls,
               target:p.name, targetPos:p.pos, targetDyn:tDyn, send:pkg, sendDyn:Math.round(sDyn),
               netDyn:Math.round(tDyn-sDyn), gainRe:Math.round(gainFloor), theirFit, fit, accept });
@@ -24505,11 +24788,12 @@ function pickYear(year) {
                 const fut=r.picks.map(pk=>({name:pk.name,pos:'PICK',dyn:this._wnDyn(pk.name)}))
                   .concat(r.players.filter(x=>{ const a=this._age(x.name); return a&&a<=24&&!r.starters.has(x.name); }).map(x=>({name:x.name,pos:x.pos,dyn:this._wnDyn(x.name)})))
                   .filter(x=>x.dyn>0).sort((a,b)=>b.dyn-a.dyn);
-                const lo=myDyn*0.82, hi=myDyn*1.18; let get=null;
+                const bw=this._band(), lo=myDyn*(1-this._bandOver()), hi=myDyn*(1+bw); let get=null;
                 fut.forEach(a=>{ if(!get&&a.dyn>=lo&&a.dyn<=hi)get=[a]; });
                 if(!get){ for(let i=0;i<fut.length&&!get;i++)for(let j=i+1;j<fut.length&&!get;j++){ const s=fut[i].dyn+fut[j].dyn; if(s>=lo&&s<=hi)get=[fut[i],fut[j]]; } }
                 if(!get)return;
                 if(!this._lineupOk(me,[{name:p.name,pos:p.pos}],get))return; // even a rebuild can't zero out a starting slot
+                if(!this._incomingOk(me,get))return;
                 const accept=this._acceptance(r,[{name:p.name,pos:p.pos}],get); if(accept<25)return;
                 const score=Math.round(55*r.contend+30*Math.min((re-nd.floor)/1200,1)+15*Math.min(Math.max(age-26,0),4)/4);
                 out.push({ kind:'sell', teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir, accept,
@@ -24520,7 +24804,133 @@ function pickYear(year) {
           });
         });
       }
-      const seen={}; return out.sort((a,b)=>b.score-a.score).filter(x=>{ const k=x.teamId+'|'+x.target; if(seen[k])return false; seen[k]=1; return true; }).slice(0,3);
+      const seen={}; const timing=out.sort((a,b)=>b.score-a.score).filter(x=>{ const k=x.teamId+'|'+x.target; if(seen[k])return false; seen[k]=1; return true; }).slice(0,3);
+      // Timing exploits reason about the league. Market exploits reason about
+      // the price — a different axis entirely, so they are found separately and
+      // merged rather than competing for the same three slots.
+      const mkt=this._buildMarketExploits(rows,me).filter(x=>!seen[x.teamId+'|'+x.target]).slice(0,2);
+      return timing.concat(mkt);
+    },
+
+    /* ── MARKET DISLOCATION: where real leagues and the calculator disagree ──
+       The corpus prices every player twice: what FantasyCalc says he is worth,
+       and what real Sleeper managers actually paid. When those diverge, the gap
+       IS the trade.
+
+         multiplier > 1  real leagues pay ABOVE book  → sell your copy into it
+         multiplier < 1  real leagues pay BELOW book  → buy him at a discount
+
+       This is the one exploit class that cannot exist without the trade data —
+       no amount of roster analysis produces it. Guarded on sample count so a
+       player seen four times can't manufacture a signal. */
+    _buildMarketExploits(rows,me){
+      if(!me||!VaultTradeMarket.ready()) return [];
+      const MIN_N=8, MIN_EDGE=0.12, out=[];
+      // SELL: my players the market overpays for
+      me.players.forEach(p=>{
+        if(VaultTradeMarket.samples(p.name)<MIN_N) return;
+        const e=VaultTradeMarket.edge(p.name); if(e<MIN_EDGE) return;
+        const myDyn=this._wnDyn(p.name); if(!myDyn) return;
+        let best=null;
+        rows.forEach(r=>{ if(r===me||best) return;
+          const want=(r.needs||[]).slice(0,2).some(n=>n.pos===p.pos); if(!want) return;
+          const pool=r.players.filter(x=>!r.starters.has(x.name)).map(x=>({name:x.name,pos:x.pos,dyn:this._wnDyn(x.name)}))
+            .concat(r.picks.map(x=>({name:x.name,pos:'PICK',dyn:this._wnDyn(x.name)})))
+            .filter(x=>x.dyn>0).sort((a,b)=>b.dyn-a.dyn);
+          const bw=this._band(), lo=myDyn*(1-this._bandOver()), hi=myDyn*(1+bw);
+          let get=null;
+          pool.forEach(a=>{ if(!get&&a.dyn>=lo&&a.dyn<=hi) get=[a]; });
+          if(!get){ for(let i=0;i<pool.length&&!get;i++)for(let j=i+1;j<pool.length&&!get;j++){ const s=pool[i].dyn+pool[j].dyn; if(s>=lo&&s<=hi) get=[pool[i],pool[j]]; } }
+          if(!get) return;
+          if(!this._lineupOk(me,[{name:p.name,pos:p.pos}],get)) return;
+          if(!this._incomingOk(me,get)) return;
+          const accept=this._acceptance(r,[{name:p.name,pos:p.pos}],get); if(accept<25) return;
+          best={r,get,accept};
+        });
+        if(!best) return;
+        out.push({ kind:'sell', src:'market', tag:'Market premium', teamId:best.r.id, teamName:best.r.name,
+          teamColor:best.r.color, dir:best.r.dir, accept:best.accept, target:p.name, targetPos:p.pos,
+          age:this._age(p.name)||0, send:[{name:p.name,pos:p.pos}], get:best.get,
+          score:Math.round(60+40*Math.min(e/0.5,1)), edge:e, edgeN:VaultTradeMarket.samples(p.name),
+          why:`Real Sleeper leagues have been paying <b>${Math.round(e*100)}% above</b> the calculator for ${p.name} across ${VaultTradeMarket.samples(p.name)} tracked trades. Book value says one thing, the people actually trading say another — and you can only sell into that gap while it's open.` });
+      });
+      // BUY: other rosters' players the market discounts
+      rows.forEach(r=>{ if(r===me) return;
+        r.players.forEach(p=>{
+          if(VaultTradeMarket.samples(p.name)<MIN_N) return;
+          const e=VaultTradeMarket.edge(p.name); if(e>-MIN_EDGE) return;
+          const tDyn=this._wnDyn(p.name); if(!tDyn) return;
+          if(!this._incomingOk(me,[{name:p.name,pos:p.pos}])) return;   // a discount you can't start isn't an exploit
+          const pkg=this._pkgFor(me,r,tDyn,[{name:p.name,pos:p.pos}]); if(!pkg) return;
+          const accept=this._acceptance(r,pkg,[{name:p.name,pos:p.pos}]); if(accept<25) return;
+          out.push({ kind:'buy', src:'market', tag:'Market discount', teamId:r.id, teamName:r.name,
+            teamColor:r.color, dir:r.dir, accept, target:p.name, targetPos:p.pos, age:this._age(p.name)||0,
+            send:pkg, get:[{name:p.name,pos:p.pos}], score:Math.round(60+40*Math.min(-e/0.5,1)),
+            edge:e, edgeN:VaultTradeMarket.samples(p.name),
+            why:`${p.name} has been changing hands <b>${Math.round(-e*100)}% below</b> his calculator value in real leagues (${VaultTradeMarket.samples(p.name)} tracked trades). The market is asleep on him — pay the market price, not the book price.` });
+        });
+      });
+      const seen={};
+      return out.sort((a,b)=>b.score-a.score).filter(x=>{ const k=x.target; if(seen[k])return false; seen[k]=1; return true; });
+    },
+
+    /* The floor for "a startable body" on the FantasyCalc redraft scale. Shared
+       with _lineupOk so the two can never drift — a player the lineup guard
+       refuses to count as a starter must not be sellable to you as a producer. */
+    _STARTABLE:200,
+    /* Would acquiring this player actually improve the lineup? "Fills a need"
+       has to mean he BEATS what you already start there, not that he happens to
+       play the position. Without this the Idea Generator offered a 2028 1st for
+       T.J. Hockenson — redraft value 178, below the startable floor, behind four
+       tight ends already on the roster — because the only test was that his
+       redraft value was greater than zero. */
+    /* Is this an acceptable haul for who I am? Every engine that hands me
+       players routes through here — the Idea Generator's four shapes and both
+       Exploit Finder branches — because writing the test per-shape is exactly
+       how the split shape ended up offering a real 1st for a receiver with a
+       redraft value of 6, and how the sell branch kept paying me back in
+       players who cannot start.
+
+       A contender does not acquire bodies that can't crack a lineup. A
+       rebuilder may — that is what a rebuild IS — but only young ones; an
+       unstartable 30-year-old is nobody's plan. */
+    _incomingOk(me,get){
+      const unstartable=(get||[]).filter(a=>a.pos&&a.pos!=='PICK'&&a.pos!=='?'&&this._wnRe(a.name)<this._STARTABLE);
+      if(!unstartable.length) return true;
+      if(!me.wantsFuture) return false;
+      return !unstartable.some(a=>(this._age(a.name)||99)>25);
+    },
+    _improvesLineup(me,pos,name){
+      const re=this._wnRe(name);
+      if(re<this._STARTABLE) return false;
+      const STN=this._wnStarters(), room=(me.byPos[pos]||[]).slice()
+        .sort((a,b)=>this._wnRe(b.name)-this._wnRe(a.name)).slice(0,STN[pos]);
+      if(room.length<STN[pos]) return true;                 // an empty slot is an upgrade by definition
+      return re>this._wnRe(room[room.length-1].name);       // must beat the weakest starter he'd displace
+    },
+
+    /* Weighted draw bag for idea shapes, built from how often each silhouette
+       really occurs. The corpus counts trades by asset-count pair, which maps
+       onto the four generator shapes: an N-for-1 is a consolidation, a 1-for-N
+       is a split, and even-count deals are the swap/flip family. Ten slots is
+       plenty of resolution for a four-way draw. */
+    _ideaShapeBag(){
+      const w=VaultTradeMarket.shapeWeights();
+      if(!w) return ['consolidate','split','pickflip','posswap'];
+      let cons=0, split=0, even=0;
+      Object.keys(w).forEach(k=>{ const m=/^(\d+)-for-(\d+)/.exec(k); if(!m)return;
+        const lo=+m[1], hi=+m[2];
+        if(lo===hi) even+=w[k]; else { cons+=w[k]/2; split+=w[k]/2; } // a lopsided count is a consolidation from one seat and a split from the other
+      });
+      const pick=VaultTradeMarket.pickShare()||0.3;
+      const bag=[];
+      const add=(name,share)=>{ const n=Math.max(1,Math.round(share*10)); for(let i=0;i<n;i++)bag.push(name); };
+      const tot=(cons+split+even)||1;
+      add('consolidate',cons/tot); add('split',split/tot);
+      // even-count deals split between the pick-for-player flip and the
+      // need-for-need swap in proportion to how often picks are involved at all
+      add('pickflip',(even/tot)*pick); add('posswap',(even/tot)*(1-pick));
+      return bag.length?bag:['consolidate','split','pickflip','posswap'];
     },
 
     /* ── IDEA GENERATOR: creative package shapes, novelty × realism, reshuffleable ── */
@@ -24534,44 +24944,51 @@ function pickYear(year) {
       const push=(shape,novelty,team,give,get)=>{
         if(!give||!get||!give.length||!get.length)return;
         if(!this._lineupOk(me,give,get))return;
+        if(!this._incomingOk(me,get))return;
         const gD=give.reduce((s,a)=>s+a.dyn,0), rD=get.reduce((s,a)=>s+a.dyn,0); if(!gD||!rD)return;
-        const netPct=((rD-gD)/gD)*100; if(Math.abs(netPct)>18)return;
+        const netPct=((rD-gD)/gD)*100; if(netPct>this._bandWidePct()||netPct< -this._bandOverPct())return;
         const k=team.id+'|'+give.map(a=>a.name).join(',')+'|'+get.map(a=>a.name).join(','); if(seenK[k])return; seenK[k]=1;
         const realism=this._acceptance(team,give,get); if(realism<25)return; // realism = acceptance odds from their seat
         ideas.push({ shape, novelty, teamId:team.id, teamName:team.name, teamColor:team.color, dir:team.dir,
           give, get, netDyn:Math.round(rD-gD), realism, score:Math.round(novelty*0.4+realism*0.6) });
       };
+      const bw=this._bandWide();
+      /* Shape sampling used to be a flat 25% each. Real leagues do not trade
+         that way — the corpus knows how often each silhouette actually occurs,
+         so draw from that instead and the batch stops being a quarter full of
+         shapes nobody makes. Falls back to uniform with no model. */
+      const shapeBag=this._ideaShapeBag();
       for(let attempt=0; attempt<26 && ideas.length<6; attempt++){
         const team=others[Math.floor(rnd()*others.length)];
-        const shape=['consolidate','split','pickflip','posswap'][Math.floor(rnd()*4)];
+        const shape=shapeBag[Math.floor(rnd()*shapeBag.length)];
         const mp=myPool(team.wantsFuture), tp=theirPool(team);
         if(shape==='consolidate'&&mp.length>=2&&tp.length){
           const tgt=tp[Math.floor(rnd()*Math.min(tp.length,3))];
-          const lo=tgt.dyn*0.82, hi=tgt.dyn*1.18; let pk=null;
+          const lo=tgt.dyn*(1-bw), hi=tgt.dyn*(1+bw); let pk=null;
           for(let i=0;i<mp.length&&!pk;i++)for(let j=i+1;j<mp.length&&!pk;j++){ const s=mp[i].dyn+mp[j].dyn; if(s>=lo&&s<=hi)pk=[mp[i],mp[j]]; }
           push('2-for-1 consolidation',70,team,pk,[tgt]);
         } else if(shape==='split'&&mp.length&&tp.length>=2){
           const big=mp[Math.floor(rnd()*Math.min(mp.length,2))];
-          const lo=big.dyn*0.82, hi=big.dyn*1.18; let gt=null;
+          const lo=big.dyn*(1-bw), hi=big.dyn*(1+bw); let gt=null;
           for(let i=0;i<tp.length;i++){ if(gt)break; for(let j=i+1;j<tp.length;j++){ const s=tp[i].dyn+tp[j].dyn; if(s>=lo&&s<=hi){ gt=[tp[i],tp[j]]; break; } } }
           push('1-for-2 depth split',75,team,[big],gt);
         } else if(shape==='pickflip'){
-          if(me.contend>=.46){ const myPicks=mp.filter(a=>a.pos==='PICK'); const prod=tp.filter(a=>a.pos!=='PICK'&&this._wnRe(a.name)>0);
+          if(me.contend>=.46){ const myPicks=mp.filter(a=>a.pos==='PICK'); const prod=tp.filter(a=>a.pos!=='PICK'&&this._improvesLineup(me,a.pos,a.name));
             if(myPicks.length&&prod.length){ const tgt=prod[Math.floor(rnd()*Math.min(prod.length,3))];
-              const lo=tgt.dyn*0.82, hi=tgt.dyn*1.18; let pk=null;
+              const lo=tgt.dyn*(1-bw), hi=tgt.dyn*(1+bw); let pk=null;
               myPicks.forEach(a=>{ if(!pk&&a.dyn>=lo&&a.dyn<=hi)pk=[a]; });
               if(!pk){ for(let i=0;i<myPicks.length&&!pk;i++)for(let j=i+1;j<myPicks.length;j++){ const s=myPicks[i].dyn+myPicks[j].dyn; if(s>=lo&&s<=hi){ pk=[myPicks[i],myPicks[j]]; break; } } }
               push('Picks → producer',60,team,pk,[tgt]); } }
           else { const myVets=mp.filter(a=>a.pos!=='PICK'&&a.age&&a.age>=27); const theirPicks=tp.filter(a=>a.pos==='PICK');
             if(myVets.length&&theirPicks.length){ const v=myVets[Math.floor(rnd()*myVets.length)];
-              const lo=v.dyn*0.82, hi=v.dyn*1.18; let gt=null;
+              const lo=v.dyn*(1-bw), hi=v.dyn*(1+bw); let gt=null;
               theirPicks.forEach(a=>{ if(!gt&&a.dyn>=lo&&a.dyn<=hi)gt=[a]; });
               if(!gt){ for(let i=0;i<theirPicks.length;i++){ if(gt)break; for(let j=i+1;j<theirPicks.length;j++){ const s=theirPicks[i].dyn+theirPicks[j].dyn; if(s>=lo&&s<=hi){ gt=[theirPicks[i],theirPicks[j]]; break; } } } }
               push('Producer → picks',60,team,[v],gt); } }
         } else if(shape==='posswap'){
           const myNeed=me.needs[0]&&me.needs[0].pos, theirNeed=team.needs[0]&&team.needs[0].pos;
           if(myNeed&&theirNeed&&myNeed!==theirNeed){
-            const give=mp.find(a=>a.pos===theirNeed), get=tp.find(a=>a.pos===myNeed);
+            const give=mp.find(a=>a.pos===theirNeed), get=tp.find(a=>a.pos===myNeed&&this._improvesLineup(me,a.pos,a.name));
             if(give&&get) push('Need-for-need swap',85,team,[give],[get]);
           }
         }
@@ -24602,17 +25019,32 @@ function pickYear(year) {
         <button class="tc-eng-tab ${tab==='exploit'?'on':''}" onclick="TC.setEngTab('exploit')">⊕ Exploit Finder <span class="n">${E.exploits.length}</span></button>
         <button class="tc-eng-tab ${tab==='ideas'?'on':''}" onclick="TC.setEngTab('ideas')">✦ Idea Generator <span class="n">${E.ideas.length}</span></button>
       </div>`;
+      /* Provenance. These engines now run on measured constants, and a user has
+         no way to tell that from the output alone — so say what they were fit
+         on. `prov` is also the flag every piece of copy below reads to decide
+         whether it may claim the numbers are real. */
+      const ms=VaultTradeMarket.stats(), prov=!!(ms&&ms.bucketTrades);
+      const fmtBucket=k=>`${k.startsWith('dyn')?'dynasty':'redraft'} ${k.endsWith('sf')?'superflex':'1QB'}`;
+      const provLine=prov?`<div class="tc-eng-prov" title="Fitted from completed trades in real Sleeper leagues, refreshed every 6 hours">
+        <span class="tc-eng-provdot"></span>Tuned on <b>${fmt(ms.bucketTrades)}</b> real ${fmtBucket(ms.bucket)} trades · ${fmt(ms.trades)} across ${fmt(ms.leagues)} Sleeper leagues${ms.borrowed?` <span style="opacity:.75">(not enough ${fmtBucket(ms.asked)} data yet)</span>`:''}</div>`:'';
       let sub='', body='';
       if(tab==='match'){
-        sub=`Fair, <b>mutual-win</b> trades built around your top needs — every package is tilted toward what the partner's timeline actually wants, capped at ±18% value and filtered by <b>acceptance odds</b> (would they actually say yes?).`;
+        sub=`Fair, <b>mutual-win</b> trades built around your top needs — every package is tilted toward what the partner's timeline actually wants, you can come out up to <b>${this._bandPct()}%</b> ahead ${prov?'— the gap the median <b>real</b> trade lands inside —':''} but never more than ${this._bandOverPct()}% behind, and every package is filtered by <b>acceptance odds</b> priced off ${prov?'trades that actually cleared':'their side of the table'}.`;
         body=`<div class="tc-wn-list">${E.match.map((m,i)=>{
           const c=POS_HEX[m.pos]||'#8794a6', nc=m.netDyn>=0?'var(--rb)':'#ff7a8a';
           const fc=m.fit>=75?'var(--rb)':m.fit>=55?'var(--te)':'var(--muted)';
           const ac=m.accept>=65?'var(--rb)':m.accept>=40?'var(--te)':'#ff7a8a';
+          /* The strongest argument the Matchmaker can make isn't a fairness
+             percentage — it's the receipt. Real packages other leagues actually
+             sent for this exact player, most recent first. */
+          const cp=VaultTradeMarket.comps(m.target);
+          const comp=cp&&cp.comps&&cp.comps.length
+            ? `<div class="tc-wn-comp"><span class="tc-wn-complbl">REAL LEAGUES PAID</span>${cp.comps.slice(0,2).map(x=>`<span class="tc-wn-compv">${x.got.join(' + ')}</span>`).join('<span class="tc-wn-compsep">·</span>')}<span class="tc-wn-compn">${cp.n} trade${cp.n===1?'':'s'}</span></div>` : '';
           return `<div class="tc-wn-idea" onclick="TC.applyEngine('match',${i})" style="border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px">
             <div class="tc-wn-idea-main">
               <div class="tc-wn-get"><span class="tc-wn-getlbl">GET</span><span class="tc-wn-pname">${m.target}</span><span class="v-pos ${m.targetPos}" style="font-size:9px">${m.targetPos}</span><span class="tc-wn-from" style="color:${m.teamColor}">from ${m.teamName}</span><span class="tc-fmt-pill tc-dir-${m.dirCls}" style="border:none;background:transparent;padding:0 2px">${m.dir}</span></div>
               <div class="tc-wn-give"><span class="tc-wn-givelbl">SEND</span><span class="tc-wn-sname">${m.send.map(s=>s.name).join(' + ')}</span>${m.theirFit?'<span class="tc-fmt-pill" style="color:var(--rb);border-color:rgba(61,204,122,.3)">fits their plan</span>':''}</div>
+              ${comp}
             </div>
             <div class="tc-wn-idea-stats">
               <div class="tc-wn-stat"><span class="tc-wn-statn" style="color:${nc}">${m.netDyn>=0?'+':'−'}${fmt(Math.abs(m.netDyn))}</span><span class="tc-wn-statl">net dyn</span></div>
@@ -24621,16 +25053,18 @@ function pickYear(year) {
               <span class="tc-fitchip" title="How likely ${m.teamName} says yes, priced from their side at market value" style="background:color-mix(in srgb,${ac} 14%,transparent);color:${ac}">${m.accept}% accept</span>
               <div class="tc-wn-load">Load ›</div>
             </div>
-          </div>`; }).join('')||'<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:14px">No mutual-win packages inside ±18% right now — try the Idea Generator.</div>'}</div>`;
+          </div>`; }).join('')||`<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:14px">No mutual-win packages inside the ${this._bandPct()}%/${this._bandOverPct()}% band right now — try the Idea Generator.</div>`}</div>`;
       } else if(tab==='exploit'){
         const buying=me&&me.contend>=.46;
         sub=`Your plan: <b style="color:var(--te)">${buying?'Contender':'Rebuilder'}</b> — ${buying?'buy proven producers off fading teams while their price is soft.':'sell aging producers to contenders at peak, stack future currency.'} Timing is the leverage.`;
         const cards=E.exploits.map((x,i)=>{
           const kc=x.kind==='buy'?'var(--rb)':'var(--te)';
           const ac=x.accept>=65?'var(--rb)':x.accept>=40?'var(--te)':'#ff7a8a';
+          const edgeChip=x.src==='market'
+            ? `<span class="tc-xc-edge" style="color:${x.edge>0?'var(--te)':'var(--rb)'};background:color-mix(in srgb,${x.edge>0?'var(--te)':'var(--rb)'} 13%,transparent)" title="Real Sleeper trades vs the calculator, across ${x.edgeN} tracked trades">${x.edge>0?'+':''}${Math.round(x.edge*100)}% vs book</span>` : '';
           return `<div class="tc-xc">
-            <div class="tc-xc-head"><span class="tc-xc-kind" style="background:${kc}1a;color:${kc}">${x.kind==='buy'?'↘ Buy-low':'↗ Sell-high'}</span><span style="font-family:var(--font-sans);font-weight:800;font-size:14px;color:var(--text)">${x.teamName}</span><span class="tc-xc-score">${x.score}</span></div>
-            <div style="display:flex;align-items:center;gap:8px"><span class="v-pos ${x.targetPos}">${x.targetPos}</span><span style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${x.target}</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${x.age}y</span></div>
+            <div class="tc-xc-head"><span class="tc-xc-kind" style="background:${kc}1a;color:${kc}">${x.kind==='buy'?'↘ Buy-low':'↗ Sell-high'}</span>${x.src==='market'?`<span class="tc-xc-tag">${x.tag}</span>`:''}<span style="font-family:var(--font-sans);font-weight:800;font-size:14px;color:var(--text)">${x.teamName}</span><span class="tc-xc-score">${x.score}</span></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="v-pos ${x.targetPos}">${x.targetPos}</span><span style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${x.target}</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${x.age}y</span>${edgeChip}</div>
             <div class="tc-xc-why">${x.why}</div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">${x.kind==='buy'?'SEND':'GET'}: ${(x.kind==='buy'?x.send:x.get).map(a=>a.name).join(' + ')}</span><span class="tc-fitchip" title="How likely ${x.teamName} says yes, priced from their side at market value" style="background:color-mix(in srgb,${ac} 14%,transparent);color:${ac};flex-shrink:0">${x.accept}% accept</span></div>
             <button class="tc-xc-btn" onclick="TC.applyEngine('exploit',${i})">⇄ Build this offer</button>
@@ -24641,7 +25075,7 @@ function pickYear(year) {
         body=`${cards?`<div class="tc-xc-grid">${cards}</div>`:'<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;padding:4px 0 14px">No clean exploits right now — the league pressure map below shows where timing is building.</div>'}
         <div class="tc-eyebrow" style="margin:4px 0 10px">League pressure map</div>${press}`;
       } else {
-        sub=`Creative packages you wouldn't have drawn up — scored for <b>novelty × acceptance odds</b>, all inside ±18%. Shuffle for a fresh batch.`;
+        sub=`Creative packages you wouldn't have drawn up — scored for <b>novelty × acceptance odds</b>, up to ${this._bandWidePct()}% in your favour and never past ${this._bandOverPct()}% against you${prov?', shaped the way real leagues actually build packages':''}. Shuffle for a fresh batch.`;
         body=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="tc-xc-btn" style="width:auto;padding:8px 16px" onclick="TC.shuffleIdeas()">⟳ Shuffle ideas</button></div>
         <div class="tc-wn-list">${E.ideas.map((d,i)=>{
           const nc=d.netDyn>=0?'var(--rb)':'#ff7a8a', rc=d.realism>=70?'var(--rb)':d.realism>=50?'var(--te)':'#ff7a8a';
@@ -24662,6 +25096,7 @@ function pickYear(year) {
         <div class="tc-wn-header">
           <div style="display:flex;align-items:center;gap:11px"><span class="tc-wn-h1">Trade Engines</span></div>
           <div class="tc-wn-sub">Three engines that find the trade before you do — every idea loads straight into the calculator.</div>
+          ${provLine}
         </div>
         ${tabs}
         <div class="tc-eng-sub">${sub}</div>
@@ -24776,6 +25211,14 @@ function pickYear(year) {
       }
       if(!this._showPicks()) this._stripPicks();
       this.render();
+      /* Warm the fitted trade market. Every engine reads it through getters that
+         return null until it lands, so the first paint is the old behaviour and
+         the repaint on arrival upgrades it in place — no blocking, no spinner.
+         The engine caches key off value mode/source, not the model, so they are
+         cleared explicitly or the pre-model results would stick. */
+      if(!window._tcTmKick){ window._tcTmKick=1;
+        Promise.all([VaultTradeMarket.load(), VaultTradeMarket.loadComps()])
+          .then(()=>{ this._engCache=null; this._intelCache=null; this.render(); }).catch(()=>{}); }
       if(typeof fcLoaded!=='undefined' && !fcLoaded && typeof fetchFantasyCalc==='function' && !window._tcFcKick){ window._tcFcKick=1; fetchFantasyCalc().then(()=>this.render()).catch(()=>{}); }
       if(typeof sleeperPlayersLoaded!=='undefined' && !sleeperPlayersLoaded && typeof fetchSleeperPlayers==='function' && !window._tcSpKick){ window._tcSpKick=1; fetchSleeperPlayers().then(()=>this.render()).catch(()=>{}); }
     },

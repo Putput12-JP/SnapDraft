@@ -217,6 +217,38 @@ Three things that cost real time here:
 - `!important` beats specificity, so it outranks an ID selector like
   `#P .mr-seg.posseg button.on` without needing a longer selector.
 
+## Trade Engines — the constants are measured, don't invent new ones
+
+Matchmaker / Exploit Finder / Idea Generator used to run on made-up numbers: a
+flat ±18% "fair" band, a hand-written `PICK_VALUES` table, and acceptance odds
+assembled from guessed penalties. Those are now **fitted from real Sleeper league
+trades** — `scripts/build_sleeper_trades.py` → `data/trade_market.json`, read
+through `window.VaultTradeMarket`. Methodology, findings and limits:
+`docs/trade-market-model.md`.
+
+**If you need a threshold in these engines, get it from the model.** The ones
+that exist: `TC._band()` / `_bandWide()` (fair gap), `VaultTradeMarket
+.acceptance()` (surplus percentile), `.pickValue()`, `.edge()`, `.liquidity()`,
+`.shapeWeights()`, `.comps()`. Adding another hardcoded constant next to these
+is how the old engines got the way they were.
+
+- **Every getter returns `null` until the file lands**, and every caller falls
+  back to the old constant. Keep that — it is why a cold cache or a failed
+  fetch costs nothing. Don't make a getter return `0`; "not in the model" and
+  "measured as zero" are different claims.
+- **Report the bucket actually used, not the one asked for.** The model is fit
+  four ways (dyn/rdr × sf/1qb) and a thin bucket borrows dynasty's. `stats()`
+  exposes `asked` / `bucket` / `borrowed` for exactly this, and the provenance
+  line says so out loud.
+- **A bucket needs `MIN_TRADES_BUCKET` before it publishes.** A published
+  bucket beats borrowing, so a 50-trade bucket is worse than none — it briefly
+  shipped a consolidation premium below 1, which is backwards.
+- Pick assets key on **years out from the next rookie draft (May)**, never on
+  the season string, or the same pick becomes two assets across the offseason.
+- These three engines are **desktop-only**. `renderLeagueMobile()` renders
+  `renderWinNow()` instead, which is a separate engine still carrying its own
+  hardcoded 18% band.
+
 ## Verifying UI work
 
 Run the app and look at it; don't rely on the file diff. `.claude/launch.json`

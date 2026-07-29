@@ -1,0 +1,88 @@
+name: Update Sleeper Trade Market
+
+# Harvests completed trades from the real Sleeper leagues the ADP crawler has
+# already discovered, then refits the trade market model the Trade Engines run
+# on (values, pick prices, fairness bands, acceptance CDFs, package shapes).
+#
+# Each run does a BOUNDED chunk of league pulls, checkpointed in
+# data/sleeper_trade_state.json, so the corpus accretes across runs instead of
+# restarting. It also re-pulls leagues that already produced trades every 10
+# days, which is how in-season deals keep landing without a full re-crawl.
+#
+# Depends on data/sleeper_crawl_state.json (league IDs) and
+# data/sleeper_player_meta.json (names/positions), both written by
+# update-sleeper-adp.yml — so this is scheduled to run BETWEEN those runs.
+
+on:
+  schedule:
+    - cron: '47 1,7,13,19 * * *'   # every 6 hours, offset from the ADP crawl
+  workflow_dispatch:
+    inputs:
+      league_budget:
+        description: 'Leagues to pull this run (also time-capped)'
+        required: false
+        default: '900'
+      rebuild_only:
+        description: 'Refit the model from the existing corpus without crawling'
+        required: false
+        default: 'false'
+
+# The ADP crawl and this one both commit to data/ — don't let two trade runs
+# race on the checkpoint, and let the rebase in the commit step handle the rest.
+concurrency:
+  group: sleeper-trades
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  crawl-trades:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Crawl trades + refit the market model
+        run: |
+          if [ "${{ github.event.inputs.rebuild_only }}" = "true" ]; then
+            python3 scripts/build_sleeper_trades.py --rebuild-only
+          else
+            python3 scripts/build_sleeper_trades.py \
+              --league-budget "${{ github.event.inputs.league_budget || '900' }}" \
+              --seconds 1200
+          fi
+
+      - name: Show generated files
+        run: |
+          echo "Trade market files:"
+          ls -lh data/trade_market.json data/trade_comps.json data/sleeper_trade_*.json 2>/dev/null || echo "(none)"
+          python3 - <<'PY'
+          import json
+          m = json.load(open('data/trade_market.json'))
+          print(f"corpus: {m['total_trades']} trades across {m['total_leagues']} leagues")
+          for k, b in m['buckets'].items():
+              print(f"  {k}: {b['trades']} trades · fair p50 {b['fair']['p50']} "
+                    f"· consolidation {b['consolidation']['p50']} · {len(b['players'])} players")
+          PY
+
+      - name: Commit updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Rebase in case another data cron pushed while we were crawling.
+          git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+          git add data/trade_market.json data/trade_comps.json \
+                  data/sleeper_trade_state.json data/sleeper_trade_corpus.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "data: crawl Sleeper trades + refit trade market model"
+            git push
+          fi
