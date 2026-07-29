@@ -24150,7 +24150,19 @@ function pickYear(year) {
         try{ const u=vaultHeadshot(a.name,'',size); if(u) img=`<img src="${u}" data-vh-n="${esc(a.name)}" data-vh-px="${size}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='${init}'">`; }catch(e){}
       }
       return `<div class="tc-avatar" style="width:${size}px;height:${size}px;border:2px solid ${c};background:${c}14;color:${c};font-size:${Math.round(size*0.34)}px;overflow:hidden">${img||init}</div>`; },
-    sendRow(side,a,color){ const v=this.val(a); return `<div class="tc-send-row" style="border:1px solid ${color}33">${this.avatar(a,38)}<div style="flex:1;min-width:0"><div class="tc-send-name">${a.name}</div><div class="tc-send-meta">${a.pos}${a.team?' · '+a.team:''}</div></div><div class="tc-send-val" style="color:${color}">${fmt(v)}</div><button class="tc-x" onclick="TC.remove('${side}','${esc(a.name)}')">✕</button></div>`; },
+    /* Team colours are THEME TOKENS, not hex — PALETTE is `var(--sky)`,
+       `var(--red2)`… with only four literal hex entries mixed in. So the
+       `${color}33` trick that works on POS_HEX produces `var(--sky)33`, which
+       is not a colour at all: the whole declaration fails to parse and paints
+       nothing. That is why the balance bar was invisible against some
+       opponents and fine against others — it depended purely on whether the
+       partner drew a hex slot or a token slot out of PALETTE.
+
+       color-mix() takes a var() reference, so it is the fix that survives both
+       palettes AND keeps the colour theme-aware. Percentages are the hex alpha
+       converted: cc=80, 66=40, 44=27, 33=20, 22=13. */
+    _a(color,pct){ return `color-mix(in srgb,${color} ${pct}%,transparent)`; },
+    sendRow(side,a,color){ const v=this.val(a); return `<div class="tc-send-row" style="border:1px solid ${this._a(color,20)}">${this.avatar(a,38)}<div style="flex:1;min-width:0"><div class="tc-send-name">${a.name}</div><div class="tc-send-meta">${a.pos}${a.team?' · '+a.team:''}</div></div><div class="tc-send-val" style="color:${color}">${fmt(v)}</div><button class="tc-x" onclick="TC.remove('${side}','${esc(a.name)}')">✕</button></div>`; },
     vmodeSeg(){ return `<span class="lab">Value&nbsp;Set</span><div class="tc-seg sm"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>`; },
     sourceBar(){ const fmtName=this.vmode==='re'?'Redraft':'Dynasty';
       const mine = this.vsrc==='mine';
@@ -24197,7 +24209,7 @@ function pickYear(year) {
       const v=this.verdict(recvA,recvB,labelA,labelB);
       return `<div><div style="text-align:center;margin-bottom:12px"><div class="tc-bal-verdict" style="font-size:22px;color:${v.color}">${v.text}</div><div style="font-family:var(--font-sans);font-size:12.5px;color:var(--muted);margin-top:6px">${v.sub}</div></div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px"><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${colorA};letter-spacing:.04em">${labelA.toUpperCase()}</span><span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.12em">FAIR</span><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${colorB};letter-spacing:.04em">${labelB.toUpperCase()}</span></div>
-        <div class="tc-bal-track"><div class="tc-bal-fillA" style="width:${v.pctA}%;background:linear-gradient(90deg,${colorA}cc,${colorA})"></div><div class="tc-bal-fillB" style="width:${100-v.pctA}%;background:linear-gradient(90deg,${colorB},${colorB}cc)"></div></div>
+        <div class="tc-bal-track"><div class="tc-bal-fillA" style="width:${v.pctA}%;background:linear-gradient(90deg,${this._a(colorA,80)},${colorA})"></div><div class="tc-bal-fillB" style="width:${100-v.pctA}%;background:linear-gradient(90deg,${colorB},${this._a(colorB,80)})"></div></div>
         <div style="position:relative;height:0"><div class="tc-bal-tick"></div></div>
         <div style="display:flex;justify-content:space-between;margin-top:9px"><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text)">${fmt(recvA)}</span><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text)">${fmt(recvB)}</span></div></div>`;
     },
@@ -24244,7 +24256,7 @@ function pickYear(year) {
         <div class="tc-int-sub">${v.sub}</div>
         <div style="margin-top:14px">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px"><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${tA.color};letter-spacing:.04em">${tA.name.toUpperCase()}</span><span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.12em">FAIR</span><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${tB.color};letter-spacing:.04em">${tB.name.toUpperCase()}</span></div>
-          <div class="tc-bal-track"><div class="tc-bal-fillA" id="tc-bal-anim" data-w="${v.pctA}" style="width:50%;background:linear-gradient(90deg,${tA.color}cc,${tA.color})"></div><div class="tc-bal-fillB" style="width:${100-v.pctA}%;background:linear-gradient(90deg,${tB.color},${tB.color}cc)"></div></div>
+          <div class="tc-bal-track"><div class="tc-bal-fillA" id="tc-bal-anim" data-w="${v.pctA}" style="width:50%;background:linear-gradient(90deg,${this._a(tA.color,80)},${tA.color})"></div><div class="tc-bal-fillB" style="width:${100-v.pctA}%;background:linear-gradient(90deg,${tB.color},${this._a(tB.color,80)})"></div></div>
           <div style="position:relative;height:0"><div class="tc-bal-tick"></div></div>
           <div style="display:flex;justify-content:space-between;margin-top:9px"><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums" data-tcc="${recvA}" data-tck="ra">${fmt(recvA)}</span><span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums" data-tcc="${recvB}" data-tck="rb">${fmt(recvB)}</span></div>
         </div>
@@ -24341,8 +24353,8 @@ function pickYear(year) {
 
     teamPicker(slot){
       const t=this.team(this[slot]); const teams=this.teams();
-      return `<div class="tc-tpick"><button class="tc-tpick-btn" onclick="TC._toggleMenu('${slot}',event)"><div class="tc-logo" style="background:${t.color}22;border:1px solid ${t.color}66;color:${t.color}">${t.logo}</div><div style="text-align:left;min-width:0"><div class="tc-tpick-name">${t.name}</div><div class="tc-tpick-owner">${t.owner}</div></div><span class="tc-tpick-caret">▾</span></button>
-        <div class="tc-tpick-menu" id="tc-menu-${slot}">${teams.map(o=>`<div class="tc-tpick-item ${String(o.id)===String(this[slot])?'sel':''}" onclick="TC.setTeam('${slot}','${esc(o.id)}')"><div class="tc-logo" style="background:${o.color}22;border:1px solid ${o.color}66;color:${o.color}">${o.logo}</div><div style="min-width:0"><div class="tc-tpick-name">${o.name}</div><div class="tc-tpick-owner">${o.owner}</div></div></div>`).join('')}</div></div>`;
+      return `<div class="tc-tpick"><button class="tc-tpick-btn" onclick="TC._toggleMenu('${slot}',event)"><div class="tc-logo" style="background:${this._a(t.color,13)};border:1px solid ${this._a(t.color,40)};color:${t.color}">${t.logo}</div><div style="text-align:left;min-width:0"><div class="tc-tpick-name">${t.name}</div><div class="tc-tpick-owner">${t.owner}</div></div><span class="tc-tpick-caret">▾</span></button>
+        <div class="tc-tpick-menu" id="tc-menu-${slot}">${teams.map(o=>`<div class="tc-tpick-item ${String(o.id)===String(this[slot])?'sel':''}" onclick="TC.setTeam('${slot}','${esc(o.id)}')"><div class="tc-logo" style="background:${this._a(o.color,13)};border:1px solid ${this._a(o.color,40)};color:${o.color}">${o.logo}</div><div style="min-width:0"><div class="tc-tpick-name">${o.name}</div><div class="tc-tpick-owner">${o.owner}</div></div></div>`).join('')}</div></div>`;
     },
     renderStrip(){ return `${this.sourceBar()}<div class="tc-strip" style="justify-content:center"><div class="tc-pickers">${this.teamPicker('teamA')}<div class="tc-swap">⇄</div>${this.teamPicker('teamB')}</div></div>`; },
 
@@ -24371,8 +24383,8 @@ function pickYear(year) {
       <div class="tc-rosters">${this.rosterCard(tA,'a')}${this.rosterCard(tB,'b')}</div>
       ${this.renderEngines()}`;
     },
-    rosterCard(t,side){ return `<div class="tc-card" style="padding:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="tc-logo" style="width:30px;height:30px;border-radius:8px;background:${t.color}22;border:1px solid ${t.color}66;color:${t.color};font-size:11px">${t.logo}</div><div style="flex:1;min-width:0"><div style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${t.name}</div><div class="tc-eyebrow" style="margin-top:1px">${t.owner==='You'?'Your roster':t.owner+"'s roster"} · tap to add</div></div></div>${this.rosterCols(side,t.id)}</div>`; },
-    emptySlot(color){ return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:18px;border:1.5px dashed ${color}44;border-radius:12px;color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-align:center">+ ADD FROM ROSTER BELOW</div>`; },
+    rosterCard(t,side){ return `<div class="tc-card" style="padding:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="tc-logo" style="width:30px;height:30px;border-radius:8px;background:${this._a(t.color,13)};border:1px solid ${this._a(t.color,40)};color:${t.color};font-size:11px">${t.logo}</div><div style="flex:1;min-width:0"><div style="font-family:var(--font-sans);font-weight:800;font-size:15px;color:var(--text)">${t.name}</div><div class="tc-eyebrow" style="margin-top:1px">${t.owner==='You'?'Your roster':t.owner+"'s roster"} · tap to add</div></div></div>${this.rosterCols(side,t.id)}</div>`; },
+    emptySlot(color){ return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:18px;border:1.5px dashed ${this._a(color,27)};border-radius:12px;color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-align:center">+ ADD FROM ROSTER BELOW</div>`; },
 
     // ════════════════ WIN-NOW TRADE IDEAS ════════════════
     _wnState:{ val:'adj', open:null },
