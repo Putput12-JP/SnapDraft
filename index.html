@@ -11013,6 +11013,83 @@ function paQualityAdjust(p, need){
   return out;
 }
 
+/* ── Round × position draft history ──────────────────────────────────
+   "What did teams who took a <pos> in round <N> actually do?" — built by
+   scripts/build_round_position.py from 175k real completed Sleeper teams joined to
+   their drafted players. Only cells that held their sign in ALL THREE seasons ship,
+   so most rounds return nothing; that silence is the point. Feeds the Suggested
+   Picks strip.
+
+   Same contract as VaultTradeMarket: every getter returns null until the file lands
+   and every caller falls back, so a cold cache or a failed fetch costs nothing. */
+window.VaultRoundHistory = (function(){
+  let _p = null, _d = null;
+  function ensure(){
+    if (_p) return _p;
+    const base = (typeof NFLVERSE_BASE !== 'undefined') ? NFLVERSE_BASE : '/data';
+    _p = fetch(base + '/redraft_round_position.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { _d = j; return j; })
+      .catch(e => { console.warn('[VaultRoundHistory] load failed:', e); return null; });
+    return _p;
+  }
+  /* The corpus is cut by scoring x format x league size. A 10-team and a 14-team draft
+     are different games, so never borrow across sizes — return null and let the caller
+     show nothing rather than quote a 12-team number at a 14-team league. */
+  function bucketKey(){
+    const tm = (typeof NUM_TEAMS !== 'undefined' && NUM_TEAMS) || 12;
+    const fmt = window._draftIsSuperflex ? 'sf' : '1qb';
+    // _dvIsPPR returns 1 / 0.5 / 0, and the corpus keys are 'ppr' / 'half' / 'std'.
+    // A truthiness test collapses those wrong in both directions: half-PPR (0.5) is
+    // truthy so it read the PPR bucket — quoting a PPR-fitted number at a half league —
+    // while standard (0) fell through to 'half'. Only 'ppr' buckets are published, so
+    // the other two must miss and show nothing.
+    let sc = 'ppr';
+    try { if (typeof _dvIsPPR === 'function'){ const v = _dvIsPPR(); sc = v >= 1 ? 'ppr' : v > 0 ? 'half' : 'std'; } } catch(e){}
+    return sc + '|' + fmt + '|' + tm;
+  }
+  function bucket(){
+    if (!_d) { ensure(); return null; }
+    return (_d.buckets && _d.buckets[bucketKey()]) || null;
+  }
+  /* Durable signals for one round: {good:[...], bad:[...]}, strongest first. */
+  function forRound(rd){
+    const b = bucket();
+    if (!b || !rd) return null;
+    const rows = b.rounds.filter(r => r.round === rd);
+    if (!rows.length) return null;
+    const by = d => rows.filter(r => r.dir === d).sort((a,c) => Math.abs(c.lift) - Math.abs(a.lift));
+    return { good: by('good'), bad: by('bad'), base: b.base };
+  }
+  /* Earliest round a position turns durably positive — the answer to "so when DO I
+     take one?". Without it a warning can only say "later", which is useless on the clock. */
+  function safeFrom(pos){
+    const b = bucket();
+    if (!b) return null;
+    const l = (b.levers || []).find(x => x.pos === pos);
+    return l ? l.fromRound : null;
+  }
+  /* The round to actually send someone to, given they are standing in `cur`.
+     safeFrom alone is not enough: QB turns durably positive from round 5, yet round 6
+     is ITSELF durably negative — both true of different slices, and quoting the lever
+     told a round-6 drafter to "wait until round 5", a round already behind them.
+     Answer the question they asked: the next round from here that history does not
+     dislike, at or past the safe point. */
+  function waitUntil(pos, cur){
+    const b = bucket();
+    if (!b) return null;
+    const from = safeFrom(pos);
+    const badRounds = new Set(b.rounds.filter(r => r.pos === pos && r.dir === 'bad')
+                                      .map(r => r.round));
+    const start = Math.max((cur || 0) + 1, from || (cur || 0) + 1);
+    for (let r = start; r <= 16; r++) if (!badRounds.has(r)) return r;
+    return null;
+  }
+  return { ensure, forRound, safeFrom, waitUntil, ready: () => !!_d, bucketKey,
+           stats: () => _d ? { teams: _d.teams, updated: _d.updated, bucket: bucketKey(),
+                               published: !!bucket() } : null };
+})();
+
 /* ── 3-season durability history ─────────────────────────────────────
    Games missed in the two seasons BEFORE the last completed one, so the
    Risk factor sees real injury history (e.g. CMC: healthy 2025 but 4
@@ -11716,16 +11793,40 @@ function renderSuggestions() {
   // the most visible lie. (Rank used to go first, which is exactly how the top
   // grade ended up on the Rank card as "· A+ pick" while the Grade card showed
   // the runner-up.) Whoever settles for second says so — see `exact` below.
+  /* ── Round history, resolved BEFORE the cards are picked ─────────────────
+     The warn card and the Best Draft Grade card share one screen, so the grade card
+     cannot be left holding up the exact position the warn card is telling you to skip:
+     round 4 shipped "No quarterback yet · wait until round 5" sitting beside "Best
+     Draft Grade · Drake Maye QB · A+". Two cards contradicting each other is worse
+     than showing neither, so the warned position comes out of the GRADE pool and the
+     card says out loud that it settled. Rank and Fall keep the whole pool — "top name
+     left" and "furthest faller" are board facts, not advice, and skipping a position
+     there would make the superlative untrue against the rows right below. */
+  let rhRd = null, rhHit = null, rhBad = null;
+  try {
+    if (window.VaultRoundHistory){
+      VaultRoundHistory.ensure();
+      rhRd = Math.floor((myPick - 1) / NUM_TEAMS) + 1;
+      rhHit = VaultRoundHistory.forRound(rhRd);
+      if (rhHit && rhHit.bad[0]) rhBad = rhHit.bad[0].pos;
+    }
+  } catch(e){ rhRd = null; rhHit = null; rhBad = null; }
+
   const _gS = s => (s.grade ? s.grade.s : -1);
   const _gD = s => (s.grade && s.grade.delta != null) ? s.grade.delta : (myPick - s.rank);
-  const cGrade = takeBy(graded.length ? graded : pool, (a,b) => _gS(a) > _gS(b));
+  const _gradePool = graded.length ? graded : pool;
+  const _gradeOK = rhBad ? _gradePool.filter(s => s.p.pos !== rhBad) : _gradePool;
+  // Never blank the card: if banning the position empties the pool, fall back to it.
+  const cGrade = takeBy(_gradeOK.length ? _gradeOK : _gradePool, (a,b) => _gS(a) > _gS(b));
   const cRank  = takeBy(rankCands.length ? rankCands : pool, (a,b) => bpos(a) < bpos(b));
   const cFall  = takeBy(fallers.length ? fallers : pool, (a,b) => _gD(a) > _gD(b));
   // Did each card get the true winner for its angle, or the next one down because
   // another card claimed him? Drives the copy, so no card overstates.
   const _topOf = (arr, val) => arr.reduce((m,s) => (m == null || val(s) > val(m)) ? s : m, null);
   const exact = {
-    grade: true,                          // picks first, so always the max
+    // Grade picks first, so the only thing that can cost it the true max is the
+    // round-history ban above.
+    grade: !cGrade || cGrade === _topOf(_gradePool, _gS),
     rank:  !!cRank && bpos(cRank) === 1,  // literally row 1 of the board
     fall:  cFall === _topOf(fallers.length ? fallers : pool, _gD),
   };
@@ -11759,10 +11860,13 @@ function renderSuggestions() {
       metric = `#${bp === Infinity ? s.rank : bp}`; metricCol = acc;
       reason = `${exact.rank ? 'Top' : 'Next'} name on the board${gl ? ` · <b style="color:${gc}">${gl}</b> pick` : ''}`;
     } else {
-      acc = 'var(--rb)'; ic = DVF_ICON.upside; eyebrow = 'Best Draft Grade';
+      acc = 'var(--rb)'; ic = DVF_ICON.upside;
+      eyebrow = exact.grade ? 'Best Draft Grade' : `Best Non-${rhBad} Grade`;
       metric = gl || '—'; metricCol = gc;
       const bp = bpos(s);
-      reason = `Best projected pick at your slot${bp === Infinity ? '' : ` · board #${bp}`}`;
+      reason = (exact.grade ? 'Best projected pick at your slot'
+                            : `Top pick outside ${rhBad} at your slot`)
+             + (bp === Infinity ? '' : ` · board #${bp}`);
     }
     return `<div class="sug3 sug3-${kind}" style="--acc:${acc}" onclick="markMine('${sn}')" title="Draft ${nEsc}">
       <div class="sug3-av">
@@ -11779,7 +11883,67 @@ function renderSuggestions() {
       </div>
     </div>`;
   };
-  chips.innerHTML = [buildCard(cFall,'fall'), buildCard(cRank,'rank'), buildCard(cGrade,'grade')].join('');
+  /* ── Round history card ────────────────────────────────────────────
+     One extra card, and only when three seasons agree about this round. A WARNING is
+     the valuable one — the other three cards all say "take this player", so "don't take
+     a QB here, wait until round N" is the only non-duplicative thing to add. A "history
+     favours X" card is skipped when one of the three already shows a player at X.
+
+     The warn card carries NO player and NO onclick: every other card in this strip drafts
+     the named player on tap, so a face on "don't take this" is one mis-tap from doing the
+     opposite of the advice. */
+  let histCard = '';
+  try {
+    {
+      const myRd = rhRd, h = rhHit;
+      if (h){
+        const shown = new Set([cFall, cRank, cGrade].filter(Boolean).map(s => s.p.pos));
+        const bad = h.bad[0];
+        if (bad){
+          const from = VaultRoundHistory.waitUntil(bad.pos, myRd);
+          const POSW = {QB:'quarterback', RB:'running back', WR:'receiver', TE:'tight end'};
+          histCard = `<div class="sug3 sug3-hist nowarn" style="--acc:var(--red)">
+            <div class="sug3-av sug3-av-warn">${DVF_ICON.risk}</div>
+            <div class="sug3-body">
+              <div class="sug3-eyebrow"><span class="sug3-ic">${DVF_ICON.risk}</span>No ${POSW[bad.pos]} yet</div>
+              <div class="sug3-line">
+                <span class="sug3-name">${from ? `Wait until round ${from}` : 'Wait a few rounds'}</span>
+                <span class="sug3-metric" style="color:var(--red)">${from ? 'R'+from : '—'}</span>
+              </div>
+              <div class="sug3-reason">Teams taking a ${bad.pos} in round ${myRd} missed the playoffs more often &mdash; 3 seasons running</div>
+            </div></div>`;
+        } else if (h.good[0] && !shown.has(h.good[0].pos)){
+          const g = h.good[0];
+          const POSW = {QB:'quarterback', RB:'running back', WR:'receiver', TE:'tight end'};
+          const cand = pool.filter(x => x.p.pos === g.pos)
+            .sort((a,b) => bpos(a) - bpos(b))[0];
+          if (cand){
+            const p = cand.p, pcol = pc(p.pos);
+            const sn = p.name.replace(/'/g,"\\'"), nEsc = p.name.replace(/"/g,'&quot;');
+            const sid = p.sleeperId || '';
+            const photo = vaultHeadshot(p.name, sid, 40);
+            const gl = cand.grade ? cand.grade.letter : '';
+            const gc = cand.grade ? cand.grade.color : 'var(--muted)';
+            histCard = `<div class="sug3 sug3-hist" style="--acc:var(--value)" onclick="markMine('${sn}')" title="Draft ${nEsc}">
+              <div class="sug3-av">
+                ${photo ? `<img src="${photo}" data-vh-n="${nEsc}" data-vh-sid="${sid}" data-vh-px="40" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                <span class="sug3-av-fb" style="display:${photo?'none':'flex'}">${p.name.split(' ').map(w=>w[0]||'').join('').slice(0,2)}</span>
+              </div>
+              <div class="sug3-body">
+                <div class="sug3-eyebrow"><span class="sug3-ic">${DVF_ICON.floor}</span>Take a ${POSW[g.pos]}</div>
+                <div class="sug3-line">
+                  <span class="sug3-name">${p.name}<span class="sug3-pos" style="background:color-mix(in srgb,${pcol} 20%,transparent);color:${pcol}">${p.pos}</span></span>
+                  <span class="sug3-metric" style="color:${gc}">${gl||'—'}</span>
+                </div>
+                <div class="sug3-reason">Teams taking a ${g.pos} in round ${myRd} made the playoffs more often &mdash; 3 seasons running</div>
+              </div></div>`;
+          }
+        }
+      }
+    }
+  } catch(e){ histCard = ''; }
+
+  chips.innerHTML = [histCard, buildCard(cFall,'fall'), buildCard(cRank,'rank'), buildCard(cGrade,'grade')].join('');
 
   chips.style.opacity = '';
   // If season stats aren't loaded yet, warm nflverse once and re-render so the
@@ -11787,6 +11951,12 @@ function renderSuggestions() {
   if (!window._paStatCache && !window._paStatPending && typeof initNflverse === 'function'){
     window._paStatPending = true;
     initNflverse().then(() => { window._paStatPending = false; try { renderSuggestions(); } catch(e){} }).catch(() => { window._paStatPending = false; });
+  }
+  // Round history arrives async too; warm it once and re-render so the card appears
+  // without the user having to do anything.
+  if (window.VaultRoundHistory && !VaultRoundHistory.ready() && !window._paRhPending){
+    window._paRhPending = true;
+    VaultRoundHistory.ensure().then(() => { try { renderSuggestions(); } catch(e){} });
   }
   paCheckWatchAlerts(pa);
 }
@@ -39133,6 +39303,16 @@ else { _ssInjectPage();_ssInjectNav(); }
   background:linear-gradient(160deg,var(--s3),var(--s2)); border:1px solid var(--border2);
 }
 #page-draft .sug3-av img{ width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+/* Round-history warning: no player, no tap. Every other card in this strip drafts the
+   player it names, so a warning must not look like one — flat on hover, default cursor. */
+#page-draft .sug3.nowarn{ cursor:default; }
+#page-draft .sug3.nowarn:hover{ transform:none; border-color:var(--border); box-shadow:none; }
+#page-draft .sug3-av-warn{
+  display:grid; place-items:center; color:var(--red);
+  background:color-mix(in srgb,var(--red) 10%,transparent);
+  border-color:color-mix(in srgb,var(--red) 28%,transparent);
+}
+#page-draft .sug3-av-warn svg{ width:22px; height:22px; }
 #page-draft .sug3-av-fb{ position:absolute; inset:0; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:800; color:var(--muted); }
 #page-draft .sug3-body{ flex:1; min-width:0; }
 #page-draft .sug3-eyebrow{
