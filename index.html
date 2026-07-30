@@ -39037,18 +39037,40 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft #sbar.pa-hidden, #sbar.pa-hidden{ display:none!important; }
 #page-draft #sbar.pa-soon .suggest-title > span{ color:var(--accent); font-weight:700; }
 
-/* ON THE CLOCK · full-width panel, title above 3 large cards, pulsing ring */
+/* ON THE CLOCK · full-width panel, title above the cards, rotating beam edge */
 #page-draft #sbar.pa-clock{
   flex-direction:column!important; align-items:stretch!important; gap:8px!important;
-  position:relative; border-radius:12px; padding:12px!important; margin-top:8px;
-  background:var(--s1)!important;
+  position:relative; border-radius:14px; padding:12px!important; margin-top:8px;
+  overflow:hidden; background:transparent!important;   /* ::after is the surface now */
 }
+/* The beam. A conic gradient rotates WITH its element, so that element has to be square
+   and at least as wide as the panel's DIAGONAL — otherwise the sweep runs off the corners
+   a quarter-turn later and they go dark. `inset:-50%` is only enough on a roughly square
+   box; this panel is ~1100x140, where -50% gives 2200x280 and covers nothing once it is
+   stood on end. 140% of the width, squared, clears the diagonal at every width the panel
+   reaches. Animating the transform (not a `from <angle>` custom property) keeps this on
+   the compositor instead of repainting an 1100px-wide gradient every frame mid-draft. */
+/* The hot core of the sweep INVERTS between themes, same trap as the position colours:
+   #EDE9E0 on onyx/vapor is a near-white flare, but on light mode's #FFFDF8 surface it is
+   the surface, so the beam vanished entirely in one of the three themes. Light mode takes
+   the sweep dark instead — same orange, opposite core. */
+#page-draft #sbar.pa-clock{ --beam-core:#EDE9E0; }
+[data-theme="light"] #page-draft #sbar.pa-clock{ --beam-core:#7A3E12; }
+#page-draft #sbar.pa-clock::before{
+  content:''; position:absolute; z-index:0; pointer-events:none;
+  top:50%; left:50%; width:140%; aspect-ratio:1;
+  background:conic-gradient(from 0deg, transparent 0 72%, #FF8A00 84%, var(--beam-core) 90%, transparent 96%);
+  animation:pa-beam 3s linear infinite;
+}
+/* inner surface — leaves a 1.5px rim of the beam showing, and nothing else */
 #page-draft #sbar.pa-clock::after{
-  content:''; position:absolute; inset:0; border-radius:12px; pointer-events:none;
-  box-shadow:0 0 0 1.5px var(--accent), 0 0 20px -4px var(--accent);
-  opacity:.5; animation:pa-pulse 1.9s ease-in-out infinite;
+  content:''; position:absolute; inset:1.5px; z-index:0; pointer-events:none;
+  border-radius:12.5px; background:var(--s1);
 }
-@keyframes pa-pulse{ 0%,100%{opacity:.22} 50%{opacity:.65} }
+#page-draft #sbar.pa-clock > *{ position:relative; z-index:1; }
+/* linear — an eased spin reads as struggling (same reason .spinner is linear) */
+@keyframes pa-beam{ from{ transform:translate(-50%,-50%) rotate(0turn); }
+                    to  { transform:translate(-50%,-50%) rotate(1turn); } }
 #page-draft #sbar.pa-clock .suggest-title > span{
   color:var(--accent); font-weight:800; letter-spacing:.14em; text-transform:uppercase;
 }
@@ -39066,7 +39088,9 @@ else { _ssInjectPage();_ssInjectNav(); }
 }
 
 @media(prefers-reduced-motion:reduce){
-  #page-draft #sbar.pa-clock::after{ animation:none; opacity:.4; }
+  /* park the beam as a plain static rim rather than freezing the sweep mid-rotation,
+     which would leave three of the four edges dark */
+  #page-draft #sbar.pa-clock::before{ animation:none; background:var(--accent); opacity:.55; }
   #page-draft #sbar.pa-clock .suggest-chips{ animation:none; }
 }
 </style>
