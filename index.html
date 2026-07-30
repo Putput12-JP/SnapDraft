@@ -39323,9 +39323,13 @@ else { _ssInjectPage();_ssInjectNav(); }
 #page-draft .sug3-ic{ display:inline-flex; width:12px; height:12px; }
 #page-draft .sug3-ic svg{ width:12px; height:12px; }
 #page-draft .sug3-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+/* No ellipsis anywhere in these cards. A clipped reason is the one thing on the
+   strip that cannot be recovered by looking somewhere else — "Teams taking a QB in
+   round 6 missed the playoffs more often …" drops the claim's whole warrant. Wrap
+   instead: the cards are grid items, so the row equalises and nothing jumps. */
 #page-draft .sug3-name{
   font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--text);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+  min-width:0; overflow-wrap:anywhere; line-height:1.25;
 }
 #page-draft .sug3-pos{ font-family:var(--font-mono); font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; vertical-align:1px; }
 #page-draft .sug3-metric{
@@ -39334,7 +39338,7 @@ else { _ssInjectPage();_ssInjectNav(); }
   text-shadow:0 0 14px color-mix(in srgb,currentColor 55%,transparent);
 }
 #page-draft .sug3-dtri{ width:13px; height:13px; margin-right:1px; }
-#page-draft .sug3-reason{ font-size:11px; color:var(--muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#page-draft .sug3-reason{ font-size:11px; color:var(--muted); margin-top:3px; line-height:1.35; overflow-wrap:anywhere; }
 #page-draft .sug3-reason b{ font-family:var(--font-mono); font-weight:700; }
 
 /* ── grade key: dashed info strip ── */
