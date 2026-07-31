@@ -5715,7 +5715,7 @@ function pgsOpen(name, pos, team){
           <th style="text-align:left">Player</th>
           <th class="num-hdr col-hdr-sortable" id="hdr-dynasty" onclick="setSort('dynasty-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Click to sort by Dynasty value (uses current mode: RA / FC / My)">Dynasty <span class="hdr-source-label" id="hdr-dynasty-src">FC</span> <span class="sort-ind" id="ind-dynasty">↓</span></th>
           <th class="num-hdr col-hdr-sortable" id="hdr-redraft" onclick="setSort('redraft-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="FantasyCalc redraft value (1QB)">Redraft <span class="sort-ind" id="ind-redraft">↕</span></th>
-          <th class="num-hdr col-hdr-sortable" id="hdr-adp" onclick="setSort('adp-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="ADP follows your Dynasty/Redraft mode (FantasyCalc). DYN = 1QB dynasty · SF = Superflex (used when your league starts 2 QBs, so QBs rank early to match your values) · RDR = redraft.">ADP <span class="hdr-source-label" id="hdr-adp-src" style="color:var(--gold)">DYN</span> <span class="sort-ind" id="ind-adp">↕</span></th>
+          <th class="num-hdr col-hdr-sortable" id="hdr-adp" onclick="setSort('adp-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Real Sleeper draft ADP, updated daily from thousands of live drafts, and matched to your Dynasty/Redraft mode. SL = Sleeper crawl · DYN = 1QB dynasty · SF = Superflex (used when your league starts 2 QBs, so QBs rank early to match your values) · RDR = redraft. In a connected Sleeper/ESPN draft it switches to that room's live ADP.">ADP <span class="hdr-source-label" id="hdr-adp-src" style="color:var(--gold)">DYN</span> <span class="sort-ind" id="ind-adp">↕</span></th>
           <th class="num-hdr col-hdr-sortable" id="hdr-my" onclick="setSort('my-col')" style="text-align:right;padding-right:8px;cursor:pointer" title="Your custom rank from My Rankings (▲/▼ = vs market)">Mine <span class="hdr-source-label src-my" id="hdr-my-src">YOU</span> <span class="sort-ind" id="ind-my">↕</span></th>
           <th class="fhdr" id="hdr-fup" style="color:var(--te)" title="Upside — ceiling / boom potential (last-season boom rate + weekly ceiling)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></th>
           <th class="fhdr" id="hdr-ffl" style="color:var(--rb)" title="Floor — weekly safety / consistency (low bust rate + weekly floor + availability)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></th>
@@ -14679,34 +14679,19 @@ function renderList(){
     // FantasyCalc value-rank → round.pick conversion (dynasty, or unmatched players).
     let adpHtml = '<span style="color:var(--muted)">—</span>';
     if (p.pos !== 'PICK') {
-      const _nn = normName(p.name);
-      const _ad = ADP_LOOKUP[p.name] || ADP_LOOKUP[_nn] || null;
-      const _plat = _dvDraftPlatform();
-      const _slA = (_plat === 'sleeper' && window._dvSleeperAdp) ? window._dvSleeperAdp.map[_nn] : null;
-      if (_slA && _slA.adp != null) {
-        // Sleeper draft → real Sleeper-draft ADP (matches the ADP Explorer's Sleeper source)
-        const teams = (window._dvSleeperAdp && window._dvSleeperAdp.teams) || window._activeDraft?.teams || 12;
-        const n = _slA.n ? ` · ${_slA.n} drafts` : '';
-        adpHtml = `<span style="color:var(--violet)" title="Sleeper real-draft ADP · avg pick ${(+_slA.adp).toFixed(1)}${n}">${_dvPickStr(_slA.adp, teams)}</span>`;
-      } else if (_plat === 'espn' && _ad && _ad.adpEspn != null) {
-        // ESPN draft → ESPN live-draft ADP
-        const teams = window._activeDraft?.teams || 12;
-        adpHtml = `<span style="color:var(--violet)" title="ESPN live-draft ADP · avg pick ${(+_ad.adpEspn).toFixed(1)}">${_dvPickStr(_ad.adpEspn, teams)}</span>`;
-      } else if (_ad && _ad.adpFmt) {
-        const rng = (_ad.adpHigh && _ad.adpLow) ? ` · range ${_ad.adpHigh}–${_ad.adpLow}` : '';
-        const drafts = _ad.adpDrafts ? ` · ${_ad.adpDrafts} drafts` : '';
-        adpHtml = `<span style="color:var(--violet)" title="Real market ADP · avg pick ${_ad.adpReal}${rng}${drafts} (Fantasy Football Calculator)">${_ad.adpFmt}</span>`;
-      } else {
-        const adpRank = typeof getADP === 'function' ? getADP(p.name) : null;
-        if (adpRank && adpRank > 0 && window._activeDraft?.teams) {
-          const teams = window._activeDraft.teams;
-          const round = Math.floor((adpRank - 1) / teams) + 1;
-          const slot = ((adpRank - 1) % teams) + 1;
-          const slotStr = `${round}.${String(slot).padStart(2,'0')}`;
-          adpHtml = `<span style="color:var(--violet)" title="Value-based ADP rank ${adpRank} → round ${round}, pick ${slot}">${slotStr}</span>`;
-        } else if (adpRank && adpRank > 0) {
-          adpHtml = `<span style="color:var(--violet)" title="Value-based ADP rank ${adpRank}">${Math.round(adpRank)}</span>`;
-        }
+      const e = _boardAdp(p.name);
+      if (e) {
+        const nTxt = e.n ? ` · ${e.n} drafts` : '';
+        const avg = (+e.adp).toFixed(1);
+        const title =
+            e.src === 'sl-live' ? `Sleeper real-draft ADP · avg pick ${avg}${nTxt}`
+          : e.src === 'sl'      ? `Sleeper ADP (updated daily) · avg pick ${avg}${nTxt}`
+          : e.src === 'espn'    ? `ESPN live-draft ADP · avg pick ${avg}`
+          : e.src === 'ffc'     ? `Real market ADP · avg pick ${avg}${nTxt} (Fantasy Football Calculator)`
+          :                       `Value-based ADP rank ${Math.round(e.adp)}`;
+        // Every source is an overall pick number → one consistent round.pick,
+        // so no bare integer can leak into the column.
+        adpHtml = `<span style="color:var(--violet)" title="${title}">${_dvPickStr(e.adp, e.teams)}</span>`;
       }
     }
 
@@ -22747,6 +22732,9 @@ function _slWarmKey(mode, sf){
     _slWarming[key] = false;
     try{ window.MyRankings && MyRankings.refresh(); }catch(e){}
     try{ if (document.getElementById('page-myrankings')?.classList.contains('on')) MyRankings.render(); }catch(e){}
+    // The board's ADP column + badge now read this crawl even with no draft
+    // connected, so flip the DYN/SF/RDR badge to SL once it actually lands.
+    try{ if (typeof _adpUpdateAdpHdr === 'function') _adpUpdateAdpHdr((window._dvMode==='redraft')?'redraft':'dynasty', (typeof _dvIsSuperflex==='function') && _dvIsSuperflex()); }catch(e){}
     try{ if (typeof renderList === 'function') renderList(); }catch(e){}
     try{ if (typeof renderBoard === 'function') renderBoard(); }catch(e){}
   }).catch(() => { _slWarming[key] = false; });
@@ -22792,13 +22780,53 @@ function _dvEnsureSleeperAdp(){
   _dvSleeperAdpLoading = key;
   _dvLoadSleeperAdp(mode, sf).then(() => { _dvSleeperAdpLoading = null; _adpUpdateAdpHdr(mode, sf); try{ renderList(); }catch(e){} try{ renderBoard(); }catch(e){} });
 }
-// Overall pick value used to SORT the ADP column, matched to the active source so
-// the ordering agrees with the displayed numbers.
+// The ONE resolver both the ADP column and its sort read, so the displayed
+// order can never disagree with the displayed numbers. Returns a single
+// {adp (overall pick number), teams, n, src} or null. Source priority:
+//   1. sl-live — the CONNECTED Sleeper draft's own real ADP (the room you're in)
+//   2. espn    — the connected ESPN draft's live ADP
+//   3. sl      — the daily-crawled Sleeper ADP for the active board mode
+//                (dynasty/redraft, SF-aware). Self-warms via _slAdpFor with no
+//                draft connected, so a browsing board shows today's crawl, not a
+//                stale FFC snapshot.
+//   4. ffc     — FantasyCalc real market ADP
+//   5. rank    — value-rank proxy (getADP), last resort
+// Every source is an OVERALL PICK NUMBER in the same unit, so _dvPickStr renders
+// them all as one consistent round.pick — no bare integers leaking through.
+function _boardAdp(name){
+  const nn = normName(name);
+  const plat = _dvDraftPlatform();
+  if (plat === 'sleeper' && window._dvSleeperAdp){
+    const s = window._dvSleeperAdp.map[nn];
+    if (s && s.adp != null)
+      return { adp:s.adp, teams:(window._dvSleeperAdp.teams || window._activeDraft?.teams || 12), n:s.n, src:'sl-live' };
+  }
+  if (plat === 'espn'){
+    const ad = ADP_LOOKUP[name] || ADP_LOOKUP[nn];
+    if (ad && ad.adpEspn != null)
+      return { adp:ad.adpEspn, teams:(window._activeDraft?.teams || 12), n:null, src:'espn' };
+  }
+  // Daily Sleeper crawl for the active mode — no connected draft required.
+  const mode = (window._dvMode === 'redraft') ? 'redraft' : 'dynasty';
+  const o = (typeof _slAdpFor === 'function') ? _slAdpFor(mode) : null;
+  if (o){
+    const s = o.map[nn];
+    if (s && s.adp != null)
+      return { adp:s.adp, teams:(o.teams || 12), n:s.n, src:'sl' };
+  }
+  const ad = ADP_LOOKUP[name] || ADP_LOOKUP[nn];
+  if (ad && ad.adpReal != null)
+    return { adp:ad.adpReal, teams:(window._activeDraft?.teams || 12), n:ad.adpDrafts || null, src:'ffc' };
+  const r = getADP(name);
+  if (r && r > 0)
+    return { adp:r, teams:(window._activeDraft?.teams || 12), n:null, src:'rank' };
+  return null;
+}
+// Overall pick value used to SORT the ADP column, read from the same resolver as
+// the display so the ordering always agrees with the printed numbers.
 function _boardAdpSortVal(name){
-  const plat = _dvDraftPlatform(), nn = normName(name);
-  if (plat === 'sleeper' && window._dvSleeperAdp){ const s = window._dvSleeperAdp.map[nn]; if (s) return s.adp; }
-  if (plat === 'espn'){ const ad = ADP_LOOKUP[name] || ADP_LOOKUP[nn]; if (ad && ad.adpEspn != null) return ad.adpEspn; }
-  return getADP(name) || 9999;
+  const e = _boardAdp(name);
+  return e ? e.adp : 9999;
 }
 
 async function _adpSyncToValueMode(mode){            // 'dynasty' | 'redraft'
@@ -22835,11 +22863,15 @@ async function _adpSyncToValueMode(mode){            // 'dynasty' | 'redraft'
 function _adpUpdateAdpHdr(mode, sf){
   const el = document.getElementById('hdr-adp-src');
   if (!el) return;
-  // When matched to the connected draft's platform, label the source (SL / ESPN)
-  // so it's obvious the column now reflects real Sleeper/ESPN draft ADP.
+  // The column reads _boardAdp — mirror its source order here so the badge never
+  // claims a source the numbers didn't come from.
   const plat = _dvDraftPlatform();
   if (plat === 'sleeper' && window._dvSleeperAdp && window._dvSleeperAdp.hasData){ el.textContent = 'SL';   el.style.color = 'var(--violet)'; return; }
   if (plat === 'espn' && mode === 'redraft'){                                       el.textContent = 'ESPN'; el.style.color = '#e2483d'; return; }
+  // No connected draft: the daily Sleeper crawl drives the column whenever it's
+  // loaded for the active mode, so label it SL rather than the FFC DYN/SF/RDR.
+  const sl = (typeof _slAdpFor === 'function') ? _slAdpFor(mode) : null;
+  if (sl){ el.textContent = 'SL'; el.style.color = 'var(--violet)'; return; }
   el.textContent = mode==='redraft' ? 'RDR' : (sf ? 'SF' : 'DYN');
   el.style.color = mode==='redraft' ? 'var(--sky,#7bd0ff)' : 'var(--gold)';
 }
