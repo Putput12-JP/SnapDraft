@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "source": "redraft_strategy_corpus.json",
+    "n_total": 130632,
+    "method": "scale-free shape fit of ppct->playoff curve; midpoint=105 fixed, sigma=14",
+    "fixed": {
+      "midpoint": 105.0,
+      "sigma": 14.0,
+      "reg_weeks": 14
+    }
+  },
+  "sigma": 14.0,
+  "fallback": {
+    "floor": 88,
+    "ceil": 122
+  },
+  "byFormat": {
+    "1qb": {
+      "floor": 99.5,
+      "ceil": 110.5,
+      "n": 67974
+    },
+    "sf": {
+      "floor": 99.5,
+      "ceil": 110.5,
+      "n": 62658
+    }
+  },
+  "byBucket": {
+    "1qb_10": {
+      "floor": 98.0,
+      "ceil": 112.0,
+      "n": 17103,
+      "po_n": 6
+    },
+    "1qb_12": {
+      "floor": 98.0,
+      "ceil": 112.0,
+      "n": 44823,
+      "po_n": 6
+    },
+    "sf_8": {
+      "floor": 95.5,
+      "ceil": 114.5,
+      "n": 3311,
+      "po_n": 6
+    },
+    "sf_10": {
+      "floor": 96.2,
+      "ceil": 113.8,
+      "n": 21364,
+      "po_n": 6
+    },
+    "sf_12": {
+      "floor": 96.8,
+      "ceil": 113.2,
+      "n": 35220,
+      "po_n": 6
+    }
+  }
+}

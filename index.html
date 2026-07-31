@@ -37538,6 +37538,51 @@ function _sample(m,s){ const u1=Math.random(),u2=Math.random(); const z=Math.sqr
 function _abbrev(n){ return (n||'').split(/\s+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,3)||'OPP'; }
 function _ord(n){ return n===1?'st':n===2?'nd':n===3?'rd':'th'; }
 
+/* Season-sim variance calibration (data/season_sim_calibration.json).
+
+   The sim's team-strength band used to be a hand-picked SCORE_FLOOR=88..CEIL=122.
+   Scored against 130k real Sleeper seasons, that spread-to-sigma ratio (2.43) was
+   ~2.5x too wide — the sim funnelled playoffs and titles far too hard toward top
+   scorers. This module serves the FITTED band per (format x size), fit by
+   scale-free shape-matching of the real points-percentile -> playoff-rate curve
+   (scale-free so the winners_bracket bug that dilutes SF/half labels can't skew
+   it). Midpoint stays 105 and sigma stays 14 — only the spread is calibrated.
+
+   Same contract as VaultTradeMarket: band() returns null until the file lands and
+   the caller falls back to [88,122], so a cold cache or failed fetch costs nothing. */
+window.VaultSeasonSimCal = (function () {
+  'use strict';
+  const BASE = (function () {
+    const h = location.hostname;
+    return (h.includes('github.io') || h.includes('putput12-jp'))
+      ? 'https://putput12-jp.github.io/Vault-Fantasy/data' : '/data';
+  })();
+  const S = { model: null, _p: null };
+  const bust = () => Math.floor(Date.now() / 216e5);
+  function load() {
+    if (S._p) return S._p;
+    S._p = fetch(`${BASE}/season_sim_calibration.json?v=${bust()}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { S.model = j; return j; })
+      .catch(() => null);
+    return S._p;
+  }
+  function ready() { return !!S.model; }
+  /* Resolve the fitted band for this league: exact (fmt x size) bucket first,
+     then the format-pooled fallback, then the file's [88,122] default. Returns
+     null (not the default) until the file lands, so the caller's own fallback
+     is what runs on a cold cache. */
+  function band(sf, size) {
+    const m = S.model; if (!m) return null;
+    const fmt = sf ? 'sf' : '1qb';
+    const b = (m.byBucket && m.byBucket[`${fmt}_${size}`])
+           || (m.byFormat && m.byFormat[fmt])
+           || m.fallback || null;
+    return b ? { floor: b.floor, ceil: b.ceil } : null;
+  }
+  return { load, ready, band };
+})();
+
 function _ssGetLid(){
   // these are bare module-scope `let`s (not window props), so read them directly —
   // window.ovLeagueId is undefined and would always fall through to stale localStorage.
@@ -37577,6 +37622,7 @@ async function _ssLoad(){
     fetch(`${SLEEPER_API}/league/${lid}`).then(r=>r.json()),
     fetch(`${SLEEPER_API}/league/${lid}/rosters`).then(r=>r.json()),
     fetch(`${SLEEPER_API}/league/${lid}/users`).then(r=>r.json()),
+    VaultSeasonSimCal.load(), // fitted strength band; result read via .band() below
   ]);
   _ssLeagueInfo=lg; _ssRosters=rosters; _ssUsers=users;
 
@@ -37627,6 +37673,11 @@ async function _ssLoad(){
     };
   });
 
+  // Team-strength band, fitted per (format x size) from real Sleeper seasons.
+  // Falls back to the old hand-picked [88,122] until the calibration file lands.
+  const _ssBand = (window.VaultSeasonSimCal && VaultSeasonSimCal.band(
+    (lg.roster_positions||[]).includes('SUPER_FLEX'), rosters.length)) || {floor:88, ceil:122};
+
   // Compute roster values using FantasyCalc/RA data
   const hasPidMap = typeof globalPidToName !== 'undefined' && Object.keys(globalPidToName).length > 0;
   const hasValFn  = typeof getPlayerValue === 'function';
@@ -37640,7 +37691,7 @@ async function _ssLoad(){
     // rank by value → differentiated projections
     const sorted = [..._ssTeams].sort((a,b)=>b.rosterVal-a.rosterVal);
     const n = sorted.length;
-    const SCORE_FLOOR=88, SCORE_CEIL=122;
+    const SCORE_FLOOR=_ssBand.floor, SCORE_CEIL=_ssBand.ceil;
     sorted.forEach((t,idx)=>{
       t.valRank = idx+1;
       const valPct = n>1 ? 1-idx/(n-1) : 0.5;
@@ -37659,7 +37710,7 @@ async function _ssLoad(){
       t.valRank = idx+1;
       const pct = n>1 ? 1-idx/(n-1) : 0.5;
       if(t.scores.length < 3){
-        t.mean = 88 + pct*34;
+        t.mean = _ssBand.floor + pct*(_ssBand.ceil-_ssBand.floor);
         t.sigma = Math.max(t.sigma, 14);
       }
     });
