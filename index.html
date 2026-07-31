@@ -5380,7 +5380,7 @@ function pgsOpen(name, pos, team){
             </optgroup>
             <optgroup label="Redraft">
               <option value="halfppr">Redraft, ½ PPR</option>
-              <option value="ppr">Redraft, Full PPR</option>
+              <option value="ppr" selected>Redraft, Full PPR</option>
               <option value="standard">Redraft, Standard</option>
             </optgroup>
             <optgroup label="Rookie">
@@ -5422,9 +5422,9 @@ function pgsOpen(name, pos, team){
           <span class="adp-seg-label">ADP source</span>
           <div class="adp-seg">
             <button data-order="ffc" id="adp-order-ffc" onclick="adpSetOrder('ffc')" title="Real draft ADP from thousands of live drafts (Fantasy Football Calculator) — matches the Draft Vault board">FFC</button>
-            <button class="on" data-order="fc" onclick="adpSetOrder('fc')" title="FantasyCalc — market value rank from real Sleeper/MFL/Fleaflicker trades">FC</button>
+            <button data-order="fc" onclick="adpSetOrder('fc')" title="FantasyCalc — market value rank from real Sleeper/MFL/Fleaflicker trades">FC</button>
             <button data-order="espn" id="adp-order-espn" onclick="adpSetOrder('espn')" title="ESPN live draft ADP — where players actually go in ESPN drafts">ESPN</button>
-            <button data-order="sl" id="adp-order-sl" onclick="adpSetOrder('sl')" title="Real ADP aggregated from thousands of live Sleeper drafts (dynasty + redraft)">Sleeper</button>
+            <button class="on" data-order="sl" id="adp-order-sl" onclick="adpSetOrder('sl')" title="Real ADP aggregated from thousands of live Sleeper drafts (dynasty + redraft)">Sleeper</button>
             <button data-order="my" id="adp-order-my" onclick="adpSetOrder('my')" title="Your imported My Rankings order">Mine</button>
           </div>
         </div>
@@ -12876,7 +12876,7 @@ function showPage(p, opts){
         // for the rest of the session once the user did open the board.
         var pd = document.getElementById('page-draft');
         if (pd && pd.classList.contains('strategy-mode')) return;
-        try { openDraftConnect(); } catch(e){}
+        try { openDraftConnect(true); } catch(e){}   // auto-entry → skip to rankings if nothing live/upcoming
       }, 120);
     }
   }
@@ -14988,15 +14988,20 @@ async function ldRescan() {
   msg.textContent = 'Scanning your leagues for active drafts...';
   list.innerHTML = '';
 
+  // Reported back to openDraftConnect() so the auto-entry path can skip straight
+  // to rankings when there's nothing live/upcoming to connect. `scanned` is false
+  // when we couldn't actually scan (no Sleeper link / error).
+  let _res = { active: 0, upcoming: 0, completed: 0, scanned: false };
+
   try {
-    
+
     if (!myTeamsUserId) {
       const saved = localStorage.getItem(SK+'-username');
       if (saved) await loadMyTeams();
       if (!myTeamsUserId) {
         msg.textContent = 'Connect Sleeper to detect active drafts.';
         if (btn) btn.textContent = '↻ Re-scan';
-        return;
+        return _res;
       }
     }
 
@@ -15039,7 +15044,7 @@ async function ldRescan() {
     if (!active.length && !upcoming.length && !completed.length) {
       msg.textContent = 'No drafts detected across your leagues. You can still enter a league ID manually below.';
       if (btn) btn.textContent = '↻ Re-scan';
-      return;
+      return { active: 0, upcoming: 0, completed: 0, scanned: true };
     }
 
     msg.textContent = active.length
@@ -15073,11 +15078,13 @@ async function ldRescan() {
          <div id="ld-completed-list" style="display:none;flex-direction:column;gap:8px;margin-top:8px">${completedHtml}</div>`
       : '';
     list.innerHTML = activeHtml + toggleHtml;
+    _res = { active: active.length, upcoming: upcoming.length, completed: completed.length, scanned: true };
 
   } catch(e) {
     msg.textContent = '⚠ Could not scan drafts: ' + e.message;
   }
   if (btn) btn.textContent = '↻ Re-scan';
+  return _res;
 }
 
 function ldSelectDraft(draftId, draftName) {
@@ -15102,9 +15109,22 @@ function ldLoadManual() {
 }
 
 // ===== Draft connect modal (pop-up): connect to a live draft, or skip to rankings =====
-function openDraftConnect(){
+async function openDraftConnect(auto){
   const m = document.getElementById('draft-connect-modal');
   if (!m) return;
+  // Auto-entry (landing on Draft Vault with nothing connected): don't ambush a
+  // browser with the connect modal. Scan first with the modal still hidden, and
+  // only surface it if there's actually a live/upcoming draft to connect —
+  // otherwise drop straight into rankings. The persistent "Connect a draft"
+  // button stays available for when they do want to link one.
+  if (auto) {
+    let res;
+    try { res = await ldRescan(); } catch(e){ res = null; }
+    if (!res || (!res.active && !res.upcoming)) { skipDraftConnect(); return; }
+    m.classList.remove('gone');
+    setTimeout(() => { try { document.getElementById('ld-manual-id')?.focus(); } catch(e){} }, 50);
+    return;
+  }
   m.classList.remove('gone');
   try { ldRescan(); } catch(e){}
   setTimeout(() => { try { document.getElementById('ld-manual-id')?.focus(); } catch(e){} }, 50);
@@ -36219,7 +36239,7 @@ body .page,body .page.on{background:transparent!important}
 'use strict';
 
 /* ── state ── */
-let _adpScoring = 'dynasty'; // dynasty|superflex|halfppr|ppr|standard|rookie
+let _adpScoring = 'ppr';     // dynasty|superflex|halfppr|ppr|standard|rookie — unconnected default is Redraft Full PPR
 let _adpTeams   = 12;
 let _adpSort    = 'adp';
 let _adpSortDir = 1;
@@ -36229,7 +36249,7 @@ let _adpCache   = {};
 let _adpView    = 'list';  // list | board
 let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
-let _adpSource  = 'fc';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | my (My Rankings)
+let _adpSource  = 'sl';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | sl (Sleeper real-draft ADP) | my (My Rankings) — unconnected default is Sleeper
 let _adpSourceUserSet = false; // true once the user clicks a source button — stops the live-draft platform default from overriding their choice
 let _adpScoringUserSet = false; // true once the user picks a format — stops the league-based Superflex default from overriding it
 let _adpBoardPos= '';      // '' | QB | RB | WR | TE  (board highlight)
@@ -36475,15 +36495,21 @@ function _adpActiveList(base) {
   return full.filter(p => _adpPosAllowed(p.pos, needs));   // hide K/DEF/IDP the league doesn't start
 }
 
-// Default the ADP format to the connected league's QB rules: a 2QB / Superflex
-// dynasty league should open on Superflex ADP, not 1QB. Applies once, until the
-// user picks a format themselves.
+// Default the ADP format to the connected league. Unconnected, the state default
+// (Redraft Full PPR) stands — that's the browsing default. Once a draft is
+// connected, open on the league's actual shape: any Superflex → Superflex,
+// 1QB dynasty → Dynasty, 1QB redraft → Full PPR. Applies once, until the user
+// picks a format themselves.
 function _adpApplyLeagueDefaults() {
   if (_adpScoringUserSet) return;
-  if (window._draftIsSuperflex && _adpScoring === 'dynasty') {
-    _adpScoring = 'superflex';
+  if (!_adpDraftConnected()) return;   // no league → keep the Redraft Full PPR browsing default
+  const fmt = window._draftIsSuperflex ? 'superflex'
+            : window._draftIsDynasty   ? 'dynasty'
+            : 'ppr';
+  if (fmt !== _adpScoring) {
+    _adpScoring = fmt;
     const sel = document.getElementById('adp-sel-type');
-    if (sel) sel.value = 'superflex';
+    if (sel) sel.value = fmt;
   }
 }
 
