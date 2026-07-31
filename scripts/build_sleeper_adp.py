@@ -84,12 +84,29 @@ NORM_TEAMS = 12                               # pick_no normalized to a 12-team 
 
 WINDOW_DAYS = 210                             # drop drafts older than this (freshness)
 MIN_SAMPLES = 3                               # a player needs >= N drafts to get an ADP
+# ...and on STARTUP boards (dyn/rdr), also >= max(absolute floor, share of drafts).
+# Sleeper's `active` flag is useless (retired vets read active=True) and its
+# `team` is unreliable (it kept Roethlisberger on PIT), so is_eligible() can't
+# catch a retired vet Sleeper mis-tags with a team. But such a player only ever
+# lands a handful of keeper/troll picks — n=3 put Ben at QB2. In a startup, every
+# real player goes in most drafts, so legit picks near the draftable floor sit in
+# the hundreds — an absolute floor of 8 (with a 1% share for the bigger buckets)
+# cleanly drops the noise. Rookie boards are inherently low-sample (legit rookies
+# at n~10), so they keep the flat MIN_SAMPLES floor.
+STARTUP_MIN_SAMPLES = 8
+STARTUP_MIN_DRAFT_FRAC = 0.01
 # The app's player pool is skill positions on NFL rosters. Everything else that
 # gets drafted in deep startups (K/DEF, IDP, retired vets, devy/college fliers)
 # is filtered at output time — see is_eligible(). IDP also collides by name with
 # real players (Justin Jefferson LB-CLE vs the WR — the frontend name-keyed
 # lookup served the LB's 405.5 ADP).
 SKILL_POS = {"QB", "RB", "WR", "TE"}
+# Sleeper occasionally keeps a retired player on his last team with active=True —
+# both liveness signals is_eligible() relies on — so it can't tell he's done. The
+# sample floor catches the tiny-n cases, but a genuinely-drafted vet (Ben pulled
+# n=74 in dynasty SF) needs a hand-maintained override. Keep this tiny and exact;
+# if Sleeper ever clears the player's team he'd drop out on his own anyway.
+RETIRED_OVERRIDE = {"138"}                    # Ben Roethlisberger — retired after 2021, Sleeper still lists PIT
 HISTORY_MAX = 160                             # snapshots kept per player in history file
 
 # per-run budgets (keep a cron run comfortably inside a few minutes)
@@ -383,6 +400,8 @@ def is_eligible(pid, meta):
     drafts overwhelmingly run after the NFL draft, so the rookie board fills in
     on the same schedule the real drafts do.
     """
+    if pid in RETIRED_OVERRIDE:
+        return False
     q = meta.get(pid)
     if not q:
         return False
@@ -420,10 +439,12 @@ def compute_adp(corpus, mode, fmt, meta):
         ndrafts += 1
         for pid, pno in d.get("p", {}).items():
             samples.setdefault(pid, []).append(_norm_pick(pno, teams))
+    # Startup boards demand a real sample (absolute floor + share); rookie keeps the flat floor.
+    min_n = max(STARTUP_MIN_SAMPLES, round(STARTUP_MIN_DRAFT_FRAC * ndrafts)) if mode in ("dyn", "rdr") else MIN_SAMPLES
     rows = []
     for pid, arr in samples.items():
         n = len(arr)
-        if n < MIN_SAMPLES:
+        if n < min_n:
             continue
         if not is_eligible(pid, meta):
             continue
