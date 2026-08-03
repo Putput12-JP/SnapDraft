@@ -5760,6 +5760,8 @@ function pgsOpen(name, pos, team){
     </div>
   </div>
   <!-- ===== /DRAFT BOARD SECTION ===== -->
+
+
 </div>
 
 <!-- LIVE DRAFT PAGE, StatChasers style (emptied; content moved to #page-draft) -->
@@ -41058,6 +41060,406 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
      app, so bump ?v= on every change to either file. -->
 <link rel="stylesheet" href="vault-mobile.css?v=20260727b">
 <script src="vault-mobile.js?v=20260727b" defer></script>
+
+
+<!-- ═══════════ DRAFT BUDDY (concept, scoped to #page-draft) ═══════════ -->
+<style id="vbud-style">
+.vbud-root{position:fixed;right:26px;bottom:26px;z-index:1400;display:flex;flex-direction:column;align-items:flex-end;gap:12px;font-family:var(--font-sans)}
+.vbud-fab{width:70px;height:70px;cursor:pointer;position:relative;filter:drop-shadow(0 12px 24px rgba(4,9,20,.55));transition:transform var(--dur-release) var(--ease-spring)}
+.vbud-fab:hover{transform:translateY(-3px) scale(1.04)}
+.vbud-fab:active{transform:scale(.92);transition:transform var(--dur-press) ease-out}
+.vbud-fab.bob{animation:vbud-bob 2.8s ease-in-out infinite}
+@keyframes vbud-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.vbud-fab.pop{animation:vbud-pop .6s var(--ease-spring)}
+@keyframes vbud-pop{0%{transform:scale(1)}35%{transform:scale(1.15) rotate(-4deg)}70%{transform:scale(.96) rotate(2deg)}100%{transform:scale(1)}}
+.vbud-fab img{width:100%;height:100%;display:block;pointer-events:none}
+.vbud-dot{position:absolute;top:0;right:2px;width:15px;height:15px;border-radius:50%;background:var(--red);border:2.5px solid var(--bg);box-shadow:0 0 0 0 rgba(226,58,78,.6);animation:vbud-ndot 2s ease-out infinite}
+@keyframes vbud-ndot{0%{box-shadow:0 0 0 0 rgba(226,58,78,.55)}70%{box-shadow:0 0 0 8px rgba(226,58,78,0)}100%{box-shadow:0 0 0 0 rgba(226,58,78,0)}}
+.vbud-grade{position:absolute;bottom:-3px;right:-5px;display:none;align-items:center;justify-content:center;min-width:23px;height:21px;padding:0 5px;border-radius:8px;background:var(--s2);border:1.5px solid var(--rb);font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--rb);box-shadow:0 4px 12px rgba(4,9,20,.5)}
+.vbud-grade.show{display:flex;animation:vbud-gpop .5s var(--ease-spring)}
+@keyframes vbud-gpop{from{transform:scale(0)}to{transform:scale(1)}}
+.vbud-nudge{position:absolute;right:82px;bottom:16px;white-space:nowrap;background:var(--s2);border:1px solid var(--border2);border-radius:14px 14px 4px 14px;padding:9px 13px;font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-card);animation:vbud-nin .5s var(--ease-out) both}
+.vbud-nudge::after{content:"";position:absolute;right:-6px;bottom:10px;width:12px;height:12px;background:var(--s2);border-right:1px solid var(--border2);border-bottom:1px solid var(--border2);transform:rotate(-45deg)}
+.vbud-nudge small{display:block;font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent2);font-weight:700;margin-bottom:1px}
+@keyframes vbud-nin{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+.vbud-panel{width:340px;max-width:calc(100vw - 40px);background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);overflow:hidden;transform-origin:bottom right;display:none}
+.vbud-panel.show{display:block;animation:vbud-panin .42s var(--ease-out) both}
+@keyframes vbud-panin{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:none}}
+.vbud-panel.closing{animation:vbud-panout .3s var(--ease-out) forwards}
+@keyframes vbud-panout{to{opacity:0;transform:translateY(16px) scale(.92)}}
+.vbud-hd{display:flex;align-items:center;gap:11px;padding:14px 15px 12px;position:relative}
+.vbud-mini{width:40px;height:40px;flex-shrink:0}.vbud-mini img{width:100%;height:100%;display:block}
+.vbud-speech{flex:1;min-width:0}
+.vbud-speech .k{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);font-weight:800;display:flex;align-items:center;gap:7px}
+.vbud-speech .t{font-weight:800;letter-spacing:-.01em;font-size:15px;margin-top:2px;line-height:1.15;color:var(--text)}
+.vbud-hgrade{font-family:var(--font-mono);font-weight:800;font-size:10px;padding:2px 6px;border-radius:5px;border:1.5px solid}
+.vbud-x{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:8px;border:1px solid var(--border2);background:var(--s1);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px;line-height:1;transition:color .15s,border-color .15s}
+.vbud-x:hover{color:var(--text);border-color:var(--border3)}
+.vbud-min{right:44px;font-size:15px}
+.vbud-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 15px 15px}
+.vbud-strat{text-align:left;cursor:pointer;background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 11px 12px;transition:transform var(--dur-release) var(--ease-spring),border-color .18s,background .18s;color:var(--text)}
+.vbud-strat:hover{border-color:var(--accent);background:var(--s2)}
+.vbud-strat:active{transform:scale(.96);transition:transform var(--dur-press) ease-out}
+.vbud-si{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;margin-bottom:8px;font-size:14px}
+.vbud-sn{font-weight:800;letter-spacing:-.01em;font-size:13.5px}
+.vbud-sd{font-size:10.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+.vbud-chk{padding:0 15px 15px}
+.vbud-phase{border-radius:var(--radius-md);border:1px solid var(--border2);background:linear-gradient(120deg,rgba(47,99,196,.2),rgba(123,208,255,.05));padding:10px 12px;position:relative;overflow:hidden;margin-bottom:12px}
+.vbud-phase::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2)}
+.vbud-phase .k{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2)}
+.vbud-cpp{width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 0 rgba(123,208,255,.5);animation:vbud-cpp 2.4s ease-out infinite}
+@keyframes vbud-cpp{0%{box-shadow:0 0 0 0 rgba(123,208,255,.45)}70%{box-shadow:0 0 0 7px rgba(123,208,255,0)}100%{box-shadow:0 0 0 0 rgba(123,208,255,0)}}
+.vbud-ctx{font-size:12px;line-height:1.4;margin-top:6px;color:var(--text);font-weight:500}
+.vbud-ctx b{color:var(--accent3);font-weight:800}
+.vbud-step{display:flex;align-items:center;gap:11px;padding:8px 4px;border-radius:var(--radius-md)}
+.vbud-step.active{background:rgba(123,208,255,.06)}
+.vbud-mark{width:22px;flex-shrink:0;display:grid;place-items:center;overflow:visible}
+.vbud-box{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--border3);transition:border-color .3s var(--ease-spring)}
+.vbud-step.active .vbud-box{border-color:var(--accent2);animation:vbud-ring 2.2s ease-out infinite}
+@keyframes vbud-ring{0%{box-shadow:0 0 0 0 rgba(123,208,255,.4)}70%{box-shadow:0 0 0 6px rgba(123,208,255,0)}100%{box-shadow:0 0 0 0 rgba(123,208,255,0)}}
+.vbud-check{width:27px;height:27px;stroke:var(--rb);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 3px rgba(61,204,122,.4))}
+.vbud-sbody{flex:1;min-width:0}
+.vbud-sl{font-weight:700;font-size:13px;letter-spacing:-.01em;color:var(--text)}
+.vbud-step.done .vbud-sl{color:var(--text2)}
+.vbud-ss{font-size:10.5px;color:var(--muted)}
+.vbud-sf{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--value);white-space:nowrap}
+.vbud-step.pending .vbud-sf{color:var(--muted);font-weight:500}
+.vbud-step.active .vbud-sf{color:var(--accent2)}
+.vbud-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.35);border-radius:9px;padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:var(--text2);line-height:1.35}
+.vbud-switch b{color:var(--gold)}
+.vbud-switch button{margin-left:auto;cursor:pointer;background:var(--gold);color:#1a1204;border:none;border-radius:7px;padding:5px 10px;font-family:var(--font-sans);font-weight:800;font-size:11px;white-space:nowrap;transition:transform var(--dur-release) var(--ease-spring)}
+.vbud-switch button:active{transform:scale(.94);transition:transform var(--dur-press) ease-out}
+/* layout fix: match .suggest-bar horizontal padding to the rest of #page-draft (was 12px vs 24px, so the "on the clock" cards overhung) */
+#page-draft #sbar.suggest-bar{padding-left:24px!important;padding-right:24px!important}
+.vbud-gradestrip{display:flex;align-items:center;gap:10px;margin:10px 0 2px;padding:10px 12px;border-radius:var(--radius-md);background:var(--s1);border:1px solid var(--border)}
+.vbud-gk{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.vbud-gl{font-family:var(--font-mono);font-weight:900;font-size:22px;letter-spacing:-.02em;line-height:1}
+.vbud-gfac{display:flex;align-items:flex-end;gap:3px;height:16px;margin-left:auto}
+.vbud-gfac i{width:6px;border-radius:2px}
+.vbud-gtrend{font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--rb)}
+.vbud-foot{display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:11px;border-top:1px solid var(--border)}
+.vbud-cn{font-family:var(--font-mono);font-size:10.5px;font-weight:800;color:var(--text)}.vbud-cn span{color:var(--muted);font-weight:500}
+.vbud-bar{flex:1;height:6px;border-radius:3px;background:var(--s4);overflow:hidden}
+.vbud-bar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s var(--ease-out)}
+.vbud-change{font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer;background:none;border:none}
+.vbud-change:hover{color:var(--accent2)}
+.vbud-rcbtn{width:100%;margin-top:12px;cursor:pointer;border:none;border-radius:var(--radius-md);padding:11px;background:linear-gradient(180deg,var(--accent),var(--sky));color:#fff;font-family:var(--font-sans);font-weight:800;font-size:13px;transition:transform var(--dur-release) var(--ease-spring)}
+.vbud-rcbtn:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
+.vbud-pill{display:none;align-items:center;gap:11px;background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:var(--radius-pill);box-shadow:var(--shadow-card);padding:8px 9px;cursor:pointer;transition:transform var(--dur-release) var(--ease-spring),border-color .2s}
+.vbud-pill.show{display:flex;animation:vbud-panin .4s var(--ease-out) both}
+.vbud-pill:hover{border-color:var(--accent)}
+.vbud-pill:active{transform:scale(.97);transition:transform var(--dur-press) ease-out}
+.vbud-pillring{width:34px;height:34px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;position:relative;font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--accent2)}
+.vbud-pillring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.vbud-mtext{min-width:0}
+.vbud-mp-k{font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.vbud-mp-t{font-weight:800;font-size:13px;letter-spacing:-.01em;white-space:nowrap;color:var(--text)}
+.vbud-mgrade{margin-left:4px;margin-right:4px;font-family:var(--font-mono);font-weight:800;font-size:14px;padding:3px 7px;border-radius:7px;border:1.5px solid}
+.vbud-scrim{position:fixed;inset:0;z-index:1500;background:rgba(4,8,16,.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:44px 20px;overflow:auto}
+.vbud-scrim.show{display:flex;animation:vbud-fade .25s ease}
+@keyframes vbud-fade{from{opacity:0}to{opacity:1}}
+.vbud-rc{width:600px;max-width:100%;background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);overflow:hidden;animation:vbud-panin .35s var(--ease-out)}
+.vbud-rchd{position:relative;padding:20px 22px 16px;text-align:center;background:radial-gradient(400px 200px at 50% -20%,rgba(61,204,122,.16),transparent 70%)}
+.vbud-rchand{width:52px;height:52px;margin:0 auto 6px}.vbud-rchand img{width:100%;height:100%}
+.vbud-rck{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.vbud-rcring{width:100px;height:100px;margin:10px auto 6px;border-radius:50%;display:grid;place-items:center;position:relative;background:conic-gradient(var(--rb) 0 91%,var(--s4) 91% 100%)}
+.vbud-rcring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--s1)}
+.vbud-rcring .g{position:relative;font-weight:900;font-size:32px;letter-spacing:-.02em;color:var(--rb)}
+.vbud-rcring .g small{display:block;font-family:var(--font-mono);font-size:10px;color:var(--muted);font-weight:700}
+.vbud-rcstrat{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);background:rgba(123,208,255,.1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:6px 13px}
+.vbud-rcbody{padding:6px 22px 18px}
+.vbud-steal{display:flex;align-items:center;gap:12px;border:1px solid var(--border2);border-radius:var(--radius-md);padding:11px 13px;background:var(--s1);margin:8px 0 16px}
+.vbud-steal .stk{font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.vbud-steal .stn{font-weight:800;font-size:15px;margin-top:2px;color:var(--text)}
+.vbud-steal .stv{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--value);text-align:right}
+.vbud-rcgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.vbud-rcsect{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.vbud-rings{display:flex;justify-content:space-between;gap:6px}
+.vbud-ring2{text-align:center;flex:1}
+.vbud-ring2 .rr{width:44px;height:44px;margin:0 auto 5px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-weight:800;font-size:13px}
+.vbud-ring2 .rlbl{font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.vbud-mixrow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.vbud-mixrow .ml{font-family:var(--font-mono);font-size:10px;font-weight:700;width:26px;color:var(--text2)}
+.vbud-mixbar{flex:1;height:8px;border-radius:4px;background:var(--s4);position:relative}
+.vbud-mixbar .fillb{height:100%;border-radius:4px}
+.vbud-mixbar .lgtick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text2);opacity:.7;border-radius:2px}
+.vbud-mixrow .mv{font-family:var(--font-mono);font-size:9px;color:var(--muted);width:74px;text-align:right}
+.vbud-rcfoot{display:flex;gap:10px;padding:15px 22px 20px;border-top:1px solid var(--border)}
+.vbud-rcfoot button{flex:1;text-align:center;cursor:pointer;border:1px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font-sans);font-weight:800;font-size:12px;border-radius:var(--radius-md);padding:10px;transition:border-color .2s}
+.vbud-rcfoot button:hover{border-color:var(--accent)}
+.vbud-rcfoot .primary{background:linear-gradient(180deg,var(--accent),var(--sky));border-color:transparent;color:#fff}
+.vbud-rcfoot .ghost{background:transparent;color:var(--muted);font-weight:600}
+@media(max-width:700px){.vbud-root{right:14px;bottom:82px}.vbud-panel{width:300px}.vbud-fab{width:50px;height:50px}.vbud-dot{width:13px;height:13px;top:-1px;right:1px}.vbud-grade{min-width:20px;height:19px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.vbud-root *{animation:none!important}}
+</style>
+
+<div class="vbud-root" id="vbud-root">
+  <div class="vbud-panel" id="vbud-panel"></div>
+  <div class="vbud-pill" id="vbud-pill">
+    <div class="vbud-pillring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--s4)" stroke-width="3"/><circle id="vbud-pill-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--accent2)" stroke-width="3" stroke-linecap="round" stroke-dasharray="94" stroke-dashoffset="94"/></svg><span id="vbud-pill-n">0/6</span></div>
+    <div class="vbud-mtext"><div class="vbud-mp-k" id="vbud-pill-k">Robust RB</div><div class="vbud-mp-t" id="vbud-pill-t">Secure the backfield</div></div>
+    <span class="vbud-mgrade" id="vbud-pill-grade">B+</span>
+  </div>
+  <div class="vbud-fab bob" id="vbud-fab">
+    <span class="vbud-dot" id="vbud-dot"></span>
+    <span class="vbud-grade" id="vbud-grade">B+</span>
+    <span id="vbud-fab-img"></span>
+  </div>
+</div>
+
+<div class="vbud-scrim" id="vbud-scrim">
+  <div class="vbud-rc">
+    <div class="vbud-rchd">
+      <div class="vbud-rchand" id="vbud-rc-hand"></div>
+      <div class="vbud-rck">Draft complete · your buddy graded it</div>
+      <div class="vbud-rcring"><span class="g" id="vbud-rc-letter">A−<small id="vbud-rc-score">91 / 100</small></span></div>
+      <div class="vbud-rcstrat">◆ <span id="vbud-rc-strat">Robust RB</span></div>
+    </div>
+    <div class="vbud-rcbody">
+      <div class="vbud-steal"><div><div class="stk">Steal of the draft</div><div class="stn" id="vbud-rc-steal">—</div></div><div class="stv" id="vbud-rc-stealv">best value pick</div></div>
+      <div class="vbud-rcgrid">
+        <div>
+          <div class="vbud-rcsect">Team 4-factor</div>
+          <div class="vbud-rings">
+            <div class="vbud-ring2"><div class="rr" style="color:var(--te);background:conic-gradient(var(--te) 0 82%,var(--s4) 82%)">8.2</div><div class="rlbl">Upside</div></div>
+            <div class="vbud-ring2"><div class="rr" style="color:var(--rb);background:conic-gradient(var(--rb) 0 86%,var(--s4) 86%)">8.6</div><div class="rlbl">Floor</div></div>
+            <div class="vbud-ring2"><div class="rr" style="color:var(--red);background:conic-gradient(var(--red) 0 50%,var(--s4) 50%)">5.0</div><div class="rlbl">Risk</div></div>
+            <div class="vbud-ring2"><div class="rr" style="color:var(--wr);background:conic-gradient(var(--wr) 0 80%,var(--s4) 80%)">8.0</div><div class="rlbl">Situ</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="vbud-rcsect">Positional mix vs league</div>
+          <div class="vbud-mixrow"><span class="ml">QB</span><div class="vbud-mixbar"><div class="fillb" style="width:13%;background:var(--qb)"></div><div class="lgtick" style="left:9%"></div></div><span class="mv">13% · lg 9%</span></div>
+          <div class="vbud-mixrow"><span class="ml">RB</span><div class="vbud-mixbar"><div class="fillb" style="width:44%;background:var(--rb)"></div><div class="lgtick" style="left:30%"></div></div><span class="mv">44% · lg 30%</span></div>
+          <div class="vbud-mixrow"><span class="ml">WR</span><div class="vbud-mixbar"><div class="fillb" style="width:31%;background:var(--wr)"></div><div class="lgtick" style="left:34%"></div></div><span class="mv">31% · lg 34%</span></div>
+          <div class="vbud-mixrow"><span class="ml">TE</span><div class="vbud-mixbar"><div class="fillb" style="width:12%;background:var(--te)"></div><div class="lgtick" style="left:12%"></div></div><span class="mv">12% · lg 12%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="vbud-rcfoot"><button class="primary">⤓ Share image</button><button>Compare league</button><button class="ghost" id="vbud-rc-close">Close</button></div>
+  </div>
+</div>
+
+<script id="vbud-script">
+(function(){
+  if(window.__vbudInit) return; window.__vbudInit=true;
+  var SHIELD="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2aWV3Qm94PSI0NTIgMTg2IDM3NiA0NTIiPgo8ZyB0cmFuc2Zvcm09Im1hdHJpeCgxLjkyMTE1Mzg0NjE1Mzg0NjIgMCAwIDEuOTIxMTUzODQ2MTUzODQ2MiA2NDAgNDEzLjAwMjk0MjMwNzY5MjM2KSIgaWQ9ImxvZ28tbG9nbyIgID4KPGcgc3R5bGU9IiIgIHBhaW50LW9yZGVyPSJzdHJva2UiICAgPgoJCTxnIHRyYW5zZm9ybT0ibWF0cml4KDAuNzI1MTAwODMzODA3MjE4OCAwIDAgMC43MjUxMDA4MzM4MDcyMTg2IDAgMCkiICA+CjxwYXRoIHN0eWxlPSJzdHJva2U6IG5vbmU7IHN0cm9rZS13aWR0aDogMTsgc3Ryb2tlLWRhc2hhcnJheTogbm9uZTsgc3Ryb2tlLWxpbmVjYXA6IGJ1dHQ7IHN0cm9rZS1kYXNob2Zmc2V0OiAwOyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbWl0ZXJsaW1pdDogNDsgZmlsbDogcmdiKDEyLDQ0LDc2KTsgZmlsbC1ydWxlOiBub256ZXJvOyBvcGFjaXR5OiAxOyIgIHBhaW50LW9yZGVyPSJzdHJva2UiICB0cmFuc2Zvcm09IiB0cmFuc2xhdGUoLTQ0OS4xMTYsIC0zOTYuMTU4NSkiIGQ9Ik0gNDQ1LjIyMSA1NTQuMzE4IEwgNDM4LjA3IDU1Mi4yNzMgQyAzNzUuNzcyIDUzNC40OTYgMzE5IDUxOC4yOTEgMzE5IDQ0MS4yNTYgTCAzMTkgMjczLjA4NCBMIDMzNC4wNzcgMjczLjk4MiBDIDMzNC4yNDYgMjczLjk5MTAwMDAwMDAwMDA0IDM5Mi44MTMgMjc3LjgyODAwMDAwMDAwMDAzIDQ0MC45MzggMjQzLjc4NDAwMDAwMDAwMDAyIEwgNDQ5LjExNiAyMzcuOTk5MDAwMDAwMDAwMDIgTCA0NTcuMjkzIDI0My43ODQwMDAwMDAwMDAwMiBDIDUwNS40MTggMjc3LjgyODAwMDAwMDAwMDAzIDU2My45ODYgMjczLjk5MiA1NjQuMTU0IDI3My45ODIgTCA1NzkuMjMyIDI3My4wODQgTCA1NzkuMjMyIDQ0MS4yNTUgQyA1NzkuMjMyIDUxOC4yOSA1MjIuNDU5IDUzNC40OTUgNDYwLjE1OTk5OTk5OTk5OTk3IDU1Mi4yNzMgTCA0NTMuMDEgNTU0LjMxOCBMIDQ0NS4yMjEgNTU0LjMxOCBMIDQ0NS4yMjEgNTU0LjMxOCB6IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CjwvZz4KCQk8ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjcyNTEwMDgzMzgwNzIxODggMCAwIDAuNzI1MTAwODMzODA3MjE4NiAwLjAwMDAxMzMxODEwMjg0NDU1MDU5IDQ5LjI5MzA3OTc4MzA0ODU0KSIgID4KPHBhdGggc3R5bGU9InN0cm9rZTogbm9uZTsgc3Ryb2tlLXdpZHRoOiAxOyBzdHJva2UtZGFzaGFycmF5OiBub25lOyBzdHJva2UtbGluZWNhcDogYnV0dDsgc3Ryb2tlLWRhc2hvZmZzZXQ6IDA7IHN0cm9rZS1saW5lam9pbjogbWl0ZXI7IHN0cm9rZS1taXRlcmxpbWl0OiA0OyBmaWxsOiByZ2IoMjM2LDUxLDU2KTsgZmlsbC1ydWxlOiBldmVub2RkOyBvcGFjaXR5OiAxOyIgIHBhaW50LW9yZGVyPSJzdHJva2UiICB0cmFuc2Zvcm09IiB0cmFuc2xhdGUoLTQ0OS4xMTYwMTgzNjcyNDI0LCAtNDY0LjEzOTUpIiBkPSJNIDM0NS45MzcgNDAyLjI0NiBMIDM0NS45MzcgNDQwLjk5IEMgMzQ1LjIyOSA0NzguMDcyIDM3Mi44NzMgNTAyLjAwNjAwMDAwMDAwMDAzIDQwNS44NTkwMDAwMDAwMDAwNCA1MTIuNjgzIEwgNDQ5LjExNjAwMDAwMDAwMDA0IDUyNi4wMzMgTCA0OTIuMzczMDAwMDAwMDAwMDUgNTEyLjY4MyBDIDUyNS4zNTkgNTAyLjAwNSA1NTMuMDA0IDQ3OC4wNzIgNTUyLjI5NTAwMDAwMDAwMDEgNDQwLjk5IEwgNTUyLjI5NTAwMDAwMDAwMDEgNDAyLjI0NiBDIDQ5OC41MSA0NTguOTY1IDM5OS42NzMgNDU5LjMzMiAzNDUuOTM3IDQwMi4yNDYgTCAzNDUuOTM3IDQwMi4yNDYgeiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgo8L2c+CgkJPGcgdHJhbnNmb3JtPSJtYXRyaXgoMC43MjUxMDA4MzM4MDcyMTg4IDAgMCAwLjcyNTEwMDgzMzgwNzIxODYgMC4wMDA3MjUxMDA4MzM3OTAyOTMxIDIzLjEyOTg3Nzk2MTU4NzIyNikiICA+CjxwYXRoIHN0eWxlPSJzdHJva2U6IG5vbmU7IHN0cm9rZS13aWR0aDogMTsgc3Ryb2tlLWRhc2hhcnJheTogbm9uZTsgc3Ryb2tlLWxpbmVjYXA6IGJ1dHQ7IHN0cm9rZS1kYXNob2Zmc2V0OiAwOyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbWl0ZXJsaW1pdDogNDsgZmlsbDogcmdiKDE5OSw0NCw0OSk7IGZpbGwtcnVsZTogZXZlbm9kZDsgb3BhY2l0eTogMTsiICBwYWludC1vcmRlcj0ic3Ryb2tlIiAgdHJhbnNmb3JtPSIgdHJhbnNsYXRlKC00NDkuMTE2OTk5OTk5OTk5OTYsIC00MjguMDU3MzQzNDIwMzU3NikiIGQ9Ik0gMzQ1LjkzNyA0MDIuMjQ2IEwgMzQ1LjkzNyA0MTEuMzExOTk5OTk5OTk5OTUgQyAzNTUuNjAxIDQyMS4yMjU5OTk5OTk5OTk5NCAzNjguNzg3MDAwMDAwMDAwMDMgNDMxLjk3MiAzODUuODY4IDQ0MC4xOTQ5OTk5OTk5OTk5NCBDIDQwMi45NjYgNDQ4LjQyNDk5OTk5OTk5OTk1IDQyMy45MzM5OTk5OTk5OTk5NyA0NTQuMTA2OTk5OTk5OTk5OSA0NDkuMTE4IDQ1My44NjA5OTk5OTk5OTk5MyBDIDQ3NC4zIDQ1NC4xMDY5OTk5OTk5OTk5IDQ5NS4yNjkgNDQ4LjQyNDk5OTk5OTk5OTk1IDUxMi4zNjcgNDQwLjE5NDk5OTk5OTk5OTk0IEMgNTI5LjQ0NyA0MzEuOTcxOTk5OTk5OTk5OSA1NDIuNjMyOTk5OTk5OTk5OSA0MjEuMjI1OTk5OTk5OTk5OTQgNTUyLjI5Njk5OTk5OTk5OTkgNDExLjMxMTk5OTk5OTk5OTk1IEwgNTUyLjI5Njk5OTk5OTk5OTkgNDAyLjI0NiBDIDQ5OC41MSA0NTguOTY1IDM5OS42NzMgNDU5LjMzMiAzNDUuOTM3IDQwMi4yNDYgTCAzNDUuOTM3IDQwMi4yNDYgeiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgo8L2c+CgkJPGcgdHJhbnNmb3JtPSJtYXRyaXgoMC43MjUxMDA4MzM4MDcyMTg4IDAgMCAwLjcyNTEwMDgzMzgwNzIxODYgMCAwLjc3NDQwNzY5MDUwNjEwOTIpIiAgPgo8cGF0aCBzdHlsZT0ic3Ryb2tlOiBub25lOyBzdHJva2Utd2lkdGg6IDE7IHN0cm9rZS1kYXNoYXJyYXk6IG5vbmU7IHN0cm9rZS1saW5lY2FwOiBidXR0OyBzdHJva2UtZGFzaG9mZnNldDogMDsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlcjsgc3Ryb2tlLW1pdGVybGltaXQ6IDQ7IGZpbGw6IHJnYigyNTUsMjU1LDI1NSk7IGZpbGwtcnVsZTogZXZlbm9kZDsgb3BhY2l0eTogMTsiICBwYWludC1vcmRlcj0ic3Ryb2tlIiAgdHJhbnNmb3JtPSIgdHJhbnNsYXRlKC00NDkuMTE2LCAtMzk3LjIyNjUpIiBkPSJNIDM3Ni4zMzQgNDI2LjA1NyBMIDM3Ni4zMzQgNDk4LjI0NiBDIDM2Ny44NTEgNDkyLjUyNyAzNjAuNzQ0IDQ4NS42NDU5OTk5OTk5OTk5NiAzNTUuNTM5IDQ3Ny4wMzEgTCAzNTUuNTM5IDQxMS4yNDQgQyAzNjEuNTIxIDQxNi4zNzEgMzY4LjQzNiA0MjEuNDUzIDM3Ni4zMzQgNDI2LjA1NyBMIDM3Ni4zMzQgNDI2LjA1NyB6IE0gNDQ3LjQ4NSA1NDYuMzYzIEwgNDQwLjMzNTAwMDAwMDAwMDA0IDU0NC4zMTYgQyAzODEuMTg0IDUyNy40MzcgMzI3LjI4MDAwMDAwMDAwMDAzIDUxMi4wNTIgMzI3LjI4MDAwMDAwMDAwMDAzIDQ0MS4yNTUgTCAzMjcuMjgwMDAwMDAwMDAwMDMgMjgxLjg1NCBMIDMzMy41OTEgMjgyLjIyOTk5OTk5OTk5OTk2IEMgMzMzLjc2ODAwMDAwMDAwMDAzIDI4Mi4yMzkgMzk1LjE1NiAyODYuMjYwOTk5OTk5OTk5OTcgNDQ1LjY5MyAyNTAuNTEwOTk5OTk5OTk5OTcgTCA0NDkuMTE2IDI0OC4wODk5OTk5OTk5OTk5NyBMIDQ1Mi41MzkgMjUwLjUxMDk5OTk5OTk5OTk3IEMgNTAzLjA3Mzk5OTk5OTk5OTk2IDI4Ni4yNjA5OTk5OTk5OTk5NyA1NjQuNDY1IDI4Mi4yMzkgNTY0LjY0MSAyODIuMjI5OTk5OTk5OTk5OTYgTCA1NzAuOTUyIDI4MS44NTQgTCA1NzAuOTUyIDQ0MS4yNTUgQyA1NzAuOTUyIDUxMi4wNTIgNTE3LjA1IDUyNy40MzcgNDU3Ljg5NyA1NDQuMzE2IEwgNDUwLjc0NyA1NDYuMzYzIEwgNDQ3LjQ4NSA1NDYuMzYzIEwgNDQ3LjQ4NSA1NDYuMzYzIHogTSAzODkuMjI2IDMxNi4zODkgQyAzNzUuMzgxIDM0Ny40MjQwMDAwMDAwMDAwNCAzNzcuMjQgMzg0LjI2MzAwMDAwMDAwMDAzIDM4OS4xNCA0MTAuMDQzIEMgMzg5Ljk1NCA0MTAuNDU5IDM5MC43NzcgNDEwLjg2NyAzOTEuNjExOTk5OTk5OTk5OTcgNDExLjI3IEMgNDA3LjEwNDk5OTk5OTk5OTk2IDQxOC43MjkgNDI2LjE0Mzk5OTk5OTk5OTk1IDQyMy44NzUgNDQ5LjA2NiA0MjMuNjQzIEwgNDQ5LjE2OTk5OTk5OTk5OTk2IDQyMy42NDMgQyA0NzIuMDkwOTk5OTk5OTk5OTUgNDIzLjg3NSA0OTEuMTI5OTk5OTk5OTk5OTQgNDE4LjcyOSA1MDYuNjIyOTk5OTk5OTk5OTMgNDExLjI3IEMgNTA3LjQ1Njk5OTk5OTk5OTk0IDQxMC44NjggNTA4LjI3ODk5OTk5OTk5OTk0IDQxMC40NTkgNTA5LjA5Mzk5OTk5OTk5OTk0IDQxMC4wNDMgQyA1MjAuOTkzOTk5OTk5OTk5OSAzODQuMjYyIDUyMi44NTM5OTk5OTk5OTk5IDM0Ny40MjMgNTA5LjAwNzk5OTk5OTk5OTkgMzE2LjM4OSBDIDUwNy45MDc5OTk5OTk5OTk5IDMxNS44MyA1MDYuNzg4OTk5OTk5OTk5OTMgMzE1LjI4MiA1MDUuNjUyOTk5OTk5OTk5OSAzMTQuNzQ3IEMgNDkwLjMzODk5OTk5OTk5OTkgMzA3LjUzOCA0NzEuNjE1OTk5OTk5OTk5OTMgMzAyLjYwNiA0NDkuMTcwOTk5OTk5OTk5OTQgMzAyLjgzMiBMIDQ0OS4wNjY5OTk5OTk5OTk5NSAzMDIuODMyIEMgNDI2LjYyMTk5OTk5OTk5OTk2IDMwMi42MDYgNDA3Ljg5ODk5OTk5OTk5OTk0IDMwNy41MzggMzkyLjU4Mzk5OTk5OTk5OTk1IDMxNC43NDcgQyAzOTEuNDQ0IDMxNS4yODEgMzkwLjMyNiAzMTUuODI5IDM4OS4yMjYgMzE2LjM4OSBMIDM4OS4yMjYgMzE2LjM4OSB6IE0gMzYwLjM3NiAzODkuODk0IEMgMzU2Ljc5OCAzNzcuMTgxIDM1My42MDY5OTk5OTk5OTk5NyAzNTcuMjY4MDAwMDAwMDAwMDMgMzU5LjkzMyAzMzYuOTg2IEMgMzU2LjcxOSAzMzkuOTg4IDM1My44NTEgMzQyLjk2MiAzNTEuMzIwOTk5OTk5OTk5OTcgMzQ1LjgwMTk5OTk5OTk5OTk2IEwgMzUxLjQyOCAzNDUuODg4IEMgMzQ5LjUyMiAzNDguMDYzOTk5OTk5OTk5OTYgMzQ3LjU0OSAzNTAuMTg2IDM0NS43NjkgMzUyLjQ2Nzk5OTk5OTk5OTk2IEwgMzQ1Ljc2IDM1Mi40NjA5OTk5OTk5OTk5NiBMIDM0NS4xOTUgMzUzLjE5MyBMIDM0NS4yMDQgMzUzLjIgQyAzNDIuNjI3IDM1Ni43OTMgMzQxLjc4MDAwMDAwMDAwMDAzIDM2MC4xOCAzNDEuODQyIDM2My4xNDYgQyAzNDEuOTQgMzY3Ljc4MjAwMDAwMDAwMDA0IDM0NC4xNjYgMzcxLjczMyAzNDUuNjUxIDM3My44NjQwMDAwMDAwMDAwMyBDIDM0OS4zNzggMzc4LjY1IDM1NC4yNjIgMzg0LjIzMyAzNjAuMzc2IDM4OS44OTQgTCAzNjAuMzc2IDM4OS44OTQgeiBNIDQ0OS4xMTcgNDM2Ljg0IEMgNDIzLjkzNCA0MzcuMDg1OTk5OTk5OTk5OTYgNDAyLjk2NTAwMDAwMDAwMDAzIDQzMS40MDIgMzg1Ljg2NyA0MjMuMTcxOTk5OTk5OTk5OTcgQyAzNjQuNDE2IDQxMi44NDU5OTk5OTk5OTk5NSAzNDkuMTA3IDM5OC41MzkgMzM5LjIwNCAzODYuODk4OTk5OTk5OTk5OTQgTCAzMzkuMjA0IDQ0MS4yNTYgQyAzMzkuMjA0IDUwMy4wNjg5OTk5OTk5OTk5NiAzODguOTc3MDAwMDAwMDAwMDMgNTE3LjI3NCA0NDMuNTk2IDUzMi44NiBMIDQ0OS4xMTYgNTM0LjQzOCBMIDQ1NC42MzcgNTMyLjg2IEMgNTA5LjI1NCA1MTcuMjc0IDU1OS4wMjggNTAzLjA2OSA1NTkuMDI4IDQ0MS4yNTYwMDAwMDAwMDAwMyBMIDU1OS4wMjggMzg2LjkgQyA1NDkuMTI2IDM5OC41MzkgNTMzLjgxNyA0MTIuODQ2IDUxMi4zNjYgNDIzLjE3MTk5OTk5OTk5OTk3IEMgNDk1LjI2OCA0MzEuNDAyIDQ3NC4yOTkgNDM3LjA4NiA0NDkuMTE3IDQzNi44NCBMIDQ0OS4xMTcgNDM2Ljg0IHogTSAzMzkuMjA0IDMzOS41OTkgQyAzNDkuMjc3IDMyNy43NTMgMzY0LjkzNyAzMTMuMTQ5IDM4Ni45NDEwMDAwMDAwMDAwMyAzMDIuNzkxIEMgNDAzLjgzOCAyOTQuODM4IDQyNC40NTYgMjg5LjM5NSA0NDkuMTE3IDI4OS42MzYgQyA0NzMuNzc4IDI4OS4zOTUwMDAwMDAwMDAwNCA0OTQuMzk1MDAwMDAwMDAwMDQgMjk0LjgzOCA1MTEuMjkxIDMwMi43OTEgQyA1MzMuMjk1IDMxMy4xNDcgNTQ4Ljk1NSAzMjcuNzUyIDU1OS4wMjcgMzM5LjU5OCBMIDU1OS4wMjcgMjk0LjI1NSBDIDU0MS44MDQwMDAwMDAwMDAxIDI5NC4yNSA0OTIuMzYzMDAwMDAwMDAwMDYgMjkxLjQ4OCA0NDkuMTE1IDI2Mi41NDcgQyA0MDUuODY3IDI5MS40ODggMzU2LjQyNjAwMDAwMDAwMDA0IDI5NC4yNTEwMDAwMDAwMDAwMyAzMzkuMjAzIDI5NC4yNTUgTCAzMzkuMjAzIDMzOS41OTkgTCAzMzkuMjA0IDMzOS41OTkgeiBNIDUzNy44NTUgMzg5Ljg5MiBDIDU0My45NjgwMDAwMDAwMDAxIDM4NC4yMzEgNTQ4Ljg1MSAzNzguNjQ3IDU1Mi41NzYgMzczLjg1OSBDIDU1NC4wNjYgMzcxLjczMyA1NTYuMjkzIDM2Ny43ODIgNTU2LjM5IDM2My4xNDU5OTk5OTk5OTk5NiBDIDU1Ni40NTMgMzYwLjE3OTk5OTk5OTk5OTk1IDU1NS42MDUgMzU2Ljc5Mjk5OTk5OTk5OTk1IDU1My4wMjY5OTk5OTk5OTk5IDM1My4xOTk5OTk5OTk5OTk5MyBMIDU1My4wMzY5OTk5OTk5OTk5IDM1My4xOTI5OTk5OTk5OTk5IEwgNTUyLjQ3MyAzNTIuNDYwOTk5OTk5OTk5OSBMIDU1Mi40NjQ5OTk5OTk5OTk5IDM1Mi40Njc5OTk5OTk5OTk5IEMgNTUwLjY3NTk5OTk5OTk5OTkgMzUwLjE5Mjk5OTk5OTk5OTkgNTQ4LjcwOSAzNDguMDY0OTk5OTk5OTk5OSA1NDYuODAyOTk5OTk5OTk5OSAzNDUuODg3OTk5OTk5OTk5OSBMIDU0Ni45MDk5OTk5OTk5OTk5IDM0NS44MDA5OTk5OTk5OTk5MyBDIDU0NC4zNzg5OTk5OTk5OTk5IDM0Mi45NTk5OTk5OTk5OTk5IDU0MS41MTE5OTk5OTk5OTk4IDMzOS45ODU5OTk5OTk5OTk5MyA1MzguMjk4OTk5OTk5OTk5OSAzMzYuOTgzOTk5OTk5OTk5OSBDIDU0NC42MjMgMzU3LjI2NiA1NDEuNDM2IDM3Ny4xNzkgNTM3Ljg1NSAzODkuODkyIEwgNTM3Ljg1NSAzODkuODkyIHogTSA0ODIuNjM5IDM1NC4zNjYgQyA0ODEuODY4IDM1Mi4xMTggNDgzLjA2NyAzNDkuNjcxIDQ4NS4zMTUgMzQ4LjkgQyA0ODcuNTYxIDM0OC4xMjg5OTk5OTk5OTk5NiA0OTAuMDEgMzQ5LjMyNyA0OTAuNzggMzUxLjU3NSBDIDQ5Mi4yNTUgMzU1Ljg2ODk5OTk5OTk5OTk3IDQ5My4wMDEgMzYwLjM0OCA0OTMuMDA1IDM2NS4wMDkgQyA0OTMuMDA5IDM2OS41ODEgNDkyLjI4MiAzNzQuMjkgNDkwLjgxNiAzNzkuMTMzMDAwMDAwMDAwMDQgQyA0OTAuMTI4IDM4MS4zOTkwMDAwMDAwMDAwNiA0ODcuNzMxOTk5OTk5OTk5OTcgMzgyLjY3OTAwMDAwMDAwMDAzIDQ4NS40NjU5OTk5OTk5OTk5NSAzODEuOTkyIEMgNDgzLjE5OCAzODEuMzA1IDQ4MS45MTg5OTk5OTk5OTk5IDM3OC45MDkgNDgyLjYwNjk5OTk5OTk5OTk3IDM3Ni42NDMwMDAwMDAwMDAwMyBDIDQ4My4zNTEgMzc0LjE4ODAwMDAwMDAwMDA1IDQ4My44NjQ5OTk5OTk5OTk5NSAzNzEuNzg4IDQ4NC4xNTQgMzY5LjQ0MzAwMDAwMDAwMDA0IEwgNDc2LjAxMDk5OTk5OTk5OTk3IDM2OS40NDMwMDAwMDAwMDAwNCBDIDQ3Ni4xMjE5OTk5OTk5OTk5NiAzNjcuOTI5MDAwMDAwMDAwMDMgNDc2LjE3Njk5OTk5OTk5OTk2IDM2Ni40MjUwMDAwMDAwMDAwNyA0NzYuMTc0OTk5OTk5OTk5OTUgMzY0LjkzMTAwMDAwMDAwMDA0IEMgNDc2LjE3Mjk5OTk5OTk5OTk0IDM2My41NTMwMDAwMDAwMDAwNSA0NzYuMTIzOTk5OTk5OTk5OTcgMzYyLjE4NjAwMDAwMDAwMDA0IDQ3Ni4wMjY5OTk5OTk5OTk5MyAzNjAuODMxIEwgNDg0LjE1Nzk5OTk5OTk5OTkgMzYwLjgzMSBDIDQ4My44NzEgMzU4LjYzOSA0ODMuMzY1IDM1Ni40ODQgNDgyLjYzOSAzNTQuMzY2IEwgNDgyLjYzOSAzNTQuMzY2IHogTSA0NjIuOTI4IDM1MS44MzEgQyA0NjIuMjcgMzQ5LjU1NjAwMDAwMDAwMDA0IDQ2My41OCAzNDcuMTc1IDQ2NS44NTQgMzQ2LjUxNyBDIDQ2OC4xMjg5OTk5OTk5OTk5NiAzNDUuODU4IDQ3MC41MSAzNDcuMTY4IDQ3MS4xNjggMzQ5LjQ0NCBDIDQ3Mi42MDcgMzU0LjQyOTAwMDAwMDAwMDAzIDQ3My4zMzggMzU5LjU5MjAwMDAwMDAwMDA0IDQ3My4zNDIgMzY0LjkzMTAwMDAwMDAwMDA0IEMgNDczLjM0NiAzNzAuMjU2MDAwMDAwMDAwMDMgNDcyLjY0MyAzNzUuNzA3MDAwMDAwMDAwMDUgNDcxLjIxOSAzODEuMjgxMDAwMDAwMDAwMDYgQyA0NzAuNjM1IDM4My41ODQwMDAwMDAwMDAwNiA0NjguMjkzIDM4NC45NzcwMDAwMDAwMDAxIDQ2NS45ODkgMzg0LjM5MzAwMDAwMDAwMDEgQyA0NjMuNjg2IDM4My44MDkwMDAwMDAwMDAxIDQ2Mi4yOTQgMzgxLjQ2NTAwMDAwMDAwMDEgNDYyLjg3OCAzNzkuMTYyMDAwMDAwMDAwMSBDIDQ2My43Mjk5OTk5OTk5OTk5NiAzNzUuODI3MDAwMDAwMDAwMSA0NjQuMjkyIDM3Mi41ODcwMDAwMDAwMDAxIDQ2NC41NjcgMzY5LjQ0MzAwMDAwMDAwMDEgTCA0NTMuNDIyIDM2OS40NDMwMDAwMDAwMDAxIEwgNDUzLjQyMiAzODAuMjIxMDAwMDAwMDAwMSBDIDQ1My40MjIgMzgyLjU5ODAwMDAwMDAwMDEgNDUxLjQ5NCAzODQuNTI3MDAwMDAwMDAwMSA0NDkuMTE2MDAwMDAwMDAwMDQgMzg0LjUyNzAwMDAwMDAwMDEgQyA0NDYuNzM5MDAwMDAwMDAwMDMgMzg0LjUyNzAwMDAwMDAwMDEgNDQ0LjgxMDAwMDAwMDAwMDA2IDM4Mi41OTgwMDAwMDAwMDAxIDQ0NC44MTAwMDAwMDAwMDAwNiAzODAuMjIxMDAwMDAwMDAwMSBMIDQ0NC44MTAwMDAwMDAwMDAwNiAzNjkuNDQzMDAwMDAwMDAwMSBMIDQzMy42NjYwMDAwMDAwMDAwNSAzNjkuNDQzMDAwMDAwMDAwMSBDIDQzMy45NDEwMDAwMDAwMDAwMyAzNzIuNTg3MDAwMDAwMDAwMSA0MzQuNTAzMDAwMDAwMDAwMDQgMzc1LjgyNjAwMDAwMDAwMDEgNDM1LjM1NDAwMDAwMDAwMDA0IDM3OS4xNjIwMDAwMDAwMDAxIEMgNDM1LjkzODAwMDAwMDAwMDA1IDM4MS40NjUwMDAwMDAwMDAxIDQzNC41NDUgMzgzLjgwODAwMDAwMDAwMDEgNDMyLjI0MiAzODQuMzkzMDAwMDAwMDAwMSBDIDQyOS45MzkgMzg0Ljk3NzAwMDAwMDAwMDEgNDI3LjU5NiAzODMuNTg0MDAwMDAwMDAwMDYgNDI3LjAxMSAzODEuMjgxMDAwMDAwMDAwMDYgQyA0MjUuNTg5IDM3NS43MDcwMDAwMDAwMDAwNSA0MjQuODg2IDM3MC4yNTcwMDAwMDAwMDAwNiA0MjQuODg5IDM2NC45MzEwMDAwMDAwMDAwNCBDIDQyNC44OTMwMDAwMDAwMDAwMyAzNTkuNTkyMDAwMDAwMDAwMDQgNDI1LjYyMiAzNTQuNDI5MDAwMDAwMDAwMDMgNDI3LjA2MTAwMDAwMDAwMDA0IDM0OS40NDQgQyA0MjcuNzIgMzQ3LjE2OTAwMDAwMDAwMDA0IDQzMC4xMDEwMDAwMDAwMDAwNiAzNDUuODU4IDQzMi4zNzUwMDAwMDAwMDAwNiAzNDYuNTE3IEMgNDM0LjY1MDAwMDAwMDAwMDAzIDM0Ny4xNzYgNDM1Ljk2MDAwMDAwMDAwMDA0IDM0OS41NTYgNDM1LjMwMjAwMDAwMDAwMDEgMzUxLjgzMSBDIDQzNC40NTcwMDAwMDAwMDAwNSAzNTQuNzU3IDQzMy45MDIwMDAwMDAwMDAxIDM1Ny43NTcgNDMzLjY0MDAwMDAwMDAwMDEgMzYwLjgzMSBMIDQ0NC44MDgwMDAwMDAwMDAxIDM2MC44MzEgTCA0NDQuODA4MDAwMDAwMDAwMSAzNTAuNjM3IEMgNDQ0LjgwODAwMDAwMDAwMDEgMzQ4LjI1OSA0NDYuNzM2MDAwMDAwMDAwMSAzNDYuMzMxIDQ0OS4xMTQwMDAwMDAwMDAxIDM0Ni4zMzEgQyA0NTEuNDkyMDAwMDAwMDAwMSAzNDYuMzMxIDQ1My40MjAwMDAwMDAwMDAxIDM0OC4yNTkgNDUzLjQyMDAwMDAwMDAwMDEgMzUwLjYzNyBMIDQ1My40MjAwMDAwMDAwMDAxIDM2MC44MzEgTCA0NjQuNTg4MDAwMDAwMDAwMSAzNjAuODMxIEMgNDY0LjMyOCAzNTcuNzU3IDQ2My43NzEgMzU0Ljc1NiA0NjIuOTI4IDM1MS44MzEgTCA0NjIuOTI4IDM1MS44MzEgeiBNIDQwNy40NTEgMzUxLjU3NSBDIDQwOC4yMjIwMDAwMDAwMDAwNCAzNDkuMzI3IDQxMC42NyAzNDguMTMgNDEyLjkxOCAzNDguOSBDIDQxNS4xNjYgMzQ5LjY2OTk5OTk5OTk5OTk2IDQxNi4zNjMgMzUyLjExOCA0MTUuNTkzIDM1NC4zNjYgQyA0MTQuODY2MDAwMDAwMDAwMDQgMzU2LjQ4NSA0MTQuMzYgMzU4LjYzOSA0MTQuMDc2IDM2MC44MzA5OTk5OTk5OTk5NiBMIDQyMi43MzcgMzYwLjgzMDk5OTk5OTk5OTk2IEMgNDIyLjYzOSAzNjIuMTg2IDQyMi41OTAwMDAwMDAwMDAwMyAzNjMuNTUxOTk5OTk5OTk5OTYgNDIyLjU4OSAzNjQuOTMxIEMgNDIyLjU4OSAzNjYuNDI1IDQyMi42NDMgMzY3LjkzIDQyMi43NTQgMzY5LjQ0MyBMIDQxNC4wODAwMDAwMDAwMDAwNCAzNjkuNDQzIEMgNDE0LjM2ODAwMDAwMDAwMDA1IDM3MS43ODggNDE0Ljg4MzAwMDAwMDAwMDA0IDM3NC4xODg5OTk5OTk5OTk5NiA0MTUuNjI3MDAwMDAwMDAwMDcgMzc2LjY0MyBDIDQxNi4zMTQwMDAwMDAwMDAxIDM3OC45MDk5OTk5OTk5OTk5NyA0MTUuMDM0MDAwMDAwMDAwMDUgMzgxLjMwNDk5OTk5OTk5OTk1IDQxMi43NjcwMDAwMDAwMDAwNSAzODEuOTkxOTk5OTk5OTk5OTYgQyA0MTAuNTAxMDAwMDAwMDAwMDMgMzgyLjY3OSA0MDguMTA1MDAwMDAwMDAwMSAzODEuMzk4OTk5OTk5OTk5OTQgNDA3LjQxODAwMDAwMDAwMDA2IDM3OS4xMzMgQyA0MDUuOTUxMDAwMDAwMDAwMSAzNzQuMjg5OTk5OTk5OTk5OTYgNDA1LjIyNTAwMDAwMDAwMDEgMzY5LjU4MDk5OTk5OTk5OTk2IDQwNS4yMjkwMDAwMDAwMDAwNCAzNjUuMDA4OTk5OTk5OTk5OTYgQyA0MDUuMjMxIDM2MC4zNDkgNDA1Ljk3OSAzNTUuODcgNDA3LjQ1MSAzNTEuNTc1IEwgNDA3LjQ1MSAzNTEuNTc1IHogTSAzOTkuNzUyIDM2OS40NDIgQyAzOTcuMzc1IDM2OS40NDIgMzk1LjQ0NiAzNjcuNTE0IDM5NS40NDYgMzY1LjEzNiBDIDM5NS40NDYgMzYyLjc1ODAwMDAwMDAwMDA0IDM5Ny4zNzUgMzYwLjgzMDAwMDAwMDAwMDA0IDM5OS43NTIgMzYwLjgzMDAwMDAwMDAwMDA0IEwgNDAzLjEzNCAzNjAuODMwMDAwMDAwMDAwMDQgQyA0MDIuOTk3IDM2Mi4yMDYgNDAyLjkyOCAzNjMuNTk5MDAwMDAwMDAwMDUgNDAyLjkyNiAzNjUuMDA4MDAwMDAwMDAwMDQgQyA0MDIuOTI1IDM2Ni40NzIwMDAwMDAwMDAwNCA0MDIuOTk4IDM2Ny45NTAwMDAwMDAwMDAwNSA0MDMuMTQ3IDM2OS40NDIwMDAwMDAwMDAwNiBMIDM5OS43NTIgMzY5LjQ0MjAwMDAwMDAwMDA2IEwgMzk5Ljc1MiAzNjkuNDQyIHogTSA0OTUuNjI5IDM2MC44MzEgTCA0OTguNDgxIDM2MC44MzEgQyA1MDAuODU4IDM2MC44MzEgNTAyLjc4NiAzNjIuNzYgNTAyLjc4NiAzNjUuMTM3IEMgNTAyLjc4NiAzNjcuNTE0IDUwMC44NTggMzY5LjQ0MyA0OTguNDgxIDM2OS40NDMgTCA0OTUuNjE0IDM2OS40NDMgQyA0OTUuNzYzOTk5OTk5OTk5OTUgMzY3Ljk1MDk5OTk5OTk5OTk2IDQ5NS44MzcgMzY2LjQ3Mjk5OTk5OTk5OTk2IDQ5NS44MzcgMzY1LjAwODk5OTk5OTk5OTk2IEMgNDk1LjgzNCAzNjMuNTk5IDQ5NS43NjYgMzYyLjIwNyA0OTUuNjI5IDM2MC44MzEgTCA0OTUuNjI5IDM2MC44MzEgeiBNIDU0Mi42OTMgNDExLjI0NiBMIDU0Mi42OTMgNDc3LjAzMDk5OTk5OTk5OTk1IEMgNTM3LjQ4Nzk5OTk5OTk5OTkgNDg1LjY0Nzk5OTk5OTk5OTk3IDUzMC4zNzkgNDkyLjUyNjk5OTk5OTk5OTkzIDUyMS44OTggNDk4LjI0NTk5OTk5OTk5OTkgTCA1MjEuODk4IDQyNi4wNTY5OTk5OTk5OTk5IEMgNTI5Ljc5NSA0MjEuNDU1IDUzNi43MTEgNDE2LjM3MSA1NDIuNjkzIDQxMS4yNDYgTCA1NDIuNjkzIDQxMS4yNDYgeiBNIDUwMS4xMDQgNDM1LjkyNiBMIDUwMS4xMDQgNTA5LjI0IEMgNDk0LjUzMiA1MTIuMDE5IDQ4Ny41NTMgNTE0LjQ5OCA0ODAuMzA4OTk5OTk5OTk5OTcgNTE2LjgyNiBMIDQ4MC4zMDg5OTk5OTk5OTk5NyA0NDEuODgxMDAwMDAwMDAwMDMgQyA0ODcuNzE3IDQ0MC4zNzUgNDk0LjY0NSA0MzguMzQ0IDUwMS4xMDQgNDM1LjkyNiBMIDUwMS4xMDQgNDM1LjkyNiB6IE0gNDU5LjUxNCA0NDQuNTQ3IEwgNDU5LjUxNCA1MjMuMDYxIEwgNDU0LjI5OTAwMDAwMDAwMDA0IDUyNC41NTEgTCA0NDkuMTE2MDAwMDAwMDAwMDQgNTI2LjAzMyBMIDQ0My45MzQgNTI0LjU1MSBMIDQzOC43MTkwMDAwMDAwMDAwNSA1MjMuMDYxIEwgNDM4LjcxOTAwMDAwMDAwMDA1IDQ0NC41NDcgQyA0NDUuNTMgNDQ0LjkzIDQ1Mi43MDEgNDQ0LjkzMiA0NTkuNTE0IDQ0NC41NDcgTCA0NTkuNTE0IDQ0NC41NDcgeiBNIDQxNy45MjMgNDQxLjg3OSBMIDQxNy45MjMgNTE2LjgyNiBDIDQxMC42NzkgNTE0LjQ5OCA0MDMuNzAxIDUxMi4wMTkgMzk3LjEyOCA1MDkuMjQgTCAzOTcuMTI4IDQzNS45MjYwMDAwMDAwMDAwNCBDIDQwMy41ODcgNDM4LjM0MiA0MTAuNTE0IDQ0MC4zNzUgNDE3LjkyMyA0NDEuODc5IEwgNDE3LjkyMyA0NDEuODc5IHoiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KPC9nPgoJCTxnIHRyYW5zZm9ybT0ibWF0cml4KDAuNzI1MTAwODMzODA3MjE4OCAwIDAgMC43MjUxMDA4MzM4MDcyMTg2IDAgMjYuMzkyMTUzMzAzOTY2NTUyKSIgID4KPHBhdGggc3R5bGU9InN0cm9rZTogbm9uZTsgc3Ryb2tlLXdpZHRoOiAxOyBzdHJva2UtZGFzaGFycmF5OiBub25lOyBzdHJva2UtbGluZWNhcDogYnV0dDsgc3Ryb2tlLWRhc2hvZmZzZXQ6IDA7IHN0cm9rZS1saW5lam9pbjogbWl0ZXI7IHN0cm9rZS1taXRlcmxpbWl0OiA0OyBmaWxsOiByZ2IoMjA5LDIxMSwyMTIpOyBmaWxsLXJ1bGU6IGV2ZW5vZGQ7IG9wYWNpdHk6IDE7IiAgcGFpbnQtb3JkZXI9InN0cm9rZSIgIHRyYW5zZm9ybT0iIHRyYW5zbGF0ZSgtNDQ5LjExNiwgLTQzMi41NTY0MDc4MTI4OTI0KSIgZD0iTSAzNzYuMzM0IDQyNi4wNTcgTCAzNzYuMzM0IDQzNS4xMzEwMDAwMDAwMDAwMyBDIDM2OC40MzYgNDMwLjUyOTAwMDAwMDAwMDA1IDM2MS41MjEgNDI1LjQ0NyAzNTUuNTM5IDQyMC4zMjAwMDAwMDAwMDAwNSBMIDM1NS41MzkgNDExLjI0NCBDIDM2MS41MjEgNDE2LjM3MSAzNjguNDM2IDQyMS40NTMgMzc2LjMzNCA0MjYuMDU3IEwgMzc2LjMzNCA0MjYuMDU3IHogTSA0NDkuMTE3IDQ1My44NjEgQyA0NDUuNTY3IDQ1My44OTYgNDQyLjEwMjAwMDAwMDAwMDAzIDQ1My44MTIgNDM4LjcxOSA0NTMuNjIxIEwgNDM4LjcxOSA0NDQuNTQ2OTk5OTk5OTk5OTcgQyA0NDUuNTMgNDQ0LjkyOTk5OTk5OTk5OTk1IDQ1Mi43MDEgNDQ0LjkzMTk5OTk5OTk5OTk2IDQ1OS41MTQgNDQ0LjU0Njk5OTk5OTk5OTk3IEwgNDU5LjUxNCA0NTMuNjIxIEMgNDU2LjEzMSA0NTMuODEzIDQ1Mi42NjYgNDUzLjg5NiA0NDkuMTE3IDQ1My44NjEgTCA0NDkuMTE3IDQ1My44NjEgeiBNIDQxNy45MjMgNDUwLjk1NSBDIDQxMC41MTMgNDQ5LjQ0OSA0MDMuNTg3IDQ0Ny40MTggMzk3LjEyOCA0NDUgTCAzOTcuMTI4IDQzNS45MjYgQyA0MDMuNTg3IDQzOC4zNDIgNDEwLjUxMyA0NDAuMzc1IDQxNy45MjMgNDQxLjg3ODk5OTk5OTk5OTk2IEwgNDE3LjkyMyA0NTAuOTU1IEwgNDE3LjkyMyA0NTAuOTU1IHogTSA1NDIuNjkzIDQyMC4zMiBDIDUzNi43MTEgNDI1LjQ0NyA1MjkuNzk1IDQzMC41MjkgNTIxLjg5OCA0MzUuMTMzIEwgNTIxLjg5OCA0MjYuMDU2OTk5OTk5OTk5OTYgQyA1MjkuNzk0IDQyMS40NTUgNTM2LjcxMSA0MTYuMzcxIDU0Mi42OTMgNDExLjI0NiBMIDU0Mi42OTMgNDIwLjMyIEwgNTQyLjY5MyA0MjAuMzIgeiBNIDUwMS4xMDQgNDQ1LjAwMiBDIDQ5NC42NDUgNDQ3LjQyIDQ4Ny43MTcgNDQ5LjQ0OSA0ODAuMzA4OTk5OTk5OTk5OTcgNDUwLjk1NSBMIDQ4MC4zMDg5OTk5OTk5OTk5NyA0NDEuODgxIEMgNDg3LjcxNyA0NDAuMzc1IDQ5NC42NDUgNDM4LjM0NCA1MDEuMTA0IDQzNS45MjYgTCA1MDEuMTA0IDQ0NS4wMDIgTCA1MDEuMTA0IDQ0NS4wMDIgeiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgo8L2c+CjwvZz4KPC9nPgo8L3N2Zz4K";
+  var POS={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+  function shield(px){return '<img src="'+SHIELD+'" alt="Vault" draggable="false" style="display:block;width:100%;height:100%;pointer-events:none">';}
+  var STRATS={
+   robust:{name:'Robust RB',ic:'🏈',c:'var(--rb)',desc:'Two early backs, then hammer value',steps:[
+     {pos:'WR',lbl:'R1 anchor',ss:'best player, any pos',round:'RD 1',dir:'Take the <b>highest-value</b> player — the plan forms around him.'},
+     {pos:'RB',lbl:'Early RB1',ss:'RB1/2-caliber back',round:'RD 2',dir:'Lock your <b>first anchor back</b>. Don’t leave R2 without one.'},
+     {pos:'RB',lbl:'Early RB2',ss:'two backs by R3',round:'RD 3',dir:'Land your <b>second RB1/2 back by end of R3</b> — while the tier holds.'},
+     {pos:'RB',lbl:'RB3 window',ss:'depth swing',round:'R5–7',dir:'Core set. <b>RB3 window is R5–7</b>; take WR value in between.'},
+     {pos:'QB',lbl:'One QB',ss:'value faller',round:'R10+',dir:'<b>One QB from R10</b> — a faller, never a reach.'},
+     {pos:'TE',lbl:'TE path',ss:'elite or wait',round:'value',dir:'Last need — grab your <b>TE at value</b>, then upside darts.'}]},
+   balanced:{name:'Balanced',ic:'⚖️',c:'var(--accent2)',desc:'Best value each round, no holes',steps:[
+     {pos:'RB',lbl:'R1 best',ss:'top of the board',round:'RD 1',dir:'Take the <b>best board value</b> — stay flexible.'},
+     {pos:'WR',lbl:'R2 opposite',ss:'balance R1',round:'RD 2',dir:'Take the <b>opposite position</b> to R1 to stay balanced.'},
+     {pos:'RB',lbl:'3rd starter',ss:'RB/WR core',round:'R3–4',dir:'Round out your <b>RB/WR core</b> — two of each by R5.'},
+     {pos:'WR',lbl:'4th starter',ss:'depth + upside',round:'R4–5',dir:'Add a <b>4th startable skill</b>, lean upside.'},
+     {pos:'QB',lbl:'QB mid',ss:'don’t chase',round:'R8–10',dir:'Grab a <b>mid-tier QB</b> — no need to chase elite.'},
+     {pos:'TE',lbl:'TE + depth',ss:'fill the roster',round:'late',dir:'<b>Fill TE + bench upside</b> to close out.'}]},
+   hero:{name:'Hero RB',ic:'🦸',c:'var(--gold)',desc:'One elite RB, then load WRs',steps:[
+     {pos:'RB',lbl:'Elite RB',ss:'your one anchor',round:'RD 1',dir:'Spend R1 on <b>one elite anchor back</b> — your only early RB.'},
+     {pos:'WR',lbl:'WR1',ss:'target hog',round:'RD 2',dir:'Now <b>hammer WR</b> — start your receiver core.'},
+     {pos:'WR',lbl:'WR2',ss:'stack targets',round:'RD 3',dir:'<b>Second WR</b> — stack elite targets while RB fades.'},
+     {pos:'WR',lbl:'WR3',ss:'keep stacking',round:'R4–5',dir:'Keep <b>stacking WR value</b> through R5.'},
+     {pos:'RB',lbl:'RB depth',ss:'upside backs',round:'R6+',dir:'Fish for <b>RB2 upside</b> in the dead zone.'},
+     {pos:'QB',lbl:'QB / TE late',ss:'stream/value',round:'late',dir:'Close with <b>QB + TE at value</b>.'}]},
+   zero:{name:'Zero RB',ic:'🚫',c:'var(--red)',desc:'WRs early, mine RB value late',steps:[
+     {pos:'WR',lbl:'WR1',ss:'elite receiver',round:'RD 1',dir:'Open with an <b>elite WR</b> — zero RBs early.'},
+     {pos:'WR',lbl:'WR2',ss:'target share',round:'RD 2',dir:'<b>Second elite WR</b> — build an unbeatable receiving corps.'},
+     {pos:'WR',lbl:'WR3 / TE',ss:'keep the run',round:'RD 3',dir:'Third WR or elite TE — <b>still no RB</b>.'},
+     {pos:'RB',lbl:'RB value R4-6',ss:'pass-catchers',round:'R4–6',dir:'Now <b>mine RB value</b> — target pass-catching backs.'},
+     {pos:'RB',lbl:'RB volume',ss:'upside/role',round:'R6–8',dir:'Add <b>volume/role RBs</b> — take swings.'},
+     {pos:'QB',lbl:'QB + TE',ss:'value only',round:'late',dir:'Fill <b>QB + TE at value</b> to finish.'}]},
+   te:{name:'Premium TE',ic:'⭐',c:'var(--te)',desc:'Lock an elite TE edge early',steps:[
+     {pos:'RB',lbl:'R1 best',ss:'anchor value',round:'RD 1',dir:'Take the <b>best R1 value</b> before your TE swing.'},
+     {pos:'TE',lbl:'Elite TE',ss:'the edge pick',round:'R2–3',dir:'Grab an <b>elite TE</b> now — the weekly positional edge.'},
+     {pos:'RB',lbl:'RB core',ss:'two backs',round:'R3–5',dir:'Build your <b>RB core</b> — two startable backs.'},
+     {pos:'WR',lbl:'WR core',ss:'target share',round:'R4–6',dir:'Add <b>WR value</b> to fill the flex.'},
+     {pos:'QB',lbl:'QB late',ss:'value faller',round:'R10+',dir:'<b>One QB late</b> — you spent early capital on TE.'},
+     {pos:'RB',lbl:'Depth',ss:'upside darts',round:'late',dir:'Close with <b>bench upside</b>.'}]},
+   bpa:{name:'Best Available',ic:'🎯',c:'var(--violet)',desc:'Pure value — take the board',steps:[
+     {pos:'RB',lbl:'R1 · top value',ss:'highest grade',round:'RD 1',dir:'Take the <b>single highest-value</b> player. No positional rules.'},
+     {pos:'WR',lbl:'R2 · top value',ss:'highest grade',round:'RD 2',dir:'Again — <b>best player on the board</b>.'},
+     {pos:'RB',lbl:'R3 · top value',ss:'highest grade',round:'RD 3',dir:'Keep taking <b>value over need</b>.'},
+     {pos:'WR',lbl:'R4–6 · fill needs',ss:'value + roster',round:'R4–6',dir:'Now let <b>roster need break ties</b>.'},
+     {pos:'QB',lbl:'QB when it falls',ss:'value tier',round:'flex',dir:'Take QB <b>only when the value is right</b>.'},
+     {pos:'TE',lbl:'TE when it falls',ss:'value tier',round:'flex',dir:'Same for TE — <b>value dictates</b>, not slot.'}]}
+  };
+  function gradeColor(g){return !g?'var(--muted)':g[0]==='A'?'var(--rb)':g[0]==='B'?'var(--gold)':g[0]==='C'?'var(--te)':'var(--muted)';}
+  function liveGrade(){var el=document.getElementById('ds-grade-letter');var t=el&&el.textContent&&el.textContent.trim();return (t&&t!=='—')?t:'B+';}
+
+  var strat=null, minimized=false, lastRosterLen=0, suggestKey=null;
+  var root=document.getElementById('vbud-root'), panel=document.getElementById('vbud-panel'),
+      pill=document.getElementById('vbud-pill'), fab=document.getElementById('vbud-fab'),
+      dot=document.getElementById('vbud-dot'), grade=document.getElementById('vbud-grade'),
+      scrim=document.getElementById('vbud-scrim');
+
+  document.getElementById('vbud-fab-img').innerHTML=shield(70);
+  document.getElementById('vbud-rc-hand').innerHTML=shield(52);
+
+  /* ── ADAPTIVE PLAN ENGINE ──────────────────────────────────────
+     Reads YOUR real drafted players (getMyRoster → {name,pos}, in pick order),
+     matches each pick to the plan by position, and re-plans around off-script
+     picks. In a snake draft each team picks once per round, so my Nth pick = round N. */
+  var SKILL={QB:1,RB:1,WR:1,TE:1};
+  function myRoster(){ try{ return (typeof getMyRoster==='function')?(getMyRoster()||[]):[]; }catch(e){ return []; } }
+  function myPositions(){ return myRoster().map(function(p){return (p&&p.pos||'').toUpperCase();}).filter(function(p){return SKILL[p];}); }
+  function stepPos(st){ return (st.pos||'').toUpperCase(); }
+  function roundNum(st){ var m=String(st.round||'').match(/\d+/); return m?parseInt(m[0],10):(/(value|late|flex)/i.test(st.round||'')?99:50); }
+  // greedy position match: each pick fills the earliest unfilled step of that position; leftovers = surplus (off-plan)
+  function evalPlan(key,pos){
+    var steps=STRATS[key].steps, done=[], fill=[], surplus=[];
+    steps.forEach(function(){done.push(false);fill.push(null);});
+    pos.forEach(function(p,i){ var rnd=i+1, si=-1;
+      for(var s=0;s<steps.length;s++){ if(!done[s]&&stepPos(steps[s])===p){si=s;break;} }
+      if(si>=0){done[si]=true;fill[si]=rnd;} else surplus.push({pos:p,rnd:rnd});
+    });
+    var dc=0; done.forEach(function(d){if(d)dc++;});
+    return {steps:steps,done:done,fill:fill,surplus:surplus,doneCount:dc,activeIdx:done.indexOf(false)};
+  }
+  function fitScore(key,pos){ var e=evalPlan(key,pos), steps=STRATS[key].steps, seq=0;
+    for(var i=0;i<pos.length&&i<steps.length;i++){ if(stepPos(steps[i])===pos[i]) seq++; } // ordered-prefix tiebreak: reward same SEQUENCE, not just multiset
+    // penalize an archetype whose defining FIRST pick is entirely absent (e.g. Hero RB with zero RBs drafted)
+    var anchorPenalty=(pos.length>=2 && pos.indexOf(stepPos(steps[0]))<0)?0.5:0;
+    return e.doneCount - e.surplus.length + 0.1*seq - anchorPenalty; }
+  function bestArchetype(pos){ var b=null,bs=-1e9; Object.keys(STRATS).forEach(function(k){ var s=fitScore(k,pos); if(s>bs){bs=s;b=k;} }); return {key:b,score:bs}; }
+  // plain-English current directive, adapted to deviations (behind schedule / early luxury pick)
+  function directive(ev,pos){
+    if(!ev||ev.activeIdx<0) return {k:'Draft complete',txt:'Every step is locked. Want me to <b>grade the whole draft</b>?'};
+    var active=ev.steps[ev.activeIdx], nextRound=pos.length+1;
+    var behind = roundNum(active) < nextRound-1;
+    var earlyLux=null;
+    ev.steps.forEach(function(st,i){ if(ev.done[i]&&ev.fill[i]!=null&&(stepPos(st)==='QB'||stepPos(st)==='TE')&&roundNum(st)-ev.fill[i]>=4) earlyLux=st; });
+    if(behind) return {k:'Adjust · catch up',txt:'<b>You’re behind on '+active.lbl+'.</b> '+active.dir};
+    if(earlyLux) return {k:'Adapted plan',txt:'<b>'+earlyLux.lbl+' locked early</b> — nice value, but that was a pick spent. Swing back to '+active.lbl+': '+active.dir};
+    return {k:'Current phase',txt:active.dir};
+  }
+  function gc(){ return gradeColor(liveGrade()); }
+  function pop(){ fab.classList.remove('pop'); void fab.offsetWidth; fab.classList.add('pop'); }
+  function syncGrade(){ var g=liveGrade();
+    if(strat){ grade.textContent=g; grade.style.color=gradeColor(g); grade.style.borderColor=gradeColor(g); grade.classList.add('show'); dot.style.display='none'; } }
+
+  function panelHeader(complete){ var g=liveGrade();
+    return '<div class="vbud-hd"><div class="vbud-mini">'+shield(40)+'</div>'+
+      '<div class="vbud-speech"><div class="k">'+STRATS[strat].name+' · your plan <span class="vbud-hgrade" style="color:'+gradeColor(g)+';border-color:'+gradeColor(g)+'">'+g+'</span></div>'+
+      '<div class="t" style="font-size:13px">'+(complete?'Draft complete — nice work.':'Following the plan…')+'</div></div>'+
+      '<button class="vbud-x vbud-min" id="vbud-pmin" title="Minimize"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>'+
+      '<button class="vbud-x" id="vbud-pclose2" title="Close">✕</button></div>';
+  }
+
+  function openPicker(){
+    dot.style.display='none'; fab.classList.remove('bob');
+    var n=document.getElementById('vbud-nudge'); if(n)n.remove();
+    panel.innerHTML='<div class="vbud-hd"><div class="vbud-mini">'+shield(40)+'</div>'+
+      '<div class="vbud-speech"><div class="k">Draft Buddy</div><div class="t">Yo, what’s the plan?</div></div>'+
+      '<button class="vbud-x" id="vbud-pclose">✕</button></div>'+
+      '<div class="vbud-grid">'+Object.keys(STRATS).map(function(k){var s=STRATS[k];
+        return '<button class="vbud-strat" data-k="'+k+'"><div class="vbud-si" style="background:color-mix(in srgb,'+s.c+' 18%,transparent);color:'+s.c+'">'+s.ic+'</div><div class="vbud-sn">'+s.name+'</div><div class="vbud-sd">'+s.desc+'</div></button>';
+      }).join('')+'</div>';
+    showPanel();
+    Array.prototype.forEach.call(panel.querySelectorAll('.vbud-strat'),function(b){b.onclick=function(){chooseStrat(b.dataset.k);};});
+    document.getElementById('vbud-pclose').onclick=closeAll;
+  }
+  function chooseStrat(k){ strat=k; suggestKey=null; lastRosterLen=myRoster().length; pop(); syncGrade(); renderChk(true); }
+
+  function renderChk(anim){
+    var s=STRATS[strat], roster=myRoster(), pos=myPositions(), ev=evalPlan(strat,pos);
+    var dir=directive(ev,pos), complete=ev.activeIdx<0, g=liveGrade();
+    // archetype divergence — offer a switch once the shape is clear
+    if(pos.length>=3){ var best=bestArchetype(pos); suggestKey=(best.key!==strat && best.score-fitScore(strat,pos)>=2)?best.key:null; } else suggestKey=null;
+    panel.innerHTML=panelHeader(complete)+
+      '<div class="vbud-chk">'+
+      (suggestKey?'<div class="vbud-switch">Your picks look like <b>'+STRATS[suggestKey].name+'</b> more than '+s.name+'. <button id="vbud-switchbtn">Switch →</button></div>':'')+
+      '<div class="vbud-phase"><div class="k"><span class="vbud-cpp"></span>'+(complete?'Draft complete':dir.k)+'</div><div class="vbud-ctx">'+dir.txt+'</div></div>'+
+      s.steps.map(function(st,i){ var isDone=ev.done[i], isAct=i===ev.activeIdx;
+        var who=''; if(isDone && ev.fill[i]!=null && roster[ev.fill[i]-1]) who=roster[ev.fill[i]-1].name;
+        var mark=isDone?'<svg class="vbud-check" viewBox="0 0 24 24"><path d="M4 12l6 6L20 5"/></svg>':'<span class="vbud-box"></span>';
+        return '<div class="vbud-step '+(isDone?'done':isAct?'active':'pending')+'"><div class="vbud-mark">'+mark+'</div>'+
+          '<div class="vbud-sbody"><div class="vbud-sl">'+st.lbl+'</div><div class="vbud-ss">'+(isDone&&who?who:st.ss)+'</div></div>'+
+          '<div class="vbud-sf">'+(isDone?'':st.round)+'</div></div>';
+      }).join('')+
+      '<div class="vbud-gradestrip"><div><div class="vbud-gk">Live draft grade</div><div class="vbud-gl" style="color:'+gradeColor(g)+'">'+g+'</div></div>'+
+      '<div class="vbud-gfac"><i style="background:var(--te);height:13px"></i><i style="background:var(--rb);height:15px"></i><i style="background:var(--red);height:8px"></i><i style="background:var(--wr);height:12px"></i></div>'+
+      '<div class="vbud-gtrend">'+(ev.doneCount>0?'▲ live':'starting build')+'</div></div>'+
+      '<div class="vbud-foot"><div class="vbud-cn">'+ev.doneCount+' <span>/ '+s.steps.length+' locked</span></div>'+
+      '<div class="vbud-bar"><span style="width:'+Math.round(ev.doneCount/s.steps.length*100)+'%"></span></div>'+
+      '<button class="vbud-change" id="vbud-pchange">change</button></div>'+
+      (complete?'<button class="vbud-rcbtn" id="vbud-rcopen">🏆 See my report card</button>':'')+'</div>';
+    if(anim!==false)showPanel();
+    document.getElementById('vbud-pmin').onclick=minimize;
+    document.getElementById('vbud-pclose2').onclick=closeAll;
+    document.getElementById('vbud-pchange').onclick=openPicker;
+    var sw=document.getElementById('vbud-switchbtn'); if(sw)sw.onclick=function(){chooseStrat(suggestKey);};
+    var ro=document.getElementById('vbud-rcopen'); if(ro)ro.onclick=openReport;
+    updatePill();
+  }
+
+  function minimize(){ minimized=true; panel.classList.remove('show'); pill.classList.add('show'); fab.classList.remove('bob'); updatePill(); }
+  function expand(){ minimized=false; pill.classList.remove('show'); renderChk(true); }
+  function updatePill(){ if(!strat)return; var pos=myPositions(), ev=evalPlan(strat,pos), s=STRATS[strat], complete=ev.activeIdx<0, active=complete?null:ev.steps[ev.activeIdx], frac=ev.doneCount/s.steps.length, g=liveGrade();
+    document.getElementById('vbud-pill-ring').style.strokeDashoffset=94*(1-frac);
+    document.getElementById('vbud-pill-n').textContent=ev.doneCount+'/'+s.steps.length;
+    document.getElementById('vbud-pill-k').textContent=s.name+' · '+(complete?'done':'phase '+(ev.doneCount+1));
+    document.getElementById('vbud-pill-t').textContent=complete?'Report card ready':active.lbl;
+    var pg=document.getElementById('vbud-pill-grade'); pg.textContent=g; pg.style.color=gradeColor(g); pg.style.borderColor=gradeColor(g); }
+  function showPanel(){ panel.classList.remove('closing'); panel.classList.add('show'); }
+  function closeAll(){ panel.classList.add('closing'); setTimeout(function(){panel.classList.remove('show','closing');},300); pill.classList.remove('show'); minimized=false; fab.classList.add('bob'); }
+  function react(txt){ var b=document.createElement('div'); b.className='vbud-nudge'; b.style.right='90px'; b.style.bottom='20px'; b.innerHTML='<small>Draft Buddy</small>'+txt; root.appendChild(b); pop(); setTimeout(function(){b.remove();},3000); }
+  function openReport(){ var g=liveGrade(); document.getElementById('vbud-rc-letter').firstChild.textContent=g; document.getElementById('vbud-rc-strat').textContent=strat?STRATS[strat].name:'Robust RB'; scrim.classList.add('show'); }
+  document.getElementById('vbud-rc-close').onclick=function(){scrim.classList.remove('show');};
+  scrim.onclick=function(e){if(e.target===scrim)scrim.classList.remove('show');};
+
+  fab.onclick=function(){ if(minimized){expand();return;} if(panel.classList.contains('show')){closeAll();} else if(strat){renderChk(true);} else {openPicker();} };
+  pill.onclick=expand;
+
+  /* ── live hook: fires after every pick (manual markMine + Sleeper sync both call renderAll) ── */
+  function onDraftChange(){
+    var roster=myRoster(), pos=myPositions();
+    if(strat){ syncGrade();
+      if(roster.length>lastRosterLen){
+        var ev=evalPlan(strat,pos), justName=(roster[roster.length-1]&&roster[roster.length-1].name)||'Pick', justPos=pos.length?pos[pos.length-1]:'';
+        var filledIdx=ev.fill.indexOf(pos.length);
+        if(filledIdx>=0) react('✓ <b style="color:var(--rb)">'+justName+'</b> — '+ev.steps[filledIdx].lbl+' locked');
+        else if(justPos) react('◆ <b>'+justName+'</b> — extra '+justPos+', re-planning the rest…');
+      }
+      lastRosterLen=roster.length;
+      if(minimized) updatePill(); else if(panel.classList.contains('show')) renderChk(false);
+    } else { lastRosterLen=roster.length; }
+  }
+  if(typeof window.renderAll==='function' && !window.__vbudRAPatched){
+    var _ra=window.renderAll;
+    window.renderAll=function(){ var out=_ra.apply(this,arguments); try{ onDraftChange(); }catch(e){} return out; };
+    window.__vbudRAPatched=true;
+  }
+  onDraftChange();
+
+  // The buddy lives at <body> level so position:fixed is viewport-relative
+  // (.page.on sets transform:translateY(0), which would trap a fixed child inside
+  // #page-draft and make it scroll). Show it only while Draft Vault is the active page.
+  var pageDraft=document.getElementById('page-draft');
+  // sit just above whatever bottom-fixed footer is showing (roster bar / mobile tab bar)
+  function placeAboveFooter(){
+    var h=0;['global-rbar','bottom-tab-bar'].forEach(function(id){var el=document.getElementById(id);if(!el)return;var r=el.getBoundingClientRect(),s=getComputedStyle(el);
+      if(s.display==='none'||s.visibility==='hidden'||r.height===0)return; if(r.bottom<window.innerHeight-6)return; if(r.height>h)h=r.height;});
+    var mob=window.innerWidth<=700, gap=mob?18:14;
+    root.style.bottom=(h?Math.round(h)+gap:(mob?96:26))+'px';
+  }
+  function syncVis(){var on=pageDraft&&pageDraft.classList.contains('on');
+    root.style.display=on?'flex':'none'; if(on){placeAboveFooter();} else {scrim.classList.remove('show');}}
+  if(pageDraft){new MutationObserver(syncVis).observe(pageDraft,{attributes:true,attributeFilter:['class','style']}); syncVis();}
+  window.addEventListener('resize',placeAboveFooter);
+  setTimeout(placeAboveFooter,400); setTimeout(placeAboveFooter,1500);
+
+  // one-time nudge when the buddy first appears on the draft page
+  setTimeout(function(){if(pageDraft&&pageDraft.classList.contains('on')&&!document.getElementById('vbud-nudge')&&!strat){var n=document.createElement('div');n.className='vbud-nudge';n.id='vbud-nudge';n.innerHTML='<small>Draft Buddy</small>Draft’s live — pick a plan?';root.appendChild(n);}},1200);
+})();
+</script>
+<!-- ═══════════ /DRAFT BUDDY ═══════════ -->
 
 </body>
 </html>
