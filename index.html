@@ -11466,16 +11466,22 @@ function dvPickScore(name, pos, overall){
   if (!adp && !rank) return null;
   let f = window._dvFactors && window._dvFactors[normName(name)];
   if (!f){ try{ const fp = findPlayer(name); f = fp ? dvComputeFactors(fp) : null; }catch(e){} }
-  // Blended baseline: market-led, rank as the sanity check. Either source
-  // carries full weight when the other is missing.
-  const base = (adp && rank) ? 0.65 * adp + 0.35 * rank : (adp || rank);
+  // Blended baseline: rank-led, ADP as the market check. Either source carries
+  // full weight when the other is missing. Rank owns the majority so reach/steal
+  // is judged against YOUR board (pinned) or the FC market rank, not the crowd's
+  // ADP — deliberately less ADP-driven than the old 0.65/0.35 split.
+  const base = (adp && rank) ? 0.45 * adp + 0.55 * rank : (adp || rank);
   // Tolerance widens down the board — a 10-pick reach at 1.03 hurts more than at 8.07.
   const delta = overall - base;                   // + = he fell past his blended price (value); - = reach
   const scale = 6 + overall * 0.24;
   const val = Math.max(-1.6, Math.min(1.6, delta / scale));
   const q = f ? (f.upside + f.floor + (11 - f.risk)) / 3 : null;
+  // Value-vs-price is dialled down (2.2→1.9) and Grade Keys up (tilt 0.42→0.52,
+  // clamp ±1.3→±1.8) so player quality is a co-driver, not a light nudge — a
+  // high-upside faller grades well even without a dramatic ADP steal. Budget now
+  // lands ~ADP 28% / rank 35% / Grade Keys 37%.
   const s = Math.max(0, Math.min(10,
-    5.6 + val * 2.2 + (q != null ? Math.max(-1.3, Math.min(1.3, (q - 5.6) * 0.42)) : 0)));
+    5.6 + val * 1.9 + (q != null ? Math.max(-1.8, Math.min(1.8, (q - 5.6) * 0.52)) : 0)));
   return { s, letter: dvPickLetter(s), color: dvPickColor(s), delta: Math.round(delta),
            base: Math.round(base), adp: adp != null ? Math.round(adp) : null, rank, q };
 }
