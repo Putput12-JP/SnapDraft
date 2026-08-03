@@ -41293,7 +41293,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   function gradeColor(g){return !g?'var(--muted)':g[0]==='A'?'var(--rb)':g[0]==='B'?'var(--gold)':g[0]==='C'?'var(--te)':'var(--muted)';}
   function liveGrade(){var el=document.getElementById('ds-grade-letter');var t=el&&el.textContent&&el.textContent.trim();return (t&&t!=='—')?t:'B+';}
 
-  var strat=null, minimized=false, lastRosterLen=0, suggestKey=null;
+  var strat=null, minimized=false, lastRosterLen=0, suggestKey=null, inferred=false;
+  // A finished draft: the board is fully drafted (header "0 left") and I made picks.
+  // Read the same header the grade card reads, so we don't reach into draft internals.
+  function draftComplete(){ try{ var el=document.getElementById('ds-stat-left'); var n=el?parseInt(el.textContent,10):NaN; return !isNaN(n)&&n<=0&&myRoster().length>0; }catch(e){ return false; } }
   var root=document.getElementById('vbud-root'), panel=document.getElementById('vbud-panel'),
       pill=document.getElementById('vbud-pill'), fab=document.getElementById('vbud-fab'),
       dot=document.getElementById('vbud-dot'), grade=document.getElementById('vbud-grade'),
@@ -41346,8 +41349,8 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 
   function panelHeader(complete){ var g=liveGrade();
     return '<div class="vbud-hd"><div class="vbud-mini">'+shield(40)+'</div>'+
-      '<div class="vbud-speech"><div class="k">'+STRATS[strat].name+' · your plan <span class="vbud-hgrade" style="color:'+gradeColor(g)+';border-color:'+gradeColor(g)+'">'+g+'</span></div>'+
-      '<div class="t" style="font-size:13px">'+(complete?'Draft complete — nice work.':'Following the plan…')+'</div></div>'+
+      '<div class="vbud-speech"><div class="k">'+STRATS[strat].name+' · '+(inferred?'the plan you ran':'your plan')+' <span class="vbud-hgrade" style="color:'+gradeColor(g)+';border-color:'+gradeColor(g)+'">'+g+'</span></div>'+
+      '<div class="t" style="font-size:13px">'+(complete?(inferred?'This is the plan your picks add up to.':'Draft complete — nice work.'):'Following the plan…')+'</div></div>'+
       '<button class="vbud-x vbud-min" id="vbud-pmin" title="Minimize"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>'+
       '<button class="vbud-x" id="vbud-pclose2" title="Close">✕</button></div>';
   }
@@ -41365,7 +41368,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     Array.prototype.forEach.call(panel.querySelectorAll('.vbud-strat'),function(b){b.onclick=function(){chooseStrat(b.dataset.k);};});
     document.getElementById('vbud-pclose').onclick=closeAll;
   }
-  function chooseStrat(k){ strat=k; suggestKey=null; lastRosterLen=myRoster().length; pop(); syncGrade(); renderChk(true); }
+  function chooseStrat(k){ strat=k; inferred=false; suggestKey=null; lastRosterLen=myRoster().length; pop(); syncGrade(); renderChk(true); }
+  // Finished draft → don't ask "what's the plan?", show the plan they actually ran.
+  // Infer the closest archetype from their real picks and open straight into the checklist.
+  function showUsedPlan(){ var pos=myPositions(); if(!pos.length) return false; strat=bestArchetype(pos).key; inferred=true; suggestKey=null; lastRosterLen=myRoster().length; pop(); syncGrade(); renderChk(true); return true; }
 
   function renderChk(anim){
     var s=STRATS[strat], roster=myRoster(), pos=myPositions(), ev=evalPlan(strat,pos);
@@ -41414,7 +41420,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   document.getElementById('vbud-rc-close').onclick=function(){scrim.classList.remove('show');};
   scrim.onclick=function(e){if(e.target===scrim)scrim.classList.remove('show');};
 
-  fab.onclick=function(){ if(minimized){expand();return;} if(panel.classList.contains('show')){closeAll();} else if(strat){renderChk(true);} else {openPicker();} };
+  fab.onclick=function(){ if(minimized){expand();return;} if(panel.classList.contains('show')){closeAll();} else if(strat){renderChk(true);} else if(draftComplete()&&showUsedPlan()){/* opened straight into the plan they ran */} else {openPicker();} };
   pill.onclick=expand;
 
   /* ── live hook: fires after every pick (manual markMine + Sleeper sync both call renderAll) ── */
@@ -41456,7 +41462,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   setTimeout(placeAboveFooter,400); setTimeout(placeAboveFooter,1500);
 
   // one-time nudge when the buddy first appears on the draft page
-  setTimeout(function(){if(pageDraft&&pageDraft.classList.contains('on')&&!document.getElementById('vbud-nudge')&&!strat){var n=document.createElement('div');n.className='vbud-nudge';n.id='vbud-nudge';n.innerHTML='<small>Draft Buddy</small>Draft’s live — pick a plan?';root.appendChild(n);}},1200);
+  setTimeout(function(){if(pageDraft&&pageDraft.classList.contains('on')&&!document.getElementById('vbud-nudge')&&!strat){var done=draftComplete();var n=document.createElement('div');n.className='vbud-nudge';n.id='vbud-nudge';n.innerHTML='<small>Draft Buddy</small>'+(done?'Draft’s done — see the plan you ran':'Draft’s live — pick a plan?');if(done){n.style.cursor='pointer';n.onclick=function(){if(strat||showUsedPlan())n.remove();};}root.appendChild(n);}},1200);
 })();
 </script>
 <!-- ═══════════ /DRAFT BUDDY ═══════════ -->
