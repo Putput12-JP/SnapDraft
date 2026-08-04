@@ -1894,9 +1894,7 @@ header {
 
 /* Step-2 leagues view: glass cards + toolbar */
 .vg-step2-head .vg-eyebrow{margin-top:0}
-#vp-leagues-wrap .vp-lg, #vp-leagues-wrap .lp-league-card{
-  background:linear-gradient(165deg, rgba(54,72,108,.30), rgba(18,28,48,.24))!important;
-  backdrop-filter:blur(18px) saturate(150%)!important;-webkit-backdrop-filter:blur(18px) saturate(150%)!important;
+#__dead-vp-leagues-wrap{
   border:1px solid rgba(255,255,255,.12)!important;
   box-shadow:0 10px 30px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.14)!important;}
 #vp-leagues-wrap .vp-lg.sel{border-color:rgba(226,58,78,.7)!important;
@@ -3661,30 +3659,12 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .vp-dchip{display:inline-flex;align-items:center;gap:7px;background:rgba(25,34,47,0.7);border:1px solid var(--border);border-radius:9999px;padding:7px 13px;font-size:11.5px;color:var(--text2)}
 .vp-dchip .ic{font-size:13px}
 .vp-dchip b{color:var(--text);font-weight:700}
-/* sticky selection bar */
-.vp-selbar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(160px);z-index:1001;width:min(720px,calc(100% - 36px));background:rgba(18,26,37,0.92);backdrop-filter:blur(22px);border:1px solid var(--border2);border-top:2px solid var(--accent);border-radius:18px;padding:14px 16px 14px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 30px 70px -20px rgba(0,0,0,0.85);transition:transform .35s var(--ease-out);opacity:0;pointer-events:none}
-.vp-selbar.show{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
-.vp-selbar .meta{flex:1;min-width:0}
-.vp-selbar .big{font-size:16px;font-weight:800;letter-spacing:-0.02em;color:var(--text)}
-.vp-selbar .big em{font-style:normal;color:var(--accent2)}
-.vp-selbar .small{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:0.05em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vp-selbar .enter{background:linear-gradient(135deg,var(--accent),#7d0420);color:#fff;border:none;border-radius:10px;padding:13px 22px;font-size:14px;font-weight:700;font-family:var(--font-sans);white-space:nowrap;cursor:pointer;box-shadow:0 0 24px rgba(226,58,78,0.35);transition:background .16s,border-color .16s,color .16s,box-shadow .16s,transform .16s,opacity .16s}
-.vp-selbar .enter:hover{box-shadow:0 0 38px rgba(226,58,78,0.55);transform:translateY(-1px)}
-.vp-selbar .clearmini{background:none;border:none;color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase}
-.vp-selbar .clearmini:hover{color:var(--text2)}
 @media(max-width:560px){
   .vp-grid{grid-template-columns:1fr!important}
   .vp-toolbar{flex-direction:column;align-items:stretch}
   .vp-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .vp-chips::-webkit-scrollbar{display:none}
   .vp-bulk button{flex:1}
-  .vp-selbar{left:0;right:0;bottom:0;width:100%;transform:translateY(160px);border-radius:16px 16px 0 0;padding:12px 14px env(safe-area-inset-bottom,12px);gap:10px}
-  .vp-selbar.show{transform:translateY(0)}
-  .vp-selbar .clearmini{display:none}
-  .vp-selbar .big{font-size:14px}
-  .vp-selbar .small{font-size:9px}
-  .vp-selbar .enter{padding:13px 16px;font-size:13px}
-  .vp-selbar .enter .full{display:none}
 }
 </style>
 <div class="setup z1" id="setup">
@@ -3714,67 +3694,224 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       @media(prefers-reduced-motion:reduce){.vp-glow,.vp-bg-grid{animation:none!important}}
     </style>
     <style>
-    /* ══════════ Option E split, connect screen (matches login.html / Direction D) ══════════ */
+    /* ══════════ Marquee / Onyx connect screen (Step 1) ══════════ */
+    @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    .vp-esplit{--vf-sans:'Archivo',system-ui,sans-serif;--vf-mono:'JetBrains Mono',ui-monospace,monospace}
+    .vp-esplit,.vp-esplit *{font-family:var(--vf-sans)}
     #setup-step1{overflow-x:hidden}
-    .vp-esplit{position:fixed;inset:0;width:100%;height:100%;display:grid;grid-template-columns:1.02fr 0.98fr;z-index:6;overflow:hidden;background:#070a10}
-    .vp-eleft{position:relative;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px 72px;background:transparent;overflow-y:auto}
-    .vp-eleft-inner{width:100%;max-width:460px;display:flex;flex-direction:column;align-items:stretch;text-align:left}
-    .vp-e-eyebrow{display:inline-flex;align-self:center;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:#ffb3bd;margin-bottom:16px}
-    .vp-e-eyebrow .d{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(226,58,78,0.18)}
-    .vp-e-head{font-size:46px;font-weight:900;letter-spacing:-0.04em;line-height:1;color:#fff;margin:0 0 13px;text-align:center}
-    .vp-e-sub{font-size:15.5px;color:#aeb9c8;line-height:1.5;margin:0 0 22px;text-wrap:pretty;text-align:center}
-    /* dark platform rows, override the light-card globals */
-    #vp-eleft #vp-platforms{margin-top:8px!important}
-    #vp-eleft .vp-plat{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.12)!important;box-shadow:none!important;color:#eef1f6!important;border-radius:14px!important;padding:14px 16px!important}
-    #vp-eleft .vp-plat:hover{background:rgba(255,255,255,0.09)!important;border-color:rgba(255,255,255,0.26)!important;transform:translateY(-1px)}
-    #vp-eleft .vp-plat.on{background:rgba(55,226,196,0.07)!important;border-color:rgba(55,226,196,0.42)!important}
-    #vp-eleft .vp-plat[data-p="espn"].on{background:rgba(213,10,10,0.1)!important;border-color:rgba(213,10,10,0.5)!important}
-    #vp-eleft .vp-plat .vg-nm{color:#eef1f6!important}
-    #vp-eleft .vp-plat .vg-ds{color:#9aa6b6!important}
-    #vp-eleft .vp-plat .vg-arr{color:#8a96a6!important}
-    #vp-eleft .vp-plat .vg-ic{width:44px;height:44px}
-    /* Welcome-back resume card, match the platform rows below it */
-    #vp-eleft .vp-resume{max-width:none!important;margin:0 0 12px!important;background:rgba(255,255,255,0.05)!important;backdrop-filter:none!important;border:1px solid rgba(255,255,255,0.12)!important;border-left:1px solid rgba(255,255,255,0.12)!important;border-radius:14px!important;padding:16px 18px!important;display:flex;align-items:center;gap:15px;box-shadow:none!important;transition:transform .16s cubic-bezier(.2,.7,.2,1), background .16s, border-color .16s!important}
-    #vp-eleft .vp-resume:hover{transform:translateY(-1px);background:rgba(255,255,255,0.09)!important;border-color:rgba(255,255,255,0.26)!important}
-    #vp-eleft .vp-resume .av{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#37e2c4,#1fa68a)!important;border:none!important;color:#06201d!important;font-size:18px;font-weight:900;box-shadow:0 8px 20px rgba(20,40,80,.22)}
-    #vp-eleft .vp-resume .lbl{display:none}
-    #vp-eleft .vp-resume .nm{font-size:16px!important;font-weight:700!important;letter-spacing:-.01em;color:#eef1f6!important;line-height:1.1;margin-top:0!important}
-    #vp-eleft .vp-resume .dg{font-size:12.5px!important;color:#9aa6b6!important;font-weight:500;margin-top:3px!important}
-    #vp-eleft .vp-resume .dg b{color:#eef1f6!important;font-weight:600}
-    #vp-eleft .vp-resume .go{margin-left:auto;font-size:18px;color:#8a96a6!important;transition:transform .16s, color .16s}
-    #vp-eleft .vp-resume:hover .go{transform:translateX(3px);color:#eef1f6!important}
-    /* right column, Spline + big logo + carousel */
-    .vp-eright{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:44px 48px 44px 24px;overflow:hidden;background:transparent}
-    /* full-bleed animation spanning BOTH columns (matches login.html) */
+    .vp-esplit{position:fixed;inset:0;width:100%;height:100%;z-index:6;overflow:hidden;background:#0e0f13}
     .vp-ebg{position:absolute;inset:0;z-index:0;overflow:hidden}
     .vp-espline{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;z-index:0}
-    .vp-eblend{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(7,10,16,0.74) 0%,rgba(7,10,16,0.58) 38%,rgba(7,10,16,0.46) 68%,rgba(7,10,16,0.4) 100%)}
-    .vp-eblend2{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(130% 90% at 78% 46%,transparent 48%,rgba(7,10,16,0.42) 100%)}
-    .vp-eright-inner{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;width:100%}
-    .vp-eright .d-logo-wrap{position:relative;display:flex;justify-content:center;width:100%;margin-bottom:8px}
-    .vp-eright .d-logo-wrap::before{content:"";position:absolute;width:84%;height:138%;left:8%;top:-19%;background:radial-gradient(ellipse at center,rgba(233,239,249,0.18),rgba(233,239,249,0.06) 45%,transparent 64%);filter:blur(18px);pointer-events:none}
-    .vp-eright .d-biglogo{position:relative;width:100%;max-width:480px;height:auto;object-fit:contain;filter:drop-shadow(0 0 32px rgba(236,242,251,0.28)) drop-shadow(0 16px 46px rgba(0,0,0,0.55))}
-    .vp-eright .d-fc{width:100%;max-width:600px}
-    .vp-eright .d-fc-view{position:relative;overflow:hidden;border-radius:16px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 44px 100px -38px rgba(0,0,0,0.85)}
-    .vp-eright .d-fc-track{display:flex;transition:transform .6s cubic-bezier(.22,.61,.36,1)}
-    .vp-eright .d-fc-slide{flex:0 0 100%;aspect-ratio:1120/528;background:#0a0d13}
-    .vp-eright .d-fc-slide img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;-webkit-user-drag:none}
-    .vp-eright .d-fc-btn{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:#16233a;box-shadow:0 8px 20px rgba(0,0,0,0.4);opacity:.72;transition:transform .15s,opacity .15s;z-index:5}
-    .vp-eright .d-fc-btn:hover:not(:disabled){opacity:1;transform:translateY(-50%) scale(1.1)}
-    .vp-eright .d-fc-btn:disabled{opacity:.32;cursor:not-allowed}
-    .vp-eright .d-fc-btn.prev{left:14px}
-    .vp-eright .d-fc-btn.next{right:14px}
-    .vp-eright .d-fc-btn svg{width:20px;height:20px}
-    .vp-eright .d-fc-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:7px;padding:7px 10px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.32);border-radius:12px;backdrop-filter:blur(8px);z-index:5}
-    .vp-eright .d-fc-dot{height:8px;width:8px;border-radius:9999px;background:rgba(255,255,255,0.55);border:none;cursor:pointer;transition:background .25s,border-color .25s,color .25s,box-shadow .25s,transform .25s,opacity .25s;padding:0}
-    .vp-eright .d-fc-dot.on{width:28px;background:#fff}
-    .vp-eright .d-fc-cap{margin-top:15px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#dbe2ee}
-    @media (prefers-reduced-motion:reduce){.vp-eright .d-fc-track{transition:none}}
+    .vp-escrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(14,15,19,.5),rgba(14,15,19,.12) 42%,rgba(14,15,19,.72) 100%)}
+    .vp-escrim2{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(90% 60% at 50% 0%,rgba(143,180,224,.12),transparent 58%)}
+    .vp-estage{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px 40px;overflow-y:auto}
+    .vp-esheet{display:grid;grid-template-columns:1.12fr 0.88fr;width:100%;max-width:1000px;flex-shrink:0;border-radius:26px;overflow:hidden;
+      background:linear-gradient(177deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 24%,transparent 52%),rgba(24,26,32,.72);
+      backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);
+      border:1px solid rgba(154,167,186,.26);
+      box-shadow:inset 0 1.5px 0 rgba(255,255,255,.24),inset 0 -26px 42px -30px rgba(0,0,0,.9),0 32px 80px -34px rgba(0,0,0,.95)}
+    .vp-eleft{position:relative;z-index:3;padding:36px 36px 32px;text-align:left;min-width:0}
+    .vp-eleft-inner{width:100%;display:flex;flex-direction:column;align-items:stretch}
+    .vp-e-eyebrow{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;font-family:var(--vf-mono);font-size:9.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#b9d2ec;margin-bottom:14px;padding:5px 12px;border-radius:999px;background:rgba(143,180,224,.11);border:1px solid rgba(143,180,224,.28)}
+    .vp-e-eyebrow .d{width:5px;height:5px;border-radius:50%;background:#8fb4e0;box-shadow:none}
+    .vp-e-head{font-size:32px;font-weight:900;letter-spacing:-.038em;line-height:1.04;color:#f6f1e6;margin:0 0 9px;text-align:center}
+    .vp-e-sub{font-size:14px;color:#9aa7ba;line-height:1.55;margin:0 0 22px;text-wrap:pretty;text-align:left}
+    /* platform rows, Onyx */
+    #vp-platforms{display:none!important}
+    /* returning-user resume card */
+    #vp-eleft .vp-resume{max-width:none!important;margin:0 0 12px!important;background:rgba(255,255,255,.05)!important;backdrop-filter:none!important;border:1px solid rgba(154,167,186,.2)!important;border-left:1px solid rgba(154,167,186,.2)!important;border-radius:14px!important;padding:15px 17px!important;display:flex;align-items:center;gap:14px;box-shadow:none!important;transition:transform .16s cubic-bezier(.2,.7,.2,1),background .16s,border-color .16s!important}
+    #vp-eleft .vp-resume:hover{transform:translateY(-1px);background:rgba(255,255,255,.09)!important;border-color:rgba(154,167,186,.38)!important}
+    #vp-eleft .vp-resume .av{width:40px;height:40px;border-radius:13px;background:linear-gradient(150deg,#8fb4e0,#3d566e)!important;border:none!important;color:#0b1420!important;font-size:17px;font-weight:900;box-shadow:none}
+    #vp-eleft .vp-resume .lbl{display:none}
+    #vp-eleft .vp-resume .nm{font-size:15px!important;font-weight:700!important;letter-spacing:-.015em;color:#f6f1e6!important;line-height:1.1;margin-top:0!important}
+    #vp-eleft .vp-resume .dg{font-size:12px!important;color:#9aa7ba!important;font-weight:500;margin-top:3px!important}
+    #vp-eleft .vp-resume .dg b{color:#f6f1e6!important;font-weight:600}
+    #vp-eleft .vp-resume .go{margin-left:auto;font-size:17px;color:#8fb4e0!important;transition:transform .16s,color .16s}
+    #vp-eleft .vp-resume:hover .go{transform:translateX(3px);color:#f6f1e6!important}
+    /* inputs + primary action, Onyx */
+    #vp-eleft .connect-input{background:rgba(255,255,255,.05)!important;border:1px solid rgba(154,167,186,.24)!important;color:#f6f1e6!important}
+    #vp-eleft .connect-input::placeholder{color:#6d7787!important}
+    #vp-eleft .connect-input:focus{border-color:rgba(143,180,224,.55)!important;outline:none!important;box-shadow:0 0 0 3px rgba(143,180,224,.14)!important}
+    #vp-eleft .connect-btn{background:linear-gradient(150deg,#8fb4e0,#4d6a89)!important;border:none!important;color:#0b1420!important;font-weight:800!important;box-shadow:0 14px 30px -14px rgba(143,180,224,.6)!important}
+    #vp-eleft .connect-btn:hover{filter:brightness(1.06)}
+    /* Lineup Control card */
+    #vsw-card{margin-top:20px!important;padding:18px!important;border:1px solid rgba(154,167,186,.16)!important;border-radius:16px!important;background:rgba(0,0,0,.3)!important}
+    #vsw-card p{color:#9aa7ba!important;font-family:var(--vf-sans);font-size:12px;line-height:1.55;margin:0 0 13px!important}
+    #vsw-card p b{color:#f6f1e6!important}
+    #vsw-card .vsw-ttl{font-family:var(--vf-sans);font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:#f6f1e6}
+    /* right panel: logo sits centered in the upper half, list below (mock 2a) */
+    .vp-eside{justify-content:center!important;gap:0!important}
+    .vp-eside .d-biglogo{margin:0 auto 42px!important}
+    #vsw-badge{background:none!important;padding:0!important;color:#6d7787!important;font-family:var(--vf-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+    /* glass "verify you're human" button, drives invisible hCaptcha */
+    #vsw-human{display:flex;align-items:center;gap:11px;width:100%;box-sizing:border-box;padding:12px 14px;margin-top:9px;border-radius:12px;cursor:pointer;text-align:left;
+      font-family:var(--vf-sans);font-size:13px;font-weight:700;letter-spacing:-.01em;color:#f6f1e6;
+      background:rgba(255,255,255,.05);border:1px solid rgba(154,167,186,.24);transition:background .18s,border-color .18s}
+    #vsw-human:hover{background:rgba(255,255,255,.08);border-color:rgba(154,167,186,.4)}
+    #vsw-human .box{width:22px;height:22px;border-radius:7px;flex-shrink:0;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#0b1420}
+    #vsw-human .tag{margin-left:auto;font-family:var(--vf-mono);font-size:9px;letter-spacing:.12em;color:#6d7787}
+    #vsw-human.busy{cursor:default}
+    #vsw-human.busy .box{border:2px solid rgba(255,255,255,.2);border-top-color:#8fb4e0;animation:vswSpin .7s linear infinite}
+    #vsw-human.ok{cursor:default;background:rgba(143,180,224,.12);border-color:rgba(143,180,224,.45);color:#b9d2ec}
+    #vsw-human.ok .box{background:#8fb4e0;border:none}
+    @keyframes vswSpin{to{transform:rotate(360deg)}}
+    #vsw-hcaptcha{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+    #vsw-sendcode-btn.locked{background:rgba(255,255,255,.06)!important;color:#5c6675!important;box-shadow:none!important;cursor:not-allowed}
+    /* right side of the sheet: real logo + what you get */
+    .vp-eside{position:relative;z-index:3;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:32px 34px;background:rgba(0,0,0,.26);border-left:1px solid rgba(154,167,186,.14)}
+    .vp-eside .d-biglogo{display:block;width:306px;height:245px;max-width:100%;object-fit:contain;margin:0 auto 22px;filter:drop-shadow(0 0 28px rgba(233,239,249,.2)) drop-shadow(0 14px 34px rgba(0,0,0,.55))}
+    .vp-eside-hd{margin-bottom:14px;font-family:var(--vf-mono);font-size:9.5px;letter-spacing:.2em;color:#6d7787}
+    .vp-eben{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid rgba(154,167,186,.12)}
+    .vp-eben:last-child{border-bottom:none}
+    .vp-eben .n{color:#8fb4e0;font-family:var(--vf-mono);font-size:11px;padding-top:2px}
+    .vp-eben>span:last-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+    .vp-eben .t{display:block;color:#f6f1e6;font-size:14px;font-weight:700;letter-spacing:-.015em}
+    .vp-eben .d{display:block;color:#9aa7ba;font-size:12.5px;line-height:1.5}
+    /* segmented platform control (mock 2a) */
+    .vp-eseg{display:flex;gap:8px;padding:4px;margin-bottom:20px;border-radius:13px;background:rgba(0,0,0,.34);border:1px solid rgba(154,167,186,.16)}
+    .vp-eseg button{flex:1;padding:11px 0;border-radius:10px;border:none;cursor:pointer;font-family:var(--vf-sans);font-size:13.5px;font-weight:700;letter-spacing:-.01em;background:transparent;color:#7d8a9c;transition:background .16s,color .16s}
+    .vp-eseg button.on{background:rgba(143,180,224,.16);color:#f6f1e6}
+    .vp-elabel{margin-bottom:8px;color:#7d8a9c;font-family:var(--vf-mono);font-size:10px;letter-spacing:.16em}
+    .vp-ehint{margin:0;color:#6d7787;font-size:12px;line-height:1.5}
+    #vp-espn-sync{display:none}
+    #vp-espn-sync.on{display:flex!important}
+    /* the mock has no second crimson CTA */
+    #vp-cta{display:none!important}
+    #vsw-sendcode-btn{width:100%;margin-top:9px;padding:13px;border-radius:11px;font-size:13.5px}
+    /* ESPN panel, Onyx */
+    #vp-panel-espn{margin-top:4px}
+    #vp-panel-espn .vp-espn-note{background:rgba(0,0,0,.3)!important;border:1px solid rgba(154,167,186,.16)!important;border-radius:16px!important;color:#9aa7ba!important}
+    #vp-panel-espn .vp-espn-note p,#vp-panel-espn .vp-espn-note b{color:#9aa7ba!important}
+    #vp-panel-espn .vp-espn-cta{background:linear-gradient(150deg,#8fb4e0,#4d6a89)!important;border:none!important;color:#0b1420!important;font-weight:800!important}
+    #vp-panel-espn .connect-btn{background:linear-gradient(150deg,#8fb4e0,#4d6a89)!important;border:none!important;color:#0b1420!important}
+    #vp-panel-espn .vp-ckinput,#vp-panel-espn .connect-input{background:rgba(255,255,255,.05)!important;border:1px solid rgba(154,167,186,.24)!important;color:#f6f1e6!important}
+    #vp-panel-espn summary,#vp-panel-espn .vp-adv{color:#9aa7ba!important}
+    #vp-panel-espn .vp-cksteps span,#vp-panel-espn p,#vp-panel-espn li{color:#9aa7ba!important}
+    /* ── 3a connecting overlay ── */
+    .vp-econn{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:30px;
+      background:#0e0f13;opacity:0;transition:opacity .28s ease}
+    .vp-econn.on{display:flex;opacity:1}
+    .vp-econn-card{width:100%;max-width:620px;padding:38px 40px;border-radius:26px;
+      background:linear-gradient(177deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 24%,transparent 52%),rgba(24,26,32,.72);
+      backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);
+      border:1px solid rgba(154,167,186,.26);
+      box-shadow:inset 0 1.5px 0 rgba(255,255,255,.24),0 32px 80px -34px rgba(0,0,0,.95)}
+    .vp-econn-card .d-biglogo{display:block;width:190px;height:auto;margin:0 auto 26px}
+    .vp-econn-card h2{margin:0 0 8px;color:#f6f1e6;font-size:26px;font-weight:900;letter-spacing:-.035em;text-align:center}
+    .vp-econn-card p{margin:0 0 28px;color:#9aa7ba;font-size:13.5px;line-height:1.55;text-align:center}
+    .vp-econn-card p span{color:#b9d2ec}
+    .vp-econn-steps{display:flex;flex-direction:column;gap:2px}
+    .vp-econn-row{display:flex;align-items:center;gap:13px;padding:13px 0;border-top:1px solid rgba(154,167,186,.12)}
+    .vp-econn-row:last-child{border-bottom:1px solid rgba(154,167,186,.12);opacity:.5}
+    .vp-econn-row .bx{width:20px;height:20px;border-radius:6px;flex-shrink:0;border:1.5px solid rgba(255,255,255,.22);background:rgba(255,255,255,.03);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#0b1420}
+    .vp-econn-row .lb{flex:1;color:#f6f1e6;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+    .vp-econn-row .mt{color:#6d7787;font-family:var(--vf-mono);font-size:10px;letter-spacing:.1em}
+    .vp-econn-row.run .bx{border:2px solid rgba(255,255,255,.2);border-top-color:#8fb4e0;background:none;animation:vswSpin .7s linear infinite}
+    .vp-econn-row.done .bx{background:#8fb4e0;border:none}
+    .vp-econn-row.done .bx::after{content:"✓"}
+    .vp-econn-row.run,.vp-econn-row.done{opacity:1}
+    .vp-econn-bar{height:6px;margin-top:24px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+    .vp-econn-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5e7c9c,#b9d2ec);transition:width .4s ease}
+    /* ── 3b not-found state ── */
+    #sleeper-username.err{border-color:rgba(226,58,78,.5)!important;background:rgba(226,58,78,.07)!important;box-shadow:0 0 0 1px rgba(226,58,78,.18)!important}
+    .vp-eerr{display:flex;gap:9px;margin:14px 0 0;padding:12px 14px;border-radius:12px;background:rgba(226,58,78,.09);border:1px solid rgba(226,58,78,.28)}
+    .vp-eerr .ic{color:#ff9aa6;font-size:13px;line-height:1.4}
+    .vp-eerr .tt{color:#ffc4cc;font-size:12.5px;font-weight:700;letter-spacing:-.01em}
+    .vp-eerr .ds{color:#9aa7ba;font-size:12px;line-height:1.5;margin-top:3px}
+    .vp-esugg{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px}
+    .vp-esugg .hd{color:#7d8a9c;font-family:var(--vf-mono);font-size:9.5px;letter-spacing:.14em}
+    .vp-esugg button{padding:7px 13px;border-radius:9px;border:1px solid rgba(154,167,186,.2);background:rgba(255,255,255,.04);color:#9aa7ba;font-family:var(--vf-sans);font-size:12.5px;font-weight:700;cursor:pointer}
+    .vp-esugg button:first-of-type{border-color:rgba(143,180,224,.34);background:rgba(143,180,224,.1);color:#b9d2ec}
+    /* right panel swaps to "where to find it" while the error shows */
+    .vp-eside .vp-ehelp{display:none}
+    .vp-esplit.err .vp-eside .vp-eben{display:none}
+    .vp-esplit.err .vp-eside .vp-ehelp{display:block}
+    .vp-ehelp-hd{margin-bottom:14px;color:#6d7787;font-family:var(--vf-mono);font-size:9.5px;letter-spacing:.2em}
+    .vp-ehelp .row{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid rgba(154,167,186,.12)}
+    .vp-ehelp .row:last-child{border-bottom:none}
+    .vp-ehelp .n{color:#8fb4e0;font-family:var(--vf-mono);font-size:11px;padding-top:2px}
+    .vp-ehelp .t{color:#9aa7ba;font-size:12.5px;line-height:1.5}
+    /* ── draft/league results, mock card language ── */
+    #draft-results .find-msg{color:#9aa7ba!important;font-family:var(--vf-mono)!important}
+    #draft-results .draft-item{background:rgba(255,255,255,.045)!important;border:1px solid rgba(154,167,186,.16)!important;border-radius:14px!important;padding:13px 15px!important;color:#f6f1e6!important}
+    #draft-results .draft-item:hover{background:rgba(143,180,224,.08)!important;border-color:rgba(143,180,224,.4)!important}
+    #draft-results .draft-item.selected{background:rgba(143,180,224,.12)!important;border-color:rgba(143,180,224,.5)!important;box-shadow:0 0 0 1px rgba(143,180,224,.22)!important}
+    /* ── league picker (mock 2a step 2) ── */
+    .vp-lp{position:absolute;inset:0;overflow:hidden;background:#0e0f13}
+    .vp-lp .vp-estage{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:40px 56px;gap:0}
+    .vp-lp-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+    .vp-lp-brand img{height:60px;width:auto;display:block}
+    .vp-lp-brand .wm{display:flex;flex-direction:column;gap:2px}
+    .vp-lp-brand .t1{color:#f6f1e6;font-size:18px;font-weight:900;letter-spacing:.04em;line-height:1}
+    .vp-lp-brand .t1 span{color:#8fb4e0}
+    .vp-lp-brand .t2{color:#8fb4e0;font-family:var(--vf-mono);font-size:9px;letter-spacing:.26em}
+    .vp-lp-conn{display:flex;align-items:center;gap:8px;margin-left:6px;padding:5px 12px;border-radius:999px;background:rgba(143,180,224,.11);border:1px solid rgba(143,180,224,.28)}
+    .vp-lp-conn i{width:5px;height:5px;border-radius:50%;background:#8fb4e0}
+    .vp-lp-conn b{color:#b9d2ec;font-family:var(--vf-mono);font-size:9.5px;font-weight:500;letter-spacing:.14em}
+    .vp-lp-sheet{width:100%;max-width:1000px;padding:32px 34px;border-radius:26px;
+      background:linear-gradient(177deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 24%,transparent 52%),rgba(24,26,32,.72);
+      backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);
+      border:1px solid rgba(154,167,186,.26);
+      box-shadow:inset 0 1.5px 0 rgba(255,255,255,.24),0 32px 80px -34px rgba(0,0,0,.95)}
+    .vp-lp-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:20px}
+    .vp-lp-h2{margin:0 0 6px;color:#f6f1e6;font-size:28px;font-weight:900;letter-spacing:-.038em}
+    .vp-lp-sub{margin:0;max-width:440px;color:#9aa7ba;font-size:13.5px;line-height:1.55}
+    .vp-lp-acts{display:flex;gap:8px;flex-shrink:0}
+    .vp-lp-acts button{padding:10px 15px;border-radius:11px;border:1px solid rgba(154,167,186,.24);background:rgba(255,255,255,.05);color:#f6f1e6;font-family:var(--vf-sans);font-size:12.5px;font-weight:600;cursor:pointer}
+    .vp-lp-acts button.mut{color:#9aa7ba}
+    .vp-lp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
+    .vp-lp-card{display:flex;align-items:center;gap:13px;width:100%;box-sizing:border-box;padding:13px 15px;border-radius:14px;
+      background:rgba(255,255,255,.045);border:1px solid rgba(154,167,186,.16);cursor:pointer;text-align:left;
+      font-family:var(--vf-sans);transition:background .16s,border-color .16s}
+    .vp-lp-card.on{background:rgba(143,180,224,.1);border-color:rgba(143,180,224,.5);box-shadow:0 0 0 1px rgba(143,180,224,.22)}
+    .vp-lp-card .av{width:36px;height:36px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:900}
+    .vp-lp-card .tx{display:flex;flex-direction:column;gap:4px;min-width:0}
+    .vp-lp-card .nm{color:#f6f1e6;font-size:14.5px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vp-lp-card .mt{color:#9aa7ba;font-family:var(--vf-mono);font-size:10px;letter-spacing:.06em}
+    .vp-lp-card .st{padding:4px 9px;border-radius:6px;white-space:nowrap;font-family:var(--vf-mono);font-size:9.5px;letter-spacing:.08em;
+      background:rgba(143,180,224,.12);border:1px solid rgba(143,180,224,.3);color:#b9d2ec}
+    .vp-lp-card .st.pre{background:rgba(255,255,255,.05);border-color:rgba(154,167,186,.16);color:#7d8a9c}
+    .vp-lp-card .ck{width:22px;height:22px;border-radius:7px;flex-shrink:0;margin-left:auto;border:1.5px solid rgba(255,255,255,.22);background:rgba(255,255,255,.03);
+      display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#0b1420}
+    .vp-lp-card.on .ck{background:#8fb4e0;border-color:#8fb4e0}
+    .vp-lp-card.on .ck::after{content:"✓"}
+    .vp-lp-foot{display:flex;align-items:center;gap:18px;margin-top:24px;padding-top:22px;border-top:1px solid rgba(154,167,186,.16)}
+    .vp-lp-count{color:#f6f1e6;font-size:16px;font-weight:800;letter-spacing:-.02em}
+    .vp-lp-count b{color:#8fb4e0}
+    .vp-lp-detail{margin-top:3px;color:#9aa7ba;font-size:12.5px}
+    .vp-lp-go{margin-left:auto;padding:14px 30px;border-radius:13px;border:none;background:linear-gradient(150deg,#8fb4e0,#4d6a89);
+      color:#0b1420;font-family:var(--vf-sans);font-size:14.5px;font-weight:800;letter-spacing:-.01em;cursor:pointer;
+      box-shadow:0 14px 30px -14px rgba(143,180,224,.6);white-space:nowrap}
+    .vp-lp-go:disabled{background:rgba(255,255,255,.07);color:#5c6675;cursor:not-allowed;box-shadow:none}
+    .vp-lp-skip{margin-top:18px;color:#6d7787;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+    .vp-lp-empty{padding:26px;text-align:center;color:#9aa7ba;font-size:13.5px;grid-column:1/-1}
     @media (max-width:900px){
-      .vp-esplit{grid-template-columns:1fr;min-height:0}
-      .vp-eright{display:none}
-      .vp-eleft{padding:40px 22px;min-height:100dvh}
-      .vp-e-head{font-size:36px}
+      .vp-lp .vp-estage{padding:26px 16px;justify-content:flex-start}
+      .vp-lp-sheet{padding:20px 18px;border-radius:24px}
+      .vp-lp-hd{flex-direction:column;align-items:flex-start;gap:14px}
+      .vp-lp-h2{font-size:23px}
+      .vp-lp-grid{grid-template-columns:1fr}
+      .vp-lp-foot{flex-direction:column;align-items:stretch;gap:12px}
+      .vp-lp-go{margin-left:0;width:100%}
+    }
+    .vp-etrust{display:flex;align-items:center;justify-content:center;gap:22px;flex-shrink:0;flex-wrap:wrap}
+    .vp-etrust span{display:flex;align-items:center;gap:7px;font-family:var(--vf-mono);font-size:10px;letter-spacing:.12em;color:#6d7787}
+    .vp-etrust i{width:5px;height:5px;border-radius:50%;background:#5e7c9c;display:block}
+    .vp-etrust a{color:#9aa7ba;font-family:var(--vf-sans);font-size:12.5px;letter-spacing:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+    .vp-etrust a:hover{color:#f6f1e6}
+    .vp-econn-card,.vp-esheet{max-height:calc(100dvh - 60px);overflow-y:auto}
+    @media (max-width:900px){
+      .vp-econn{padding:18px}
+      .vp-econn-card{padding:24px 20px;border-radius:24px}
+      .vp-econn-card .d-biglogo{width:150px}
+      .vp-econn-card h2{font-size:22px}
+      .vp-eside{display:none}
+      .vp-etrust{flex-direction:column;gap:9px}
+      .vp-estage{padding:26px 16px;justify-content:flex-start}
+      .vp-esheet{grid-template-columns:1fr;max-width:520px}
+      .vp-eside{display:none}
+      .vp-eleft{padding:24px 20px 26px}
+      .vp-e-head{font-size:26px}
     }
     </style>
 
@@ -3783,128 +3920,126 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       <!-- ══════════ VIEW 1: CONNECT (Option E split) ══════════ -->
       <div id="vp-view-connect">
       <div class="vp-esplit">
-      <div class="vp-ebg"><iframe class="vp-espline" src="https://my.spline.design/spaceparticlesanimation-UGnU6SB7nUK6sFI6N5WzasEx" frameborder="0" title="Vault background animation" tabindex="-1"></iframe></div>
-      <div class="vp-eblend"></div>
-      <div class="vp-eblend2"></div>
-      <div class="vp-eleft" id="vp-eleft">
-        <div class="vp-eleft-inner">
-          <div class="vp-e-eyebrow"><span class="d"></span>Step 1 of 2 · Connect</div>
-          <h1 class="vp-e-head">Connect your leagues</h1>
-          <p class="vp-e-sub">Connect once and pull every league into one war room. Rosters, rankings, and trades, all in one place.</p>
+      <div class="vp-ebg"><iframe class="vp-espline" src="https://my.spline.design/untitled-f680ea749fc30deeb5eff5a8b15b2f63" frameborder="0" title="Vault background animation" tabindex="-1"></iframe></div>
+      <div class="vp-escrim"></div>
+      <div class="vp-escrim2"></div>
 
-          <!-- WELCOME-BACK RESUME (returning users) -->
-          <div class="vp-resume" id="vp-resume" style="display:none;margin-top:22px" onclick="resumeSession()">
-            <div class="av" id="vp-resume-av">P</div>
-            <div style="flex:1;min-width:0">
-              <div class="nm" id="vp-resume-name">Your account</div>
-              <div class="dg">Resume your last session · <b>tap to jump back in</b></div>
-            </div>
-            <div class="go">→</div>
+
+      <div class="vp-econn" id="vp-econn">
+        <div class="vp-econn-card">
+          <img class="d-biglogo" src="assets/marketing/vault-logo-whitetext.png" alt="Vault Fantasy Football" onerror="this.onerror=null;this.src=window.VAULT_LOGO_WHITE">
+          <h2>Pulling your leagues</h2>
+          <p>Connected as <span id="vp-econn-user">your account</span>. This usually takes a few seconds.</p>
+          <div class="vp-econn-steps">
+            <div class="vp-econn-row" data-s="1"><span class="bx"></span><span class="lb">Account verified</span><span class="mt"></span></div>
+            <div class="vp-econn-row" data-s="2"><span class="bx"></span><span class="lb">Finding your leagues</span><span class="mt"></span></div>
+            <div class="vp-econn-row" data-s="3"><span class="bx"></span><span class="lb">Importing rosters and scoring rules</span><span class="mt"></span></div>
+            <div class="vp-econn-row" data-s="4"><span class="bx"></span><span class="lb">Valuing your players</span><span class="mt">QUEUED</span></div>
           </div>
+          <div class="vp-econn-bar"><i id="vp-econn-fill"></i></div>
+        </div>
+      </div>
+      <div class="vp-estage">
+        <div class="vp-esheet">
+          <div class="vp-eleft" id="vp-eleft">
+            <div class="vp-eleft-inner">
+              <div class="vp-e-eyebrow"><span class="d"></span>Step 1 of 2 · Connect</div>
+              <h1 class="vp-e-head">Connect your leagues</h1>
+              <p class="vp-e-sub">One connection, every league. Read-only by default — we never ask for your platform password.</p>
 
-          <!-- platform rows -->
-          <div id="vp-platforms">
-            <button class="vp-plat on" data-p="sleeper" onclick="vpSetPlatform('sleeper')">
-              <span class="vg-ic sl">⚡</span>
-              <span class="vg-txt"><span class="vg-nm">Continue with Sleeper</span><span class="vg-ds">Most popular · connect with your username</span></span>
-              <span class="vg-arr">→</span>
-            </button>
-            <button class="vp-plat" data-p="espn" onclick="vpSetPlatform('espn')">
-              <span class="vg-ic es">E</span>
-              <span class="vg-txt"><span class="vg-nm">Continue with ESPN</span><span class="vg-ds">Link your redraft &amp; dynasty leagues</span></span>
-              <span class="vg-arr">→</span>
-            </button>
-          </div>
-
-          <!-- ═══ SLEEPER PANEL ═══ -->
-          <div id="vp-panel-sleeper">
-          <!-- Resume session (shown for returning users) -->
-          <div id="resume-btn" style="display:none;margin-bottom:14px">
-            <button onclick="resumeSession()" class="resume-big-btn"><span data-reicon="bolt" data-rsize="15"></span> Resume Last Session</button>
-            <div class="setup-or">or connect a different account</div>
-          </div>
-
-          <!-- Username input row -->
-          <div style="display:flex;gap:10px;margin-bottom:10px">
-            <input class="connect-input" id="sleeper-username" placeholder="Enter Sleeper username..."
-              autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
-              style="flex:1;padding:15px 18px;font-size:16px;border-radius:11px"
-              onkeydown="if(event.key==='Enter')setupConnect()">
-            <button class="connect-btn" id="find-btn" onclick="setupConnect()" style="padding:15px 24px;border-radius:11px;font-size:15px;white-space:nowrap">Connect</button>
-          </div>
-
-          <!-- Draft results injected here -->
-          <div id="draft-results" style="margin-top:4px"></div>
-
-          <!-- CTA button -->
-          <button id="vp-cta" onclick="
-            const inp = document.getElementById('sleeper-username');
-            if(inp) { inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus(); }
-            if(inp && inp.value.trim()) setupConnect();
-          " style="
-            width:100%;padding:14px;border-radius:10px;border:none;
-            background:linear-gradient(135deg,var(--accent),#68001a);
-            color:#fff;font-family:var(--font-sans);font-size:15px;font-weight:600;
-            cursor:pointer;letter-spacing:-0.01em;
-            box-shadow:0 0 20px rgba(204,0,60,0.2);
-            transition:box-shadow 150ms ease;
-            display:flex;align-items:center;justify-content:center;gap:8px;
-            margin-top:10px;
-          " onmouseover="this.style.boxShadow='0 0 30px rgba(204,0,60,0.4)'" onmouseout="this.style.boxShadow='0 0 20px rgba(204,0,60,0.2)'">
-            <span class="vp-cta-label">Connect Your Sleeper Account →</span>
-          </button>
-
-          <!-- ═══ LINEUP CONTROL (write access) ═══ -->
-          <div id="vsw-card" style="margin-top:16px;padding:14px 15px;border:1px solid var(--line,rgba(255,255,255,0.09));border-radius:12px;background:rgba(255,255,255,0.02)">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span data-reicon="bolt" data-rsize="14"></span>
-              <span style="font-family:var(--font-sans);font-size:13.5px;font-weight:600;letter-spacing:-0.01em">Lineup Control</span>
-              <span id="vsw-badge" style="margin-left:auto;font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--muted)">checking…</span>
-            </div>
-            <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--muted);margin:0 0 10px">
-              Let Vault set your starting lineups directly in Sleeper. Your Sleeper access token is stored <b>encrypted on our server</b> and never in your browser.
-            </p>
-
-            <!-- Disconnected state — passwordless verification-code flow -->
-            <div id="vsw-connect">
-              <!-- Step A: identifier + human check -->
-              <div id="vsw-step-id">
-                <input class="connect-input" id="vsw-identifier" placeholder="Sleeper username, email, or phone"
-                  autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
-                  style="width:100%;padding:11px 13px;font-size:13px;border-radius:9px">
-                <div id="vsw-hcaptcha" style="margin-top:10px;min-height:10px"></div>
-                <button class="connect-btn" id="vsw-sendcode-btn" onclick="vswSendCode()"
-                  style="margin-top:10px;width:100%;padding:11px 16px;border-radius:9px;font-size:13px">Send verification code</button>
-              </div>
-              <!-- Step B: code entry -->
-              <div id="vsw-step-code" style="display:none">
-                <p style="font-family:var(--font-sans);font-size:11.5px;color:var(--muted);margin:0 0 8px">Enter the 6-digit code Sleeper just sent to your account.</p>
-                <div style="display:flex;gap:8px">
-                  <input class="connect-input" id="vsw-code" placeholder="000000" inputmode="numeric" maxlength="6"
-                    autocomplete="one-time-code" spellcheck="false"
-                    style="flex:1;padding:11px 13px;font-size:15px;letter-spacing:3px;border-radius:9px;font-family:var(--font-mono);text-align:center"
-                    onkeydown="if(event.key==='Enter')vswVerify()">
-                  <button class="connect-btn" id="vsw-verify-btn" onclick="vswVerify()"
-                    style="padding:11px 16px;border-radius:9px;font-size:13px;white-space:nowrap">Connect</button>
+              <!-- WELCOME-BACK RESUME (returning users only; JS unhides) -->
+              <div class="vp-resume" id="vp-resume" style="display:none" onclick="resumeSession()">
+                <div class="av" id="vp-resume-av">P</div>
+                <div style="flex:1;min-width:0">
+                  <div class="nm" id="vp-resume-name">Your account</div>
+                  <div class="dg">Resume your last session · <b>tap to jump back in</b></div>
                 </div>
-                <button onclick="vswResetCode()" style="margin-top:8px;background:none;border:none;color:var(--wr);font-size:11px;cursor:pointer;padding:0">← use a different account</button>
+                <div class="go">→</div>
               </div>
-              <div id="vsw-err" style="display:none;margin-top:8px;font-family:var(--font-mono);font-size:10.5px;line-height:1.5;color:var(--accent2,#ff5c7a);background:rgba(213,10,10,0.08);border:1px solid rgba(213,10,10,0.25);border-radius:8px;padding:8px 10px"></div>
-            </div>
 
-            <!-- Connected state -->
-            <div id="vsw-connected" style="display:none">
-              <div style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.25)">
-                <span style="width:8px;height:8px;border-radius:999px;background:#2ecc71;box-shadow:0 0 8px rgba(46,204,113,0.6)"></span>
-                <span style="font-family:var(--font-sans);font-size:12.5px">Connected as <b id="vsw-username">—</b></span>
-                <button id="vsw-disconnect-btn" onclick="vswDisconnect()"
-                  style="margin-left:auto;background:none;border:1px solid var(--line,rgba(255,255,255,0.15));color:var(--muted);font-family:var(--font-mono);font-size:10.5px;padding:5px 10px;border-radius:7px;cursor:pointer">Disconnect</button>
+              <!-- legacy platform rows kept for vpSetPlatform's own bookkeeping, visually replaced by the segmented control -->
+              <div id="vp-platforms" style="display:none">
+                <button class="vp-plat on" data-p="sleeper" onclick="vpSetPlatform('sleeper')"><span class="vg-ic sl">⚡</span><span class="vg-txt"><span class="vg-nm">Continue with Sleeper</span><span class="vg-ds">Most popular · connect with your username</span></span><span class="vg-arr">→</span></button>
+                <button class="vp-plat" data-p="espn" onclick="vpSetPlatform('espn')"><span class="vg-ic es">E</span><span class="vg-txt"><span class="vg-nm">Continue with ESPN</span><span class="vg-ds">Link your redraft &amp; dynasty leagues</span></span><span class="vg-arr">→</span></button>
               </div>
-            </div>
-          </div>
-          </div><!-- /vp-panel-sleeper -->
 
-          <!-- ═══ ESPN PANEL ═══ -->
+              <div class="vp-eseg">
+                <button type="button" id="vp-tab-sleeper" class="on" onclick="vpPickPlatform('sleeper')">Sleeper</button>
+                <button type="button" id="vp-tab-espn" onclick="vpPickPlatform('espn')">ESPN</button>
+              </div>
+
+              <div id="vp-panel-sleeper">
+                <div id="resume-btn" style="display:none;margin-bottom:14px">
+                  <button onclick="resumeSession()" class="resume-big-btn"><span data-reicon="bolt" data-rsize="15"></span> Resume Last Session</button>
+                  <div class="setup-or">or connect a different account</div>
+                </div>
+
+                <div style="display:block;margin-bottom:8px;color:#7d8a9c;font-family:var(--vf-mono);font-size:10px;letter-spacing:.16em">SLEEPER USERNAME</div>
+                <div style="display:flex;gap:10px;margin-bottom:14px">
+                  <input id="sleeper-username" placeholder="Enter your Sleeper username..."
+                    autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                    style="flex:1;min-width:0;box-sizing:border-box;padding:15px 17px;border-radius:13px;border:1px solid rgba(154,167,186,.24);background:rgba(255,255,255,.05);color:#f6f1e6;font-family:var(--vf-sans);font-size:15px;font-weight:400;outline:none" onkeydown="if(event.key==='Enter')setupConnect()">
+                  <button id="find-btn" onclick="setupConnect()" style="padding:15px 26px;border-radius:13px;border:none;background:linear-gradient(150deg,#8fb4e0,#4d6a89);color:#0b1420;font-family:var(--vf-sans);font-size:15px;font-weight:800;letter-spacing:-.01em;cursor:pointer;box-shadow:0 14px 30px -14px rgba(143,180,224,.6);white-space:nowrap">Connect</button>
+                </div>
+                <p class="vp-ehint">Read-only. We look you up by username — no password needed.</p>
+
+                <div id="draft-results" style="margin-top:4px"></div>
+
+                <!-- ═══ LINEUP CONTROL (write access) ═══ -->
+                <div id="vsw-card">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">
+                    <span class="vsw-ttl">Lineup Control</span>
+                    <span id="vsw-badge">NOT CONNECTED</span>
+                  </div>
+                  <p>Let Vault set your Sleeper lineups. Token encrypted server-side, never in this browser.</p>
+
+                  <div id="vsw-connect">
+                    <div id="vsw-step-id">
+                      <input id="vsw-identifier" placeholder="Sleeper username, email or phone"
+                        autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                        style="width:100%;box-sizing:border-box;padding:15px 17px;border-radius:13px;border:1px solid rgba(154,167,186,.24);background:rgba(255,255,255,.05);color:#f6f1e6;font-family:var(--vf-sans);font-size:15px;outline:none;padding:13px 15px;font-size:13.5px;border-radius:11px">
+                      <div id="vsw-hcaptcha"></div>
+                      <button type="button" id="vsw-human" onclick="vswHumanCheck()">
+                        <span class="box" id="vsw-human-box"></span>
+                        <span id="vsw-human-label">Verify you're human</span>
+                        <span class="tag">HCAPTCHA</span>
+                      </button>
+                      <button class="locked" id="vsw-sendcode-btn" onclick="vswSendCode()">Send verification code</button>
+                    </div>
+                    <div id="vsw-step-code" style="display:none">
+                      <div style="display:flex;gap:9px">
+                        <input id="vsw-code" placeholder="000000" inputmode="numeric" maxlength="6"
+                          autocomplete="one-time-code" spellcheck="false"
+                          style="flex:1;width:100%;box-sizing:border-box;padding:15px 17px;border-radius:13px;border:1px solid rgba(154,167,186,.24);background:rgba(255,255,255,.05);color:#f6f1e6;font-family:var(--vf-sans);font-size:15px;outline:none;padding:13px;font-family:var(--vf-mono);font-size:16px;letter-spacing:6px;text-align:center;border-radius:11px"
+                          onkeydown="if(event.key==='Enter')vswVerify()">
+                        <button id="vsw-verify-btn" onclick="vswVerify()" style="padding:13px 20px;border-radius:11px;border:1px solid rgba(154,167,186,.3);background:rgba(255,255,255,.08);color:#f6f1e6;font-size:13px;font-weight:700;cursor:pointer;box-shadow:none">Verify</button>
+                      </div>
+                      <button onclick="vswResetCode()" style="margin-top:10px;background:none;border:none;color:#9aa7ba;font-size:11.5px;cursor:pointer;padding:0">← use a different account</button>
+                    </div>
+                    <div id="vsw-err" style="display:none;margin-top:9px;font-family:var(--vf-mono);font-size:10.5px;line-height:1.5;color:#ffc4cc;background:rgba(226,58,78,.09);border:1px solid rgba(226,58,78,.28);border-radius:10px;padding:9px 11px"></div>
+                  </div>
+
+                  <div id="vsw-connected" style="display:none">
+                    <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:11px;background:rgba(143,180,224,.12);border:1px solid rgba(143,180,224,.35)">
+                      <span style="width:7px;height:7px;border-radius:999px;background:#8fb4e0"></span>
+                      <span style="font-family:var(--vf-sans);font-size:12.5px;color:#f6f1e6">Connected as <b id="vsw-username">—</b></span>
+                      <button id="vsw-disconnect-btn" onclick="vswDisconnect()" style="margin-left:auto;background:none;border:1px solid rgba(154,167,186,.28);color:#9aa7ba;font-family:var(--vf-mono);font-size:10.5px;padding:5px 10px;border-radius:8px;cursor:pointer">Disconnect</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ESPN leagues sync read-only; shown by vpPickPlatform('espn') -->
+              </div><!-- /vp-panel-sleeper -->
+
+              <div id="vp-espn-sync" style="display:none;gap:11px;padding:16px 18px;border-radius:16px;background:rgba(0,0,0,.3);border:1px solid rgba(154,167,186,.16);margin-top:20px">
+                <span style="color:#8fb4e0;font-size:14px;line-height:1.4">↻</span>
+                <span style="display:flex;flex-direction:column;gap:3px">
+                  <span style="color:#f6f1e6;font-size:13px;font-weight:700;letter-spacing:-.01em">ESPN leagues sync read-only</span>
+                  <span style="color:#9aa7ba;font-size:12px;line-height:1.5">Rosters, scores and matchups pull in automatically. Set your lineups in the ESPN app.</span>
+                </span>
+              </div>
+
+              <!-- ═══ ESPN PANEL ═══ -->
           <div id="vp-panel-espn" style="display:none">
             <div class="vp-espn-note">
               <span class="ic"><span data-reicon="link" data-rsize="16"></span></span>
@@ -3912,12 +4047,12 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
             </div>
             <!-- League ID input row -->
             <div style="display:flex;gap:8px">
-              <input class="connect-input" id="vp-espn-id" placeholder="ESPN League ID…" inputmode="numeric" autocomplete="off" spellcheck="false"
+              <input id="vp-espn-id" placeholder="ESPN League ID…" inputmode="numeric" autocomplete="off" spellcheck="false"
                 style="flex:1;padding:13px 16px;font-size:15px;border-radius:10px" onkeydown="if(event.key==='Enter')vpEspnIdConnect()">
-              <button class="connect-btn" id="vp-espn-go" onclick="vpEspnIdConnect()" style="padding:13px 20px;border-radius:10px;font-size:14px;white-space:nowrap;background:#d50a0a;border-color:#d50a0a">Connect</button>
+              <button id="vp-espn-go" onclick="vpEspnIdConnect()" style="padding:15px 26px;border-radius:13px;border:none;background:linear-gradient(150deg,#8fb4e0,#4d6a89);color:#0b1420;font-family:var(--vf-sans);font-size:15px;font-weight:800;letter-spacing:-.01em;cursor:pointer;box-shadow:0 14px 30px -14px rgba(143,180,224,.6);white-space:nowrap">Connect</button>
             </div>
             <button class="vp-espn-cta" style="margin-top:10px" onclick="vpEspnIdConnect()"><span class="elogo">E</span> Link ESPN League →</button>
-            <div id="vp-espn-err" style="display:none;margin-top:10px;font-family:var(--font-mono);font-size:11px;line-height:1.5;color:var(--accent2);background:rgba(213,10,10,0.08);border:1px solid rgba(213,10,10,0.25);border-radius:8px;padding:9px 11px;text-align:left"></div>
+            <div id="vp-espn-err" style="display:none;margin-top:10px;font-family:var(--vf-mono);font-size:11px;line-height:1.5;color:var(--accent2);background:rgba(213,10,10,0.08);border:1px solid rgba(213,10,10,0.25);border-radius:8px;padding:9px 11px;text-align:left"></div>
             <details class="vp-ckhelp" style="text-align:center;margin-top:12px">
               <summary style="color:var(--wr);text-align:center">Where do I find my League ID?</summary>
               <ul class="vp-cksteps" style="margin-top:10px">
@@ -3946,35 +4081,99 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
             </div>
           </div><!-- /vp-panel-espn -->
 
-        </div><!-- /vp-eleft-inner -->
-      </div><!-- /vp-eleft -->
-      <div class="vp-eright">
-        <div class="vp-eright-inner">
-          <div class="d-logo-wrap"><img class="d-biglogo" src="assets/marketing/vault-logo-whitetext.png" alt="Vault Fantasy Football" onerror="this.onerror=null;this.src=window.VAULT_LOGO_WHITE"></div>
-          <div class="d-fc">
-            <div class="d-fc-view">
-              <div class="d-fc-track" id="vpfcTrack">
-                <div class="d-fc-slide"><img src="assets/marketing/clean-trade.png" alt="Trade Calculator" onerror="this.onerror=null;this.src=window.VAULT_SHOT_TRADE"></div>
-                <div class="d-fc-slide"><img src="assets/marketing/clean-team.png" alt="Team Review" onerror="this.onerror=null;this.src=window.VAULT_SHOT_TEAM"></div>
-                <div class="d-fc-slide"><img src="assets/marketing/clean-research.png" alt="Advanced Stats" onerror="this.onerror=null;this.src=window.VAULT_SHOT_RESEARCH"></div>
-                <div class="d-fc-slide"><img src="assets/marketing/clean-seasonsim.png" alt="Season Sim" onerror="this.onerror=null;this.src=window.VAULT_SHOT_SEASONSIM"></div>
-                <div class="d-fc-slide"><img src="assets/marketing/clean-draft.png" alt="Draft Vault" onerror="this.onerror=null;this.src=window.VAULT_SHOT_DRAFT"></div>
-              </div>
-              <button class="d-fc-btn prev" id="vpfcPrev" aria-label="Previous"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"></path></svg></button>
-              <button class="d-fc-btn next" id="vpfcNext" aria-label="Next"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 5l7 7-7 7"></path></svg></button>
-              <div class="d-fc-dots" id="vpfcDots">
-                <button class="d-fc-dot on" aria-label="Slide 1"></button>
-                <button class="d-fc-dot" aria-label="Slide 2"></button>
-                <button class="d-fc-dot" aria-label="Slide 3"></button>
-                <button class="d-fc-dot" aria-label="Slide 4"></button>
-                <button class="d-fc-dot" aria-label="Slide 5"></button>
-              </div>
+            </div><!-- /vp-eleft-inner -->
+          </div><!-- /vp-eleft -->
+
+          <div class="vp-eside">
+            <img class="d-biglogo" src="assets/marketing/vault-logo-whitetext.png" alt="Vault Fantasy Football" onerror="this.onerror=null;this.src=window.VAULT_LOGO_WHITE">
+            <div class="vp-eben"><span class="n">01</span><span><span class="t">Every roster, one board</span><span class="d">Switch leagues in a tap, compare across all of them.</span></span></div>
+            <div class="vp-eben"><span class="n">02</span><span><span class="t">Trade values that update</span><span class="d">Re-priced nightly against your league's scoring.</span></span></div>
+            <div class="vp-eben"><span class="n">03</span><span><span class="t">Live draft war room</span><span class="d">Your board, synced pick-by-pick.</span></span></div>
+            <div class="vp-eben"><span class="n">04</span><span><span class="t">Season simulations</span><span class="d">Playoff odds for every scenario you can think of.</span></span></div>
+            <div class="vp-ehelp">
+              <div class="vp-ehelp-hd">WHERE TO FIND IT</div>
+              <div class="row"><span class="n">01</span><span class="t">Open Sleeper and tap your avatar, bottom right.</span></div>
+              <div class="row"><span class="n">02</span><span class="t">Your username sits directly under your display name.</span></div>
+              <div class="row"><span class="n">03</span><span class="t">Copy it exactly — no @ symbol needed.</span></div>
             </div>
-            <div class="d-fc-cap" id="vpfcCap">Trade Calculator</div>
           </div>
+        </div><!-- /vp-esheet -->
+
+        <div class="vp-etrust">
+          <span><i></i>NO PASSWORDS STORED</span>
+          <span><i></i>DISCONNECT ANY TIME</span>
+          <a onclick="vpLpSkip()">Skip for now</a>
         </div>
-      </div><!-- /vp-eright -->
+      </div><!-- /vp-estage -->
       </div><!-- /vp-esplit -->
+      <script>
+      
+      // ── 3a: connecting overlay ──
+      function vpConnRow(n){ return document.querySelector('#vp-econn .vp-econn-row[data-s="'+n+'"]'); }
+      function vpConnSet(n,state,meta){
+        var r=vpConnRow(n); if(!r) return;
+        r.classList.remove('run','done');
+        if(state) r.classList.add(state);
+        var mt=r.querySelector('.mt'); if(mt&&meta!==undefined) mt.textContent=meta;
+        var fill=document.getElementById('vp-econn-fill');
+        if(fill){ var done=document.querySelectorAll('#vp-econn .vp-econn-row.done').length; fill.style.width=Math.round(done/4*100)+'%'; }
+      }
+      function vpConnShow(user){
+        var o=document.getElementById('vp-econn'); if(!o) return;
+        var u=document.getElementById('vp-econn-user'); if(u) u.textContent=user?('@'+user):'your account';
+        [1,2,3,4].forEach(function(n){ vpConnSet(n,null,n===4?'QUEUED':''); });
+        vpConnSet(1,'run','');
+        var fill=document.getElementById('vp-econn-fill'); if(fill) fill.style.width='0%';
+        o.classList.add('on');
+      }
+      function vpConnHide(){
+        var o=document.getElementById('vp-econn'); if(!o) return;
+        o.style.opacity='0';
+        setTimeout(function(){ o.classList.remove('on'); o.style.opacity=''; }, 300);
+      }
+
+      // ── 3b: username-not-found state ──
+      function vpClearError(){
+        var sp=document.querySelector('.vp-esplit'); if(sp) sp.classList.remove('err');
+        var inp=document.getElementById('sleeper-username'); if(inp) inp.classList.remove('err');
+        var box=document.getElementById('vp-econnect-err'); if(box) box.remove();
+        var sg=document.getElementById('vp-econnect-sugg'); if(sg) sg.remove();
+      }
+      function vpShowError(msg,username){
+        vpClearError();
+        var sp=document.querySelector('.vp-esplit'); if(sp) sp.classList.add('err');
+        var inp=document.getElementById('sleeper-username'); if(inp) inp.classList.add('err');
+        var host=document.getElementById('draft-results'); if(!host) return;
+        var err=document.createElement('div');
+        err.className='vp-eerr'; err.id='vp-econnect-err';
+        err.innerHTML='<span class="ic">!</span><span><span class="tt">'+msg+'</span><span class="ds">Usernames are case-sensitive and have no spaces. Check it in the Sleeper app under Account.</span></span>';
+        host.parentNode.insertBefore(err,host);
+        // near-miss suggestions derived from what they typed
+        var u=(username||'').trim();
+        if(u){
+          var alts=[u.replace(/[_.\-\s]/g,''), u.toLowerCase().replace(/[_.\-\s]/g,'')]
+            .filter(function(v,i,a){ return v&&v!==u&&a.indexOf(v)===i; }).slice(0,2);
+          if(alts.length){
+            var sg=document.createElement('div');
+            sg.className='vp-esugg'; sg.id='vp-econnect-sugg';
+            sg.innerHTML='<span class="hd">DID YOU MEAN</span>'+alts.map(function(a){
+              return '<button type="button" onclick="document.getElementById(\'sleeper-username\').value=\''+a+'\';setupConnect()">'+a+'</button>';
+            }).join('');
+            err.parentNode.insertBefore(sg,err.nextSibling);
+          }
+        }
+      }
+            function vpPickPlatform(p){
+        try{ if(typeof vpSetPlatform==='function') vpSetPlatform(p); }catch(e){}
+        var s=document.getElementById('vp-tab-sleeper'), e=document.getElementById('vp-tab-espn');
+        if(s) s.classList.toggle('on', p==='sleeper');
+        if(e) e.classList.toggle('on', p==='espn');
+        // Lineup Control is Sleeper-only; ESPN gets the read-only sync note instead.
+        var sync=document.getElementById('vp-espn-sync');
+        if(sync) sync.classList.toggle('on', p==='espn');
+      }
+      </script>
+
 
       <script>
       (function(){
@@ -3995,93 +4194,54 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 
       </div><!-- /vp-view-connect -->
 
-      <!-- ══════════ VIEW 2: LEAGUES ══════════ -->
-      <div id="vp-view-leagues" style="display:none">
 
-      <button onclick="vpShowView('connect')" style="background:none;border:none;color:var(--muted);font-family:var(--font-mono);font-size:11px;letter-spacing:0.06em;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;padding:0" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--muted)'">← Connect a different account</button>
+    </div>
+  </div>
 
-      <!-- DIVIDER -->
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:48px">
-        <div style="flex:1;height:1px;background:linear-gradient(to right,transparent,rgba(144,144,151,0.2))"></div>
-        <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;color:var(--wr)">
-          <span style="font-size:14px">✓</span> <span id="vp-int-label">Sleeper</span> Integration Active
+
+  <!-- ── LEAGUE PICKER (mock 2a step 2) ── -->
+  <div id="setup-leagues" class="setup-screen" style="display:none">
+    <div class="vp-esplit vp-lp">
+      <div class="spline-container" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0"><iframe
+        src="https://my.spline.design/untitled-f680ea749fc30deeb5eff5a8b15b2f63" frameborder="0" width="100%"
+        height="100%" id="aura-spline-lp" style="display:block;border:0"></iframe></div>
+      <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(14,15,19,.5),rgba(14,15,19,.12) 42%,rgba(14,15,19,.72) 100%)"></div>
+
+      <div class="vp-estage" style="position:relative;z-index:3">
+        <div class="vp-lp-brand">
+          <img src="assets/marketing/vault-shield.png" alt="" onerror="this.onerror=null;this.src=window.VAULT_LOGO_WHITE">
+          <span class="wm"><span class="t1">VAULT <span>FANTASY</span></span><span class="t2">FOOTBALL</span></span>
+          <span class="vp-lp-conn"><i></i><b id="vp-lp-plat">SLEEPER CONNECTED</b></span>
         </div>
-        <div style="flex:1;height:1px;background:linear-gradient(to left,transparent,rgba(144,144,151,0.2))"></div>
+
+        <div class="vp-lp-sheet">
+          <div class="vp-lp-hd">
+            <div>
+              <div class="vp-e-eyebrow"><span class="d"></span>Step 2 of 2 · Build your profile</div>
+              <h2 class="vp-lp-h2">Pick the leagues you live in</h2>
+              <p class="vp-lp-sub" id="vp-lp-sub">Select the ones you want Vault watching.</p>
+            </div>
+            <div class="vp-lp-acts">
+              <button type="button" onclick="vpLpAll()">Select all</button>
+              <button type="button" class="mut" onclick="vpLpNone()">Clear</button>
+            </div>
+          </div>
+
+          <div class="vp-lp-grid" id="vp-lp-grid"></div>
+
+          <div class="vp-lp-foot">
+            <div>
+              <div class="vp-lp-count"><b id="vp-lp-n">0</b> of <span id="vp-lp-tot">0</span> leagues in your profile</div>
+              <div class="vp-lp-detail" id="vp-lp-detail">Select at least one league to continue</div>
+            </div>
+            <button type="button" class="vp-lp-go" id="vp-lp-go" onclick="vpLpDone()">Enter Vault Dashboard →</button>
+          </div>
+        </div>
+
+        <a class="vp-lp-skip" onclick="vpLpSkip()">Skip for now, go straight to the dashboard</a>
       </div>
-
-      <!-- LEAGUE SELECTION SECTION -->
-      <section id="setup-league-section">
-        <div class="vp-conn-banner" id="vp-conn-banner" style="display:none">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#3DCC7A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-          <div class="tx" id="vp-conn-banner-tx"><b>ESPN connected.</b> Redraft leagues imported and ready to track.</div>
-          <button class="x" onclick="document.getElementById('vp-conn-banner').style.display='none'">×</button>
-        </div>
-        <div style="margin-bottom:18px">
-          <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(61,204,122,0.1);border:1px solid rgba(61,204,122,0.25);padding:4px 12px;border-radius:9999px;margin-bottom:10px">
-            <span style="width:6px;height:6px;border-radius:50%;background:var(--rb);display:inline-block"></span>
-            <span style="font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:var(--rb)">Step 2 of 2, Build your profile</span>
-          </div>
-          <h2 style="font-size:clamp(22px,3vw,30px);font-weight:800;color:var(--text);letter-spacing:-0.03em;margin:0 0 6px;font-family:var(--font-sans)">Pick the leagues you live in</h2>
-          <p style="font-size:14px;color:var(--muted);font-family:var(--font-sans);margin:0;max-width:520px;line-height:1.5">Select every league you want in Vault. We'll track them all, switch in one tap, compare across them, never miss a draft.</p>
-        </div>
-
-        <div class="vp-toolbar">
-          <div class="vp-search"><input id="vp-search" placeholder="Search leagues…" oninput="vpRenderLeagueGrid()"></div>
-          <div class="vp-chips" id="vp-chips">
-            <button class="vp-chip on" data-f="all" onclick="vpSetFilter('all')">All <span id="vp-c-all"></span></button>
-            <button class="vp-chip" data-f="sleeper" onclick="vpSetFilter('sleeper')"><span class="pdot s"></span>Sleeper</button>
-            <button class="vp-chip" data-f="espn" onclick="vpSetFilter('espn')"><span class="pdot e"></span>ESPN</button>
-            <button class="vp-chip" data-f="live" onclick="vpSetFilter('live')">● Live</button>
-            <button class="vp-chip" data-f="redraft" onclick="vpSetFilter('redraft')">Redraft</button>
-            <button class="vp-chip" data-f="dynasty" onclick="vpSetFilter('dynasty')">Dynasty</button>
-          </div>
-          <div class="vp-bulk">
-            <button onclick="vpSelectAll(true)">Select all</button>
-            <button onclick="vpSelectAll(false)">Clear</button>
-          </div>
-        </div>
-
-        <!-- League profile grid, populated by vpRenderLeagueGrid -->
-        <div id="vp-leagues-wrap" style="margin-bottom:48px">
-          <div style="text-align:center;padding:48px;color:var(--muted);font-size:14px">
-            Connect your fantasy football account above to see your leagues here.
-          </div>
-        </div>
-
-        <!-- Finalize -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:16px">
-          <button onclick="vpEnterProfile()" style="
-            padding:16px 48px;border-radius:10px;border:none;
-            background:#bec6e0;color:var(--s1);
-            font-family:var(--font-sans);font-size:15px;font-weight:700;
-            letter-spacing:-0.01em;cursor:pointer;
-            box-shadow:0 4px 24px rgba(0,0,0,0.3);
-            display:flex;align-items:center;gap:10px;
-            transition:opacity 150ms;
-          " onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
-            Enter Vault Dashboard
-          </button>
-          <button onclick="enterWithoutDraft()" style="background:none;border:none;color:var(--muted);font-family:var(--font-mono);font-size:11px;letter-spacing:0.06em;cursor:pointer;text-decoration:underline;text-underline-offset:3px">
-            Skip for now, go to Dashboard
-          </button>
-        </div>
-      </section>
-
-      </div><!-- /vp-view-leagues -->
-
     </div>
   </div>
-
-  <!-- sticky league-profile selection bar -->
-  <div class="vp-selbar" id="vp-selbar">
-    <div class="meta">
-      <div class="big"><em id="vp-sel-count">0</em> leagues in your profile</div>
-      <div class="small" id="vp-sel-detail">Tap leagues to add them</div>
-    </div>
-    <button class="clearmini" onclick="vpSelectAll(false)">Clear</button>
-    <button class="enter" onclick="vpEnterProfile()">Add <span class="full">to profile </span>&amp; enter →</button>
-  </div>
-
 
   <!-- ── STEP 2: CONFIGURE RANKINGS (shown after draft selected) ── -->
   <div id="setup-step2" class="setup-screen" style="display:none">
@@ -8819,15 +8979,44 @@ function vswLoadHcaptcha(){
     document.head.appendChild(s);
   });
 }
+// The widget is rendered INVISIBLE and offscreen; #vsw-human is the visible control.
+// hCaptcha only shows its own challenge overlay when it decides a human check is needed.
+function vswHumanState(s){
+  const btn=document.getElementById('vsw-human');
+  const box=document.getElementById('vsw-human-box');
+  const lbl=document.getElementById('vsw-human-label');
+  const send=document.getElementById('vsw-sendcode-btn');
+  if(!btn) return;
+  btn.classList.remove('busy','ok');
+  if(box) box.textContent='';
+  if(s==='busy'){ btn.classList.add('busy'); if(lbl) lbl.textContent='Checking…'; }
+  else if(s==='ok'){ btn.classList.add('ok'); if(box) box.textContent='✓'; if(lbl) lbl.textContent="Verified — you're human"; }
+  else { if(lbl) lbl.textContent="Verify you're human"; }
+  if(send) send.classList.toggle('locked', s!=='ok');
+}
+async function vswHumanCheck(){
+  const btn=document.getElementById('vsw-human');
+  if(!btn||btn.classList.contains('ok')||btn.classList.contains('busy')) return;
+  vswHumanState('busy');
+  try{
+    await vswRenderCaptcha();
+    if(window.__vsw.captchaId===null) throw new Error('captcha unavailable');
+    window.hcaptcha.execute(window.__vsw.captchaId);
+  }catch(e){ vswHumanState('idle'); vswShowErr('Human check unavailable — reload and try again.'); }
+}
 async function vswRenderCaptcha(){
   const el=document.getElementById('vsw-hcaptcha');
   if(!el||!window.VaultSleeper) return;
   try{ await vswLoadHcaptcha(); }catch(e){ return; }
-  if(window.__vsw.captchaId!==null){ try{ window.hcaptcha.reset(window.__vsw.captchaId); }catch(e){} return; }
+  if(window.__vsw.captchaId!==null){ try{ window.hcaptcha.reset(window.__vsw.captchaId); }catch(e){} vswHumanState('idle'); return; }
   try{
     window.__vsw.captchaId = window.hcaptcha.render(el, {
-      sitekey: VaultSleeper.HCAPTCHA_SITEKEY, theme:'dark',
-      'expired-callback':()=>{}, 'error-callback':()=>{}
+      sitekey: VaultSleeper.HCAPTCHA_SITEKEY, theme:'dark', size:'invisible',
+      callback:()=>vswHumanState('ok'),
+      'expired-callback':()=>vswHumanState('idle'),
+      'chalexpired-callback':()=>vswHumanState('idle'),
+      'close-callback':()=>vswHumanState('idle'),
+      'error-callback':()=>{ vswHumanState('idle'); }
     });
   }catch(e){}
 }
@@ -8839,13 +9028,13 @@ async function vswRefreshStatus(){
   const show=(connected)=>{
     connDiv.style.display=connected?'none':'block';
     connectedDiv.style.display=connected?'block':'none';
-    badge.textContent=connected?'on':'off';
-    badge.style.color=connected?'#2ecc71':'';
-    badge.style.background=connected?'rgba(46,204,113,0.12)':'rgba(255,255,255,0.06)';
+    badge.textContent=connected?'CONNECTED':'NOT CONNECTED';
+    badge.style.color=connected?'#b9d2ec':'#6d7787';
+    badge.style.background='none';
     if(!connected){ vswResetCode(); vswRenderCaptcha(); }
   };
   try{
-    if(!window.VaultSleeper){ badge.textContent='unavailable'; show(false); return; }
+    if(!window.VaultSleeper){ badge.textContent='UNAVAILABLE'; show(false); return; }
     const s=await VaultSleeper.status();
     if(s&&s.connected){ document.getElementById('vsw-username').textContent=s.sleeperUsername||'—'; show(true); }
     else show(false);
@@ -8867,7 +9056,7 @@ async function vswSendCode(){
   const identifier=_vswIdentifier();
   let captcha=''; try{ captcha=window.hcaptcha.getResponse(window.__vsw.captchaId)||''; }catch(e){}
   if(!identifier){ vswShowErr('Enter your Sleeper username, email, or phone.'); return; }
-  if(!captcha){ vswShowErr('Tick the “I am human” box first.'); return; }
+  if(!captcha){ vswShowErr('Run the human check first.'); vswHumanState('idle'); return; }
   const orig=btn.textContent; btn.textContent='Sending…'; btn.disabled=true;
   try{
     await VaultSleeper.requestCode(identifier, captcha);
@@ -8878,6 +9067,7 @@ async function vswSendCode(){
   }catch(e){
     vswShowErr(vswMsg(e));
     try{ window.hcaptcha.reset(window.__vsw.captchaId); }catch(_){}
+    vswHumanState('idle');
   }finally{ btn.textContent=orig; btn.disabled=false; }
 }
 async function vswVerify(){
@@ -8977,17 +9167,20 @@ async function findDrafts() {
   const results = document.getElementById('draft-results');
   btn.disabled = true;
   btn.textContent = '...';
-  results.innerHTML = '<div class="find-msg">Connecting to Sleeper...</div>';
+  results.innerHTML = '';
+  try{ vpClearError(); vpConnShow(username); }catch(_){}
   try {
     const uRes = await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`);
     if (!uRes.ok) throw new Error('User not found. Check your Sleeper username and try again.');
     const user = await uRes.json();
     if (!user?.user_id) throw new Error('User not found.');
+    try{ vpConnSet(1,'done','0.4s'); vpConnSet(2,'run',''); }catch(_){}
     mySleeperUser = user;
     myTeamsUserId = user.user_id;
     localStorage.setItem(SK+'-username', username);
     updateUserHeader(user);
     await loadMyTeams();
+    try{ vpConnSet(2,'done',''); vpConnSet(3,'run',''); }catch(_){}
 
     const year = new Date().getFullYear();
     const [drafts1, drafts2, drafts3] = await Promise.all([
@@ -9006,6 +9199,17 @@ async function findDrafts() {
       return (order[a.status]??3)-(order[b.status]??3);
     });
 
+    try{
+      vpConnSet(2,'done', activeDrafts.length ? ('Found ' + activeDrafts.length) : '');
+      vpConnSet(3,'done',''); vpConnSet(4,'done','');
+      setTimeout(function(){
+        try{
+          var dr=document.getElementById('draft-results'); if(dr) dr.innerHTML='';
+          vpLpShow();                       // picker mounts while the overlay still covers it
+        }catch(_){}
+        requestAnimationFrame(function(){ requestAnimationFrame(vpConnHide); });
+      }, 420);
+    }catch(_){}
     const avatar = user.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : '';
     const displayName = user.display_name || user.username || username;
 
@@ -9044,7 +9248,9 @@ async function findDrafts() {
     }
 
   } catch(e) {
-    results.innerHTML = `<div class="find-msg err">⚠ ${e.message || 'Could not connect. Check your username and try again.'}</div>`;
+    try{ vpConnHide(); }catch(_){}
+    const msg = /not found/i.test(e.message||'') ? 'No Sleeper account with that username' : (e.message || 'Could not connect. Check your username and try again.');
+    try{ vpShowError(msg, username); }catch(_){ results.innerHTML = `<div class="find-msg err">⚠ ${msg}</div>`; }
   } finally {
     btn.disabled = false;
     btn.textContent = 'Connect';
@@ -9184,13 +9390,12 @@ let vpFilter = 'all';
 const VP_COLORS = ['var(--qb)','var(--rb)','var(--wr)','var(--te)','#bec6e0'];
 
 function vpShowView(v){
+  if (v==='leagues'){ if (typeof vpLpShow==='function') vpLpShow(); return; }
   const c = document.getElementById('vp-view-connect');
-  const l = document.getElementById('vp-view-leagues');
+  const l = null;
   if (c) c.style.display = (v==='leagues') ? 'none' : '';
   if (l) l.style.display = (v==='leagues') ? '' : 'none';
-  const bar = document.getElementById('vp-selbar');
-  if (bar && v!=='leagues') bar.classList.remove('show');
-  else vpUpdateBar();
+  vpUpdateBar();
   const s = document.getElementById('setup'); if (s) s.scrollTop = 0;
 }
 
@@ -9322,10 +9527,10 @@ function vpSetFilter(f){
 }
 function vpUpdateBar(){
   const n = vpSelected.size;
-  const bar = document.getElementById('vp-selbar');
+  const bar = null;
   const cnt = document.getElementById('vp-sel-count');
   if (cnt) cnt.textContent = n;
-  const onLeagues = document.getElementById('vp-view-leagues')?.style.display !== 'none';
+  const onLeagues = false;
   if (bar) bar.classList.toggle('show', n > 0 && onLeagues);
   if (n > 0){
     const sel = myTeamsData.filter(l => vpSelected.has(l.league_id));
@@ -34211,7 +34416,6 @@ body::after{
    so it would out-specify the primitive and give onyx its own strip skin. */
 [data-theme="onyx"] #page-draft .controls.dvc .dvc-search,
 [data-theme="onyx"] .data-info-popover,
-[data-theme="onyx"] .vp-selbar,
 [data-theme="onyx"] .lc-mt-menu,[data-theme="onyx"] .rh-mt-menu,
 [data-theme="onyx"] .settings-drawer{
   background:linear-gradient(177deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02) 24%,transparent 52%),rgba(22,23,28,0.82)!important;
@@ -42017,5 +42221,146 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 </script>
 <!-- ═══════════ /DRAFT BUDDY ═══════════ -->
 
+
+<script>
+/* ── League picker (mock 2a step 2), driven by myTeamsData ── */
+var VP_LP_SEL = [];
+var VP_LP_ROWS = [];
+var VP_LP_HUES = ['#b9d2ec','#8fb4e0','#6d8fb2','#5e7c9c','#9aa7ba','#43607d'];
+
+function vpLpFormat(lg){
+  var s = lg.settings || {};
+  if (s.best_ball) return 'Bestball';
+  if (s.type === 2 || /dynasty/i.test(lg.name||'')) return 'Dynasty';
+  if (s.type === 1) return 'Keeper';
+  return 'Redraft';
+}
+function vpLpStatus(lg){
+  var st = (lg.status||'').toLowerCase();
+  if (st === 'in_season') return ['LIVE',''];
+  if (st === 'drafting')  return ['DRAFTING',''];
+  if (st === 'complete')  return ['COMPLETE','pre'];
+  return ['PRE-DRAFT','pre'];
+}
+
+function vpLpBuild(){
+  // De-dupe by league_id, newest season first.
+  var seen = {}, rows = [];
+  (myTeamsData || []).forEach(function(lg){
+    if (!lg || !lg.league_id || seen[lg.league_id]) return;
+    seen[lg.league_id] = 1;
+    rows.push(lg);
+  });
+  VP_LP_ROWS = rows;
+  return rows;
+}
+
+function vpLpRender(){
+  var grid = document.getElementById('vp-lp-grid');
+  if (!grid) return;
+  var rows = VP_LP_ROWS;
+  if (!rows.length){
+    var u = (mySleeperUser && mySleeperUser.username) || 'that account';
+    grid.innerHTML = '<div class="vp-lp-empty">No Sleeper leagues found under <b style="color:#f6f1e6">@'+u+'</b>.'
+      + '<div style="margin-top:6px;font-size:12.5px">Check the username, or join a league in Sleeper first.</div>'
+      + '<button type="button" onclick="vpLpBack()" style="margin-top:16px;padding:11px 20px;border-radius:11px;border:1px solid rgba(154,167,186,.24);background:rgba(255,255,255,.05);color:#f6f1e6;font-family:var(--vf-sans);font-size:13px;font-weight:700;cursor:pointer">← Try a different username</button></div>';
+  } else {
+    grid.innerHTML = rows.map(function(lg,i){
+      var st = vpLpStatus(lg), on = VP_LP_SEL.indexOf(lg.league_id) >= 0;
+      var nm = lg.name || 'Untitled league';
+      return '<button type="button" class="vp-lp-card'+(on?' on':'')+'" onclick="vpLpToggle(\''+lg.league_id+'\')">'
+        + '<span class="av" style="background:linear-gradient(140deg,'+VP_LP_HUES[i%6]+',rgba(0,0,0,.5))">'+nm.charAt(0).toUpperCase()+'</span>'
+        + '<span class="tx"><span class="nm">'+nm+'</span>'
+        + '<span class="mt">'+(lg.total_rosters||'?')+'-TEAM · '+vpLpFormat(lg)+'</span></span>'
+        + '<span class="st '+st[1]+'">'+st[0]+'</span>'
+        + '<span class="ck"></span></button>';
+    }).join('');
+  }
+  var n = VP_LP_SEL.length, tot = rows.length;
+  var el;
+  if ((el=document.querySelector('.vp-lp-acts'))) el.style.display = tot ? 'flex' : 'none';
+  if ((el=document.querySelector('.vp-lp-foot'))) el.style.display = tot ? 'flex' : 'none';
+  if ((el=document.getElementById('vp-lp-n')))   el.textContent = n;
+  if ((el=document.getElementById('vp-lp-tot'))) el.textContent = tot;
+  if ((el=document.getElementById('vp-lp-detail')))
+    el.textContent = n===0 ? 'Select at least one league to continue'
+      : (n===tot ? 'Everything under this account is coming along'
+                 : n+' tracked · switch between them in one tap');
+  if ((el=document.getElementById('vp-lp-go'))) el.disabled = n===0;
+  if ((el=document.getElementById('vp-lp-sub'))){
+    var u = (mySleeperUser && mySleeperUser.username) || '';
+    el.textContent = tot+' found'+(u?(' under @'+u):'')+'. Select the ones you want Vault watching.';
+  }
+}
+
+function vpLpToggle(id){
+  var i = VP_LP_SEL.indexOf(id);
+  if (i>=0) VP_LP_SEL.splice(i,1); else VP_LP_SEL.push(id);
+  vpLpRender();
+}
+function vpLpAll(){ VP_LP_SEL = VP_LP_ROWS.map(function(l){return l.league_id;}); vpLpRender(); }
+function vpLpNone(){ VP_LP_SEL = []; vpLpRender(); }
+
+function vpLpShow(){
+  var rows = vpLpBuild();
+  // Preselect everything that is live or drafting; fall back to all.
+  var saved = [];
+  try{ saved = JSON.parse(localStorage.getItem(SK+'-leagues')||'[]'); }catch(_){}
+  var savedHere = saved.filter(function(id){ return rows.some(function(l){return l.league_id===id;}); });
+  VP_LP_SEL = savedHere.length ? savedHere
+    : rows.filter(function(l){ var s=(l.status||'').toLowerCase(); return s==='in_season'||s==='drafting'; })
+          .map(function(l){ return l.league_id; });
+  if (!VP_LP_SEL.length) VP_LP_SEL = rows.map(function(l){ return l.league_id; });
+
+  var plat = document.getElementById('vp-lp-plat');
+  if (plat){
+    var u = (mySleeperUser && mySleeperUser.username) || '';
+    plat.textContent = 'SLEEPER CONNECTED' + (u ? (' · @'+u) : '');
+  }
+  var s1=document.getElementById('setup-step1'), s2=document.getElementById('setup-step2'), lp=document.getElementById('setup-leagues');
+  if (s1) s1.style.display='none';
+  if (s2) s2.style.display='none';
+  if (lp) lp.style.display='block';
+  vpLpRender();
+}
+
+function vpLpBack(){
+  var lp=document.getElementById('setup-leagues'); if(lp) lp.style.display='none';
+  var s1=document.getElementById('setup-step1'); if(s1) s1.style.display='flex';
+  var inp=document.getElementById('sleeper-username');
+  if(inp){ inp.focus(); inp.select(); }
+}
+
+function vpLpSave(){
+  try{ localStorage.setItem(SK+'-leagues', JSON.stringify(VP_LP_SEL)); }catch(_){}
+}
+
+function vpLpDone(){
+  if (!VP_LP_SEL.length) return;
+  vpLpSave();
+  var lp=document.getElementById('setup-leagues');
+  if (lp) lp.style.display='none';
+  // Hand off to the existing flow: pick the first selected league's draft if there is one.
+  var first = VP_LP_ROWS.filter(function(l){ return VP_LP_SEL.indexOf(l.league_id)>=0; })[0];
+  try{
+    if (first && first.draft_id && typeof selectDraftAndAdvance === 'function'){
+      selectDraftAndAdvance(first.draft_id, first.name, [vpLpFormat(first)]);
+      return;
+    }
+  }catch(_){}
+  vpLpSkip();
+}
+
+function vpLpSkip(){
+  vpLpSave();
+  var lp=document.getElementById('setup-leagues');
+  if (lp) lp.style.display='none';
+  try{
+    if (typeof finishSetup === 'function') { finishSetup(); return; }
+    if (typeof useDefaultRankings === 'function') { useDefaultRankings(); return; }
+  }catch(_){}
+  var s=document.getElementById('setup'); if (s) s.classList.add('gone');
+}
+</script>
 </body>
 </html>
