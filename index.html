@@ -5556,19 +5556,22 @@ function pgsOpen(name, pos, team){
       <span class="dv-sync-ind" title="Dynasty/Redraft stays in sync with My Rankings">⇄ synced</span>
     </div>
     <div class="dv-grp dvg-src">
-      <span class="dv-ctl-label">Source</span>
-      <!-- Dynasty value source as a compact dropdown so the whole toolbar fits one row.
-           The hidden buttons stay for JS state (on-class + FC freshness label). -->
-      <select class="dvc-src-select" id="dv-src-select" onchange="setSortMode(this.value)" title="Value source for the Dynasty column">
+      <span class="dv-ctl-label">Market</span>
+      <!-- The DYNASTY column is the MARKET column (FantasyCalc / RosterAudit).
+           Your ranking sets are separate named columns — pick them under "Rankings". -->
+      <select class="dvc-src-select" id="dv-src-select" onchange="setSortMode(this.value)" title="Market value source for the Dynasty column">
         <option value="ra">RosterAudit</option>
         <option value="fc" selected>FantasyCalc</option>
-        <option value="my">Mine</option>
       </select>
       <div class="dvc-seg src-seg" title="Value source for the Dynasty column" style="display:none">
         <button class="sbtn sort-mode" id="sm-ra" onclick="setSortMode('ra')" title="RosterAudit dynasty value (Elo from 500k+ Sleeper leagues)">RosterAudit</button>
         <button class="sbtn sort-mode on" id="sm-fc" onclick="setSortMode('fc')" title="FantasyCalc dynasty value (~1M user-submitted dynasty trades, refreshed live)">FantasyCalc<span id="sm-fc-age" style="font-size:8px;opacity:.55;margin-left:4px;font-weight:400"></span></button>
         <button class="sbtn sort-mode" id="sm-my" onclick="setSortMode('my')" title="Your custom board from My Rankings">Mine</button>
       </div>
+    </div>
+    <div class="dv-grp dvg-cols">
+      <span class="dv-ctl-label">Rankings</span>
+      <div id="dv-col-chips" class="dv-col-chips" title="Show a column for each of your ranking sets"></div>
     </div>
     <div class="dv-grp">
       <span class="dv-ctl-label">Pos</span>
@@ -5684,7 +5687,9 @@ function pgsOpen(name, pos, team){
       <button class="pm-sortchip on" id="pmsort-dyn" onclick="setSort('dynasty-col')"><span class="pm-chip-dot" style="background:var(--gold)"></span>Dynasty</button>
       <button class="pm-sortchip"    id="pmsort-rdr" onclick="setSort('redraft-col')"><span class="pm-chip-dot" style="background:var(--wr)"></span>Redraft</button>
       <button class="pm-sortchip"    id="pmsort-adp" onclick="setSort('adp-col')"><span class="pm-chip-dot" style="background:var(--violet)"></span>ADP</button>
-      <button class="pm-sortchip" id="pmsort-my" onclick="setSort('my-col')"><span class="pm-chip-dot" style="background:var(--rb)"></span>Mine</button>
+      <!-- One "sort by set" chip per My Rankings profile is generated here by
+           dvRenderMobileSortChips() (mobile has no columns, so this is how you
+           sort the list by any specific ranking set). -->
       <button class="pm-sortchip" id="pmsort-pg" onclick="setSort('pg-col')"><span class="pm-chip-dot" style="background:var(--gold)"></span>Pick grade</button>
     </div>
     <!-- 4-factor grade key: hover any item for the full calculation -->
@@ -5705,7 +5710,7 @@ function pgsOpen(name, pos, team){
          but bounded to ~viewport height so the Draft Board below stays reachable -->
     <div class="plist-scroll">
     <table class="plist-table">
-      <colgroup>
+      <colgroup id="plist-colgroup">
         <col class="col-draft"><col class="col-rk"><col class="col-name"><col class="col-dynasty"><col class="col-redraft"><col class="col-adp"><col class="col-my"><col class="col-fup"><col class="col-ffl"><col class="col-frk"><col class="col-fsi"><col class="col-pgrade"><col class="col-watch2">
       </colgroup>
       <thead class="plist-thead" id="lhdr">
@@ -9612,6 +9617,8 @@ function loadSaved() {
 // chip is actually rendered.
 function _pmSortChipId(k){
   var fmtChip = (window._dvMode === 'redraft') ? 'pmsort-rdr' : 'pmsort-dyn';
+  // Sort by a specific ranking set → its generated mobile chip.
+  if (typeof k === 'string' && k.indexOf('myprof:') === 0) return 'pmsort-myprof-' + k.slice(7);
   switch (k) {
     case 'dynasty-col': return 'pmsort-dyn';
     case 'redraft-col': return 'pmsort-rdr';
@@ -12389,6 +12396,15 @@ function setSort(k){
     _dvRenderWhenReady();
     return;
   }
+  // Sort by a specific ranking-set column (one of the MINE columns).
+  if (typeof k === 'string' && k.indexOf('myprof:') === 0) {
+    sortKey = k;
+    updateColumnHdrIndicators(k);
+    try{ if(window.MyRankings && MyRankings.getRankInfoFor) MyRankings.getRankInfoFor(k.slice(7), '', window._dvMode==='redraft'?'redraft':'dynasty'); }catch(e){}
+    renderList();
+    _dvRenderWhenReady();
+    return;
+  }
 
   // ADP sorts use the new loader (FFC-sourced, per format + team size)
   if(k==='adp-dynasty'){
@@ -12426,6 +12442,14 @@ function updateColumnHdrIndicators(activeCol){
     // Sync the mobile sort bar buttons
     const mb = document.getElementById('msort-'+c);
     if (mb) mb.classList.toggle('on', c === activeCol);
+  });
+  // Per-profile MINE columns: activeCol like "myprof:<id>" lights ind-myprof-<id>.
+  const profId = (typeof activeCol==='string' && activeCol.indexOf('myprof:')===0) ? activeCol.slice(7) : null;
+  document.querySelectorAll('#lhdr .col-prof-th').forEach(th=>{
+    const el = th.querySelector('.sort-ind');
+    const on = profId && el && el.id === 'ind-myprof-'+profId;
+    if (el){ el.textContent = on ? '↓' : '↕'; el.classList.toggle('active', !!on); }
+    th.classList.toggle('sort-on', !!on);
   });
 }
 
@@ -12540,21 +12564,31 @@ function toggleDataSourceInfo(event){
 
 // ===== Merged sort+value mode (StatChasers-style: one click sets BOTH sort and DYNASTY column source) =====
 function setSortMode(mode){
+  // The Source dropdown lists each My Rankings profile as "my:<id>". Picking one
+  // makes it the globally-active profile AND selects Mine as the source — that
+  // single act applies those rankings to the board. Canonicalise to 'my' here.
+  if (mode && mode.slice(0,3) === 'my:') {
+    const _pid = mode.slice(3);
+    try { if (window.MyRankings && MyRankings.setActive) MyRankings.setActive(_pid); } catch(e){}
+    mode = 'my';
+  }
   // Toggle visual state for the 3 sort-mode buttons
   ['ra','fc','my'].forEach(m => {
     const b = document.getElementById('sm-'+m);
     if (b) b.classList.toggle('on', m === mode);
   });
-  // Keep the Source dropdown in sync
+  // Keep the Market dropdown in sync (fc / ra only; 'my' shows as FantasyCalc).
   const srcSel = document.getElementById('dv-src-select');
-  if (srcSel && srcSel.value !== mode) srcSel.value = mode;
-  // Update the DYNASTY column header source label (FC / RA / MY)
+  const _selVal = (mode === 'ra') ? 'ra' : 'fc';
+  if (srcSel && srcSel.value !== _selVal) { try { dvRefreshSrcProfiles(); } catch(e){} srcSel.value = _selVal; }
+  // The DYNASTY column is the market column: label it directly from `mode` (the
+  // global valueSource updates a few lines down, so reading it here would race).
   const srcEl = document.getElementById('hdr-dynasty-src');
   if (srcEl) {
-    srcEl.textContent = mode.toUpperCase();
     srcEl.classList.remove('src-ra', 'src-my');
     if (mode === 'ra') srcEl.classList.add('src-ra');
-    else if (mode === 'my') srcEl.classList.add('src-my');
+    srcEl.textContent = (mode === 'ra') ? 'ROSTERAUDIT' : 'FANTASYCALC';
+    srcEl.title = (mode === 'ra' ? 'RosterAudit' : 'FantasyCalc') + ' market value';
   }
   if (mode === 'ra') {
     // RosterAudit: set value source AND sort by RA *value* desc (matches DYNASTY column)
@@ -14402,6 +14436,21 @@ function sortedPlayers(){
     };
     return bySortedKey(p => gi(p.name), 1);
   }
+  // "myprof:<id>" sort = a specific ranking set's board order (rank asc), active mode.
+  if(typeof sortKey==='string' && sortKey.indexOf('myprof:')===0){
+    const id = sortKey.slice(7);
+    const f = (window._dvMode==='redraft') ? 'redraft' : 'dynasty';
+    const gi = (n)=>{
+      if(!window.MyRankings || !MyRankings.getRankInfoFor) return 99999;
+      const mi = MyRankings.getRankInfoFor(id, n, f);
+      if(mi) return mi.myRank;
+      // unranked in the active format sort below ranked players, but keep a sane
+      // order among themselves via the dynasty board (see the my-col note above).
+      const dyn = (f==='dynasty') ? null : MyRankings.getRankInfoFor(id, n, 'dynasty');
+      return dyn ? 100000 + dyn.myRank : 99999;
+    };
+    return bySortedKey(p => gi(p.name), 1);
+  }
   // "my" sort = user's uploaded CSV ranks (stored in p.rMy)
   if(sortKey==='my'){
     return [...src].sort((a,b)=>(a.rMy||9999)-(b.rMy||9999));
@@ -14442,6 +14491,10 @@ function renderList(){
   const mobileContainer=document.getElementById('plist-mobile');
   if(!tbody) return;
   try{ _dvEnsureSleeperAdp(); }catch(e){}   // Sleeper-draft: swap ADP column to Sleeper ADP once loaded
+  // Keep the profile columns (colgroup + header) in sync BEFORE building rows, so
+  // the per-row MINE cell count always matches the header. Signature-guarded, so
+  // this is a no-op on the hot path unless the selected columns changed.
+  try{ dvSyncColumns(); }catch(e){}
 
   
   if (!PLAYERS.length) {
@@ -14671,8 +14724,11 @@ function renderList(){
       dynastyColor = 'var(--suggest)';     // purple
       redraftColor = 'var(--muted)';
     } else {
-      // Real players: live values from current value source (FC or RA when loaded)
-      dynastyVal = getPlayerValue(p.name) || 0;
+      // Real players: DYNASTY column is the MARKET column (FantasyCalc / RosterAudit),
+      // never a profile — coerce a global 'my' source to FantasyCalc for this column.
+      dynastyVal = ((typeof valueSource!=='undefined' && valueSource==='my')
+                    ? (getFCValue(p.name)?.value || 0)
+                    : (getPlayerValue(p.name) || 0));
       const fc = getFCValue(p.name);
       redraftVal = (fc && fc.redraftValue) || 0;
       dynastyColor = 'var(--gold)';            // gold (matches StatChasers screenshot)
@@ -14703,18 +14759,29 @@ function renderList(){
       }
     }
 
-    // ===== MINE column: your value + rank + delta vs market (from My Rankings) =====
-    let myHtml = '<span style="color:var(--muted)">—</span>';
-    if (p.pos !== 'PICK' && window.MyRankings) {
-      const mi = MyRankings.getRankInfo(p.name, _dvm === 'redraft' ? 'redraft' : 'dynasty');
-      if (mi) {
-        const dd = mi.delta;
-        const dchip = dd>0 ? `<span style="color:var(--rb)">▲${dd}</span>`
-                    : dd<0 ? `<span style="color:var(--qb)">▼${-dd}</span>`
-                    : `<span style="color:var(--muted)">·</span>`;
-        myHtml = `<span style="color:var(--rb);font-weight:700">${(mi.value||0).toLocaleString()}</span>`
+    // ===== MINE columns: one per selected ranking set (value + rank + Δ vs market) =====
+    const _mineCols = (typeof dvGetMineCols==='function') ? dvGetMineCols() : [];
+    const _mineFmt = _dvm === 'redraft' ? 'redraft' : 'dynasty';
+    const _myCellStyle = 'font-family:var(--font-mono);font-size:12px;font-weight:500;text-align:right;padding-right:8px';
+    let profCellsHtml;
+    if (p.pos !== 'PICK' && window.MyRankings && _mineCols.length) {
+      profCellsHtml = _mineCols.map(id=>{
+        const mi = MyRankings.getRankInfoFor(id, p.name, _mineFmt);
+        let cell = '<span style="color:var(--muted)">—</span>';
+        if (mi) {
+          const dd = mi.delta;
+          const dchip = dd>0 ? `<span style="color:var(--rb)">▲${dd}</span>`
+                      : dd<0 ? `<span style="color:var(--qb)">▼${-dd}</span>`
+                      : `<span style="color:var(--muted)">·</span>`;
+          cell = `<span style="color:var(--rb);font-weight:700">${(mi.value||0).toLocaleString()}</span>`
                + `<span style="display:block;font-size:9px;color:var(--muted);margin-top:1px">#${mi.myRank} ${dchip}</span>`;
-      }
+        }
+        return `<td class="td-my" style="${_myCellStyle}">${cell}</td>`;
+      }).join('');
+    } else {
+      // Picks / no data: still emit one empty cell per column so the grid stays aligned.
+      const n = Math.max(1, _mineCols.length);
+      profCellsHtml = `<td class="td-my" style="${_myCellStyle}"><span style="color:var(--muted)">—</span></td>`.repeat(n);
     }
     const _statusCell = isDrafted ? statusHtml : (vbadgeHtml || '<span style="color:var(--muted)">—</span>');
     // Draft Now cell (leftmost). Always present to keep the colgroup aligned;
@@ -14739,7 +14806,7 @@ function renderList(){
       <td class="td-dynasty" style="font-family:var(--font-mono);font-size:12.5px;font-weight:700;text-align:right;padding-right:8px">${dynastyHtml}</td>
       <td class="td-redraft" style="font-family:var(--font-mono);font-size:12px;font-weight:500;text-align:right;padding-right:8px">${redraftHtml}</td>
       <td class="td-adp" style="font-family:var(--font-mono);font-size:12px;font-weight:500;text-align:right;padding-right:8px">${adpHtml}</td>
-      <td class="td-my" style="font-family:var(--font-mono);font-size:12px;font-weight:500;text-align:right;padding-right:8px">${myHtml}</td>
+      ${profCellsHtml}
       ${(()=>{
         const F = (window._dvFactors && window._dvFactors[nn]) || null;
         const _esc = s => String(s||'').replace(/"/g,'&quot;');
@@ -15656,10 +15723,155 @@ function _syncSrcUI(src){
   document.querySelectorAll('#lr-srctoggle .lr-srcdot, #ov-srctoggle .lr-srcdot').forEach(dot=>{ dot.style.background = isMine ? 'var(--sky,#7bd0ff)' : 'var(--rb)'; });
   // Draft Vault sort-mode buttons + value pills
   ['ra','fc','my'].forEach(m=>{ document.getElementById('sm-'+m)?.classList.toggle('on', m===src); });
-  const _srcSel = document.getElementById('dv-src-select'); if (_srcSel && _srcSel.value !== src) _srcSel.value = src;
+  try { dvRefreshSrcProfiles(); } catch(e){}
+  const _srcSel = document.getElementById('dv-src-select');
+  // Market dropdown only carries fc / ra; a global 'my' source shows as FantasyCalc here.
+  if (_srcSel) { const _sv = (src==='ra') ? 'ra' : 'fc'; if (_srcSel.value !== _sv) _srcSel.value = _sv; }
   document.getElementById('val-fc')?.classList.toggle('on', src==='fc');
   document.getElementById('val-ra')?.classList.toggle('on', src==='ra');
 }
+
+// Populate the Draft Vault "Source" dropdown's Mine section with one option per
+// My Rankings profile (value "my:<id>"). Replaces the static "Mine" option with
+// an <optgroup> so the user can pick WHICH rankings drive the board, on demand.
+// Called from _syncSrcUI (every navigation) and whenever profiles change.
+// The board's dedicated MINE column (and the Dynasty column when its source is a
+// profile) should name the ACTIVE ranking set, not a generic "YOU". Keep the chip
+// short so the narrow header column doesn't blow out; full name goes in the tooltip.
+function _dvShortProfName(n){
+  n = (n||'').trim(); if(!n) return 'YOU';
+  const up = n.toUpperCase();
+  if (up.length <= 10) return up;
+  const first = up.split(/\s+/)[0];
+  return first.length <= 10 ? first : first.slice(0,10);
+}
+// The DYNASTY column is the MARKET column (never a profile) — name its source.
+// Read the market SELECT (set synchronously on every source change) rather than
+// the global valueSource, which updates a few statements later inside setSortMode
+// and would make an async label refresh read a stale value ("one step behind").
+function _dvMarketSrcName(){
+  const sel = document.getElementById('dv-src-select');
+  const v = sel ? sel.value : ((typeof valueSource!=='undefined' && valueSource==='ra') ? 'ra' : 'fc');
+  return v === 'ra' ? 'ROSTERAUDIT' : 'FANTASYCALC';
+}
+function dvSyncProfileLabels(){
+  // Market column label reflects only the market source (FantasyCalc / RosterAudit).
+  const d = document.getElementById('hdr-dynasty-src');
+  if (d) { const nm=_dvMarketSrcName(); d.textContent = nm; d.title = (nm==='ROSTERAUDIT'?'RosterAudit':'FantasyCalc') + ' market value'; }
+}
+
+function dvRefreshSrcProfiles(){
+  try { dvSyncProfileLabels(); } catch(e){}
+  try { dvSyncColumns(); } catch(e){}
+  // The Market dropdown is FantasyCalc / RosterAudit only now — clean up any
+  // legacy profile options a previous build may have injected.
+  const sel = document.getElementById('dv-src-select');
+  if (sel) { sel.querySelector('optgroup.dv-src-profs')?.remove(); sel.querySelector('option[value="my"]')?.remove(); }
+}
+
+// ── Draft Vault: profile COLUMNS (one named column per selected ranking set) ──
+// Which ranking sets show as columns on the board. Persisted; defaults to the
+// active set so an existing single-MINE board carries over as N=1.
+function dvGetMineCols(){
+  let ids = [];
+  try { ids = JSON.parse(localStorage.getItem('dcmd-v5-dvcols') || '[]'); } catch(e){}
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+  const valid = new Set(profs.map(p=>p.id));
+  ids = (Array.isArray(ids) ? ids : []).filter(id=>valid.has(id));
+  if (!ids.length) {
+    const act = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
+    if (act && valid.has(act)) ids = [act];
+    else if (profs.length) ids = [profs[0].id];
+  }
+  return ids;
+}
+function dvSetMineCols(ids){ try { localStorage.setItem('dcmd-v5-dvcols', JSON.stringify(ids)); } catch(e){} }
+function dvToggleMineCol(id){
+  let ids = dvGetMineCols();
+  const i = ids.indexOf(id);
+  if (i>=0) { if (ids.length<=1) return; ids.splice(i,1); }   // keep at least one column
+  else ids.push(id);
+  dvSetMineCols(ids);
+  // if the active sort was on a now-hidden column, fall back to the market column
+  if (typeof sortKey!=='undefined' && String(sortKey).indexOf('myprof:')===0 && !ids.includes(String(sortKey).slice(7))) {
+    try { setSort('dynasty-col'); } catch(e){}
+  }
+  dvSyncColumns();
+  try { renderList(); } catch(e){}
+}
+function dvColProfName(id){ const p=((window.MyRankings&&MyRankings.list)?MyRankings.list():[]).find(x=>x.id===id); return p?p.name:'Set'; }
+function _dvEscAttr(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function dvRenderColChips(){
+  const box = document.getElementById('dv-col-chips'); if(!box) return;
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+  if (!profs.length) { box.innerHTML=''; return; }
+  const on = new Set(dvGetMineCols());
+  box.innerHTML = profs.map(p=>`<button class="dv-colchip ${on.has(p.id)?'on':''}" onclick="dvToggleMineCol('${p.id}')" title="Show/hide the ${_dvEscAttr(p.name)} column on the board">${on.has(p.id)?'✓ ':''}${_dvEscAttr(p.name)}</button>`).join('');
+}
+// Rebuild the colgroup + header cells so the table has one MINE column per set.
+let _dvColsSig = '';
+function dvRenderProfileCols(){
+  const ids = dvGetMineCols();
+  const cg = document.getElementById('plist-colgroup');
+  const tr = document.querySelector('#lhdr tr');
+  if (!cg || !tr) return;
+  const sig = ids.join(',') + '|' + ids.map(dvColProfName).join(',');
+  if (sig === _dvColsSig && cg.querySelectorAll('col.col-my').length === ids.length) return;
+  _dvColsSig = sig;
+  // COLGROUP: replace the col-my set
+  [...cg.querySelectorAll('col.col-my')].forEach(c=>c.remove());
+  const adpCol = cg.querySelector('col.col-adp');
+  if (adpCol) { let after=adpCol; ids.forEach(()=>{ const c=document.createElement('col'); c.className='col-my'; after.insertAdjacentElement('afterend', c); after=c; }); }
+  // THEAD: replace the profile <th> set (and drop the original single MINE th)
+  [...tr.querySelectorAll('.col-prof-th')].forEach(t=>t.remove());
+  document.getElementById('hdr-my')?.remove();
+  const adpTh = document.getElementById('hdr-adp');
+  if (adpTh) {
+    let after = adpTh;
+    ids.forEach(id=>{
+      const th = document.createElement('th');
+      th.className = 'num-hdr col-hdr-sortable col-prof-th';
+      th.style.cssText = 'text-align:right;padding-right:8px;cursor:pointer';
+      th.title = 'Sort by ' + dvColProfName(id) + ' — your ranking set (value + rank; ▲/▼ = vs FantasyCalc market)';
+      th.addEventListener('click', ()=>{ try{ setSort('myprof:'+id); }catch(e){} });
+      // Stacked header: name + sort arrow on top, the MINE tag underneath, so a
+      // long set name never crowds the next column and the sort affordance shows.
+      const wrap = document.createElement('span'); wrap.className = 'mprof-hdr';
+      const top = document.createElement('span'); top.className = 'mprof-htop';
+      const nm = document.createElement('span'); nm.className = 'mprof-hn'; nm.textContent = dvColProfName(id);
+      const ind = document.createElement('span'); ind.className = 'sort-ind'; ind.id = 'ind-myprof-'+id; ind.textContent = '↕';
+      top.append(nm, ind);
+      const tag = document.createElement('span'); tag.className = 'hdr-source-label src-my mprof-htag'; tag.textContent = 'MINE';
+      wrap.append(top, tag);
+      th.append(wrap);
+      after.insertAdjacentElement('afterend', th); after = th;
+    });
+  }
+}
+// Mobile: one "sort by set" chip per ranking profile (the board there has no
+// columns, so this is how a phone sorts the list by any specific set).
+let _dvMSortSig = '';
+function dvRenderMobileSortChips(){
+  const bar = document.getElementById('pm-sortbar'); if(!bar) return;
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+  const sig = profs.map(p=>p.id+':'+p.name).join('|');
+  if (sig === _dvMSortSig && bar.querySelectorAll('.pm-setchip').length === profs.length) return;
+  _dvMSortSig = sig;
+  [...bar.querySelectorAll('.pm-setchip')].forEach(c=>c.remove());
+  document.getElementById('pmsort-my')?.remove();   // drop the legacy single "Mine" chip if present
+  const anchor = document.getElementById('pmsort-pg');   // set chips sit before Pick grade
+  profs.forEach(p=>{
+    const b = document.createElement('button');
+    b.className = 'pm-sortchip pm-setchip';
+    b.id = 'pmsort-myprof-'+p.id;
+    b.title = 'Sort by ' + p.name;
+    b.addEventListener('click', ()=>{ try{ setSort('myprof:'+p.id); }catch(e){} });
+    const dot = document.createElement('span'); dot.className='pm-chip-dot'; dot.style.background='var(--rb)';
+    b.append(dot, document.createTextNode(p.name));
+    if (anchor) bar.insertBefore(b, anchor); else bar.appendChild(b);
+  });
+}
+function dvSyncColumns(){ try{ dvRenderColChips(); }catch(e){} try{ dvRenderProfileCols(); }catch(e){} try{ dvRenderMobileSortChips(); }catch(e){} }
 // Lightweight source apply, sets the source + button state without forcing a double re-render
 // (the page's own render runs right after in showPage and will read the new valueSource).
 function _applySrc(src){
@@ -25993,13 +26205,35 @@ function pickYear(year) {
   let format = (typeof window!=='undefined' && window._dvMode==='redraft') ? 'redraft' : 'dynasty';  // shared with Draft Vault mode
   let posFilter = 'ALL';
   let searchQ = '';
-  let compareSrc = null;                  // null | 'fc' | 'ra'  (side-by-side market column)
+  let compareSrc = null;                  // truthy = multi-source compare matrix is on
+  // Compare matrix: which sources appear as columns, and which one orders the rows.
+  // A source key is 'fc' (FantasyCalc market) or a profile id. Seeded on first open.
+  let cmpCols = null;                     // e.g. ['fc', '<activeProfileId>', '<otherId>']
+  let cmpSort = 'fc';                     // the source key the rows are ordered by
   let baseline = { dynasty: [], redraft: [] };  // [{name,pos,team,age,value,fcRank}] sorted by market value
-  // per-format user state
-  const state = {
-    dynasty: { order: null, pinned: {}, notes: {}, breaks: null },
-    redraft: { order: null, pinned: {}, notes: {}, breaks: null },
-  };
+
+  // ── Named ranking profiles ─────────────────────────────────────────
+  // The page used to be a single board. It is now a *library* of named
+  // profiles (your own board, imported creators, etc.). Each profile carries
+  // its own independent Dynasty + Redraft board. Exactly one is active at a
+  // time; `state` mirrors the active profile's two boards BY REFERENCE, so
+  // every existing `state[format].xxx` read/write below keeps working and
+  // mutates the active profile in place. Because of that, code must MUTATE the
+  // fields of state[format] and never REPLACE state[format] wholesale (that
+  // would sever the reference) — see _reset / load, which mutate in place.
+  function blankSide(){ return { order:null, pinned:{}, notes:{}, breaks:null }; }
+  function normSide(s){ s=s||{}; return { order:s.order||null, pinned:s.pinned||{}, notes:s.notes||{}, breaks:s.breaks||null }; }
+  let _pidSeq = 0;
+  function newProfile(name){
+    return { id:'mrp_'+Date.now().toString(36)+'_'+(_pidSeq++).toString(36),
+             name:(name||'My Board'), dynasty:blankSide(), redraft:blankSide() };
+  }
+  let profiles = [ newProfile('My Board') ];
+  let activeId = profiles[0].id;
+  function activeProfile(){ return profiles.find(p=>p.id===activeId) || profiles[0]; }
+  // per-format user state — a live view onto the ACTIVE profile (rebound on switch)
+  let state = { dynasty: profiles[0].dynasty, redraft: profiles[0].redraft };
+  function syncState(){ const p=activeProfile(); state.dynasty=p.dynasty; state.redraft=p.redraft; }
   let _dragFrom = null;
   let _gk = null;   // Grade Keys factor map for the current board (normName → factors)
 
@@ -26137,25 +26371,37 @@ function pickYear(year) {
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(SK) || '{}');
-      ['dynasty','redraft'].forEach(f=>{
-        if (raw[f]) {
-          state[f].pinned = raw[f].pinned || {};
-          state[f].notes  = raw[f].notes  || {};
-          state[f].order  = raw[f].order  || null;
-          state[f].breaks = raw[f].breaks || null;
-        }
-      });
+      if (raw && Array.isArray(raw.profiles) && raw.profiles.length) {
+        profiles = raw.profiles.map(p => ({
+          id: p.id || newProfile().id,
+          name: p.name || 'Board',
+          dynasty: normSide(p.dynasty),
+          redraft: normSide(p.redraft),
+        }));
+        activeId = (raw.activeId && profiles.some(p=>p.id===raw.activeId)) ? raw.activeId : profiles[0].id;
+      } else if (raw && (raw.dynasty || raw.redraft)) {
+        // MIGRATION: the old single-board shape becomes one profile "My Board",
+        // so nobody loses the rankings they already built.
+        const p = newProfile('My Board');
+        p.dynasty = normSide(raw.dynasty);
+        p.redraft = normSide(raw.redraft);
+        profiles = [p];
+        activeId = p.id;
+      }
+      syncState();
     } catch(e){}
   }
   function save() {
     try {
-      const out = {};
-      ['dynasty','redraft'].forEach(f=>{
-        out[f] = { pinned:state[f].pinned, notes:state[f].notes, order:state[f].order, breaks:state[f].breaks };
-      });
-      localStorage.setItem(SK, JSON.stringify(out));
+      localStorage.setItem(SK, JSON.stringify({ profiles, activeId }));
     } catch(e){}
   }
+  // Read the profile library from storage WITHOUT the heavy board build that
+  // init() does. The Draft Vault Source dropdown only needs profile names, and
+  // it refreshes on every navigation — so listing profiles must not force a
+  // full boot (buildBaseline / ADP warm) on pages that never touch Mine.
+  let _loadedOnce = false;
+  function ensureLoaded(){ if (_loadedOnce) return; _loadedOnce = true; load(); }
 
   // ── Board computation (hybrid market-tracking) ─────────────────────
   // If the user has reordered, we keep an explicit `order` array but re-merge
@@ -26237,6 +26483,7 @@ function pickYear(year) {
 
   // ── Helpers ────────────────────────────────────────────────────────
   function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function customCount(){ const p=state[format].pinned; return Object.keys(p).filter(k=>p[k]).length; }
 
   // ════════════════════════════════════════════════════════════════
@@ -26244,12 +26491,60 @@ function pickYear(year) {
   // ════════════════════════════════════════════════════════════════
   const _cache = { dynasty:null, redraft:null };
   const _uniCache = { dynasty:null, redraft:null };
-  function invalidate(){ _cache.dynasty=null; _cache.redraft=null; _uniCache.dynasty=null; _uniCache.redraft=null; }
+  let _profCache = {};   // keyed "<profileId>|<format>" — per-profile boards for the DV columns
+  function invalidate(){ _cache.dynasty=null; _cache.redraft=null; _uniCache.dynasty=null; _uniCache.redraft=null; _profCache={}; }
   function boardFor(f){
     const save_=format; format=f;
     const r = computeBoard(); format=save_;
     const m = new Map(); r.forEach(x=>m.set(norm(x.name), x));
     return { rows:r, map:m };
+  }
+  // Compute ANY profile's board for a format without disturbing the active one.
+  // `state` holds references to the active profile's two sides, so we swap those
+  // references (and format), run the normal computeBoard, then restore.
+  function boardForProfileSide(prof, f){
+    const sd=state.dynasty, sr=state.redraft, sf=format;
+    state.dynasty=prof.dynasty; state.redraft=prof.redraft; format=f;
+    let rows; try { rows=computeBoard(); } finally { state.dynasty=sd; state.redraft=sr; format=sf; }
+    const m=new Map(); rows.forEach(x=>m.set(norm(x.name), x));
+    return { rows, map:m };
+  }
+
+  // ── Compare matrix: source model ───────────────────────────────────
+  // A "source" is FantasyCalc market ('fc') or a saved profile (its id).
+  function cmpSourceMeta(key){
+    if(key==='fc') return { key:'fc', name:'FantasyCalc', market:true };
+    const p = profiles.find(x=>x.id===key);
+    return p ? { key:p.id, name:p.name, market:false } : null;
+  }
+  function seedCmpCols(){
+    if(cmpCols && cmpCols.length) return;
+    // Default columns: the market + your active board + one more profile if any.
+    cmpCols = ['fc', activeId];
+    const other = profiles.find(p=>p.id!==activeId);
+    if(other) cmpCols.push(other.id);
+    cmpSort = 'fc';
+  }
+  // Rank/value lookup maps for every currently-selected source, this format.
+  function cmpBuildData(f){
+    seedCmpCols();
+    // prune any columns whose profile was deleted since selection
+    cmpCols = cmpCols.filter(k=>k==='fc' || profiles.some(p=>p.id===k));
+    if(!cmpCols.length) cmpCols=['fc'];
+    if(!cmpCols.includes(cmpSort)) cmpSort = cmpCols[0];
+    // market rank/value by name (fcRank is identical across profiles)
+    const mkt = new Map();
+    (baseline[f]||[]).forEach(p=>mkt.set(norm(p.name), { rank:p.fcRank, value:p.value }));
+    const cols = cmpCols.map(key=>{
+      const meta = cmpSourceMeta(key); if(!meta) return null;
+      if(meta.market){
+        return { ...meta, get:(nk)=>{ const e=mkt.get(nk); return e?{rank:e.rank,value:e.value}:null; } };
+      }
+      const prof = profiles.find(p=>p.id===key);
+      const b = boardForProfileSide(prof, f);
+      return { ...meta, get:(nk)=>{ const e=b.map.get(nk); return e?{rank:e.myRank,value:e.myValue}:null; } };
+    }).filter(Boolean);
+    return { cols, mkt };
   }
   // ── The draftable-market universe (single grading pool) ────────────
   // Every player FantasyCalc prices in this format — i.e. the players you could
@@ -26291,6 +26586,21 @@ function pickYear(year) {
       return { myRank:e.myRank, posRank:e.myPosRank, value:e.myValue,
                marketRank:e.fcRank, delta:e.fcRank - e.myRank, pinned:e.pinned, pos:e.pos };
     },
+    // Like getRankInfo but for a SPECIFIC profile (the Draft Vault renders one
+    // column per selected profile). Per-profile board is cached + invalidated
+    // with everything else, so renderList calling this per player stays cheap.
+    getRankInfoFor(id, name, f){
+      f = f || 'dynasty';
+      if (!_booted) init();
+      maybeRebuild();
+      const prof = profiles.find(p=>p.id===id); if(!prof) return null;
+      const key = id+'|'+f;
+      if(!_profCache[key]) _profCache[key] = boardForProfileSide(prof, f);
+      const e = _profCache[key].map.get(norm(name));
+      if(!e) return null;
+      return { myRank:e.myRank, posRank:e.myPosRank, value:e.myValue,
+               marketRank:e.fcRank, delta:e.fcRank - e.myRank, pinned:e.pinned, pos:e.pos };
+    },
     // for global value source = 'my'
     getValue(name, f){
       const info = this.getRankInfo(name, f||'dynasty');
@@ -26306,6 +26616,15 @@ function pickYear(year) {
   save = function(){ _save(); invalidate();
     try { if (typeof renderList==='function') renderList(); } catch(e){}
   };
+
+  // After a profile is added / renamed / deleted / switched, refresh the
+  // surfaces OUTSIDE this module that name profiles: the Draft Vault Source
+  // dropdown and its on/off state. (The draft list itself already re-renders
+  // via the save() wrapper above.)
+  function _profExternalRefresh(){
+    try { if (typeof dvRefreshSrcProfiles==='function') dvRefreshSrcProfiles(); } catch(e){}
+    try { if (typeof valueSource!=='undefined' && valueSource==='my' && typeof _syncSrcUI==='function') _syncSrcUI('my'); } catch(e){}
+  }
 
   // ════════════════════════════════════════════════════════════════
   //  RENDER
@@ -26455,6 +26774,13 @@ function pickYear(year) {
 #P .mr-abtn.on{border-color:var(--accent2);color:var(--accent3);background:rgba(226,58,78,0.08)}
 #P .mr-abtn.danger:hover{border-color:var(--accent);color:var(--accent2)}
 #P .mr-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px}
+/* Profile library bar */
+#P .mr-profiles{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+#P .mr-profseg{max-width:100%;flex:0 1 auto}
+#P .mr-prof-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-left:auto}
+#P .mr-prof-actions .mr-abtn{padding:7px 11px}
+#P .mr-prof-actions .mr-abtn:disabled{opacity:.38;cursor:not-allowed;border-color:var(--border);color:var(--muted)}
+#P .mr-prof-actions .mr-abtn:disabled:hover{border-color:var(--border);color:var(--muted)}
 #P .mr-grp{display:flex;align-items:center;gap:8px}
 #P .mr-ctl-label{font-size:var(--t-nano);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-mono)}
 #P .mr-sync-ind{font-size:var(--t-nano);font-weight:700;color:var(--rb);font-family:var(--font-mono);letter-spacing:.04em;opacity:.8;white-space:nowrap}
@@ -26526,6 +26852,33 @@ function pickYear(year) {
 #P .mr-ccard .cv{font-family:var(--font-mono);font-size:var(--t-title);font-weight:800;letter-spacing:-0.02em;line-height:1}
 #P .mr-ccard .cl{font-size:var(--t-micro);color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-family:var(--font-mono);margin-top:7px}
 #P .mr-ccard .cs{font-size:var(--t-label);color:var(--text2);margin-top:4px;line-height:1.4}
+/* ── Multi-source compare matrix ── */
+#P .mr-srcchips{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#P .mr-srcchip{font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;color:var(--text2);background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px 11px;cursor:pointer;transition:.14s;white-space:nowrap}
+#P .mr-srcchip:hover{border-color:var(--accent2);color:var(--accent3)}
+#P .mr-srcchip.on{border-color:var(--accent2);color:var(--accent3);background:rgba(226,58,78,0.10)}
+#P .mr-srcchip.mkt.on{border-color:var(--gold);color:var(--gold);background:rgba(245,200,66,0.10)}
+#P .mr-board.mr-mtx{overflow-x:auto;overflow-y:hidden}
+#P .mr-mtx-head{display:grid;grid-template-columns:var(--mr-mtx);align-items:stretch;gap:10px;padding:9px 16px;background:rgba(12,17,25,0.5);border-bottom:1px solid var(--border2);min-width:max-content}
+[data-theme="light"] #P .mr-mtx-head{background:var(--s2)}
+#P .mr-mhplayer{font-size:var(--t-nano);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-mono);align-self:center}
+#P .mr-mhcell{display:flex;flex-direction:column;gap:2px;justify-content:center;align-items:flex-end;text-align:right;cursor:pointer;border-radius:7px;padding:3px 6px;transition:background .14s}
+#P .mr-mhcell:hover{background:var(--s2)}
+#P .mr-mhcell.sorton .mr-mhname{color:var(--accent3)}
+#P .mr-mhname{font-size:var(--t-label);font-weight:800;color:var(--text);font-family:var(--font-sans);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#P .mr-mhtag{font-size:var(--t-nano);font-weight:700;color:var(--muted);letter-spacing:.08em;font-family:var(--font-mono)}
+#P .mr-mhspread{font-size:var(--t-nano);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-mono);text-align:center;align-self:center}
+#P .mr-mrow{grid-template-columns:var(--mr-mtx);gap:10px;padding:9px 16px;min-width:max-content}
+#P .mr-mcell{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:1px;text-align:right}
+#P .mr-mrank{font-family:var(--font-mono);font-weight:800;font-size:var(--t-body);color:var(--text);letter-spacing:-0.01em}
+#P .mr-mcell.mkt .mr-mrank{color:var(--gold)}
+#P .mr-md{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.02em}
+#P .mr-md.up{color:var(--rb)} #P .mr-md.dn{color:var(--qb)} #P .mr-md.eq{color:var(--muted)}
+#P .mr-md.mkt{color:var(--muted);opacity:.7}
+#P .mr-mspread{font-family:var(--font-mono);font-weight:800;font-size:var(--t-body);text-align:center;align-self:center;border-radius:6px;padding:2px 0}
+#P .mr-mspread.lo{color:var(--muted)}
+#P .mr-mspread.mid{color:var(--te)}
+#P .mr-mspread.hi{color:var(--accent3);background:rgba(226,58,78,0.10)}
 #P .mr-crow{cursor:default}
 #P .mr-myval{text-align:right;font-family:var(--font-mono);font-weight:800;font-size:var(--t-body);color:var(--gold)}
 #P .mr-mkt{text-align:right;font-family:var(--font-mono);font-weight:700;font-size:var(--t-body);color:var(--text2)}
@@ -26585,6 +26938,10 @@ function pickYear(year) {
 #P .mr-myval{min-width:54px;flex-shrink:0}
 #P .mr-cdelta{flex-shrink:0}
 #P .mr-csum{grid-template-columns:1fr 1fr}
+/* compare matrix keeps its grid on mobile and scrolls sideways instead of reflowing */
+#P .mr-mrow{display:grid!important;flex-wrap:nowrap!important;padding:9px 14px}
+#P .mr-mrow .mr-player{min-width:150px}
+#P .mr-mhname{max-width:96px}
 }
 @media(max-width:420px){
 #P .mr-row{gap:7px;padding:10px 10px}
@@ -26602,7 +26959,7 @@ function pickYear(year) {
   function init(){
     if (_booted) return; _booted = true;
     injectStyles();
-    load();
+    ensureLoaded();
     // Warm both modes' Sleeper ADP before the first build. The board order
     // blends toward it, so without this My Rankings would order one way
     // standalone and another once a Sleeper draft connected.
@@ -26627,6 +26984,9 @@ function pickYear(year) {
         }
       },300);
     }
+    // Populate the Draft Vault Source dropdown with this library's profiles as
+    // soon as the module is up (the draft page may have rendered before us).
+    try { if (typeof dvRefreshSrcProfiles==='function') dvRefreshSrcProfiles(); } catch(e){}
   }
 
   function render(){
@@ -26672,9 +27032,7 @@ function pickYear(year) {
     const moved = customCount();
     const filtered = rows.filter(r=> posFilter==='ALL' || r.pos===posFilter);
 
-    page.style.setProperty('--mr-cols', compareSrc
-      ? '48px minmax(0,1fr) 88px minmax(150px,1fr) 96px 78px'
-      : '58px minmax(0,1fr) 118px 148px 104px 142px');
+    page.style.setProperty('--mr-cols', '58px minmax(0,1fr) 118px 148px 104px 142px');
 
     const header = `
       <div class="mr-head">
@@ -26706,6 +27064,24 @@ function pickYear(year) {
         </div>
       </div>`;
 
+    // Profile library bar — switch between named ranking sets, or manage them.
+    // The strip is a .vseg (auto-wired by RAILS' catch-all → travelling pill);
+    // the action buttons act on whichever profile is active.
+    const profList = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [{id:activeId,name:activeProfile().name}];
+    const profileBar = `
+      <div class="mr-profiles">
+        <span class="mr-ctl-label">Rankings</span>
+        <div class="mr-profseg vseg scroll" role="tablist">
+          ${profList.map(p=>`<button class="${p.id===activeId?'on':''}" role="tab" title="${esc(p.name)}" onclick="MyRankings._profSwitch('${p.id}')">${esc(p.name)}</button>`).join('')}
+        </div>
+        <div class="mr-prof-actions">
+          <button class="mr-abtn" title="Create a new ranking set" onclick="MyRankings._profNew()">＋ New</button>
+          <button class="mr-abtn" title="Rename this ranking set" onclick="MyRankings._profRename()">Rename</button>
+          <button class="mr-abtn" title="Duplicate this ranking set" onclick="MyRankings._profDup()">Duplicate</button>
+          <button class="mr-abtn danger" title="Delete this ranking set" ${profList.length<=1?'disabled':''} onclick="MyRankings._profDelete()">Delete</button>
+        </div>
+      </div>`;
+
     const controls = `
       <div class="mr-controls">
         <div class="mr-grp"><span class="mr-ctl-label">Format</span>
@@ -26726,32 +27102,59 @@ function pickYear(year) {
 
     let body;
     if (compareSrc){
-      const above = rows.filter(r=>r.fcRank-r.myRank>0).length;
-      const below = rows.filter(r=>r.fcRank-r.myRank<0).length;
-      const avg = (rows.reduce((s,r)=>s+Math.abs(r.fcRank-r.myRank),0)/Math.max(1,rows.length)).toFixed(1);
-      const big = [...rows].sort((a,b)=>Math.abs(b.fcRank-b.myRank)-Math.abs(a.fcRank-a.myRank))[0];
-      const bigD = big ? big.fcRank-big.myRank : 0;
+      // ── Multi-source compare matrix ──────────────────────────────────
+      // Players down the side, each selected source (your boards + the market)
+      // as its own column. Every board is complete (fill-from-market), so every
+      // cell has a rank; each non-market cell is coloured by how far it sits from
+      // the FantasyCalc market rank, and a Spread column flags disagreement.
+      const data = cmpBuildData(format);
+      const cols = data.cols;
+      const sortIdx = Math.max(0, cols.findIndex(c=>c.key===cmpSort));
+      let uni = (baseline[format]||[]).map(p=>({ name:p.name, pos:p.pos, team:p.team, age:p.age }));
+      uni.forEach(pl=>{
+        const nk = norm(pl.name);
+        pl.cells = cols.map(c=>c.get(nk));
+        pl.mkt = data.mkt.get(nk) || null;
+        const ranks = pl.cells.filter(Boolean).map(c=>c.rank);
+        pl.spread = ranks.length>1 ? (Math.max(...ranks)-Math.min(...ranks)) : 0;
+        pl._min = ranks.length?Math.min(...ranks):0; pl._max = ranks.length?Math.max(...ranks):0;
+        const sc = pl.cells[sortIdx]; pl.sortRank = sc ? sc.rank : 1e9;
+      });
+      uni.sort((a,b)=>a.sortRank-b.sortRank);
+      const uniF = uni.filter(p=>posFilter==='ALL'||p.pos===posFilter);
+      const avgSpread = (uni.reduce((s,p)=>s+p.spread,0)/Math.max(1,uni.length)).toFixed(1);
+      const bigDis = [...uni].sort((a,b)=>b.spread-a.spread)[0];
+
+      // available sources to add/remove as columns
+      const allSources = [{key:'fc',name:'FantasyCalc'}].concat(profiles.map(p=>({key:p.id,name:p.name})));
+      const chips = allSources.map(s=>{
+        const on = cmpCols.includes(s.key);
+        return `<button class="mr-srcchip ${on?'on':''} ${s.key==='fc'?'mkt':''}" onclick="MyRankings._cmpToggleCol('${s.key}')">${on?'✓ ':''}${esc(s.name)}</button>`;
+      }).join('');
+
+      // dynamic grid: player + one cell per source + spread
+      page.style.setProperty('--mr-mtx', `minmax(0,1fr) repeat(${cols.length}, minmax(84px,1fr)) 72px`);
+      const headCells = cols.map(c=>{
+        const on = c.key===cmpSort;
+        return `<div class="mr-mhcell ${on?'sorton':''}" onclick="MyRankings._cmpSort('${c.key}')" title="Sort rows by ${esc(c.name)}">
+          <span class="mr-mhname">${esc(c.name)}</span><span class="mr-mhtag">${c.market?'MARKET':'BOARD'}${on?' ↓':''}</span></div>`;
+      }).join('');
+
       body = `
-        <div class="mr-srcbar"><span class="mr-ctl-label">Benchmark</span>
-          <div class="mr-seg cmpsrc">
-            <button class="${compareSrc==='fc'?'on':''}" onclick="MyRankings._setCmp('fc')">FantasyCalc</button>
-            <button class="${compareSrc==='ra'?'on':''}" onclick="MyRankings._setCmp('ra')">RosterAudit</button>
-          </div>
-          <span class="mr-sync-ind" style="color:var(--muted);opacity:1">the consensus you're measured against</span>
+        <div class="mr-srcbar">
+          <span class="mr-ctl-label">Columns</span>
+          <div class="mr-srcchips">${chips}</div>
+          <span class="mr-sync-ind" style="color:var(--muted);opacity:1">pick the sets to line up · tap a header to sort</span>
         </div>
         <div class="mr-csum">
-          <div class="mr-ccard"><div class="cv" style="color:var(--rb)">▲ ${above}</div><div class="cl">Above market</div><div class="cs">You rank these higher than consensus</div></div>
-          <div class="mr-ccard"><div class="cv" style="color:var(--qb)">▼ ${below}</div><div class="cl">Below market</div><div class="cs">You're lower than the field on these</div></div>
-          <div class="mr-ccard"><div class="cv" style="color:var(--text)">${avg}</div><div class="cl">Avg move</div><div class="cs">Spots off market, per player</div></div>
-          <div class="mr-ccard"><div class="cv" style="color:var(--accent3)">${big?big.name.split(' ').slice(-1)[0]:'—'}</div><div class="cl">Biggest gap</div><div class="cs">${big?`You #${big.myRank} · Mkt #${big.fcRank} · ${(bigD>0?'+':'')+bigD}`:'—'}</div></div>
+          <div class="mr-ccard"><div class="cv" style="color:var(--text)">${cols.length}</div><div class="cl">Sources</div><div class="cs">Columns lined up side by side</div></div>
+          <div class="mr-ccard"><div class="cv" style="color:var(--text)">${uni.length}</div><div class="cl">Players</div><div class="cs">Ranked across every column</div></div>
+          <div class="mr-ccard"><div class="cv" style="color:var(--accent3)">${avgSpread}</div><div class="cl">Avg split</div><div class="cs">Ranks apart, per player</div></div>
+          <div class="mr-ccard"><div class="cv" style="color:var(--te)">${bigDis&&bigDis.spread?bigDis.name.split(' ').slice(-1)[0]:'—'}</div><div class="cl">Biggest split</div><div class="cs">${bigDis&&bigDis.spread?`#${bigDis._min}–#${bigDis._max} · ${bigDis.spread} apart`:'sources agree'}</div></div>
         </div>
-        <div class="mr-board">
-          <div class="mr-bhead">
-            <span class="r">#</span><span>Player</span><span class="r">My value</span>
-            <span class="mr-axis"><span>← you higher</span><span>mkt</span><span>you lower →</span></span>
-            <span class="r">Market</span><span class="r">Δ</span>
-          </div>
-          <div id="mr-rows">${compareRows(rows)}</div>
+        <div class="mr-board mr-mtx">
+          <div class="mr-mtx-head"><span class="mr-mhplayer">Player</span>${headCells}<span class="mr-mhspread" title="Highest minus lowest rank across the columns">SPREAD</span></div>
+          <div id="mr-rows">${uniF.map(pl=>cmpMatrixRowHtml(pl, cols)).join('') || `<div class="mr-loading">No players for this filter.</div>`}</div>
         </div>`;
     } else {
       // Grade-key icons — same Lucide set as the Draft Vault key/table
@@ -26799,7 +27202,7 @@ function pickYear(year) {
            + '<span>Loading rankings from FantasyCalc\u2026</span></div>';
     }
 
-    page.innerHTML = `<div class="mr-wrap">${header}${controls}${body}</div>`;
+    page.innerHTML = `<div class="mr-wrap">${header}${profileBar}${controls}${body}</div>`;
     if (!compareSrc) bindDrag();
     applySearch();
   }
@@ -26905,6 +27308,39 @@ function pickYear(year) {
       `<div class="yo ${cls}" style="${yo}"></div></div>`;
   }
 
+  // One row of the multi-source compare matrix: player + a rank cell per source.
+  function cmpMatrixRowHtml(pl, cols){
+    const col = POS_COLORS[pl.pos]||'var(--muted)';
+    const bg = POS_BG[pl.pos]||'rgba(255,255,255,0.08)';
+    const _hsUrl = (typeof getPlayerHeadshotUrl==='function' ? getPlayerHeadshotUrl(pl.name) : '') || '';
+    const _photo = _hsUrl ? `<img src="${_hsUrl.replace('/thumb/','/')}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
+    const mktRank = pl.mkt ? pl.mkt.rank : null;
+    const cells = cols.map((c,i)=>{
+      const cell = pl.cells[i];
+      if(!cell) return `<div class="mr-mcell"><span class="mr-mrank">—</span></div>`;
+      // delta vs FantasyCalc market rank: positive = this source ranks the player
+      // EARLIER (higher) than the market → bullish.
+      const d = (c.market || mktRank==null) ? 0 : (mktRank - cell.rank);
+      const cls = c.market ? 'mkt' : (d>0?'up':d<0?'dn':'eq');
+      const chip = c.market ? '<span class="mr-md mkt">mkt</span>'
+                 : (d===0 ? '<span class="mr-md eq">·</span>'
+                          : `<span class="mr-md ${cls}">${d>0?'▲'+d:'▼'+(-d)}</span>`);
+      return `<div class="mr-mcell ${cls}"><span class="mr-mrank">#${cell.rank}</span>${chip}</div>`;
+    }).join('');
+    const spCls = pl.spread>=24?'hi':pl.spread>=12?'mid':'lo';
+    return `<div class="mr-row mr-mrow" data-name="${esc(pl.name)}" data-pos="${pl.pos||''}" data-team="${pl.team||''}">
+      <div class="mr-player" style="cursor:pointer" title="View player profile">
+        <div class="mr-av" style="background:${bg};color:${col}">${initials(pl.name)}${_photo}</div>
+        <div style="min-width:0;flex:1">
+          <div class="mr-pname">${esc(pl.name)}</div>
+          <div class="mr-pmeta"><span class="mr-pospill" style="background:${bg};color:${col}">${pl.pos||''}</span>${pl.team||''}${pl.age?' · '+pl.age:''}</div>
+        </div>
+      </div>
+      ${cells}
+      <div class="mr-mspread ${spCls}" title="Disagreement: highest minus lowest rank across the selected columns">${pl.spread||'·'}</div>
+    </div>`;
+  }
+
   function crowHtml(r, idx, isRdr){
     const col = POS_COLORS[r.pos]||'var(--muted)';
     const bg = POS_BG[r.pos]||'rgba(255,255,255,0.08)';
@@ -26976,10 +27412,72 @@ function pickYear(year) {
   Object.assign(window.MyRankings, {
     _setFormat(f){ if(format===f)return; format=f; posFilter='ALL'; try{ if(typeof setDvMode==='function' && window._dvMode!==f) setDvMode(f); }catch(e){} render(); },
     setFormat(f){ if(format===f)return; format=f; posFilter='ALL'; render(); },   // external sync (from Draft Vault), no callback
+
+    // ── Profile library (see the named-profiles block above) ──────────
+    // External consumers (the Draft Vault Source dropdown) read these.
+    list(){ ensureLoaded(); return profiles.map(p=>({ id:p.id, name:p.name })); },
+    activeId(){ ensureLoaded(); return activeId; },
+    activeName(){ ensureLoaded(); return activeProfile().name; },
+    // Switch the globally-active profile. Every "Mine" surface (Draft Vault
+    // column, sorts, League/Team values) reads through this module, so this one
+    // call re-points them all. save() already busts the cache + re-renders the
+    // draft list; we add the page + external-UI refresh.
+    setActive(id){
+      ensureLoaded();
+      if(id===activeId || !profiles.some(p=>p.id===id)) return activeProfile();
+      activeId = id; syncState(); save();
+      _profExternalRefresh();
+      try{ if(document.getElementById('page-myrankings')?.classList.contains('on')) render(); }catch(e){}
+      return activeProfile();
+    },
+    _profSwitch(id){ this.setActive(id); },
+    _profNew(){
+      const nm = (typeof prompt==='function') ? prompt('Name this ranking set', 'New rankings') : 'New rankings';
+      if(nm===null) return;
+      const p = newProfile((nm||'').trim() || 'New rankings');
+      profiles.push(p); activeId = p.id; syncState(); save();
+      _profExternalRefresh(); render();
+      if(typeof toast==='function') toast(`✓ Created "${p.name}"`);
+    },
+    _profRename(){
+      const p = activeProfile();
+      const nm = (typeof prompt==='function') ? prompt('Rename this ranking set', p.name) : null;
+      if(nm===null) return;
+      p.name = (nm||'').trim() || p.name; save();
+      _profExternalRefresh(); render();
+    },
+    _profDup(){
+      const src = activeProfile();
+      const p = newProfile(src.name + ' copy');
+      p.dynasty = normSide(JSON.parse(JSON.stringify(src.dynasty)));
+      p.redraft = normSide(JSON.parse(JSON.stringify(src.redraft)));
+      profiles.push(p); activeId = p.id; syncState(); save();
+      _profExternalRefresh(); render();
+      if(typeof toast==='function') toast(`✓ Duplicated as "${p.name}"`);
+    },
+    _profDelete(){
+      if(profiles.length<=1){ if(typeof toast==='function') toast('Keep at least one ranking set'); return; }
+      const p = activeProfile();
+      if(typeof confirm==='function' && !confirm(`Delete "${p.name}"? Its Dynasty and Redraft boards are removed. This can't be undone.`)) return;
+      const i = profiles.findIndex(x=>x.id===p.id);
+      profiles.splice(i,1);
+      activeId = profiles[Math.max(0,i-1)].id;
+      syncState(); save();
+      _profExternalRefresh(); render();
+      if(typeof toast==='function') toast(`Deleted "${p.name}"`);
+    },
     _setPos(p){ posFilter=p; render(); },
     _search(v){ searchQ=v; applySearch(); },
-    _compareToggle(){ compareSrc = compareSrc ? null : 'fc'; render(); },
-    _setCmp(v){ compareSrc=v; render(); },
+    _compareToggle(){ compareSrc = compareSrc ? null : true; if(compareSrc) seedCmpCols(); render(); },
+    // Toggle a source column in/out of the matrix (keep at least one).
+    _cmpToggleCol(key){
+      seedCmpCols();
+      const i = cmpCols.indexOf(key);
+      if(i>=0){ if(cmpCols.length<=1) return; cmpCols.splice(i,1); if(cmpSort===key) cmpSort=cmpCols[0]; }
+      else cmpCols.push(key);
+      render();
+    },
+    _cmpSort(key){ cmpSort = key; render(); },
     _nudge(idx, dir){ moveIndex(idx, idx+dir); },
     _moveTo(idx, val){
       const n = parseInt(val,10); if(!n||isNaN(n)) return;
@@ -26997,8 +27495,11 @@ function pickYear(year) {
     _addTier(idx){ const b=new Set(state[format].breaks||[]); b.add(idx); state[format].breaks=[...b].sort((a,b)=>a-b); save(); render(); },
     _delTier(idx){ state[format].breaks=(state[format].breaks||[]).filter(x=>x!==idx); save(); render(); },
     _reset(){
-      if(!confirm(`Reset your ${format} board back to the FantasyCalc baseline? Your pins, tiers and notes for this board will be cleared.`)) return;
-      state[format]={ order:null, pinned:{}, notes:{}, breaks:null };
+      if(!confirm(`Reset "${activeProfile().name}" (${format}) back to the FantasyCalc baseline? Your pins, tiers and notes for this board will be cleared.`)) return;
+      // Mutate in place — replacing state[format] would sever the reference to
+      // the active profile, so its board would stop persisting.
+      const s = state[format];
+      s.order=null; s.pinned={}; s.notes={}; s.breaks=null;
       save(); render();
     },
     _export(){
@@ -27063,7 +27564,7 @@ function pickYear(year) {
   //  Matched players are placed in your CSV order and pinned so they
   //  hold their slots; everyone else flows in by live market value.
   // ════════════════════════════════════════════════════════════════
-  let _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'' };
+  let _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'', dest:'active', newName:'' };
 
   function parseCSV(text){
     const lines = String(text||'').replace(/\r/g,'').split('\n').filter(l=>l.trim().length);
@@ -27108,6 +27609,9 @@ function pickYear(year) {
       const g = guessCols(_imp.headers);
       _imp.nameCol = g.nameCol; _imp.rankCol = g.rankCol;
       _imp.file = file.name;
+      // Default a new-profile name from the filename (creators usually name the
+      // export after themselves), used only when destination = New set.
+      if(!_imp.newName) _imp.newName = file.name.replace(/\.csv$/i,'').replace(/[_-]+/g,' ').trim();
       renderImportBody();
     };
     fr.readAsText(file);
@@ -27131,18 +27635,30 @@ function pickYear(year) {
     if(_imp.nameCol<0){ if(typeof toast==='function') toast('Pick the player-name column'); return; }
     const { matched, unmatched } = matchPreview();
     if(!matched.length){ if(typeof toast==='function') toast('No players matched, try a different name column'); return; }
+    // Destination: a brand-new named profile, or the currently-active one.
+    let createdNew = false;
+    if(_imp.dest==='new'){
+      const nm = (_imp.newName||_imp.file||'Imported rankings').replace(/\.csv$/i,'').trim() || 'Imported rankings';
+      const p = newProfile(nm);
+      profiles.push(p); activeId = p.id; syncState();
+      createdNew = true;
+    }
     const base = baseline[format];
     const matchedIds = matched.map(m=>m.id);
     const mset = new Set(matchedIds);
     const rest = base.filter(p=>!mset.has(norm(p.name))).sort((a,b)=>(a.blendRank??a.fcRank)-(b.blendRank??b.fcRank)).map(p=>norm(p.name));
+    // Fill from market: matched players hold the creator's order (pinned), the
+    // rest flow in by live value — so the board is complete and draftable.
     state[format].order = matchedIds.concat(rest);
     const pinned = {}; matchedIds.forEach(id=>{ pinned[id]=true; });
     state[format].pinned = pinned;     // imported players hold their slots
     state[format].breaks = null;       // recompute tiers from the new order
     save();
+    if(createdNew) _profExternalRefresh();   // surface the new profile in the DV Source dropdown
     closeImport();
     render();
-    if(typeof toast==='function') toast(`✓ Imported ${matched.length} into your ${format} board${unmatched?' · '+unmatched+' unmatched':''}, tweak away`);
+    const where = createdNew ? `new set "${activeProfile().name}"` : `your ${format} board`;
+    if(typeof toast==='function') toast(`✓ Imported ${matched.length} into ${where}${unmatched?' · '+unmatched+' unmatched':''}, tweak away`);
   }
 
   // ── modal UI ───────────────────────────────────────────────────────
@@ -27190,6 +27706,16 @@ function pickYear(year) {
       .mri-prow{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:5px 9px;background:var(--s2);border-radius:7px}
       .mri-prow .pr{font-family:var(--font-mono);font-weight:800;color:var(--muted);width:26px;text-align:right}
       .mri-prow .pp{font-size:var(--t-nano);font-weight:800;font-family:var(--font-mono);padding:1px 5px;border-radius:3px}
+      .mri-dest{margin-top:16px;padding-top:15px;border-top:1px solid var(--border)}
+      .mri-destseg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+      .mri-destseg button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 13px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text2);cursor:pointer;transition:.15s;font-family:var(--font-sans)}
+      .mri-destseg button b{font-size:13px;font-weight:700;color:var(--text)}
+      .mri-destseg button small{font-size:10.5px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.02em}
+      .mri-destseg button:hover{border-color:var(--accent2)}
+      .mri-destseg button.on{border-color:var(--accent2);background:rgba(226,58,78,0.09)}
+      .mri-destseg button.on b{color:var(--accent3)}
+      .mri-destname{margin-top:10px;width:100%;background:var(--s2);border:1.5px solid var(--border2);color:var(--text);font-family:var(--font-sans);font-size:13px;font-weight:600;padding:9px 12px;border-radius:9px;outline:none}
+      .mri-destname:focus{border-color:var(--accent2)}
       .mri-foot{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}
       .mri-btn{padding:10px 16px;border-radius:10px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
       .mri-btn:hover{border-color:var(--border3);color:var(--text)}
@@ -27204,7 +27730,7 @@ function pickYear(year) {
 
   function openImport(){
     const el = ensureImportEl();
-    _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'' };
+    _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'', dest:'active', newName:'' };
     renderImportBody();
     el.style.display='flex';
   }
@@ -27268,9 +27794,17 @@ function pickYear(year) {
         <div class="mlbl" style="max-width:170px;text-align:right">→ becomes your ${fmtName} board, top-down</div>
       </div>
       <div class="mri-preview">${prev}</div>
+      <div class="mri-dest">
+        <div class="mlbl" style="margin-bottom:8px">Import into</div>
+        <div class="mri-destseg">
+          <button class="${_imp.dest!=='new'?'on':''}" onclick="window.__mriSet('dest','active')"><b>${esc(activeProfile().name)}</b><small>your current set</small></button>
+          <button class="${_imp.dest==='new'?'on':''}" onclick="window.__mriSet('dest','new')"><b>＋ New set</b><small>keep as its own</small></button>
+        </div>
+        ${_imp.dest==='new'?`<input class="mri-destname" placeholder="Name this ranking set" value="${esc(_imp.newName||'')}" oninput="window.__mriSet('newname',this.value)">`:''}
+      </div>
       <div class="mri-foot">
         <button class="mri-btn" onclick="window.__mriReset()">Choose another file</button>
-        <button class="mri-btn go" ${matched.length?'':'disabled'} onclick="MyRankings._applyImport()">Apply to ${fmtName} board</button>
+        <button class="mri-btn go" ${matched.length?'':'disabled'} onclick="MyRankings._applyImport()">${_imp.dest==='new'?'Create set + import':'Apply to '+esc(activeProfile().name)}</button>
       </div>
     </div>`;
     // set selects to current guesses
@@ -27284,6 +27818,8 @@ function pickYear(year) {
     if(k==='name') _imp.nameCol=parseInt(v,10);
     else if(k==='rank') _imp.rankCol=parseInt(v,10);
     else if(k==='header') _imp.hasHeader=!!v;
+    else if(k==='dest'){ _imp.dest = (v==='new'?'new':'active'); }
+    else if(k==='newname'){ _imp.newName = v; return; }   // don't re-render on each keystroke (would lose input focus)
     renderImportBody();
   };
   window.__mriReset = function(){ _imp.rows=[]; _imp.headers=[]; renderImportBody(); };
@@ -33079,6 +33615,19 @@ window._ovRenderRedraftRaceEspn=_ovRenderRedraftRaceEspn;
 #page-draft .controls.dvc .dvc-src-select:hover{ border-color:var(--border3); }
 #page-draft .controls.dvc .dvc-src-select:focus{ border-color:var(--accent2); }
 #page-draft .controls.dvc .dvc-src-select option{ background:var(--s2); color:var(--text); font-weight:600; }
+/* Rankings-column chips: one toggle per ranking set (which columns show on the board) */
+#page-draft .controls.dvc .dv-col-chips{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+#page-draft .controls.dvc .dv-colchip{ height:36px; padding:0 12px; border:1.5px solid var(--border2); border-radius:10px; background:var(--s2); color:var(--text2); font-family:var(--font-sans); font-size:12px; font-weight:700; letter-spacing:.02em; cursor:pointer; white-space:nowrap; transition:border-color .15s,color .15s,background .15s; }
+#page-draft .controls.dvc .dv-colchip:hover{ border-color:var(--accent2); color:var(--accent3); }
+#page-draft .controls.dvc .dv-colchip.on{ border-color:var(--accent2); color:var(--accent3); background:rgba(226,58,78,0.10); }
+/* Profile column headers: full name + sort arrow on top, MINE tag centered under */
+#page-draft .plist-table col.col-my{ width:124px; }
+.plist-thead .col-prof-th{ white-space:nowrap; vertical-align:middle; }
+.plist-thead .col-prof-th .mprof-hdr{ display:inline-flex; flex-direction:column; align-items:center; gap:2px; line-height:1.2; }
+.plist-thead .col-prof-th .mprof-htop{ display:inline-flex; align-items:center; gap:4px; }
+.plist-thead .col-prof-th .mprof-hn{ font-weight:700; color:var(--text); white-space:nowrap; }
+.plist-thead .col-prof-th.sort-on .mprof-hn{ color:var(--accent3); }
+.plist-thead .col-prof-th .mprof-htag{ margin-left:0; }
 
 /* ── live draft summary: one hero card → grid of stat cards ── */
 #page-draft .draft-summary{ display:block!important; margin-top:14px; }
@@ -33987,6 +34536,7 @@ body .page,body .page.on{background:transparent!important}
     padding:4px 2px 10px!important; gap:8px!important; flex-wrap:wrap!important; align-items:center!important;
   }
   #page-draft .controls.dvc .dvg-src{ display:none!important; }   /* source lives in Sort row */
+  #page-draft .controls.dvc .dvg-cols{ display:none!important; }  /* profile columns are desktop-only (mobile uses div rows) */
   #page-draft .controls.dvc .dv-spacer{ display:none!important; } /* so search wraps directly under */
   #page-draft .controls.dvc > .dv-grp{ flex:0 1 auto!important; }
   #page-draft .controls.dvc .mode-seg{ flex:0 0 auto; }
@@ -40794,7 +41344,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     //     left/width, so it cannot track a vertical strip
     { sel:'.rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg, .bt-seg,'
        + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .pp-seg, .rdv-seg,'
-       + ' .lr-srctoggle, #vp-chips',
+       + ' .lr-srctoggle, #vp-chips, .mr-profseg',
       skin:'fill', inset:'3px', radius:'7px' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];
