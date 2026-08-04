@@ -42251,6 +42251,9 @@ function vpLpBuild(){
     seen[lg.league_id] = 1;
     rows.push(lg);
   });
+  // Active only — pre-draft, drafting or in-season. Drop finished (complete) prior-year leagues.
+  var active = rows.filter(function(lg){ return (lg.status||'').toLowerCase() !== 'complete'; });
+  if (active.length) rows = active;   // fall back to all if nothing is active, so the picker isn't empty
   VP_LP_ROWS = rows;
   return rows;
 }
