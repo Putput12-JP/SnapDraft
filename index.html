@@ -25505,15 +25505,48 @@ function pickYear(year) {
           if(list[0]&&list.length>STN[nd.pos]&&this._wnRe(list[0].name)>nd.bestRe*1.12) cands.push(list[0]);
           cands.forEach(p=>{
             const tDyn=this._wnDyn(p.name); if(!tDyn)return;
+            /* REALISM GATE 1 — LIQUIDITY. Value parity is necessary, not
+               sufficient: a target the trade market almost never moves is a
+               deep stash nobody deals real assets for, however the numbers
+               line up. The corpus tracks trades-per-1,000; below 1.0 is the
+               bottom quartile of tradeability (p25 raw liq ≈ 1.06 — Chris
+               Brazzell, Cyrus Allen, deep rookies), so don't headline him.
+               Measured, so it only bites once the model has loaded — a cold
+               cache falls through to the old behaviour rather than emptying. */
+            if(VaultTradeMarket.ready()){
+              const lr=VaultTradeMarket.row(p.name);
+              if(!lr || lr.liq<1.0) return;
+            }
             const pkg=this._pkgFor(me,r,tDyn,[{name:p.name,pos:p.pos}]); if(!pkg)return;
             const sDyn=pkg.reduce((s,a)=>s+a.dyn,0);
             const netPct=((sDyn-tDyn)/tDyn)*100; if(netPct>this._bandOverPct()||netPct< -this._bandPct())return;
             const gainFloor=this._wnRe(p.name)-nd.floor; if(gainFloor<=0)return;
+
+            /* REALISM GATE 2 — NO PICKS FOR VETS. Picks are appreciating draft
+               capital; an aged player is a depreciating asset. Cashing a real
+               1st for a player already on the age cliff (RB 28+, everyone else
+               30+) is a move only a hard contender (contend ≥ .55) makes — for
+               anyone else it's how a rebuild bleeds out. Ban it outright below
+               that line. Structural (age isn't in the corpus), which CLAUDE.md
+               allows for roster-timeline nudges. */
+            const sends1st=pkg.some(a=>a.pos==='PICK'&&/1st/.test(a.name));
+            const tAge=this._age(p.name)||0, cliff=(p.pos==='RB')?28:30;
+            if(sends1st && tAge>=cliff && me.contend<0.55) return;
+
+            /* REALISM GATE 3 — UPGRADE MUST BE WORTH THE CURRENCY. A pick is
+               draft capital, not loose change: cashing a 1st should net at
+               least a startable body's worth of weekly upgrade, a 2nd at least
+               half that. Without this a 2028 2nd bought a +67 flex nudge.
+               Player-only / late-pick packages keep the old any-upgrade floor. */
+            const spends2nd=pkg.some(a=>a.pos==='PICK'&&/2nd/.test(a.name));
+            const gainNeed=sends1st?this._STARTABLE:spends2nd?this._STARTABLE*0.5:0;
+            if(gainFloor<gainNeed) return;
+
             const givesFuture=pkg.some(a=>a.pos==='PICK'||(a.age&&a.age<=24));
             const theirNeed=r.needs[0]&&r.needs[0].pos;
             const theirFit=(r.wantsFuture&&givesFuture)||pkg.some(a=>a.pos===theirNeed);
             const accept=this._acceptance(r,pkg,[{name:p.name,pos:p.pos}]);
-            if(accept<25)return; // they'd never say yes — don't even show it
+            if(accept<40)return; // a coin-flip-or-worse "yes" isn't a real target — was 25
             const fair=1-Math.min(Math.abs(netPct)/this._bandPct(),1);
             /* Liquidity: how often this player really changes hands in this
                format, relative to the busiest names in it. A star nobody ever
@@ -25804,7 +25837,7 @@ function pickYear(year) {
         <span class="tc-eng-provdot"></span>Tuned on <b>${fmt(ms.bucketTrades)}</b> real ${fmtBucket(ms.bucket)} trades · ${fmt(ms.trades)} across ${fmt(ms.leagues)} Sleeper leagues${ms.borrowed?` <span style="opacity:.75">(not enough ${fmtBucket(ms.asked)} data yet)</span>`:''}</div>`:'';
       let sub='', body='';
       if(tab==='match'){
-        sub=`Fair, <b>mutual-win</b> trades built around your top needs — every package is tilted toward what the partner's timeline actually wants, you can come out up to <b>${this._bandPct()}%</b> ahead ${prov?'— the gap the median <b>real</b> trade lands inside —':''} but never more than ${this._bandOverPct()}% behind, and every package is filtered by <b>acceptance odds</b> priced off ${prov?'trades that actually cleared':'their side of the table'}.`;
+        sub=`Fair, <b>mutual-win</b> trades built around your top needs — value parity isn't enough, so we only surface players the market <b>actually trades</b>, never spend real firsts on aging vets${me&&me.contend>=0.55?' (you’re a contender, so win-now buys stay in)':''}, and require the upgrade to be worth the pick spent. You can come out up to <b>${this._bandPct()}%</b> ahead ${prov?'— the gap the median <b>real</b> trade lands inside —':''} but never more than ${this._bandOverPct()}% behind, and every package is filtered by <b>acceptance odds</b> priced off ${prov?'trades that actually cleared':'their side of the table'}.`;
         body=`<div class="tc-wn-list">${E.match.map((m,i)=>{
           const c=POS_HEX[m.pos]||'#8794a6', nc=m.netDyn>=0?'var(--rb)':'#ff7a8a';
           const fc=m.fit>=75?'var(--rb)':m.fit>=55?'var(--te)':'var(--muted)';
