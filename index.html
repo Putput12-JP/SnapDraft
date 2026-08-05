@@ -42360,13 +42360,25 @@ function vpLpDone(){
 }
 
 function vpLpSkip(){
-  vpLpSave();
   var lp=document.getElementById('setup-leagues');
   if (lp) lp.style.display='none';
+  // "Skip" = don't curate, but still enter the dashboard with a real league
+  // context (the old useDefaultRankings/finishSetup path left an empty page).
   try{
-    if (typeof finishSetup === 'function') { finishSetup(); return; }
-    if (typeof useDefaultRankings === 'function') { useDefaultRankings(); return; }
+    if (typeof vpEnterProfile === 'function'){
+      var rows = (VP_LP_ROWS && VP_LP_ROWS.length) ? VP_LP_ROWS : [];
+      var ids  = (VP_LP_SEL && VP_LP_SEL.length) ? VP_LP_SEL.slice() : rows.map(function(l){ return l.league_id; });
+      vpSelected = new Set(ids);
+      var pool = rows.filter(function(l){ return ids.indexOf(l.league_id)>=0; });
+      var live = pool.filter(function(l){ var s=(l.status||'').toLowerCase(); return s==='in_season'||s==='drafting'; });
+      var primary = live[0] || pool[0];
+      vpPrimary = primary ? primary.league_id : null;
+      vpLpSave();
+      vpEnterProfile();
+      return;
+    }
   }catch(_){}
+  try{ if (typeof useDefaultRankings === 'function') { useDefaultRankings(); return; } }catch(_){}
   var s=document.getElementById('setup'); if (s) s.classList.add('gone');
 }
 </script>
