@@ -9266,6 +9266,49 @@ let vpPlatform = 'sleeper';
 let vpEspnConnected = false;
 function vpPlat(l){ return l.platform || (String(l.league_id||'').startsWith('espn_') ? 'espn' : 'sleeper'); }
 
+// ── Platform capability adapter (Phase 0) ────────────────────────
+// One source of truth for what each platform can do, so the Command pages
+// render their action buttons off `caps` instead of scattered
+// `vpPlat(...)==='espn'` checks. `write` gates the whole write surface; the
+// other flags describe platform SHAPE (does it use FAAB vs rolling waiver
+// priority, does it have a taxi squad) so the UI can adapt without another
+// platform branch. `canPush` is kept elsewhere as a derived alias (= caps.write)
+// because existing call sites still read it.
+function pfPlatformCaps(lg){
+  const plat = (typeof vpPlat==='function') ? vpPlat(lg) : ((lg && lg.platform) || 'sleeper');
+  if(plat === 'espn') return {
+    platform:'espn', label:'ESPN', badge:'E',
+    read:true, write:false, faab:false, waiverPriority:false, taxi:false, trade:false, liveDraft:'poll'
+  };
+  if(plat === 'yahoo') return {
+    // Backend is built and deployed; writes stay OFF until Yahoo grants this
+    // app Fantasy API access (see docs/yahoo-setup.md). Reads (and these caps)
+    // flip live the moment a Yahoo connection exists — flip write:true here
+    // once approval lands.
+    platform:'yahoo', label:'Yahoo', badge:'Y',
+    read:true, write:false, faab:true, waiverPriority:true, taxi:false, trade:true, liveDraft:'poll'
+  };
+  return {
+    platform:'sleeper', label:'Sleeper', badge:'⚡',
+    read:true, write:true, faab:true, waiverPriority:false, taxi:true, trade:true, liveDraft:'push'
+  };
+}
+// Deep link into the native platform, for actions Vault can't perform itself
+// (an ESPN waiver claim, a Yahoo lineup set). Opened in a new tab from the
+// "Open in <platform>" buttons the read-only surfaces render.
+function pfManageUrl(lg){
+  const plat = (typeof vpPlat==='function') ? vpPlat(lg) : 'sleeper';
+  if(plat === 'espn'){
+    const tid = (typeof espnSelectedTeam==='function') ? espnSelectedTeam(lg.league_id) : null;
+    let u = 'https://fantasy.espn.com/football/team?leagueId=' + (lg._espnId||'');
+    if(tid) u += '&teamId=' + tid;
+    return u;
+  }
+  if(plat === 'yahoo') return 'https://football.fantasysports.yahoo.com/';
+  return 'https://sleeper.com/leagues/' + (lg.league_id||'');
+}
+try { window.pfPlatformCaps = pfPlatformCaps; window.pfManageUrl = pfManageUrl; } catch(e){}
+
 function vpSetPlatform(p){
   vpPlatform = p;
   document.querySelectorAll('#vp-platforms .vp-plat').forEach(b => b.classList.toggle('on', b.dataset.p===p));
@@ -20756,6 +20799,15 @@ window._tcCache = window._tcCache || {}; // lid -> {txns, users, at}
 function _tcLeagues(){
   return (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
 }
+// Read-capable leagues across ALL platforms (Sleeper + ESPN + Yahoo), for
+// surfaces that show non-writable leagues in advisory "Open in <platform>"
+// mode. `_tcLeagues()` stays the WRITE-capable subset for anything that pushes.
+// Falls back to canPush when a league predates the caps field.
+function _tcReadLeagues(){
+  return (window._pfLeagueData||[]).filter(d =>
+    d && d.myRosterId!=null && (d.caps ? d.caps.read : d.canPush));
+}
+try { window._tcReadLeagues = _tcReadLeagues; } catch(e){}
 // Per-league value context, memoised by league_id.
 //
 // This used to be a plain dynasty/redraft switch, which got both halves wrong
@@ -21269,7 +21321,7 @@ async function _wcLeagueCtx(lid){
     const mine = c && (c.rosters||[]).find(r => String(r.roster_id) === String(tid));
     if(!mine) return null;
     return { lg, myRosterId: mine.roster_id, myReserve: [], myTaxi: [],
-             rosterPositions: lg.roster_positions || [], canPush: false };
+             rosterPositions: lg.roster_positions || [], caps: pfPlatformCaps(lg), canPush: false };
   }
   const rosters = await fetch(`https://api.sleeper.app/v1/league/${lid}/rosters`).then(r=>r.json()).catch(()=>[]);
   const mine = (rosters||[]).find(r => r.owner_id === myTeamsUserId || (r.co_owners||[]).includes(myTeamsUserId));
@@ -21280,7 +21332,7 @@ async function _wcLeagueCtx(lid){
     myReserve: (mine.reserve||[]).map(String),
     myTaxi: (mine.taxi||[]).map(String),
     rosterPositions: lg.roster_positions || (lg.settings && lg.settings.roster_positions) || [],
-    canPush: true
+    caps: pfPlatformCaps(lg), canPush: true
   };
 }
 try { window._wcLeagueCtx = _wcLeagueCtx; } catch(e){}
@@ -21290,8 +21342,10 @@ async function renderWaiverCommand(force){
   if(!el) return;
   _cxEnsureStyles();
   if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
-  const data = _tcLeagues();
-  if(!data.length){ el.innerHTML = '<div class="cx"><div class="cx-empty">No Sleeper leagues to claim in.</div></div>'; return; }
+  // Read-capable set: Sleeper leagues can claim in place; ESPN/Yahoo show the
+  // same best-available analysis with an "Open in <platform>" hand-off.
+  const data = _tcReadLeagues();
+  if(!data.length){ el.innerHTML = '<div class="cx"><div class="cx-empty">No leagues connected yet.</div></div>'; return; }
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
@@ -21345,10 +21399,17 @@ async function renderWaiverCommand(force){
   const anyBlocked = rows.some(r => r.issues.length);
   const rowHtml = rows.map(r => {
     const lid = r.d.lg.league_id;
-    const blocked = r.issues.length > 0;
+    const caps = r.d.caps || { write:true, faab:true, platform:'sleeper', label:'Sleeper' };
+    const blocked = caps.write && r.issues.length > 0;
     const fixPlan = blocked ? _pfIrFixPlan(r.d, meta) : null;
     const canFix = fixPlan && fixPlan.fixable;
-    const claimBtn = !conn.connected
+    const claimBtn = !caps.write
+      // Read-only platform (ESPN / Yahoo): full analysis, action handed off to
+      // the native app since Vault can't write there (yet, for Yahoo).
+      ? (r.bestFA
+        ? `<a class="cx-btn outline sm" href="${pfManageUrl(r.d.lg)}" target="_blank" rel="noopener" title="Claim in ${caps.label}">Open in ${caps.label}</a>`
+        : '<span class="cx-mut">—</span>')
+      : !conn.connected
       ? '<span class="cx-mut" style="font-size:11px">Connect Sleeper</span>'
       : canFix
       ? `<button class="cx-btn green sm" title="Move ${fixPlan.moves.length} ineligible player(s) off IR onto your bench" onclick="pfFixIr('${lid}', ()=>renderWaiverCommand(true))">${_cxIc('bolt',13)}Fix IR</button>`
@@ -21365,7 +21426,7 @@ async function renderWaiverCommand(force){
       <td>${r.proj!=null?`<span class="cx-num" title="${r.projSrc} projection">${r.proj.toFixed(1)}</span>`:'<span class="cx-mut">—</span>'}</td>
       <td>${r.diff>0?`<span class="cx-num pos">+${r.diff.toLocaleString()}</span>`:'<span class="cx-mut">—</span>'}</td>
       <td>${r.openSpots>0?`<span class="cx-badge cx-b-green">${r.openSpots} spot${r.openSpots>1?'s':''}</span>`:'<span class="cx-badge cx-b-muted">roster full</span>'}</td>
-      <td><div class="cx-faab"><span class="cx-num">$${r.faabLeft}</span><span class="bar"><i style="width:${pct}%"></i></span></div></td>
+      <td>${caps.faab?`<div class="cx-faab"><span class="cx-num">$${r.faabLeft}</span><span class="bar"><i style="width:${pct}%"></i></span></div>`:`<span class="cx-mut" title="${caps.label} waivers are not FAAB">—</span>`}</td>
       <td><div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">${claimBtn}<button class="cx-btn outline sm" onclick="wcLeagueBrowser('${lid}')">Browse</button></div></td>
     </tr>`;
   }).join('');
@@ -21398,8 +21459,9 @@ try { window.renderWaiverCommand = renderWaiverCommand; } catch(e){}
 
 // League FA browser: top free agents in one league, claim any of them.
 async function wcLeagueBrowser(lid){
-  const d = _tcLeagues().find(x => x.lg.league_id===lid) || await _wcLeagueCtx(lid).catch(()=>null);
+  const d = _tcReadLeagues().find(x => x.lg.league_id===lid) || await _wcLeagueCtx(lid).catch(()=>null);
   if(!d) return;
+  const caps = d.caps || pfPlatformCaps(d.lg);
   const e = await _wcLoadLeague(d).catch(()=>null);
   if(!e) return;
   const fas = e.faSorted.slice(0, 30);
@@ -21459,7 +21521,9 @@ async function wcLeagueBrowser(lid){
           <div class="wcfa-sub">${p.val.toLocaleString()} val · <b>${shown}</b> proj</div></div>
         <span class="wcfa-v">${p.val.toLocaleString()}</span>
         <span class="wcfa-p${pr!=null?'':' none'}"${tip}>${shown}</span>
-        <button class="wcfa-b" onclick="wcClaimModal('${lid}','${p.name.replace(/'/g,"\\'")}')">+ Claim</button>
+        ${caps.write
+          ? `<button class="wcfa-b" onclick="wcClaimModal('${lid}','${p.name.replace(/'/g,"\\'")}')">+ Claim</button>`
+          : `<a class="wcfa-b" style="text-decoration:none;text-align:center;display:inline-block" href="${pfManageUrl(d.lg)}" target="_blank" rel="noopener" title="Add in ${caps.label}">${caps.label} ↗</a>`}
       </div>`;
     }).join('') : '') || '<div style="padding:20px;color:var(--muted)">No ranked free agents found.</div>',
     confirmLabel: 'Close',
@@ -21470,8 +21534,13 @@ try { window.wcLeagueBrowser = wcLeagueBrowser; } catch(e){}
 
 // Claim modal: FAAB bid + optional/required drop → submit_waiver_claim.
 async function wcClaimModal(lid, playerName){
-  const d = _tcLeagues().find(x => x.lg.league_id===lid) || await _wcLeagueCtx(lid).catch(()=>null);
+  const d = _tcReadLeagues().find(x => x.lg.league_id===lid) || await _wcLeagueCtx(lid).catch(()=>null);
   if(!d) return;
+  // Defense in depth: read-only platforms never render a Claim button, but if
+  // one is reached anyway, hand off to the native app rather than attempting a
+  // Sleeper write that would fail.
+  const caps = d.caps || pfPlatformCaps(d.lg);
+  if(!caps.write){ try { window.open(pfManageUrl(d.lg), '_blank', 'noopener'); } catch(_){} return; }
   const e = await _wcLoadLeague(d).catch(()=>null);
   if(!e) return;
   const fa = e.faSorted.find(p => p.name===playerName);
@@ -22174,10 +22243,12 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
         myTaxi: (myRoster?.taxi||[]).map(String),
         myPlayersCount: (myRoster?.players||[]).length,
         rosterPositions: lg.roster_positions || lg.settings?.roster_positions || [],
-        canPush: !_pfEspn };
+        caps: pfPlatformCaps(lg),
+        canPush: pfPlatformCaps(lg).write };
     } catch(e) {
       return { lg, myValue:0, myRank:'?', totalTeams:'?', grade:'?', gradeColor:'var(--muted)', myNames:[], posVals:{}, isDynasty:false, isSF:false,
-        myRosterId:null, myStarters:[], myStartable:[], myReserve:[], myTaxi:[], myPlayersCount:0, rosterPositions:[], canPush:false };
+        myRosterId:null, myStarters:[], myStartable:[], myReserve:[], myTaxi:[], myPlayersCount:0, rosterPositions:[],
+        caps: pfPlatformCaps(lg), canPush:false };
     }
   }));
 
