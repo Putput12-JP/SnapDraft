@@ -42343,11 +42343,16 @@ function vpLpDone(){
   vpLpSave();
   var lp=document.getElementById('setup-leagues');
   if (lp) lp.style.display='none';
-  // Hand off to the existing flow: pick the first selected league's draft if there is one.
-  var first = VP_LP_ROWS.filter(function(l){ return VP_LP_SEL.indexOf(l.league_id)>=0; })[0];
+  // Feed the selection into the proven profile-entry flow so the dashboard opens
+  // with a real league context (routing straight to a draft left an empty page).
   try{
-    if (first && first.draft_id && typeof selectDraftAndAdvance === 'function'){
-      selectDraftAndAdvance(first.draft_id, first.name, [vpLpFormat(first)]);
+    if (typeof vpEnterProfile === 'function'){
+      vpSelected = new Set(VP_LP_SEL);
+      var chosen = VP_LP_ROWS.filter(function(l){ return VP_LP_SEL.indexOf(l.league_id)>=0; });
+      var live = chosen.filter(function(l){ var s=(l.status||'').toLowerCase(); return s==='in_season'||s==='drafting'; });
+      var primary = live[0] || chosen[0];
+      vpPrimary = primary ? primary.league_id : null;
+      vpEnterProfile();
       return;
     }
   }catch(_){}
