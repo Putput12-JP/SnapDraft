@@ -20551,13 +20551,21 @@ async function renderLineupCommand(){
   const el = document.getElementById('pf-lineup-command');
   if(!el) return;
   if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
-  const data = (window._pfLeagueData||[]).filter(d => d.canPush && d.myRosterId!=null);
+  // Read set: the optimizer runs on any platform's roster. Sleeper leagues can
+  // push the optimal lineup; ESPN/Yahoo show the same analysis with an
+  // "Open in <platform>" hand-off.
+  const data = _tcReadLeagues();
   if(!data.length){ el.innerHTML=''; return; }
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
 
-  if(!conn.connected){
+  const hasReadonly = data.some(d => d.caps && !d.caps.write);
+  // Keep the Sleeper connect CTA only when there's nothing to show without it —
+  // i.e. every league is Sleeper-writable and Sleeper isn't connected. As soon
+  // as a read-only (ESPN/Yahoo) league is present, render the table; its rows
+  // need no Sleeper connection.
+  if(!conn.connected && !hasReadonly){
     el.innerHTML = _cxConnect('Lineup Command', 'bolt', 'Connect Sleeper for lineup control to optimize and push your starting lineups across every league — from one place.');
     return;
   }
@@ -20575,6 +20583,10 @@ async function renderLineupCommand(){
   }
   const actionable = rows.filter(r => !r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed && (r.d.myStartable||[]).length>0);
   const totalGain = actionable.reduce((s,r)=>s+r.lc.gain,0);
+  // "Optimize all" only pushes writable (Sleeper) leagues — its count/total must
+  // exclude read-only ESPN/Yahoo gains, which the user acts on natively.
+  const optAll = actionable.filter(r => (r.d.caps ? r.d.caps.write : true));
+  const optAllGain = optAll.reduce((s,r)=>s+r.lc.gain,0);
   const anyBlocked = rows.some(r => r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed);
 
   const optimizedCount = rows.filter(r => { const empty=!r.lc||(r.d.myStartable||[]).length===0; const hg=!empty&&r.lc.gain>0.1&&r.lc.changed; return !empty && !hg; }).length;
@@ -20600,7 +20612,15 @@ async function renderLineupCommand(){
                 : blocked ? '<span class="cx-badge cx-b-red"><span class="d" style="background:var(--red2)"></span>Blocked</span>'
                 : act     ? '<span class="cx-badge cx-b-green"><span class="d" style="background:var(--rb)"></span>Gain ready</span>'
                           : `<span class="cx-badge cx-b-steel">${_cxIc('check',11)}Optimized</span>`;
-    const btn = act
+    const caps = d.caps || { write:true, platform:'sleeper', label:'Sleeper' };
+    const btn = !caps.write
+      // Read-only platform: same optimizer output, action handed off natively.
+      ? (act
+        ? `<a class="cx-btn outline sm" href="${pfManageUrl(d.lg)}" target="_blank" rel="noopener" title="Set this lineup in ${caps.label}" onclick="event.stopPropagation()">Open in ${caps.label}</a>`
+        : `<span class="cx-mut" style="font-size:12px">${empty?'—':'Best ball'}</span>`)
+      : !conn.connected
+      ? '<span class="cx-mut" style="font-size:12px">Connect Sleeper</span>'
+      : act
       ? `<button class="cx-btn primary sm" data-lc-btn="${lid}" onclick="event.stopPropagation();pfOptimizeLeague('${lid}')">Optimize</button>`
       : canStash
       ? `<button class="cx-btn green sm" onclick="event.stopPropagation();${isOpen?'':`pfLcToggle('${lid}');`}pfStashAndOptimize('${lid}')">${_cxIc('bolt',13)}Stash ${stashPlan.need}</button>`
@@ -20643,8 +20663,8 @@ async function renderLineupCommand(){
     <div class="cx-card">
       <div class="cx-head">
         <div><div class="cx-title">${_cxIc('bolt')}Your lineups</div><div class="cx-desc">Current vs. optimal projected points · click a row to preview the swap</div></div>
-        ${actionable.length
-          ? `<div class="cx-btns"><div style="text-align:right;margin-right:2px"><div style="font-size:17px;font-weight:800;color:var(--rb);line-height:1;font-family:var(--font-mono)">+${_lcFmt(totalGain)}</div><div class="cx-lbl">${actionable.length} to optimize</div></div><button id="lc-optall" class="cx-btn primary" onclick="pfOptimizeAll()">${_cxIc('bolt',14)}Optimize all</button></div>`
+        ${optAll.length && conn.connected
+          ? `<div class="cx-btns"><div style="text-align:right;margin-right:2px"><div style="font-size:17px;font-weight:800;color:var(--rb);line-height:1;font-family:var(--font-mono)">+${_lcFmt(optAllGain)}</div><div class="cx-lbl">${optAll.length} to optimize</div></div><button id="lc-optall" class="cx-btn primary" onclick="pfOptimizeAll()">${_cxIc('bolt',14)}Optimize all</button></div>`
           : `<span class="cx-badge cx-b-muted">${rows.length} league${rows.length!==1?'s':''}</span>`}
       </div>
       <div class="cx-twrap"><table class="cx-tbl">
