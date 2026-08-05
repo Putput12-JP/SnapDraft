@@ -20983,20 +20983,43 @@ async function renderTradeCenter(force){
   const el = document.getElementById('pf-trade-center');
   if(!el) return;
   if(!_pfDataReady()){ el.innerHTML = _pfWaitHtml('Loading leagues…'); return; }
-  const data = _tcLeagues();
-  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">No Sleeper leagues to trade in.</div>'; return; }
+  const data = _tcReadLeagues();
+  if(!data.length){ el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">No leagues to trade in.</div>'; return; }
+  // Sleeper leagues have a live pending-offers inbox; ESPN/Yahoo can't be read
+  // that way, so they get a native hand-off instead.
+  const writable = data.filter(d => d.caps ? d.caps.write : d.canPush);
+  const readonly = data.filter(d => d.caps && !d.caps.write);
 
   let conn = {connected:false};
   try { if(window.VaultSleeper) conn = await VaultSleeper.status(); } catch(e){}
-  if(!conn.connected){
+  // Keep the Sleeper connect CTA only when there's nothing to show without it.
+  if(!conn.connected && !readonly.length){
     el.innerHTML = _cxConnect('Trade Center', 'swap', 'Connect Sleeper for lineup control to see pending offers and manage trades across every league from one inbox.');
     return;
   }
   _cxEnsureStyles();
 
+  // Read-only platforms: Vault can't read their pending offers yet, so surface
+  // each league with an "Open in <platform>" hand-off rather than hiding it or
+  // implying an empty inbox.
+  const roHtml = readonly.length ? `<div class="cx-card" style="margin-top:14px">
+      <div class="cx-head"><div><div class="cx-title">${_cxIc('swap')}Other platforms</div><div class="cx-desc">Pending offers aren't readable here yet — review and respond in the app</div></div><span class="cx-badge cx-b-muted">${readonly.length} league${readonly.length!==1?'s':''}</span></div>
+      <div class="cx-twrap"><table class="cx-tbl"><tbody>${readonly.map(d=>{
+        const caps = d.caps || pfPlatformCaps(d.lg);
+        return `<tr class="cx-main"><td class="l"><div class="cx-lg"><span class="cx-lgb">${_cxInit(d.lg.name)}</span><div><div class="cx-lgn">${d.lg.name}</div><div class="cx-lgm">${caps.label}</div></div></div></td><td style="text-align:right"><a class="cx-btn outline sm" href="${pfManageUrl(d.lg)}" target="_blank" rel="noopener">Open in ${caps.label}</a></td></tr>`;
+      }).join('')}</tbody></table></div>
+    </div>` : '';
+
+  // Sleeper not connected, but read-only leagues exist: show the hand-off plus a
+  // nudge, instead of the full-page connect wall.
+  if(!conn.connected){
+    el.innerHTML = `<div class="cx">${roHtml}${writable.length?`<div class="cx-empty" style="margin-top:12px">Connect Sleeper to see and manage your Sleeper trade offers here.</div>`:''}</div>`;
+    return;
+  }
+
   el.innerHTML = `<div class="cx"><div class="cx-loading"><span class="cx-spin" style="display:inline-flex">${_cxIc('refresh',15)}</span> Loading trades across your leagues…</div></div>`;
-  await _tcWarmBuckets(data);   // price each league on its own format board
-  const entries = await Promise.all(data.map(d => _tcLoadLeague(d, force).then(e=>({d, e})).catch(()=>null)));
+  await _tcWarmBuckets(writable);   // price each league on its own format board
+  const entries = await Promise.all(writable.map(d => _tcLoadLeague(d, force).then(e=>({d, e})).catch(()=>null)));
   const loaded = entries.filter(Boolean);
 
   const buckets = { incoming:[], outgoing:[], waiting:[], complete:0, rejected:0, all:0 };
@@ -21034,6 +21057,7 @@ async function renderTradeCenter(force){
     <div class="cx-title" style="padding:2px 2px 0">${_cxIc('activity')}Open trades <span class="cx-mut" style="font-weight:600;margin-left:4px">${open.length}</span></div>
     <div class="cx-tlist">${open.length ? open.map(o => _tcCardHtml(o.t, o.d, o.e, o.cls)).join('')
       : '<div class="cx-empty">No open trade offers right now. Send one with the button above.</div>'}</div>
+    ${roHtml}
   </div>`;
 }
 try { window.renderTradeCenter = renderTradeCenter; } catch(e){}
