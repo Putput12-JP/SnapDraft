@@ -63,6 +63,17 @@ STATE_FILE = "redraft_strategy_state.json"
 CORPUS_FILE = "redraft_strategy_corpus.json"
 ADP_STATE_FILE = "sleeper_crawl_state.json"      # reuse its banked redraft league ids as seed
 
+# Reconstructed ADP: as each league's picks stream by we accumulate, per
+# (season, player), a running mean of the OVERALL pick number they went at. That
+# is the draft-time price a pick-value model needs (scripts/build_pick_value.py
+# joins it to nflverse realized value). Compact — one row per player-season, not
+# one per pick — and accretes across runs exactly like the corpus. Only leagues
+# crawled AFTER this was added contribute, so it fills in going forward + from any
+# manual backfill crawl. Keyed "season|player_id"; a running (n, sumov, minov)
+# survives incremental runs without keeping the full pick distribution.
+PICKVALS_FILE = "redraft_pick_values.json"
+_PICKVALS = {}          # "sea|pid" -> {"nm","pos","n","sumov","minov"}
+
 # ---- what we ingest ------------------------------------------------------
 REDRAFT_TYPE = 0                                  # league.settings.type: 0 redraft, 1 keeper, 2 dynasty
 SEASONS = {"2023", "2024", "2025"}                # completed seasons we keep
@@ -83,6 +94,7 @@ MIN_SLOT_SAMPLE = 25                              # a (slot) bucket needs >= N t
 # per-run budgets (keep a cron run inside a few minutes)
 DEF_LEAGUE_BUDGET = 400                           # completed leagues ingested per run
 MAX_RUN_SECONDS = 1500
+FETCH_FAIL_ABORT = 25                             # consecutive fetch failures => Sleeper is down, stop
 REQ_MIN_INTERVAL = 0.08                           # ~750 req/min (Sleeper asks < 1000)
 
 ARCHETYPES = ["Robust RB", "Hero RB", "Zero RB", "WR Heavy", "Balanced"]
@@ -90,7 +102,18 @@ ARCHETYPES = ["Robust RB", "Hero RB", "Zero RB", "WR Heavy", "Balanced"]
 # ---- tiny rate-limited HTTP client --------------------------------------
 _last_req = [0.0]
 
+class FetchError(Exception):
+    """A request failed after every retry — transient (rate limit / network / 5xx).
+
+    This exists so callers can tell "Sleeper says this does not exist" (None) apart from
+    "Sleeper would not answer us right now" (raise). Collapsing the two is what let a
+    rate-limited winners_bracket fetch be read as "nobody made the playoffs" and write
+    fabricated zero outcomes for every team in the league.
+    """
+
 def _get(path, tries=4):
+    """Return the decoded body, or None when the resource genuinely is not there
+    (404 / null body / unparseable). Raise FetchError if we simply never got an answer."""
     url = f"{API}/{path}"
     for attempt in range(tries):
         wait = REQ_MIN_INTERVAL - (time.time() - _last_req[0])
@@ -115,7 +138,7 @@ def _get(path, tries=4):
             time.sleep(1.0 * (attempt + 1))
         except json.JSONDecodeError:
             return None
-    return None
+    raise FetchError(path)
 
 # ---- persistence ---------------------------------------------------------
 def _load(path, default):
@@ -359,6 +382,16 @@ def ingest_league(lid, corpus, state, log_bad=None):
 
     wb = _get(f"league/{lid}/winners_bracket") or []
     playoff, placement, champion = parse_bracket(wb)
+    # A completed season whose bracket yields no playoff field gives us NO outcome labels.
+    # Ingesting it anyway wrote po=0/place=0/champ=0 for all 10-12 teams — fabricated
+    # "missed the playoffs" rows. That is measurable: champ rate must be exactly 1/teams,
+    # and it read 1/18 in ppr/sf/12 (a third of that bucket was fake zeros) against 1/12.3
+    # in ppr/1qb/12. A transient fetch already raised FetchError above, so reaching here
+    # means the bracket really is absent or unparseable — skip the league.
+    if not playoff:
+        if log_bad:
+            log_bad(f"{lid}: no parseable winners_bracket ({len(wb)} matches) — skipped")
+        return 0, None
 
     fmt = league_format(lg)
     sc = league_scoring(lg)
@@ -380,6 +413,21 @@ def ingest_league(lid, corpus, state, log_bad=None):
         b["order"].append((pk.get("pick_no") or 0, pos))   # true pick order -> opening sequence
         if b["slot"] is None and slot is not None:
             b["slot"] = slot
+        # --- reconstructed ADP for the pick-value model ---
+        ov = pk.get("pick_no")
+        pid = pk.get("player_id")
+        if ov and pid:
+            md = pk.get("metadata") or {}
+            nm = (md.get("first_name", "") + " " + md.get("last_name", "")).strip()
+            k = f"{season}|{pid}"
+            e = _PICKVALS.get(k)
+            if e is None:
+                _PICKVALS[k] = {"nm": nm, "pos": pos, "n": 1, "sumov": ov, "minov": ov}
+            else:
+                e["n"] += 1
+                e["sumov"] += ov
+                if ov < e["minov"]:
+                    e["minov"] = ov
 
     # --- outcome per roster ---
     outc = {}
@@ -420,6 +468,12 @@ def ingest_league(lid, corpus, state, log_bad=None):
         # "which builds are hard to actually START" into a measurable cost.
         eff = round(o["fpts"] / o["ppts"], 4) if o["ppts"] else None
         rec = {
+            # Teams inside one league are NOT independent draws: playoff slots are zero-sum
+            # and exactly one roster can be champion. Keeping the league + roster key is what
+            # makes clustered standard errors and within-league contrasts possible, and it
+            # means a future bad-data class can be deleted selectively instead of by reset.
+            "lid": lid,
+            "rid": rid,
             "sea": season,
             "tm": teams,
             "slot": b["slot"] or 0,
@@ -451,7 +505,7 @@ def ingest_league(lid, corpus, state, log_bad=None):
     return added, season
 
 # ---- crawl step ----------------------------------------------------------
-def crawl(state, corpus, league_budget, log):
+def crawl(state, corpus, league_budget, log, max_seconds=MAX_RUN_SECONDS):
     state["_seen"] = set(state["seen_leagues"])
     state["_chain"] = list(state.get("chain", []))
     state["_frontier"] = list(state["frontier"])
@@ -465,13 +519,35 @@ def crawl(state, corpus, league_budget, log):
     by_season = {}
     chain = state["_chain"]
     frontier = state["_frontier"]
+    fetch_failures = 0
+    consecutive_failures = 0
+    no_bracket = [0]
+
+    def note_bad(_msg):
+        no_bracket[0] += 1
+
     while (chain or frontier) and ingested_this_run < league_budget:
-        if time.time() - t0 > MAX_RUN_SECONDS:
+        if time.time() - t0 > max_seconds:
             break
         # chain parents first — that is the short path to last season
         lid = chain.pop(0) if chain else frontier.pop(0)
         processed += 1
-        added, season = ingest_league(lid, corpus, state)
+        try:
+            added, season = ingest_league(lid, corpus, state, log_bad=note_bad)
+        except FetchError as e:
+            # Sleeper never answered. The league is NOT bad data — we just don't know yet.
+            # ingest_league already marked it seen, which would blacklist it forever, so
+            # un-see it and put it back at the END of the queue for a later run.
+            fetch_failures += 1
+            consecutive_failures += 1
+            state["_seen"].discard(lid)
+            frontier.append(lid)
+            if consecutive_failures >= FETCH_FAIL_ABORT:
+                log(f"crawl: aborting — {consecutive_failures} consecutive fetch failures "
+                    f"(last: {e}). Sleeper looks unhealthy; the queue is preserved.")
+                break
+            continue
+        consecutive_failures = 0
         if added:
             ingested_this_run += 1
             teams_added += added
@@ -480,6 +556,11 @@ def crawl(state, corpus, league_budget, log):
             log(f"  ...{processed} checked, {ingested_this_run} ingested, {teams_added} teams, "
                 f"seasons={by_season}, chain={len(chain)} frontier={len(frontier)}")
 
+    if fetch_failures:
+        log(f"crawl: {fetch_failures} leagues deferred on fetch failure (re-queued, not lost)")
+    if no_bracket[0]:
+        log(f"crawl: {no_bracket[0]} completed leagues skipped for no parseable winners_bracket "
+            f"(these used to enter the corpus as all-zero outcomes)")
     state["chain"] = chain
     state["frontier"] = frontier
     state["seen_leagues"] = sorted(state["_seen"])
@@ -886,6 +967,13 @@ def main():
     ap.add_argument("--league-budget", type=int, default=DEF_LEAGUE_BUDGET)
     ap.add_argument("--rebuild-only", action="store_true",
                     help="recompute outputs from the existing corpus, no crawling")
+    ap.add_argument("--max-seconds", type=int, default=MAX_RUN_SECONDS,
+                    help="wall-clock cap for the crawl step (default suits the cron; raise it "
+                         "for a manual backfill)")
+    ap.add_argument("--reset-corpus", action="store_true",
+                    help="discard the corpus AND the crawl checkpoint and start over. Needed "
+                         "after the winners_bracket fix: the fabricated all-zero outcome rows "
+                         "carry no league id, so they cannot be deleted selectively.")
     args = ap.parse_args()
 
     def log(m):
@@ -893,10 +981,33 @@ def main():
 
     state = _load(STATE_FILE, None) or new_state()
     corpus = _load(CORPUS_FILE, None) or {"teams": []}
+    global _PICKVALS
+    _PICKVALS = _load(PICKVALS_FILE, None) or {}
+
+    if args.reset_corpus:
+        if args.rebuild_only:
+            ap.error("--reset-corpus with --rebuild-only would rebuild from an empty corpus")
+        # Reuse the OLD ingested ids as the fresh frontier. They are already known to be
+        # completed, in-range, real redraft seasons, so the re-crawl goes straight at them
+        # instead of re-discovering them through thousands of non-qualifying leagues.
+        # NEWEST FIRST. `ingested` is stored sorted ascending, and Sleeper league ids are
+        # time-ordered, so draining it as-is rebuilds 2023 first — the thinnest and least
+        # useful season. Sort numerically (the ids differ in digit length, so a string sort
+        # puts 2022 ahead of 2024) to match the crawler's existing newest-first intent.
+        known = sorted(state.get("ingested", []),
+                       key=lambda x: int(x) if str(x).isdigit() else 0, reverse=True)
+        log(f"reset: discarding {len(corpus['teams'])} team records; re-seeding the frontier "
+            f"with the {len(known)} league ids already known to qualify")
+        state, corpus = new_state(), {"teams": []}
+        _PICKVALS.clear()   # re-crawling the same leagues would double-count reconstructed ADP
+        # These go on `chain`, not `frontier`: crawl() drains chain first, and
+        # seed_frontier_into() re-sorts the frontier and floods it with ~28k banked ADP
+        # league ids — which would bury the known-good list behind mostly non-qualifying ones.
+        state["chain"] = known
 
     if not args.rebuild_only:
         t0 = time.time()
-        crawl(state, corpus, args.league_budget, log)
+        crawl(state, corpus, args.league_budget, log, max_seconds=args.max_seconds)
         state["last_run"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         state["stats"] = {
             "corpus_teams": len(corpus["teams"]),
@@ -906,7 +1017,8 @@ def main():
         }
         _save(STATE_FILE, state)
         _save(CORPUS_FILE, corpus)
-        log(f"state: {state['stats']}")
+        _save(PICKVALS_FILE, _PICKVALS)
+        log(f"state: {state['stats']}  pickvals={len(_PICKVALS)} player-seasons")
 
     write_archetypes(corpus, log)
     write_position_rounds(corpus, log)

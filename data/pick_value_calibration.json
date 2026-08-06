@@ -1,0 +1,225 @@
+{
+  "meta": {
+    "labeled_rows": 612,
+    "seasons": [
+      2023,
+      2024,
+      2025
+    ],
+    "min_adp_n": 5,
+    "adp_source": "reconstructed from real Sleeper redraft drafts (redraft_pick_values.json)",
+    "target": "realized next-season PPG (nflverse avg_pts)",
+    "note": "Per position, does draft-time tape beat reconstructed-ADP alone at predicting realized PPG, walk-forward. Published only on OOS lift; else dvPickScore keeps its hand-set ADP/grade budget (null-fallback)."
+  },
+  "byPos": {
+    "QB": {
+      "n": 103,
+      "baseline": {
+        "oos_n": 73,
+        "oos_corr": 0.648,
+        "oos_mae": 3.363,
+        "weights": {
+          "adp": 3.4723
+        },
+        "bias": 14.523,
+        "mean": {
+          "adp": -114.201
+        },
+        "std": {
+          "adp": 66.329
+        }
+      },
+      "full": {
+        "oos_n": 73,
+        "oos_corr": 0.494,
+        "oos_mae": 3.838,
+        "weights": {
+          "adp": 3.7858,
+          "ppg": 0.6274,
+          "boom": -0.4838,
+          "bust": 0.8741,
+          "floor": -1.4096,
+          "ceil": 1.3564,
+          "games": -0.2302
+        },
+        "bias": 14.523,
+        "mean": {
+          "adp": -114.201,
+          "ppg": 15.351,
+          "boom": 11.163,
+          "bust": 24.79,
+          "floor": 10.376,
+          "ceil": 21.479,
+          "games": 12.495
+        },
+        "std": {
+          "adp": 66.329,
+          "ppg": 4.964,
+          "boom": 13.414,
+          "bust": 25.095,
+          "floor": 4.681,
+          "ceil": 6.553,
+          "games": 4.733
+        }
+      },
+      "published": false
+    },
+    "RB": {
+      "n": 179,
+      "baseline": {
+        "oos_n": 123,
+        "oos_corr": 0.788,
+        "oos_mae": 3.053,
+        "weights": {
+          "adp": 3.9783
+        },
+        "bias": 9.955,
+        "mean": {
+          "adp": -114.219
+        },
+        "std": {
+          "adp": 69.384
+        }
+      },
+      "full": {
+        "oos_n": 123,
+        "oos_corr": 0.773,
+        "oos_mae": 3.014,
+        "weights": {
+          "adp": 3.6832,
+          "ppg": 0.3868,
+          "boom": 0.563,
+          "bust": -0.569,
+          "floor": 0.7907,
+          "ceil": -1.6457,
+          "games": 0.1527
+        },
+        "bias": 9.955,
+        "mean": {
+          "adp": -114.219,
+          "ppg": 10.731,
+          "boom": 9.573,
+          "bust": 30.832,
+          "floor": 5.558,
+          "ceil": 16.907,
+          "games": 13.972
+        },
+        "std": {
+          "adp": 69.384,
+          "ppg": 5.061,
+          "boom": 14.494,
+          "bust": 32.29,
+          "floor": 3.841,
+          "ceil": 7.195,
+          "games": 3.609
+        }
+      },
+      "published": false
+    },
+    "WR": {
+      "n": 227,
+      "baseline": {
+        "oos_n": 160,
+        "oos_corr": 0.712,
+        "oos_mae": 2.991,
+        "weights": {
+          "adp": 3.5507
+        },
+        "bias": 10.593,
+        "mean": {
+          "adp": -120.34
+        },
+        "std": {
+          "adp": 76.285
+        }
+      },
+      "full": {
+        "oos_n": 160,
+        "oos_corr": 0.681,
+        "oos_mae": 3.08,
+        "weights": {
+          "adp": 3.0775,
+          "ppg": 1.6019,
+          "boom": -0.7052,
+          "bust": 1.2454,
+          "floor": 0.3931,
+          "ceil": -0.0812,
+          "games": 0.3029
+        },
+        "bias": 10.593,
+        "mean": {
+          "adp": -120.34,
+          "ppg": 11.494,
+          "boom": 10.55,
+          "bust": 26.62,
+          "floor": 5.83,
+          "ceil": 18.313,
+          "games": 14.313
+        },
+        "std": {
+          "adp": 76.285,
+          "ppg": 4.617,
+          "boom": 13.981,
+          "bust": 27.093,
+          "floor": 3.715,
+          "ceil": 6.783,
+          "games": 3.147
+        }
+      },
+      "published": false
+    },
+    "TE": {
+      "n": 103,
+      "baseline": {
+        "oos_n": 75,
+        "oos_corr": 0.661,
+        "oos_mae": 2.514,
+        "weights": {
+          "adp": 2.4976
+        },
+        "bias": 8.274,
+        "mean": {
+          "adp": -149.052
+        },
+        "std": {
+          "adp": 68.733
+        }
+      },
+      "full": {
+        "oos_n": 75,
+        "oos_corr": 0.64,
+        "oos_mae": 2.527,
+        "weights": {
+          "adp": 2.0071,
+          "ppg": 1.4228,
+          "boom": 0.2263,
+          "bust": -0.0087,
+          "floor": -0.5659,
+          "ceil": -0.7115,
+          "games": 0.7384
+        },
+        "bias": 8.274,
+        "mean": {
+          "adp": -149.052,
+          "ppg": 8.755,
+          "boom": 11.876,
+          "bust": 27.209,
+          "floor": 4.128,
+          "ceil": 14.228,
+          "games": 13.981
+        },
+        "std": {
+          "adp": 68.733,
+          "ppg": 3.201,
+          "boom": 14.742,
+          "bust": 24.383,
+          "floor": 2.499,
+          "ceil": 4.83,
+          "games": 3.208
+        }
+      },
+      "published": false
+    }
+  },
+  "fallback": null
+}
