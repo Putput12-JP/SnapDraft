@@ -48,6 +48,7 @@ USAGE
 
 import argparse
 import datetime as dt
+import gzip
 import json
 import math
 import os
@@ -60,7 +61,8 @@ USER_AGENT = "Vault-Fantasy/1.0 (+https://putput12-jp.github.io/Vault-Fantasy)"
 
 DATA_DIR = "data"
 STATE_FILE = "redraft_strategy_state.json"
-CORPUS_FILE = "redraft_strategy_corpus.json"
+CORPUS_FILE = "redraft_strategy_corpus.json.gz"   # gzipped: see _load/_save
+CORPUS_FILE_LEGACY = "redraft_strategy_corpus.json"   # pre-gzip name, for one-time migration
 ADP_STATE_FILE = "sleeper_crawl_state.json"      # reuse its banked redraft league ids as seed
 
 # Reconstructed ADP: as each league's picks stream by we accumulate, per
@@ -141,11 +143,19 @@ def _get(path, tries=4):
     raise FetchError(path)
 
 # ---- persistence ---------------------------------------------------------
+# The corpus is stored GZIPPED (.json.gz): it is 200k+ repetitive records that
+# nothing in the app reads (only the aggregated redraft_strategy_* outputs are
+# served), and plain JSON crossed GitHub's 50MB warn toward the 100MB hard limit.
+# gzip cuts it ~10x. _load/_save switch on the extension, so aggregated outputs
+# stay plain JSON and human-inspectable.
+def _open(p, mode):
+    return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
+
 def _load(path, default):
     p = os.path.join(DATA_DIR, path)
     if os.path.exists(p):
         try:
-            with open(p, "r") as f:
+            with _open(p, "rt") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
@@ -155,7 +165,7 @@ def _save(path, obj):
     os.makedirs(DATA_DIR, exist_ok=True)
     p = os.path.join(DATA_DIR, path)
     tmp = p + ".tmp"
-    with open(tmp, "w") as f:
+    with _open(tmp, "wt") as f:
         json.dump(obj, f, separators=(",", ":"))
     os.replace(tmp, p)
 
@@ -980,7 +990,9 @@ def main():
         print(f"[redraft-strategy] {m}", flush=True)
 
     state = _load(STATE_FILE, None) or new_state()
-    corpus = _load(CORPUS_FILE, None) or {"teams": []}
+    # Fall back to the pre-gzip file the first time, so the switch migrates in place
+    # (this run reads the old .json, every _save writes the new .json.gz).
+    corpus = _load(CORPUS_FILE, None) or _load(CORPUS_FILE_LEGACY, None) or {"teams": []}
     global _PICKVALS
     _PICKVALS = _load(PICKVALS_FILE, None) or {}
 

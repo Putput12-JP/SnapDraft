@@ -15,10 +15,10 @@ a warning creates — "fine, so when DO I take one?". No single round carries a 
 positive QB signal in 1QB, but "QB in rounds 8+" does, and without it the UI can only say
 "later", which is useless on the clock.
 """
-import json, os, math, collections, datetime as dt
+import json, os, math, collections, datetime as dt, gzip
 
 DATA = "data"
-CORPUS = "redraft_strategy_corpus.json"
+CORPUS = "redraft_strategy_corpus.json.gz"   # gzipped by build_redraft_strategy.py
 PICKS = "redraft_strategy_picks.json"
 OUT = "redraft_round_position.json"
 
@@ -31,9 +31,11 @@ CELLS = [("ppr", "1qb", 12), ("ppr", "sf", 12), ("ppr", "1qb", 10), ("ppr", "sf"
 
 def _load(p):
     f = os.path.join(DATA, p)
+    if not os.path.exists(f) and f.endswith(".gz") and os.path.exists(f[:-3]):
+        f = f[:-3]                       # pre-gzip corpus, if present
     if not os.path.exists(f):
         raise SystemExit(f"missing {f}")
-    with open(f) as fh:
+    with (gzip.open(f, "rt") if f.endswith(".gz") else open(f)) as fh:
         return json.load(fh)
 
 def wilson_ok(k, n, base, z=1.96):

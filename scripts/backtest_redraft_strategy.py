@@ -40,13 +40,14 @@ USAGE
 """
 
 import argparse
+import gzip
 import json
 import os
 import random
 import statistics as stats
 
 DATA_DIR = "data"
-CORPUS = "redraft_strategy_corpus.json"
+CORPUS = "redraft_strategy_corpus.json.gz"   # gzipped by build_redraft_strategy.py
 MIN_GROUP = 40          # a strategy needs this many teams in a season to be scored
 MIN_SEASON = 250        # a season needs this many teams to take part
 
@@ -255,10 +256,12 @@ def main():
         print(m, flush=True)
 
     path = os.path.join(DATA_DIR, CORPUS)
+    if not os.path.exists(path) and path.endswith(".gz") and os.path.exists(path[:-3]):
+        path = path[:-3]                 # pre-gzip corpus, if present
     if not os.path.exists(path):
         log(f"no corpus at {path} — run build_redraft_strategy.py first")
         return
-    with open(path) as f:
+    with (gzip.open(path, "rt") if path.endswith(".gz") else open(path)) as f:
         teams = json.load(f)["teams"]
 
     sel = [t for t in teams if t.get("sc") == args.scoring

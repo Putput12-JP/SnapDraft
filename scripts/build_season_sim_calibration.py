@@ -31,11 +31,11 @@ Every bucket degrades to the file's [88,122] fallback, so a cold cache costs not
 
 Usage:  python3 scripts/build_season_sim_calibration.py
 """
-import json, os, random, math
+import json, os, random, math, gzip
 from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CORPUS = os.path.join(ROOT, 'data', 'redraft_strategy_corpus.json')
+CORPUS = os.path.join(ROOT, 'data', 'redraft_strategy_corpus.json.gz')   # gzipped
 OUT = os.path.join(ROOT, 'data', 'season_sim_calibration.json')
 
 MID = 105.0      # band midpoint, fixed (only the spread is calibrated)
@@ -121,7 +121,9 @@ def band_from_spread(sp):
 
 
 def main():
-    teams = json.load(open(CORPUS))['teams']
+    cpath = CORPUS if os.path.exists(CORPUS) else CORPUS[:-3]   # pre-gzip fallback
+    with (gzip.open(cpath, 'rt') if cpath.endswith('.gz') else open(cpath)) as _f:
+        teams = json.load(_f)['teams']
     out = {
         'meta': {
             'source': 'redraft_strategy_corpus.json',
