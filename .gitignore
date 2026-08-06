@@ -7,9 +7,11 @@
 *.zip
 *.gz
 *.tar
-# ...except the gzipped redraft corpus, which IS tracked (nothing in the app reads
-# it, so it is stored compressed to stay well under GitHub's file-size limit).
+# ...except the gzipped build corpora, which ARE tracked (nothing in the app reads
+# them, so they are stored compressed to stay well under GitHub's file-size limit).
 !data/redraft_strategy_corpus.json.gz
+!data/sleeper_adp_corpus.json.gz
+!data/sleeper_trade_corpus.json.gz
 
 # Local scratch folders
 Vault/

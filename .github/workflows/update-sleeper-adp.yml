@@ -59,7 +59,7 @@ jobs:
           git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
           git add data/adp_sleeper_*.json data/sleeper_adp_history_*.json \
                   data/sleeper_adp_stats.json data/sleeper_player_meta.json \
-                  data/sleeper_crawl_state.json data/sleeper_adp_corpus.json
+                  data/sleeper_crawl_state.json data/sleeper_adp_corpus.json.gz
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else

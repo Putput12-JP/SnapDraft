@@ -66,6 +66,7 @@ USAGE
 
 import argparse
 import datetime as dt
+import gzip
 import json
 import math
 import os
@@ -83,7 +84,8 @@ FC_URL = "https://api.fantasycalc.com/values/current?isDynasty={dyn}&numQbs={qbs
 DATA_DIR = "data"
 ADP_STATE_FILE = "sleeper_crawl_state.json"     # league IDs come from here
 STATE_FILE = "sleeper_trade_state.json"
-CORPUS_FILE = "sleeper_trade_corpus.json"
+CORPUS_FILE = "sleeper_trade_corpus.json.gz"   # gzipped: see _load/_save
+CORPUS_FILE_LEGACY = "sleeper_trade_corpus.json"   # pre-gzip name, for one-time migration
 META_FILE = "sleeper_player_meta.json"          # written by build_sleeper_adp.py
 MARKET_FILE = "trade_market.json"
 COMPS_FILE = "trade_comps.json"
@@ -195,11 +197,18 @@ def _fetch_json(url, tries=3):
 
 
 # ---- persistence ---------------------------------------------------------
+# The corpus is stored GZIPPED (.json.gz): a large accreting DB nothing in the app
+# reads (only the fitted trade_market.json is served), kept compressed to stay under
+# GitHub's file-size limit. _load/_save switch on the extension.
+def _open(p, mode):
+    return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
+
+
 def _load(path, default):
     p = os.path.join(DATA_DIR, path)
     if os.path.exists(p):
         try:
-            with open(p, "r") as f:
+            with _open(p, "rt") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
@@ -210,7 +219,7 @@ def _save(path, obj):
     os.makedirs(DATA_DIR, exist_ok=True)
     p = os.path.join(DATA_DIR, path)
     tmp = p + ".tmp"
-    with open(tmp, "w") as f:
+    with _open(tmp, "wt") as f:
         json.dump(obj, f, separators=(",", ":"))
     os.replace(tmp, p)
 
@@ -919,7 +928,9 @@ def main():
         print(f"[sleeper-trades] {m}", flush=True)
 
     state = _load(STATE_FILE, None) or new_state()
-    corpus = _load(CORPUS_FILE, None) or {"v": 1, "leagues": {}}
+    # Pre-gzip fallback so the switch migrates in place (read old .json once, then
+    # every _save writes the new .json.gz).
+    corpus = _load(CORPUS_FILE, None) or _load(CORPUS_FILE_LEGACY, None) or {"v": 1, "leagues": {}}
 
     if not args.rebuild_only:
         t0 = time.time()

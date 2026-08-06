@@ -56,6 +56,7 @@ USAGE
 
 import argparse
 import datetime as dt
+import gzip
 import json
 import os
 import re
@@ -117,7 +118,8 @@ REQ_MIN_INTERVAL = 0.08                       # ~750 req/min ceiling (Sleeper as
 
 DATA_DIR = "data"
 STATE_FILE = "sleeper_crawl_state.json"
-CORPUS_FILE = "sleeper_adp_corpus.json"
+CORPUS_FILE = "sleeper_adp_corpus.json.gz"   # gzipped: see _load/_save
+CORPUS_FILE_LEGACY = "sleeper_adp_corpus.json"   # pre-gzip name, for one-time migration
 META_FILE = "sleeper_player_meta.json"        # slim live player DB (eligibility + fresh pos/team)
 
 # ---- tiny rate-limited HTTP client --------------------------------------
@@ -153,11 +155,17 @@ def _get(path, tries=4):
 
 
 # ---- state / corpus persistence -----------------------------------------
+# The corpus is stored GZIPPED (.json.gz): it is a large accreting DB nothing in
+# the app reads (only the aggregated adp_sleeper_* outputs are served), and plain
+# JSON was nearing GitHub's 50MB file limit. _load/_save switch on the extension.
+def _open(p, mode):
+    return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
+
 def _load(path, default):
     p = os.path.join(DATA_DIR, path)
     if os.path.exists(p):
         try:
-            with open(p, "r") as f:
+            with _open(p, "rt") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
@@ -167,7 +175,7 @@ def _save(path, obj):
     os.makedirs(DATA_DIR, exist_ok=True)
     p = os.path.join(DATA_DIR, path)
     tmp = p + ".tmp"
-    with open(tmp, "w") as f:
+    with _open(tmp, "wt") as f:
         json.dump(obj, f, separators=(",", ":"))
     os.replace(tmp, p)
 
@@ -588,7 +596,9 @@ def main():
         print(f"[sleeper-adp] {m}", flush=True)
 
     state = _load(STATE_FILE, None) or new_state(args.seed)
-    corpus = _load(CORPUS_FILE, None) or {"drafts": {}, "players": {}}
+    # Fall back to the pre-gzip file the first time, so the switch migrates in place
+    # (this run reads the old .json, every _save writes the new .json.gz).
+    corpus = _load(CORPUS_FILE, None) or _load(CORPUS_FILE_LEGACY, None) or {"drafts": {}, "players": {}}
 
     if not args.rebuild_only:
         t0 = time.time()

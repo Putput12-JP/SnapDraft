@@ -79,7 +79,7 @@ jobs:
           # Rebase in case another data cron pushed while we were crawling.
           git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
           git add data/trade_market.json data/trade_comps.json \
-                  data/sleeper_trade_state.json data/sleeper_trade_corpus.json
+                  data/sleeper_trade_state.json data/sleeper_trade_corpus.json.gz
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
