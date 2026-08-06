@@ -1,0 +1,848 @@
+{
+  "meta": {
+    "built_from": [
+      "nflverse_stats_1999.json",
+      "nflverse_stats_2000.json",
+      "nflverse_stats_2001.json",
+      "nflverse_stats_2002.json",
+      "nflverse_stats_2003.json",
+      "nflverse_stats_2004.json",
+      "nflverse_stats_2005.json",
+      "nflverse_stats_2006.json",
+      "nflverse_stats_2007.json",
+      "nflverse_stats_2008.json",
+      "nflverse_stats_2009.json",
+      "nflverse_stats_2010.json",
+      "nflverse_stats_2011.json",
+      "nflverse_stats_2012.json",
+      "nflverse_stats_2013.json",
+      "nflverse_stats_2014.json",
+      "nflverse_stats_2015.json",
+      "nflverse_stats_2016.json",
+      "nflverse_stats_2017.json",
+      "nflverse_stats_2018.json",
+      "nflverse_stats_2019.json",
+      "nflverse_stats_2020.json",
+      "nflverse_stats_2021.json",
+      "nflverse_stats_2022.json",
+      "nflverse_stats_2023.json",
+      "nflverse_stats_2024.json",
+      "nflverse_stats_2025.json"
+    ],
+    "transitions": 26,
+    "features": [
+      "ppg",
+      "boom",
+      "bust",
+      "floor",
+      "ceil",
+      "games"
+    ],
+    "ridge": 1.0,
+    "min_games": 4,
+    "note": "Each grade FACTOR fitted against its OWN next-season outcome (Upside->ceiling weeks, Floor->floor weeks, Risk->games & bust), not mean PPG. A (factor,position) publishes only when its fitted OOS ranking beats the naive carry baseline. Unpublished -> frontend keeps the hand-authored constant (null-fallback)."
+  },
+  "byFactor": {
+    "ppg": {
+      "label": "composite (ppg)",
+      "target": "ppg",
+      "carry": "ppg",
+      "direction": "better",
+      "byPos": {
+        "QB": {
+          "n": 962,
+          "oos_n": 816,
+          "tested_seasons": [
+            2004,
+            2025
+          ],
+          "oos_corr_fit": 0.636,
+          "oos_corr_carry": 0.634,
+          "oos_mae_fit": 3.38,
+          "oos_mae_carry": 3.588,
+          "weights": {
+            "ppg": 3.1876,
+            "boom": 0.0569,
+            "bust": -0.0457,
+            "floor": 0.1712,
+            "ceil": -0.4822,
+            "games": 0.8864
+          },
+          "bias": 12.932,
+          "mean": {
+            "ppg": 13.171,
+            "boom": 1.222,
+            "bust": 4.1,
+            "floor": 7.881,
+            "ceil": 19.655,
+            "games": 12.205
+          },
+          "std": {
+            "ppg": 5.279,
+            "boom": 5.608,
+            "bust": 15.435,
+            "floor": 4.844,
+            "ceil": 6.984,
+            "games": 4.365
+          },
+          "published": false
+        },
+        "RB": {
+          "n": 2249,
+          "oos_n": 2097,
+          "tested_seasons": [
+            2002,
+            2025
+          ],
+          "oos_corr_fit": 0.73,
+          "oos_corr_carry": 0.73,
+          "oos_mae_fit": 3.123,
+          "oos_mae_carry": 3.285,
+          "weights": {
+            "ppg": 5.2477,
+            "boom": 0.0499,
+            "bust": -0.1304,
+            "floor": -0.1013,
+            "ceil": -0.9455,
+            "games": 0.3085
+          },
+          "bias": 7.875,
+          "mean": {
+            "ppg": 8.187,
+            "boom": 0.769,
+            "bust": 4.545,
+            "floor": 3.929,
+            "ceil": 13.087,
+            "games": 12.466
+          },
+          "std": {
+            "ppg": 5.944,
+            "boom": 4.853,
+            "bust": 18.177,
+            "floor": 4.276,
+            "ceil": 8.724,
+            "games": 3.664
+          },
+          "published": false
+        },
+        "WR": {
+          "n": 3376,
+          "oos_n": 3256,
+          "tested_seasons": [
+            2001,
+            2025
+          ],
+          "oos_corr_fit": 0.759,
+          "oos_corr_carry": 0.76,
+          "oos_mae_fit": 2.778,
+          "oos_mae_carry": 2.89,
+          "weights": {
+            "ppg": 3.494,
+            "boom": -0.0755,
+            "bust": -0.1267,
+            "floor": 0.3064,
+            "ceil": 0.2077,
+            "games": 0.2347
+          },
+          "bias": 7.884,
+          "mean": {
+            "ppg": 8.092,
+            "boom": 0.792,
+            "bust": 4.968,
+            "floor": 3.734,
+            "ceil": 13.166,
+            "games": 12.898
+          },
+          "std": {
+            "ppg": 5.348,
+            "boom": 4.65,
+            "bust": 18.5,
+            "floor": 3.664,
+            "ceil": 8.184,
+            "games": 3.566
+          },
+          "published": false
+        },
+        "TE": {
+          "n": 1787,
+          "oos_n": 1610,
+          "tested_seasons": [
+            2003,
+            2025
+          ],
+          "oos_corr_fit": 0.748,
+          "oos_corr_carry": 0.748,
+          "oos_mae_fit": 2.008,
+          "oos_mae_carry": 2.108,
+          "weights": {
+            "ppg": 2.1594,
+            "boom": 0.0374,
+            "bust": -0.0527,
+            "floor": 0.2897,
+            "ceil": 0.3546,
+            "games": 0.3276
+          },
+          "bias": 5.397,
+          "mean": {
+            "ppg": 5.436,
+            "boom": 0.699,
+            "bust": 5.657,
+            "floor": 2.204,
+            "ceil": 9.073,
+            "games": 11.706
+          },
+          "std": {
+            "ppg": 3.875,
+            "boom": 4.453,
+            "bust": 19.941,
+            "floor": 2.54,
+            "ceil": 6.137,
+            "games": 3.737
+          },
+          "published": false
+        }
+      }
+    },
+    "ceil": {
+      "label": "Upside->ceiling",
+      "target": "ceil",
+      "carry": "ceil",
+      "direction": "better",
+      "byPos": {
+        "QB": {
+          "n": 962,
+          "oos_n": 816,
+          "tested_seasons": [
+            2004,
+            2025
+          ],
+          "oos_corr_fit": 0.57,
+          "oos_corr_carry": 0.52,
+          "oos_mae_fit": 4.734,
+          "oos_mae_carry": 5.361,
+          "weights": {
+            "ppg": 3.8264,
+            "boom": 0.1459,
+            "bust": 0.0279,
+            "floor": -0.1586,
+            "ceil": -0.4003,
+            "games": 1.3205
+          },
+          "bias": 19.32,
+          "mean": {
+            "ppg": 13.171,
+            "boom": 1.222,
+            "bust": 4.1,
+            "floor": 7.881,
+            "ceil": 19.655,
+            "games": 12.205
+          },
+          "std": {
+            "ppg": 5.279,
+            "boom": 5.608,
+            "bust": 15.435,
+            "floor": 4.844,
+            "ceil": 6.984,
+            "games": 4.365
+          },
+          "published": true
+        },
+        "RB": {
+          "n": 2249,
+          "oos_n": 2097,
+          "tested_seasons": [
+            2002,
+            2025
+          ],
+          "oos_corr_fit": 0.689,
+          "oos_corr_carry": 0.655,
+          "oos_mae_fit": 4.991,
+          "oos_mae_carry": 5.529,
+          "weights": {
+            "ppg": 7.3372,
+            "boom": 0.0551,
+            "bust": -0.2133,
+            "floor": -0.3696,
+            "ceil": -1.1796,
+            "games": 0.5419
+          },
+          "bias": 12.518,
+          "mean": {
+            "ppg": 8.187,
+            "boom": 0.769,
+            "bust": 4.545,
+            "floor": 3.929,
+            "ceil": 13.087,
+            "games": 12.466
+          },
+          "std": {
+            "ppg": 5.944,
+            "boom": 4.853,
+            "bust": 18.177,
+            "floor": 4.276,
+            "ceil": 8.724,
+            "games": 3.664
+          },
+          "published": true
+        },
+        "WR": {
+          "n": 3376,
+          "oos_n": 3256,
+          "tested_seasons": [
+            2001,
+            2025
+          ],
+          "oos_corr_fit": 0.723,
+          "oos_corr_carry": 0.7,
+          "oos_mae_fit": 4.534,
+          "oos_mae_carry": 4.959,
+          "weights": {
+            "ppg": 5.4541,
+            "boom": -0.1174,
+            "bust": -0.218,
+            "floor": 0.1576,
+            "ceil": 0.1977,
+            "games": 0.394
+          },
+          "bias": 12.748,
+          "mean": {
+            "ppg": 8.092,
+            "boom": 0.792,
+            "bust": 4.968,
+            "floor": 3.734,
+            "ceil": 13.166,
+            "games": 12.898
+          },
+          "std": {
+            "ppg": 5.348,
+            "boom": 4.65,
+            "bust": 18.5,
+            "floor": 3.664,
+            "ceil": 8.184,
+            "games": 3.566
+          },
+          "published": true
+        },
+        "TE": {
+          "n": 1787,
+          "oos_n": 1610,
+          "tested_seasons": [
+            2003,
+            2025
+          ],
+          "oos_corr_fit": 0.707,
+          "oos_corr_carry": 0.688,
+          "oos_mae_fit": 3.469,
+          "oos_mae_carry": 3.819,
+          "weights": {
+            "ppg": 2.6916,
+            "boom": -0.0092,
+            "bust": -0.1154,
+            "floor": 0.456,
+            "ceil": 0.9872,
+            "games": 0.6217
+          },
+          "bias": 8.978,
+          "mean": {
+            "ppg": 5.436,
+            "boom": 0.699,
+            "bust": 5.657,
+            "floor": 2.204,
+            "ceil": 9.073,
+            "games": 11.706
+          },
+          "std": {
+            "ppg": 3.875,
+            "boom": 4.453,
+            "bust": 19.941,
+            "floor": 2.54,
+            "ceil": 6.137,
+            "games": 3.737
+          },
+          "published": true
+        }
+      }
+    },
+    "floor": {
+      "label": "Floor->floor",
+      "target": "floor",
+      "carry": "floor",
+      "direction": "better",
+      "byPos": {
+        "QB": {
+          "n": 962,
+          "oos_n": 816,
+          "tested_seasons": [
+            2004,
+            2025
+          ],
+          "oos_corr_fit": 0.609,
+          "oos_corr_carry": 0.57,
+          "oos_mae_fit": 3.2,
+          "oos_mae_carry": 3.508,
+          "weights": {
+            "ppg": 2.5398,
+            "boom": -0.0062,
+            "bust": -0.0411,
+            "floor": 0.4599,
+            "ceil": -0.426,
+            "games": 0.68
+          },
+          "bias": 7.743,
+          "mean": {
+            "ppg": 13.171,
+            "boom": 1.222,
+            "bust": 4.1,
+            "floor": 7.881,
+            "ceil": 19.655,
+            "games": 12.205
+          },
+          "std": {
+            "ppg": 5.279,
+            "boom": 5.608,
+            "bust": 15.435,
+            "floor": 4.844,
+            "ceil": 6.984,
+            "games": 4.365
+          },
+          "published": true
+        },
+        "RB": {
+          "n": 2249,
+          "oos_n": 2097,
+          "tested_seasons": [
+            2002,
+            2025
+          ],
+          "oos_corr_fit": 0.702,
+          "oos_corr_carry": 0.668,
+          "oos_mae_fit": 2.196,
+          "oos_mae_carry": 2.343,
+          "weights": {
+            "ppg": 3.3286,
+            "boom": 0.0421,
+            "bust": -0.0606,
+            "floor": 0.4235,
+            "ceil": -0.8165,
+            "games": 0.1492
+          },
+          "bias": 3.841,
+          "mean": {
+            "ppg": 8.187,
+            "boom": 0.769,
+            "bust": 4.545,
+            "floor": 3.929,
+            "ceil": 13.087,
+            "games": 12.466
+          },
+          "std": {
+            "ppg": 5.944,
+            "boom": 4.853,
+            "bust": 18.177,
+            "floor": 4.276,
+            "ceil": 8.724,
+            "games": 3.664
+          },
+          "published": true
+        },
+        "WR": {
+          "n": 3376,
+          "oos_n": 3256,
+          "tested_seasons": [
+            2001,
+            2025
+          ],
+          "oos_corr_fit": 0.716,
+          "oos_corr_carry": 0.673,
+          "oos_mae_fit": 1.911,
+          "oos_mae_carry": 2.093,
+          "weights": {
+            "ppg": 1.9592,
+            "boom": -0.008,
+            "bust": -0.0806,
+            "floor": 0.4698,
+            "ceil": 0.1638,
+            "games": 0.1451
+          },
+          "bias": 3.679,
+          "mean": {
+            "ppg": 8.092,
+            "boom": 0.792,
+            "bust": 4.968,
+            "floor": 3.734,
+            "ceil": 13.166,
+            "games": 12.898
+          },
+          "std": {
+            "ppg": 5.348,
+            "boom": 4.65,
+            "bust": 18.5,
+            "floor": 3.664,
+            "ceil": 8.184,
+            "games": 3.566
+          },
+          "published": true
+        },
+        "TE": {
+          "n": 1787,
+          "oos_n": 1610,
+          "tested_seasons": [
+            2003,
+            2025
+          ],
+          "oos_corr_fit": 0.695,
+          "oos_corr_carry": 0.638,
+          "oos_mae_fit": 1.354,
+          "oos_mae_carry": 1.481,
+          "weights": {
+            "ppg": 1.5233,
+            "boom": 0.0417,
+            "bust": -0.0138,
+            "floor": 0.2001,
+            "ceil": -0.0165,
+            "games": 0.1591
+          },
+          "bias": 2.2,
+          "mean": {
+            "ppg": 5.436,
+            "boom": 0.699,
+            "bust": 5.657,
+            "floor": 2.204,
+            "ceil": 9.073,
+            "games": 11.706
+          },
+          "std": {
+            "ppg": 3.875,
+            "boom": 4.453,
+            "bust": 19.941,
+            "floor": 2.54,
+            "ceil": 6.137,
+            "games": 3.737
+          },
+          "published": true
+        }
+      }
+    },
+    "games": {
+      "label": "Risk->durability",
+      "target": "games",
+      "carry": "games",
+      "direction": "more games = safer",
+      "byPos": {
+        "QB": {
+          "n": 962,
+          "oos_n": 816,
+          "tested_seasons": [
+            2004,
+            2025
+          ],
+          "oos_corr_fit": 0.544,
+          "oos_corr_carry": 0.512,
+          "oos_mae_fit": 3.054,
+          "oos_mae_carry": 3.07,
+          "weights": {
+            "ppg": 1.663,
+            "boom": -0.1867,
+            "bust": -0.1087,
+            "floor": -0.2172,
+            "ceil": -0.3468,
+            "games": 1.5536
+          },
+          "bias": 11.902,
+          "mean": {
+            "ppg": 13.171,
+            "boom": 1.222,
+            "bust": 4.1,
+            "floor": 7.881,
+            "ceil": 19.655,
+            "games": 12.205
+          },
+          "std": {
+            "ppg": 5.279,
+            "boom": 5.608,
+            "bust": 15.435,
+            "floor": 4.844,
+            "ceil": 6.984,
+            "games": 4.365
+          },
+          "published": true
+        },
+        "RB": {
+          "n": 2249,
+          "oos_n": 2097,
+          "tested_seasons": [
+            2002,
+            2025
+          ],
+          "oos_corr_fit": 0.363,
+          "oos_corr_carry": 0.325,
+          "oos_mae_fit": 3.03,
+          "oos_mae_carry": 3.321,
+          "weights": {
+            "ppg": 1.1348,
+            "boom": 0.0822,
+            "bust": 0.0631,
+            "floor": -0.3139,
+            "ceil": -0.0702,
+            "games": 0.9551
+          },
+          "bias": 12.129,
+          "mean": {
+            "ppg": 8.187,
+            "boom": 0.769,
+            "bust": 4.545,
+            "floor": 3.929,
+            "ceil": 13.087,
+            "games": 12.466
+          },
+          "std": {
+            "ppg": 5.944,
+            "boom": 4.853,
+            "bust": 18.177,
+            "floor": 4.276,
+            "ceil": 8.724,
+            "games": 3.664
+          },
+          "published": true
+        },
+        "WR": {
+          "n": 3376,
+          "oos_n": 3256,
+          "tested_seasons": [
+            2001,
+            2025
+          ],
+          "oos_corr_fit": 0.373,
+          "oos_corr_carry": 0.314,
+          "oos_mae_fit": 2.81,
+          "oos_mae_carry": 3.143,
+          "weights": {
+            "ppg": 0.3627,
+            "boom": -0.021,
+            "bust": -0.1461,
+            "floor": 0.2304,
+            "ceil": 0.2597,
+            "games": 0.82
+          },
+          "bias": 12.567,
+          "mean": {
+            "ppg": 8.092,
+            "boom": 0.792,
+            "bust": 4.968,
+            "floor": 3.734,
+            "ceil": 13.166,
+            "games": 12.898
+          },
+          "std": {
+            "ppg": 5.348,
+            "boom": 4.65,
+            "bust": 18.5,
+            "floor": 3.664,
+            "ceil": 8.184,
+            "games": 3.566
+          },
+          "published": true
+        },
+        "TE": {
+          "n": 1787,
+          "oos_n": 1610,
+          "tested_seasons": [
+            2003,
+            2025
+          ],
+          "oos_corr_fit": 0.438,
+          "oos_corr_carry": 0.41,
+          "oos_mae_fit": 2.742,
+          "oos_mae_carry": 3.069,
+          "weights": {
+            "ppg": 0.4211,
+            "boom": -0.0499,
+            "bust": 0.0499,
+            "floor": 0.0237,
+            "ceil": 0.5106,
+            "games": 1.0296
+          },
+          "bias": 11.651,
+          "mean": {
+            "ppg": 5.436,
+            "boom": 0.699,
+            "bust": 5.657,
+            "floor": 2.204,
+            "ceil": 9.073,
+            "games": 11.706
+          },
+          "std": {
+            "ppg": 3.875,
+            "boom": 4.453,
+            "bust": 19.941,
+            "floor": 2.54,
+            "ceil": 6.137,
+            "games": 3.737
+          },
+          "published": true
+        }
+      }
+    },
+    "bust": {
+      "label": "Risk->volatility",
+      "target": "bust",
+      "carry": "bust",
+      "direction": "lower = safer",
+      "byPos": {
+        "QB": {
+          "n": 962,
+          "oos_n": 816,
+          "tested_seasons": [
+            2004,
+            2025
+          ],
+          "oos_corr_fit": 0.499,
+          "oos_corr_carry": 0.701,
+          "oos_mae_fit": 6.036,
+          "oos_mae_carry": 4.655,
+          "weights": {
+            "ppg": -0.508,
+            "boom": 1.5,
+            "bust": 13.0364,
+            "floor": 2.662,
+            "ceil": -0.6186,
+            "games": -2.5533
+          },
+          "bias": 6.374,
+          "mean": {
+            "ppg": 13.171,
+            "boom": 1.222,
+            "bust": 4.1,
+            "floor": 7.881,
+            "ceil": 19.655,
+            "games": 12.205
+          },
+          "std": {
+            "ppg": 5.279,
+            "boom": 5.608,
+            "bust": 15.435,
+            "floor": 4.844,
+            "ceil": 6.984,
+            "games": 4.365
+          },
+          "published": false
+        },
+        "RB": {
+          "n": 2249,
+          "oos_n": 2097,
+          "tested_seasons": [
+            2002,
+            2025
+          ],
+          "oos_corr_fit": 0.572,
+          "oos_corr_carry": 0.757,
+          "oos_mae_fit": 5.49,
+          "oos_mae_carry": 3.901,
+          "weights": {
+            "ppg": -4.206,
+            "boom": 1.2622,
+            "bust": 16.7601,
+            "floor": 0.8549,
+            "ceil": 2.7298,
+            "games": 0.0919
+          },
+          "bias": 7.016,
+          "mean": {
+            "ppg": 8.187,
+            "boom": 0.769,
+            "bust": 4.545,
+            "floor": 3.929,
+            "ceil": 13.087,
+            "games": 12.466
+          },
+          "std": {
+            "ppg": 5.944,
+            "boom": 4.853,
+            "bust": 18.177,
+            "floor": 4.276,
+            "ceil": 8.724,
+            "games": 3.664
+          },
+          "published": false
+        },
+        "WR": {
+          "n": 3376,
+          "oos_n": 3256,
+          "tested_seasons": [
+            2001,
+            2025
+          ],
+          "oos_corr_fit": 0.568,
+          "oos_corr_carry": 0.757,
+          "oos_mae_fit": 5.831,
+          "oos_mae_carry": 4.135,
+          "weights": {
+            "ppg": 1.655,
+            "boom": 1.1666,
+            "bust": 17.1911,
+            "floor": -1.222,
+            "ceil": -1.5503,
+            "games": 0.2386
+          },
+          "bias": 7.766,
+          "mean": {
+            "ppg": 8.092,
+            "boom": 0.792,
+            "bust": 4.968,
+            "floor": 3.734,
+            "ceil": 13.166,
+            "games": 12.898
+          },
+          "std": {
+            "ppg": 5.348,
+            "boom": 4.65,
+            "bust": 18.5,
+            "floor": 3.664,
+            "ceil": 8.184,
+            "games": 3.566
+          },
+          "published": false
+        },
+        "TE": {
+          "n": 1787,
+          "oos_n": 1610,
+          "tested_seasons": [
+            2003,
+            2025
+          ],
+          "oos_corr_fit": 0.589,
+          "oos_corr_carry": 0.768,
+          "oos_mae_fit": 6.419,
+          "oos_mae_carry": 4.577,
+          "weights": {
+            "ppg": 0.7728,
+            "boom": 0.836,
+            "bust": 17.9785,
+            "floor": -0.1345,
+            "ceil": -1.2923,
+            "games": 0.1939
+          },
+          "bias": 8.202,
+          "mean": {
+            "ppg": 5.436,
+            "boom": 0.699,
+            "bust": 5.657,
+            "floor": 2.204,
+            "ceil": 9.073,
+            "games": 11.706
+          },
+          "std": {
+            "ppg": 3.875,
+            "boom": 4.453,
+            "bust": 19.941,
+            "floor": 2.54,
+            "ceil": 6.137,
+            "games": 3.737
+          },
+          "published": false
+        }
+      }
+    }
+  },
+  "fallback": null
+}

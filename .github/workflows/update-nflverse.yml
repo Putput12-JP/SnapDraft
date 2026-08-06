@@ -26,6 +26,14 @@ jobs:
       - name: Run data processor
         run: python scripts/process_nflverse.py
 
+      - name: Rebuild grade calibration
+        # Fits Grade Keys factor weights from the freshly-written nflverse_stats_*
+        # seasons (pure stdlib, no deps). Writes data/grade_calibration.json; a
+        # factor/pos cell only publishes when it beats carry walk-forward, so a
+        # thin/degraded run simply publishes less and the frontend keeps its
+        # hand-authored constants (null-fallback).
+        run: python scripts/build_grade_calibration.py
+
       - name: Commit and push updated data
         run: |
           git config user.name "github-actions[bot]"

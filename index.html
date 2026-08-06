@@ -26195,6 +26195,57 @@ function pickYear(year) {
    players without data (rookies) fall back to a market-rank proxy.
    Exposes window.VaultGrades for My Rankings + the Draft Vault Grades view.
    ════════════════════════════════════════════════════════════════════ */
+
+/* ── Grade calibration (fitted from data/grade_calibration.json) ───────
+   Weights learned by scripts/build_grade_calibration.py: features from season N
+   → each factor's OWN outcome in N+1 (Upside→ceiling weeks, Floor→floor weeks),
+   validated walk-forward and published per (factor,position) only when it beats
+   the naive carry baseline. Same fit→gate→null-fallback contract as
+   VaultTradeMarket / VaultSeasonSimCal: predict() returns null for any cell that
+   didn't publish (or before the file lands), and computeFactors keeps its
+   hand-authored blend. Never returns 0 for "not modeled". */
+window.VaultGradeCal = (function () {
+  'use strict';
+  const BASE = (function () {
+    // Guard the global read: scripts/test-grades.mjs runs this block in a VM that
+    // stubs `window` but not `location`, and an unguarded `location` throws there.
+    const h = (typeof location !== 'undefined' && location.hostname)
+      || (typeof window !== 'undefined' && window.location && window.location.hostname) || '';
+    return (h.includes('github.io') || h.includes('putput12-jp'))
+      ? 'https://putput12-jp.github.io/Vault-Fantasy/data' : '/data';
+  })();
+  const S = { model: null, _p: null };
+  const bust = () => Math.floor(Date.now() / 216e5);
+  function load() {
+    if (S._p) return S._p;
+    if (typeof fetch !== 'function') return (S._p = Promise.resolve(null));  // headless test env
+    S._p = fetch(`${BASE}/grade_calibration.json?v=${bust()}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { S.model = j; return j; })
+      .catch(() => null);
+    return S._p;
+  }
+  function ready() { return !!S.model; }
+  /* Standardized-ridge prediction of next-season <field> for a weekly-log profile
+     pr (must carry the model's features: ppg/boom/bust/floor/ceil/games). Returns
+     null unless this (field,pos) cell is published AND every feature is present. */
+  function predict(field, pos, pr) {
+    const m = S.model;
+    if (!m || !m.byFactor || !pr) return null;
+    const fac = m.byFactor[field];
+    const cell = fac && fac.byPos && fac.byPos[pos];
+    if (!cell || !cell.published) return null;
+    let s = cell.bias;
+    for (const f of m.meta.features) {
+      const v = pr[f];
+      if (v == null || isNaN(v)) return null;   // missing feature → fall back
+      s += ((v - cell.mean[f]) / (cell.std[f] || 1)) * cell.weights[f];
+    }
+    return s;
+  }
+  return { load, ready, predict };
+})();
+
 (function () {
   'use strict';
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -26233,7 +26284,8 @@ function pickYear(year) {
     const base = (typeof NFLVERSE_BASE !== 'undefined') ? NFLVERSE_BASE : '/data';
     _p = Promise.all([
       fetch(base + '/nflverse_stats.json').then(r => r.json()),
-      window.VaultDurability ? VaultDurability.ensure().catch(() => null) : null  // 3yr injury history
+      window.VaultDurability ? VaultDurability.ensure().catch(() => null) : null,  // 3yr injury history
+      window.VaultGradeCal ? VaultGradeCal.load().catch(() => null) : null         // fitted factor weights
     ]).then(([stats]) => {
       const statsMap = {};
       // Exact + suffix-stripped key. Without this, every player the market
@@ -26289,8 +26341,20 @@ function pickYear(year) {
     // ---------- UPSIDE (ceiling / breakout) ----------
     let upside;
     if (hasData) {
-      const boom01 = clamp(pr.boom / 55, 0, 1);
-      let u = 0.46 * boom01 + 0.34 * pctRank(po.ceil, pr.ceil) + 0.20 * pctRank(po.ppg, pr.ppg);
+      // Outcome-calibrated when available: build_grade_calibration.py fits these
+      // stats → next-season CEILING weeks and beats the old hand blend walk-forward
+      // (published per pos in data/grade_calibration.json). predict() returns null
+      // for any unpublished pos / cold cache, and we fall back to the blend.
+      const predCeil = window.VaultGradeCal ? VaultGradeCal.predict('ceil', pos, pr) : null;
+      let u;
+      if (predCeil != null && po.predCeil && po.predCeil.length) {
+        u = pctRank(po.predCeil, predCeil);          // projection ranked vs the pool of projections
+      } else {
+        const boom01 = clamp(pr.boom / 55, 0, 1);
+        u = 0.46 * boom01 + 0.34 * pctRank(po.ceil, pr.ceil) + 0.20 * pctRank(po.ppg, pr.ppg);
+      }
+      // Market/age signals aren't in the fitted (stats-only) features, so they
+      // stay as nudges on top of either path.
       if (dyn) u += clamp((25 - (p.age || 27)) * 0.03, -0.06, 0.12);  // dynasty: multi-year runway (youth ↑, age ↓)
       else if ((p.age || 30) <= 24) u += 0.06;       // ascending youth
       if (trend30 > 40) u += 0.05;                   // market rising
@@ -26303,8 +26367,15 @@ function pickYear(year) {
     // ---------- FLOOR (weekly safety / consistency) ----------
     let floor;
     if (hasData) {
-      const safe01 = 1 - clamp(pr.bust / 45, 0, 1);
-      floor = (0.40 * safe01 + 0.40 * pctRank(po.floor, pr.floor) + 0.20 * clamp(pr.games / 17, 0, 1)) * 10;
+      // Same treatment: fitted stats → next-season FLOOR weeks (published per pos),
+      // with the hand blend as the null-fallback.
+      const predFloor = window.VaultGradeCal ? VaultGradeCal.predict('floor', pos, pr) : null;
+      if (predFloor != null && po.predFloor && po.predFloor.length) {
+        floor = pctRank(po.predFloor, predFloor) * 10;  // projection ranked vs the pool of projections
+      } else {
+        const safe01 = 1 - clamp(pr.bust / 45, 0, 1);
+        floor = (0.40 * safe01 + 0.40 * pctRank(po.floor, pr.floor) + 0.20 * clamp(pr.games / 17, 0, 1)) * 10;
+      }
     } else {
       floor = clamp(7.5 - Math.log2(Math.max(1, p.ovrRank)) * 0.9, 2, 6.5);
     }
@@ -26433,17 +26504,32 @@ function pickYear(year) {
     try { if (window.MyRankings && MyRankings.marketUniverse) uni = MyRankings.marketUniverse(f); } catch (e) {}
     if (!uni || !uni.length) return null;
     if (_poolCache[f] && _poolCache[f].uni === uni) return _poolCache[f];
-    const pool = { QB: { ppg: [], ceil: [], floor: [] }, RB: { ppg: [], ceil: [], floor: [] },
-                   WR: { ppg: [], ceil: [], floor: [] }, TE: { ppg: [], ceil: [], floor: [] } };
+    // predCeil/predFloor: the pool of FITTED next-season projections. Upside/Floor
+    // rank a player's projection against THESE, not against actual current-year
+    // ceilings — otherwise a compressed (regressed) projection ranked against the
+    // wider actual spread deflates the whole column instead of just re-ordering it.
+    const blank = () => ({ ppg: [], ceil: [], floor: [], predCeil: [], predFloor: [] });
+    const pool = { QB: blank(), RB: blank(), WR: blank(), TE: blank() };
+    const cal = window.VaultGradeCal;
     const profs = new Map(), meta = new Map();
     uni.forEach(p => {
       if (!pool[p.pos]) return;
       meta.set(_norm(p.name), p);
       const pr = profileFor(p.name);
       profs.set(_norm(p.name), pr);
-      if (pr) { pool[p.pos].ppg.push(pr.ppg); if (pr.ceil != null) pool[p.pos].ceil.push(pr.ceil); if (pr.floor != null) pool[p.pos].floor.push(pr.floor); }
+      if (pr) {
+        pool[p.pos].ppg.push(pr.ppg);
+        if (pr.ceil != null) pool[p.pos].ceil.push(pr.ceil);
+        if (pr.floor != null) pool[p.pos].floor.push(pr.floor);
+        if (cal) {
+          const pc = cal.predict('ceil', p.pos, pr), pf = cal.predict('floor', p.pos, pr);
+          if (pc != null) pool[p.pos].predCeil.push(pc);
+          if (pf != null) pool[p.pos].predFloor.push(pf);
+        }
+      }
     });
-    Object.values(pool).forEach(o => { o.ppg.sort((a, b) => a - b); o.ceil.sort((a, b) => a - b); o.floor.sort((a, b) => a - b); });
+    Object.values(pool).forEach(o => { o.ppg.sort((a, b) => a - b); o.ceil.sort((a, b) => a - b); o.floor.sort((a, b) => a - b);
+      o.predCeil.sort((a, b) => a - b); o.predFloor.sort((a, b) => a - b); });
     return (_poolCache[f] = { uni, pool, profs, meta });
   }
 
