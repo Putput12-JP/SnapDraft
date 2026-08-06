@@ -25295,6 +25295,7 @@ function pickYear(year) {
             if(ideas.length>=7) return;
             const tDyn=this._wnDyn(p.name); if(!tDyn) return;
             const pkg=buildPackage(tDyn); if(!pkg||!pkg.length) return;
+            if(!this._pickSpendOk(pkg,p.name,tDyn)) return; // comp-anchored: no more premium picks than real leagues paid for him
             const sendDyn=this._pkgVal(pkg.map(a=>a.name),mode);
             const deltaPct=((sendDyn-tDyn)/tDyn)*100;
             if(Math.abs(deltaPct)>18) return; // enforce the 18% rule
@@ -25539,6 +25540,45 @@ function pickYear(year) {
       return best?best.pk:null;
     },
 
+    /* What real leagues ACTUALLY paid for this player, distilled into a pick
+       ceiling. `trade_comps.json` holds ~5 real packages per player; this reads
+       them into two facts the free-building packagers are otherwise blind to:
+       whether any real comp contained a pick at all, and the most firsts any
+       single real comp ever spent. That is what stops the engine offering a
+       2027 1st for George Kittle — whose real comps (Breece Hall, Daniel Jones,
+       Braelon Allen + Brenton Strange) contain zero picks — or two firsts for
+       Tucker Kraft, whose priciest real comp is a single 1st. Returns null when
+       comps haven't loaded or the player isn't in the set, so the caller falls
+       back to structural guardrails rather than emptying out. */
+    _compConstraint(name){
+      if(!(window.VaultTradeMarket&&VaultTradeMarket.comps))return null;
+      const cp=VaultTradeMarket.comps(name);
+      if(!cp||!cp.comps||!cp.comps.length)return null;
+      const isPick=s=>/20\d{2}/.test(s)&&/(1st|2nd|3rd|4th)/.test(s);
+      let allowsPicks=false, maxFirsts=0;
+      cp.comps.forEach(c=>{ let firsts=0, pick=false;
+        (c.got||[]).forEach(s=>{ if(isPick(s)){ pick=true; if(/1st/.test(s))firsts++; } });
+        if(pick)allowsPicks=true; if(firsts>maxFirsts)maxFirsts=firsts; });
+      return { allowsPicks, maxFirsts, n:cp.comps.length };
+    },
+    /* Would this package spend more premium pick capital than any real trade for
+       this player ever did? `pkg` is the assets I'd send; `tDyn` the target's
+       value. Comp-anchored when the receipts exist, structural otherwise (no two
+       firsts for one body; no single first worth more than the player it buys).
+       Shared by Matchmaker and the Idea Generator so the two can't drift. */
+    _pickSpendOk(pkg,name,tDyn){
+      const firsts=pkg.filter(a=>a.pos==='PICK'&&/1st/.test(a.name));
+      const cc=this._compConstraint(name);
+      if(cc){
+        if(pkg.some(a=>a.pos==='PICK')&&!cc.allowsPicks)return false; // real leagues never paid picks for him
+        if(firsts.length>Math.max(cc.maxFirsts,0))return false;       // richer in firsts than any real comp
+        return true;
+      }
+      if(firsts.length>1)return false;                                // no comps: two firsts for one player is never real
+      if(tDyn&&firsts.some(a=>a.dyn>tDyn))return false;               // a first worth more than the player it buys
+      return true;
+    },
+
     engines(){
       const rows=this.leagueIntel(), me=this._meIntel();
       const sig=`${this.vmode}|${this.vsrc}|${this.isLive()?this._live.lid:'demo'}|${me?me.id:''}|${rows.length}`;
@@ -25589,6 +25629,14 @@ function pickYear(year) {
             const tAge=this._age(p.name)||0, cliff=(p.pos==='RB')?28:30;
             if(sends1st && tAge>=cliff && me.contend<0.55) return;
 
+            /* REALISM GATE 2b — COMP-ANCHORED PICK SPEND. Value parity and the
+               vet cliff still let the packager overpay in draft capital: two
+               future firsts summed into Kraft's band, or a first for Kittle that
+               the contender exemption waved through. The real trades already on
+               file price both out — a package richer in premium picks than any
+               real comp for this player is not a real offer. */
+            if(!this._pickSpendOk(pkg,p.name,tDyn)) return;
+
             /* REALISM GATE 3 — UPGRADE MUST BE WORTH THE CURRENCY. A pick is
                draft capital, not loose change: cashing a 1st should net at
                least a startable body's worth of weekly upgrade, a 2nd at least
@@ -25634,6 +25682,7 @@ function pickYear(year) {
               const age=this._age(p.name)||0, re=this._wnRe(p.name), dyn=this._wnDyn(p.name);
               if(age>=27&&dyn>0&&re>Math.max(nd.floor,1)*1.05){
                 const pkg=this._pkgFor(me,r,dyn,[{name:p.name,pos:p.pos}]); if(!pkg)return;
+                if(!this._pickSpendOk(pkg,p.name,dyn))return; // comp-anchored pick spend (a 27+ producer is exactly where a pick overpay is worst)
                 const accept=this._acceptance(r,pkg,[{name:p.name,pos:p.pos}]); if(accept<25)return;
                 const score=Math.round(55*(1-r.contend)+30*Math.min((re-nd.floor)/1200,1)+15*Math.min(Math.max(age-26,0),4)/4);
                 out.push({ kind:'buy', teamId:r.id, teamName:r.name, teamColor:r.color, dir:r.dir, accept,
@@ -25726,6 +25775,7 @@ function pickYear(year) {
           const tDyn=this._wnDyn(p.name); if(!tDyn) return;
           if(!this._incomingOk(me,[{name:p.name,pos:p.pos}])) return;   // a discount you can't start isn't an exploit
           const pkg=this._pkgFor(me,r,tDyn,[{name:p.name,pos:p.pos}]); if(!pkg) return;
+          if(!this._pickSpendOk(pkg,p.name,tDyn)) return; // comp-anchored: don't overpay in picks for a "discount"
           const accept=this._acceptance(r,pkg,[{name:p.name,pos:p.pos}]); if(accept<25) return;
           out.push({ kind:'buy', src:'market', tag:'Market discount', teamId:r.id, teamName:r.name,
             teamColor:r.color, dir:r.dir, accept, target:p.name, targetPos:p.pos, age:this._age(p.name)||0,
@@ -25809,6 +25859,17 @@ function pickYear(year) {
         if(!give||!get||!give.length||!get.length)return;
         if(!this._lineupOk(me,give,get))return;
         if(!this._incomingOk(me,get))return;
+        /* Pick-for-pick is not a shape real leagues make. When the biggest asset
+           on BOTH sides is a draft pick — "send 2027 1st Late → get 2027 1st Mid
+           + Michael Trigg", "send 1st Late + Jakobi Meyers → get 1st Early" — it
+           is draft-capital shuffling, not a trade anyone offers. Kill it. */
+        const top=arr=>arr.slice().sort((a,b)=>b.dyn-a.dyn)[0];
+        if(top(give).pos==='PICK'&&top(get).pos==='PICK')return;
+        /* Same comp anchor the Matchmaker uses: don't pay picks for a player the
+           real market never paid picks for. Applies when the received headline is
+           a single player (the consolidation / pickflip / posswap shapes). */
+        const headline=get.find(a=>a.pos!=='PICK');
+        if(headline&&get.filter(a=>a.pos!=='PICK').length===1&&!this._pickSpendOk(give,headline.name,headline.dyn))return;
         const gD=give.reduce((s,a)=>s+a.dyn,0), rD=get.reduce((s,a)=>s+a.dyn,0); if(!gD||!rD)return;
         const netPct=((rD-gD)/gD)*100; if(netPct>this._bandWidePct()||netPct< -this._bandOverPct())return;
         const k=team.id+'|'+give.map(a=>a.name).join(',')+'|'+get.map(a=>a.name).join(','); if(seenK[k])return; seenK[k]=1;
