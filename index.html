@@ -16194,15 +16194,25 @@ try { window.lrRenderSrcDD = lrRenderSrcDD; window.lrPickSrc = lrPickSrc; } catc
    (desktop), 'mob' re-docks above the matchup card ≤980px, 'solo' is the no-opponent case. */
 function _ovcRow(mode){
   var mine = valueSource==='my';
+  // Market + one option per My Rankings profile, mirroring the League Analyzer
+  // dropdown. Re-emitted whole on every overview render, so no separate refresh
+  // is needed; picks route through lrPickSrc (setActive + source flip).
+  var profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+  var actId = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
+  var actProf = mine ? profs.find(function(p){ return p.id===actId; }) : null;
+  var curLabel = mine ? (actProf ? actProf.name : 'Mine') : 'Market';
+  var opts = '<button class="ovc-opt'+(!mine?' on':'')+'" role="option" onclick="lrPickSrc(\'fc\')"><b>Market</b><small>FantasyCalc consensus</small></button>';
+  profs.forEach(function(p,i){
+    var on = mine && p.id===actId;
+    var sub = i===0 ? 'Your rankings board' : 'Imported rankings';
+    opts += '<button class="ovc-opt'+(on?' on':'')+'" role="option" onclick="lrPickSrc(\'my\',\''+p.id+'\')"><b>'+_lrEscHtml(p.name)+'</b><small>'+sub+'</small></button>';
+  });
   return '<div class="ovc-row ovc-row-'+mode+'">'
     +'<div class="ovc-dd'+(mine?' mine':'')+'">'
-      +'<button class="ovc-ddbtn" onclick="_ovcToggle(this)" aria-haspopup="listbox" aria-expanded="false" title="Value your team by FantasyCalc market consensus or your own My Rankings board">'
-        +'<span class="ovc-dot"></span><span class="lbl">Values</span><b>'+(mine?'Mine':'Market')+'</b><span class="ovc-chev">&#9662;</span>'
+      +'<button class="ovc-ddbtn" onclick="_ovcToggle(this)" aria-haspopup="listbox" aria-expanded="false" title="Value your team by FantasyCalc market or one of your ranking sets">'
+        +'<span class="ovc-dot"></span><span class="lbl">Values</span><b>'+_lrEscHtml(curLabel)+'</b><span class="ovc-chev">&#9662;</span>'
       +'</button>'
-      +'<div class="ovc-menu" role="listbox">'
-        +'<button class="ovc-opt'+(!mine?' on':'')+'" role="option" onclick="setLeagueSrc(\'fc\')"><b>Market</b><small>FantasyCalc consensus</small></button>'
-        +'<button class="ovc-opt'+(mine?' on':'')+'" role="option" onclick="setLeagueSrc(\'my\')"><b>Mine</b><small>My Rankings board</small></button>'
-      +'</div>'
+      +'<div class="ovc-menu" role="listbox">'+opts+'</div>'
     +'</div>'
     +'<button class="ovc-sync" onclick="forceRefreshRosterData()"><span style="font-size:13px">&#8635;</span> Sync</button>'
   +'</div>';
