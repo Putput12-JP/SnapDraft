@@ -5951,11 +5951,9 @@ function pgsOpen(name, pos, team){
         <h1 class="lr-title" id="la-league-name">League Analyzer</h1>
       </div>
       <div class="lr-head-r">
-        <div class="lr-srctoggle" id="lr-srctoggle" title="Switch between FantasyCalc market values and your own My Rankings board">
-          <span class="lr-srcdot"></span>
-          <button data-src="fc" class="on" onclick="setLeagueSrc('fc')">Market</button>
-          <button data-src="my" onclick="setLeagueSrc('my')">Mine</button>
-        </div>
+        <!-- Value source: Market (FantasyCalc) + one option per My Rankings profile.
+             Populated by lrRenderSrcDD(); reuses the .ovc-dd dropdown idiom. -->
+        <div class="ovc-dd lr-srcdd" id="lr-srcdd" title="Value this league by FantasyCalc market or one of your ranking sets"></div>
         <span id="fc-status" style="display:none"></span>
         <!-- League is controlled by the single header picker (source of truth) -->
         <!-- Team focus filter within league -->
@@ -15965,11 +15963,14 @@ let _leagueSrcPref = valueSrcPref;
 // any tab shows the correct Market/Mine state regardless of where it was set.
 function _syncSrcUI(src){
   const isMine = src==='my';
-  // Market / Mine toggles (League + My Team overview). 'ra' counts as Market here.
-  document.querySelectorAll('#lr-srctoggle button, #ov-srctoggle button').forEach(b=>{
+  // League Analyzer value-source dropdown (Market + one option per profile).
+  // Pass src explicitly: the global valueSource updates a few statements later.
+  try { lrRenderSrcDD(src); } catch(e){}
+  // My Team overview Market / Mine toggle. 'ra' counts as Market here.
+  document.querySelectorAll('#ov-srctoggle button').forEach(b=>{
     b.classList.toggle('on', b.dataset.src === (isMine ? 'my' : 'fc'));
   });
-  document.querySelectorAll('#lr-srctoggle .lr-srcdot, #ov-srctoggle .lr-srcdot').forEach(dot=>{ dot.style.background = isMine ? 'var(--sky,#7bd0ff)' : 'var(--rb)'; });
+  document.querySelectorAll('#ov-srctoggle .lr-srcdot').forEach(dot=>{ dot.style.background = isMine ? 'var(--sky,#7bd0ff)' : 'var(--rb)'; });
   // Draft Vault sort-mode buttons + value pills
   ['ra','fc','my'].forEach(m=>{ document.getElementById('sm-'+m)?.classList.toggle('on', m===src); });
   try { dvRefreshSrcProfiles(); } catch(e){}
@@ -16144,6 +16145,48 @@ function setLeagueSrc(src){
   try{ renderTeams(); }catch(e){}
   try{ if(document.getElementById('page-overview')?.classList.contains('on')) renderOverview(); }catch(e){}
 }
+
+// ── League Analyzer value-source dropdown ──────────────────────────────
+// Market (FantasyCalc consensus) plus one option per My Rankings profile, each
+// shown by its own name. Selecting a profile makes it the globally-active set
+// (MyRankings.setActive re-points every "Mine" surface) and flips the source to
+// 'my'. Rebuilt from _syncSrcUI (every nav) and whenever profiles change.
+function _lrEscHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// srcOverride is passed by _syncSrcUI, which fires BEFORE setValueSource updates
+// the global valueSource — reading the global there would render one step behind.
+function lrRenderSrcDD(srcOverride){
+  const dd = document.getElementById('lr-srcdd');
+  if(!dd) return;
+  const src = srcOverride || ((typeof valueSource!=='undefined') ? valueSource : 'fc');
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+  const actId = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
+  const mine  = (src==='my');
+  const actProf = mine ? profs.find(p=>p.id===actId) : null;
+  const curLabel = mine ? (actProf ? actProf.name : 'Mine') : 'Market';
+  let opts = '<button class="ovc-opt'+(!mine?' on':'')+'" role="option" onclick="lrPickSrc(\'fc\')">'
+    +'<b>Market</b><small>FantasyCalc consensus</small></button>';
+  profs.forEach((p,i)=>{
+    const on = mine && p.id===actId;
+    const sub = i===0 ? 'Your rankings board' : 'Imported rankings';
+    opts += '<button class="ovc-opt'+(on?' on':'')+'" role="option" onclick="lrPickSrc(\'my\',\''+p.id+'\')">'
+      +'<b>'+_lrEscHtml(p.name)+'</b><small>'+sub+'</small></button>';
+  });
+  dd.classList.toggle('mine', mine);
+  dd.innerHTML =
+    '<button class="ovc-ddbtn" onclick="_ovcToggle(this)" aria-haspopup="listbox" aria-expanded="false">'
+      +'<span class="ovc-dot"></span><span class="lbl">Values</span><b>'+_lrEscHtml(curLabel)+'</b>'
+      +'<span class="ovc-chev">&#9662;</span>'
+    +'</button>'
+    +'<div class="ovc-menu" role="listbox">'+opts+'</div>';
+}
+function lrPickSrc(src, profId){
+  if(src==='my' && profId){ try{ if(window.MyRankings && MyRankings.setActive) MyRankings.setActive(profId); }catch(e){} }
+  // Close the menu first: the option lives inside .ovc-dd, so the document-level
+  // outside-click handler skips it, and setLeagueSrc re-renders via lrRenderSrcDD.
+  document.querySelectorAll('.ovc-dd.open').forEach(d=>{ d.classList.remove('open'); const b=d.querySelector('.ovc-ddbtn'); if(b) b.setAttribute('aria-expanded','false'); });
+  setLeagueSrc(src);
+}
+try { window.lrRenderSrcDD = lrRenderSrcDD; window.lrPickSrc = lrPickSrc; } catch(e){}
 
 /* ── Team Review rail controls: Values dropdown + Sync (replaces the old page header) ──
    State is baked at render time from valueSource; setLeagueSrc re-renders the overview,
@@ -21832,7 +21875,9 @@ function pfSetView(v){
   // portfolio-overview header buttons (Manage Leagues / Refresh) to avoid a
   // duplicate Refresh and a redundant subtitle.
   const hdrActions = document.getElementById('pf-header-actions');
-  if(hdrActions) hdrActions.style.display = (v==='overview') ? '' : 'none';
+  // Set 'flex' (not '') on show: clearing to '' deletes the inline display:flex,
+  // dropping the row to display:block so the two flex buttons stack vertically.
+  if(hdrActions) hdrActions.style.display = (v==='overview') ? 'flex' : 'none';
   document.querySelectorAll('#pf-nav-menu .lc-mt-item').forEach(it => {
     it.classList.toggle('active', it.dataset.pfview === v);
   });
@@ -24144,11 +24189,12 @@ function pickYear(year) {
   #page-teams .lr-head-r{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   #page-teams .lr-srcpill{ display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 13px; border-radius:9px; border:1px solid var(--border2); background:var(--s2); color:var(--text2);  font-family:var(--font-sans); font-size:var(--t-secondary); font-weight:600; white-space:nowrap; }
   #page-teams .lr-srcdot{ width:7px; height:7px; border-radius:50%; background:var(--rb); box-shadow:0 0 0 3px color-mix(in srgb, var(--rb) 22%, transparent); }
-  /* Box + buttons are .vseg (vault-ds.css §20). The 26px button height that
-     lived here, times the mobile scale(.92) below, is what shipped the 24px
-     touch targets in the 2026-06-29 responsiveness check. */
-  .lr-srctoggle{ padding-left:12px; }
-  .lr-srctoggle .lr-srcdot{ width:7px; height:7px; border-radius:50%; background:var(--rb); box-shadow:0 0 0 3px color-mix(in srgb, var(--rb) 22%, transparent); flex-shrink:0; }
+  /* Value-source dropdown: the shared .ovc-dd idiom, but sized for the header
+     row instead of stretching (the rail version is flex:1). Menu opens left-
+     aligned and wide enough for profile names. */
+  #page-teams .lr-head-r .lr-srcdd{ flex:0 0 auto; min-width:150px; }
+  #page-teams .lr-head-r .lr-srcdd .ovc-ddbtn{ min-height:36px; }
+  #page-teams .lr-head-r .lr-srcdd .ovc-menu{ left:0; right:auto; min-width:220px; }
   #page-teams .lr-select{ height:36px; padding:0 30px 0 13px; border-radius:9px; border:1px solid var(--border); background-color:var(--s2); color:var(--text2); font-family:var(--font-sans); font-size:var(--t-secondary); font-weight:600; cursor:pointer; -webkit-appearance:none; appearance:none; transition:border-color .15s;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238794a6' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 11px center; background-size:13px; }
   #page-teams .lr-select:hover{ border-color:var(--border3); color:var(--text); }
@@ -27064,6 +27110,9 @@ window.VaultGradeCal = (function () {
   function _profExternalRefresh(){
     try { if (typeof dvRefreshSrcProfiles==='function') dvRefreshSrcProfiles(); } catch(e){}
     try { if (typeof valueSource!=='undefined' && valueSource==='my' && typeof _syncSrcUI==='function') _syncSrcUI('my'); } catch(e){}
+    // Keep the League Analyzer source dropdown's option list + label current
+    // even when the source is Market (a rename still changes the menu entries).
+    try { if (typeof lrRenderSrcDD==='function') lrRenderSrcDD(); } catch(e){}
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -41783,7 +41832,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     //     left/width, so it cannot track a vertical strip
     { sel:'.rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg, .bt-seg,'
        + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .pp-seg, .rdv-seg,'
-       + ' .lr-srctoggle, #vp-chips, .mr-profseg',
+       + ' #vp-chips, .mr-profseg',
       skin:'fill', inset:'3px', radius:'7px' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];
