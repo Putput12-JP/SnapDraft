@@ -40276,22 +40276,31 @@ else { _ssInjectPage();_ssInjectNav(); }
    stood on end. 140% of the width, squared, clears the diagonal at every width the panel
    reaches. Animating the transform (not a `from <angle>` custom property) keeps this on
    the compositor instead of repainting an 1100px-wide gradient every frame mid-draft. */
-/* The hot core of the sweep INVERTS between themes, same trap as the position colours:
-   #EDE9E0 on onyx/vapor is a near-white flare, but on light mode's #FFFDF8 surface it is
-   the surface, so the beam vanished entirely in one of the three themes. Light mode takes
-   the sweep dark instead — same orange, opposite core. */
-#page-draft #sbar.pa-clock{ --beam-core:#EDE9E0; }
-[data-theme="light"] #page-draft #sbar.pa-clock{ --beam-core:#7A3E12; }
+/* MetalFx "silver" preset, disableGlow — a brushed-steel ring instead of the single
+   orange beam. NOT the library (WebGL shaders are the wrong cost on the live-draft page);
+   this is the same look as a rotating conic gradient, kept on the compositor by animating
+   `transform`, exactly like the beam it replaces.
+   Metal is multi-band: three highlight peaks around the ring read as light glancing off a
+   chrome edge, where a single spike reads as a torch sweep. The steel palette INVERTS
+   between themes, same trap the beam core hit — light highlights (near-white steel) flare
+   on onyx/vapor but ARE the surface on light mode's #FFFDF8, so light mode takes darker
+   steel with the same relative band structure. */
+#page-draft #sbar.pa-clock{ --metal-hi:#EDF1F7; --metal-mid:#9AA6B8; --metal-lo:#4A5464; }
+[data-theme="light"] #page-draft #sbar.pa-clock{ --metal-hi:#8B95A8; --metal-mid:#5A6474; --metal-lo:#2E3641; }
 #page-draft #sbar.pa-clock::before{
   content:''; position:absolute; z-index:0; pointer-events:none;
   top:50%; left:50%; width:140%; aspect-ratio:1;
-  background:conic-gradient(from 0deg, transparent 0 72%, #FF8A00 84%, var(--beam-core) 90%, transparent 96%);
-  animation:pa-beam 3s linear infinite;
+  background:conic-gradient(from 0deg,
+    var(--metal-lo)  0%,  var(--metal-hi)  7%,  var(--metal-mid) 16%, var(--metal-lo) 26%,
+    var(--metal-mid) 38%, var(--metal-hi) 50%,  var(--metal-mid) 60%, var(--metal-lo) 70%,
+    var(--metal-mid) 82%, var(--metal-hi) 92%,  var(--metal-lo) 100%);
+  opacity:.9;                       /* strength ≈ 0.80: rim toned just off full */
+  animation:pa-beam 4s linear infinite;   /* slower than the beam — liquid metal, not a torch */
 }
-/* inner surface — leaves a 1.5px rim of the beam showing, and nothing else */
+/* inner surface — leaves a 2px rim of the metal showing (thick enough for the bands to read) */
 #page-draft #sbar.pa-clock::after{
-  content:''; position:absolute; inset:1.5px; z-index:0; pointer-events:none;
-  border-radius:12.5px; background:var(--s1);
+  content:''; position:absolute; inset:2px; z-index:0; pointer-events:none;
+  border-radius:12px; background:var(--s1);
 }
 #page-draft #sbar.pa-clock > *{ position:relative; z-index:1; }
 /* linear — an eased spin reads as struggling (same reason .spinner is linear) */
@@ -40314,9 +40323,9 @@ else { _ssInjectPage();_ssInjectNav(); }
 }
 
 @media(prefers-reduced-motion:reduce){
-  /* park the beam as a plain static rim rather than freezing the sweep mid-rotation,
+  /* park the metal as a plain static steel rim rather than freezing the sweep mid-rotation,
      which would leave three of the four edges dark */
-  #page-draft #sbar.pa-clock::before{ animation:none; background:var(--accent); opacity:.55; }
+  #page-draft #sbar.pa-clock::before{ animation:none; background:var(--metal-mid); opacity:.7; }
   #page-draft #sbar.pa-clock .suggest-chips{ animation:none; }
 }
 </style>
@@ -42240,6 +42249,22 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .vbud-switch button:active{transform:scale(.94);transition:transform var(--dur-press) ease-out}
 /* layout fix: match .suggest-bar horizontal padding to the rest of #page-draft (was 12px vs 24px, so the "on the clock" cards overhung) */
 #page-draft #sbar.suggest-bar{padding-left:24px!important;padding-right:24px!important}
+/* ON THE CLOCK panel alignment (must land after the 24px-padding rule above to win the
+   cascade — equal specificity, later source). The metal rim is drawn on the sbar's
+   border-box edge, so the 24px *padding* above aligned the cards but let the rim bleed
+   24px past the hero rail / controls. Move the gutter to *margin* so the whole box — rim
+   included — insets to the same content edge as the rows above. Title dropped; cards
+   centred and filling the panel width. Desktop only; the ≤700px column layout keeps its
+   own rules. */
+@media(min-width:701px){
+  #page-draft #sbar.pa-clock{
+    margin-left:24px!important; margin-right:24px!important;
+    padding-left:12px!important; padding-right:12px!important;
+    justify-content:center!important; align-items:center!important;
+  }
+  #page-draft #sbar.pa-clock .suggest-title{ display:none!important; }
+  #page-draft #sbar.pa-clock .suggest-chips{ width:100%; }
+}
 .vbud-gradestrip{display:flex;align-items:center;gap:10px;margin:10px 0 2px;padding:10px 12px;border-radius:var(--radius-md);background:var(--s1);border:1px solid var(--border)}
 .vbud-gk{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .vbud-gl{font-family:var(--font-mono);font-weight:900;font-size:22px;letter-spacing:-.02em;line-height:1}
