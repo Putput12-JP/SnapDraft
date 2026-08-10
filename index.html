@@ -1360,6 +1360,39 @@ header{
 .pf-v2-tag-sf{background:rgba(204,0,60,.12);color:var(--qb)}
 .pf-v2-tag-teams{background:var(--s3);color:var(--muted)}
 .pf-v2-na{color:var(--muted);font-style:italic}
+/* Dynasty / Redraft group separators (League Breakdown table + Most Rostered) */
+.pf-v2-grouphdr{cursor:pointer;transition:background 120ms ease}
+.pf-v2-grouphdr:hover > td{background:rgba(255,255,255,0.03)}
+.pf-v2-grouphdr > td{padding:16px 16px 8px;border-bottom:1px solid var(--border2)}
+.pf-v2-grouphdr > td:last-child{padding-right:24px}
+.pf-v2-row + .pf-v2-grouphdr > td,.pf-v2-detail-row + .pf-v2-grouphdr > td{padding-top:26px}
+.pf-v2-grouphdr-chevcell{width:56px;padding-left:14px !important;padding-right:6px !important;text-align:center}
+.pf-v2-grouphdr-lbl{font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;text-transform:uppercase;letter-spacing:.14em}
+.pf-v2-grouphdr-count{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);margin-left:10px;letter-spacing:.06em}
+.pf-v2-grouphdr-val{float:right;font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;color:var(--gold);letter-spacing:.02em}
+.pf-v2-grouphdr.dyn .pf-v2-grouphdr-lbl{color:var(--rb)}
+.pf-v2-grouphdr.rd  .pf-v2-grouphdr-lbl{color:var(--wr)}
+.pf-v2-grpchev{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:var(--t-h1);line-height:1;color:var(--muted);font-family:var(--font-mono);font-weight:600;transition:transform 200ms var(--ease-out),color 150ms ease}
+.pf-v2-grouphdr:hover .pf-v2-grpchev,.pf-card-grouphdr:hover .pf-v2-grpchev{color:var(--accent2)}
+.pf-v2-grouphdr.collapsed .pf-v2-grpchev,.pf-card-grouphdr.collapsed .pf-v2-grpchev{transform:rotate(-90deg)}
+.pf-own-group + .pf-own-group{margin-top:20px}
+.pf-own-grouphdr{display:flex;align-items:baseline;gap:10px;padding:0 0 8px;margin-bottom:4px;border-bottom:1px solid var(--border2)}
+.pf-own-grouphdr .pf-v2-grouphdr-lbl{font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;text-transform:uppercase;letter-spacing:.14em}
+.pf-own-grouphdr .pf-v2-grouphdr-count{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);letter-spacing:.06em;margin-left:0}
+.pf-own-grouphdr.dyn .pf-v2-grouphdr-lbl{color:var(--rb)}
+.pf-own-grouphdr.rd  .pf-v2-grouphdr-lbl{color:var(--wr)}
+.pf-card-grouphdr{display:flex;align-items:center;gap:9px;padding:16px 2px 6px;cursor:pointer}
+.pf-card-grouphdr .pf-v2-grouphdr-val{margin-left:auto;float:none;font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;color:var(--gold)}
+.pf-cards > .pf-card-grouphdr:first-child{padding-top:2px}
+.pf-card-grouphdr.dyn .pf-v2-grouphdr-lbl{color:var(--rb)}
+.pf-card-grouphdr.rd  .pf-v2-grouphdr-lbl{color:var(--wr)}
+/* Format filter — top-right of the hero row */
+.pf-fmtseg{flex-shrink:0;align-self:center;width:max-content}
+@media (max-width:700px){
+  .pf-hero--filter{flex-wrap:wrap}
+  .pf-hero--filter .pf-hero-copy{flex:1 1 auto}
+  .pf-hero--filter .pf-fmtseg{flex:1 0 100%;width:100%;margin-top:4px}
+}
 /* Section subtitle hint (right side of section heads) */
 .pf-v2-section-hint{font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono);letter-spacing:.04em}
 .pf-v2-section-body{padding:18px 24px}
@@ -19731,6 +19764,22 @@ function pfV2SetSort(col){
   renderPortfolioV2();
 }
 
+// Format filter (All / Dynasty / Redraft) — scopes the money strip, the
+// League Breakdown table and Most Rostered to one format at a time.
+function pfV2SetFmt(fmt){
+  if (window._pfV2Fmt === fmt) return;
+  window._pfV2Fmt = fmt;
+  renderPortfolioV2();
+}
+
+// Collapse / expand a format group in the League Breakdown ('dyn' | 'rd').
+function pfV2ToggleGroup(which, event){
+  if (event) event.stopPropagation();
+  const c = window._pfV2GroupCollapsed || (window._pfV2GroupCollapsed = {dyn:false, rd:false});
+  c[which] = !c[which];
+  renderPortfolioV2();
+}
+
 // Toggle expanded state for a league row + re-render
 function pfV2ToggleRow(leagueId, event){
   if (event) event.stopPropagation();
@@ -21975,11 +22024,25 @@ function renderPortfolioV2(){
     return;
   }
 
+  // ── Format filter (All / Dynasty / Redraft) ─────────────────────────
+  // Isolates one format so the money strip below answers "how much do I have
+  // on the line in dynasty vs redraft?". Only offered when both formats exist;
+  // a single-format portfolio pins to 'all'. Everything downstream — money
+  // tiles, League Breakdown, Most Rostered — reads `scoped`.
+  const hasDyn = data.some(d => d.isDynasty);
+  const hasRd  = data.some(d => !d.isDynasty);
+  const canFilter = hasDyn && hasRd;
+  let fmt = canFilter ? (window._pfV2Fmt || 'all') : 'all';
+  if (!canFilter) window._pfV2Fmt = 'all';
+  const scoped = fmt==='dyn' ? data.filter(d=>d.isDynasty)
+               : fmt==='rd'  ? data.filter(d=>!d.isDynasty)
+               : data;
+
   // ── Top stat strip, money-aware (buy-ins are entered by the manager, stored per Sleeper account) ──
-  const totalLeagues = data.length;
-  const totalValue = data.reduce((s,d)=>s+(d.myValue||0),0);
+  const totalLeagues = scoped.length;
+  const totalValue = scoped.reduce((s,d)=>s+(d.myValue||0),0);
   let totalBuyIn=0, projCash=0, inMoney=0, financeCount=0;
-  data.forEach(d=>{
+  scoped.forEach(d=>{
     const f = getPfFinance(d.lg && d.lg.league_id);
     if(f){ financeCount++; totalBuyIn += f.buyIn||0; const p=_pfProj(d); if(p>0){ projCash+=p; inMoney++; } }
   });
@@ -21996,8 +22059,15 @@ function renderPortfolioV2(){
   const _pfAv = (typeof mySleeperUser!=='undefined' && mySleeperUser && mySleeperUser.avatar)
     ? `https://sleepercdn.com/avatars/thumbs/${mySleeperUser.avatar}` : '';
   const _pfInit = String(_pfName).replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase() || 'YV';
+  // Format filter lives at the top-right of the hero row (identity left, scope
+  // toggle right); it drives the money tiles below and the breakdown.
+  const _pfFmtSeg = canFilter ? `<div class="vseg sm pf-fmtseg" role="tablist" aria-label="Filter by format">
+      <button class="${fmt==='all'?'on':''}" onclick="pfV2SetFmt('all')">All</button>
+      <button class="${fmt==='dyn'?'on':''}" onclick="pfV2SetFmt('dyn')">Dynasty</button>
+      <button class="${fmt==='rd'?'on':''}"  onclick="pfV2SetFmt('rd')">Redraft</button>
+    </div>` : '';
   const _pfHeroHtml = `
-    <div class="pf-hero">
+    <div class="pf-hero${canFilter?' pf-hero--filter':''}">
       ${_pfAv
         ? `<img class="pf-hero-av" src="${_pfAv}" alt="" onerror="this.outerHTML='<div class=\\'pf-hero-av pf-hero-av-init\\'>${_pfInit}</div>'">`
         : `<div class="pf-hero-av pf-hero-av-init">${_pfInit}</div>`}
@@ -22006,6 +22076,7 @@ function renderPortfolioV2(){
         <div class="pf-hero-headline">${hasStake?`<b>${_pfMoney(totalBuyIn)}</b> on the line`:`<b>${(totalValue/1000).toFixed(1)}k</b> in assets`}</div>
         <div class="pf-hero-sub">${totalLeagues} ${totalLeagues===1?'league':'leagues'}${hasStake?` · ${(totalValue/1000).toFixed(1)}k in assets`:''}${has&&projCash>0?` · ${_pfMoney(projCash)} projected back`:''}</div>
       </div>
+      ${_pfFmtSeg}
     </div>`;
   stripEl.innerHTML = `${_pfHeroHtml}<div class="pf-v2-tiles">
     <div class="pf-v2-stat">
@@ -22034,7 +22105,7 @@ function renderPortfolioV2(){
 
   // ── Sortable table ──
   const sort = window._pfV2Sort || {col:'dyn',dir:'asc'};
-  const sorted = [...data].sort((a,b)=>{
+  const sorted = [...scoped].sort((a,b)=>{
     let av, bv;
     if (sort.col === 'name')      { av = (a.lg?.name||'').toLowerCase(); bv = (b.lg?.name||'').toLowerCase(); }
     else if (sort.col === 'dyn')  { av = parseInt(a.myRank)||9999;       bv = parseInt(b.myRank)||9999; }
@@ -22051,7 +22122,7 @@ function renderPortfolioV2(){
   const posColor = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
   const _pfMobile = (()=>{ try{ return window.matchMedia('(max-width:700px)').matches; }catch(e){ return false; } })();
 
-  const rows = sorted.map(d => {
+  const buildRow = (d) => {
     const lg = d.lg || {};
     const lgId = lg.league_id || '';
     const isExpanded = expandedSet.has(lgId);
@@ -22145,7 +22216,37 @@ function renderPortfolioV2(){
       <td class="pf-v2-td-num pf-v2-td-payout">${payoutCell}</td>
       <td class="pf-v2-td-num" style="color:var(--gold);font-family:var(--font-mono)">${valStr}</td>
     </tr>${detailRow}`;
-  }).join('');
+  };
+
+  // ── Clear Dynasty / Redraft separation ──────────────────────────────
+  // The two formats price rosters on different boards and reward different
+  // strategies, so the breakdown is split by format instead of interleaved.
+  // Headers only appear when BOTH formats are present (i.e. the 'all' filter);
+  // a single-format view renders flat. Each header is a collapse toggle.
+  const dynLgs = sorted.filter(d => d.isDynasty);
+  const rdLgs  = sorted.filter(d => !d.isDynasty);
+  const bothFormats = dynLgs.length > 0 && rdLgs.length > 0;
+  const collapsed = window._pfV2GroupCollapsed || (window._pfV2GroupCollapsed = {dyn:false, rd:false});
+  const grpVal = arr => { const v = arr.reduce((s,d)=>s+(d.myValue||0),0); return v ? (v/1000).toFixed(1)+'k' : '—'; };
+
+  const grpHdrRow = (label, cls, arr) =>
+    `<tr class="pf-v2-grouphdr ${cls} ${collapsed[cls]?'collapsed':''}" onclick="pfV2ToggleGroup('${cls}',event)" title="Click to ${collapsed[cls]?'expand':'collapse'} ${label}">
+      <td class="pf-v2-grouphdr-chevcell"><span class="pf-v2-grpchev">▾</span></td>
+      <td colspan="6"><span class="pf-v2-grouphdr-lbl">${label}</span><span class="pf-v2-grouphdr-count">${arr.length} ${arr.length===1?'league':'leagues'}</span><span class="pf-v2-grouphdr-val">${grpVal(arr)}</span></td>
+    </tr>`;
+  const grpHdrCard = (label, cls, arr) =>
+    `<div class="pf-card-grouphdr ${cls} ${collapsed[cls]?'collapsed':''}" onclick="pfV2ToggleGroup('${cls}',event)"><span class="pf-v2-grpchev">▾</span><span class="pf-v2-grouphdr-lbl">${label}</span><span class="pf-v2-grouphdr-count">${arr.length} ${arr.length===1?'league':'leagues'}</span><span class="pf-v2-grouphdr-val">${grpVal(arr)}</span></div>`;
+
+  let rows;
+  if (bothFormats) {
+    const dynBody = collapsed.dyn ? '' : dynLgs.map(buildRow).join('');
+    const rdBody  = collapsed.rd  ? '' : rdLgs.map(buildRow).join('');
+    rows = _pfMobile
+      ? grpHdrCard('Dynasty','dyn',dynLgs) + dynBody + grpHdrCard('Redraft','rd',rdLgs) + rdBody
+      : grpHdrRow('Dynasty','dyn',dynLgs) + dynBody + grpHdrRow('Redraft','rd',rdLgs) + rdBody;
+  } else {
+    rows = sorted.map(buildRow).join('');
+  }
 
   tableWrap.innerHTML = _pfMobile
     ? `<div class="pf-cards">${rows}</div>`
@@ -22170,18 +22271,41 @@ function renderPortfolioV2(){
   // Populate Rostered Players + Signals cards at the bottom (matches Classic behavior)
   // Reuses the same data + helpers used by renderPortfolio() so values stay consistent.
   try {
-    const playerCount = {};
-    data.forEach(d => (d.myNames||[]).forEach(n => { playerCount[n] = (playerCount[n]||0) + 1; }));
-    const topOwned = Object.entries(playerCount).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    // Most Rostered is split by format: a player's overlap only means
+    // something within one format (same board, same strategy). Counting a
+    // dynasty stash and a redraft flier as "2×" the same conviction is
+    // misleading, so each format is tallied against only its own leagues.
+    const countIn = (lgs) => {
+      const pc = {};
+      lgs.forEach(d => (d.myNames||[]).forEach(n => { pc[n] = (pc[n]||0) + 1; }));
+      return Object.entries(pc).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    };
+    // Respect the active format filter: 'all' splits into both groups,
+    // Dynasty/Redraft shows just that format's list (flat, no header).
+    const dynData = scoped.filter(d => d.isDynasty);
+    const rdData  = scoped.filter(d => !d.isDynasty);
+    const bothFmt = dynData.length > 0 && rdData.length > 0;
     const ownedEl = document.getElementById('pf-v2-owned');
     if (ownedEl && typeof _buildPortfolioOwnedHtml === 'function') {
-      ownedEl.innerHTML = _buildPortfolioOwnedHtml(topOwned, data.length);
+      if (bothFmt) {
+        ownedEl.innerHTML =
+          `<div class="pf-own-group">
+             <div class="pf-own-grouphdr dyn"><span class="pf-v2-grouphdr-lbl">Dynasty</span><span class="pf-v2-grouphdr-count">${dynData.length} leagues</span></div>
+             ${_buildPortfolioOwnedHtml(countIn(dynData), dynData.length)}
+           </div>
+           <div class="pf-own-group">
+             <div class="pf-own-grouphdr rd"><span class="pf-v2-grouphdr-lbl">Redraft</span><span class="pf-v2-grouphdr-count">${rdData.length} leagues</span></div>
+             ${_buildPortfolioOwnedHtml(countIn(rdData), rdData.length)}
+           </div>`;
+      } else {
+        ownedEl.innerHTML = _buildPortfolioOwnedHtml(countIn(scoped), scoped.length);
+      }
     }
     const ownedHint = document.getElementById('pf-owned-hint');
-    if (ownedHint) ownedHint.textContent = `across ${data.length} league${data.length!==1?'s':''}`;
+    if (ownedHint) ownedHint.textContent = bothFmt ? 'by format' : `across ${scoped.length} league${scoped.length!==1?'s':''}`;
     const signalsEl = document.getElementById('pf-v2-signals');
     if (signalsEl && typeof _renderPortfolioSignals === 'function') {
-      _renderPortfolioSignals(data, signalsEl);
+      _renderPortfolioSignals(scoped, signalsEl);
     }
   } catch(e) { console.warn('v2 bottom cards render skipped:', e); }
 }
@@ -22430,17 +22554,17 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
 
   const ownedHtml = _buildPortfolioOwnedHtml(topOwned, leagueData.length);
   if (ownedEl) ownedEl.innerHTML = ownedHtml;
-  // Also populate v2 owned card if v2 view is active or in DOM
-  const ownedElV2 = document.getElementById('pf-v2-owned');
-  if (ownedElV2) ownedElV2.innerHTML = ownedHtml;
+  // NOTE: the v2 owned card (#pf-v2-owned) is populated by renderPortfolioV2(),
+  // which splits Most Rostered by format. Do NOT mirror the flat list here — it
+  // runs after renderPortfolioV2() and would clobber the Dynasty/Redraft split.
 
   // ── Buy Low / Sell High signals (Items 5 & 6) ────────────
   renderBuyLowSellHigh(leagueData, signalsEl);
   // Mirror to v2 signals card (portfolio-specific renderer, mock design + fallback)
   const signalsElV2 = document.getElementById('pf-v2-signals');
   if (signalsElV2) _renderPortfolioSignals(leagueData, signalsElV2);
-  const ownedHintEl = document.getElementById('pf-owned-hint');
-  if (ownedHintEl) ownedHintEl.textContent = `across ${leagueData.length} league${leagueData.length!==1?'s':''}`;
+  // #pf-owned-hint is set by renderPortfolioV2() ("by format" when both formats
+  // are present); don't overwrite it here with the flat "across N leagues".
 }
 
 // Reusable helper: build the "Most Rostered Across Leagues" innerHTML.
@@ -41928,7 +42052,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     //     left/width, so it cannot track a vertical strip
     { sel:'.rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg, .bt-seg,'
        + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .pp-seg, .rdv-seg,'
-       + ' #vp-chips, .mr-profseg',
+       + ' #vp-chips, .mr-profseg, .pf-fmtseg',
       skin:'fill', inset:'3px', radius:'7px' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];
