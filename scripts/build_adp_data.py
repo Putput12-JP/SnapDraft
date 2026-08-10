@@ -252,11 +252,13 @@ def enrich_espn(transformed, format_key):
 
 # ── ADP history / trend snapshotting ────────────────────────────────
 # FantasyCalc only exposes a 30-day *value* trend, not positional-ADP
-# movement over 7/30/90 days. To power the board's 7/30/90-day change view
+# movement over 7/14/30 days. To power the board's 7/14/30-day change view
 # we snapshot each day's ADP (overall rank) into a rolling history file and
 # diff against the most recent snapshot that is at least N days old.
+# Windows are short by design: in-season ADP momentum is the signal drafters
+# act on — a 90-day lookback in August reaches a stale pre-summer market.
 
-HISTORY_WINDOWS = (7, 30, 90)
+HISTORY_WINDOWS = (7, 14, 30)
 HISTORY_KEEP_DAYS = 120  # prune snapshots older than this
 
 

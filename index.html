@@ -5608,8 +5608,8 @@ function pgsOpen(name, pos, team){
           <span class="adp-seg-label">Change</span>
           <div class="adp-seg">
             <button data-range="7" onclick="adpSetRange(7)">7D</button>
-            <button class="on" data-range="30" onclick="adpSetRange(30)">30D</button>
-            <button data-range="90" onclick="adpSetRange(90)">90D</button>
+            <button class="on" data-range="14" onclick="adpSetRange(14)">14D</button>
+            <button data-range="30" onclick="adpSetRange(30)">30D</button>
           </div>
         </div>
         <div class="adp-seg-group">
@@ -37497,7 +37497,7 @@ let _adpSearch  = '';
 let _adpData    = [];
 let _adpCache   = {};
 let _adpView    = 'list';  // list | board
-let _adpRange   = 30;      // 7 | 30 | 90 (board change window)
+let _adpRange   = 14;      // 7 | 14 | 30 (board change window) — 14 is populated for every source today
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
 let _adpSource  = 'sl';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | sl (Sleeper real-draft ADP) | my (My Rankings) — unconnected default is Sleeper
 let _adpSourceUserSet = false; // true once the user clicks a source button — stops the live-draft platform default from overriding their choice
@@ -37698,10 +37698,18 @@ function _adpSleeperKey() {
   if (_adpScoring === 'rookie') return 'rookie';
   return null;
 }
+// Copy the served 7/30/90-day deltas off a Sleeper row onto a player. Each window
+// is null until enough history has accrued (90D fills in last); the frontend's
+// range toggle reads the matching adpSleeperDelta<range>.
+function _slApplyDeltas(p, s) {
+  p.adpSleeperDelta7  = (s && s.adpDelta7  != null) ? s.adpDelta7  : null;
+  p.adpSleeperDelta14 = (s && s.adpDelta14 != null) ? s.adpDelta14 : null;
+  p.adpSleeperDelta30 = (s && s.adpDelta30 != null) ? s.adpDelta30 : null;
+}
 function _adpMergeSleeper(cb) {
   const k = _adpSleeperKey();
   const nn = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  const clear = () => { _adpData.forEach(p => { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; }); _adpSleeperExtra = []; };
+  const clear = () => { _adpData.forEach(p => { p.adpSleeper = undefined; p.adpSleeperN = undefined; _slApplyDeltas(p, null); }); _adpSleeperExtra = []; };
   if (!k) { clear(); cb(); return; }
   const apply = (rows) => {
     const byId = {}, byName = {};
@@ -37714,8 +37722,8 @@ function _adpMergeSleeper(cb) {
       if (p.sleeperId) haveId.add(String(p.sleeperId));
       haveName.add(nn(p.name));
       const s = (p.sleeperId && byId[String(p.sleeperId)]) || byName[nn(p.name)];
-      if (s) { p.adpSleeper = s.adp; p.adpSleeperN = s.n; p.adpSleeperD14 = (s.adpDelta14 != null ? s.adpDelta14 : null); }
-      else   { p.adpSleeper = undefined; p.adpSleeperN = undefined; p.adpSleeperD14 = undefined; }
+      if (s) { p.adpSleeper = s.adp; p.adpSleeperN = s.n; _slApplyDeltas(p, s); }
+      else   { p.adpSleeper = undefined; p.adpSleeperN = undefined; _slApplyDeltas(p, null); }
     });
     // Widen the universe: Sleeper players the main file (top ~200) never included.
     // Rendered only when the Sleeper source is active (see _adpActiveList).
@@ -37725,7 +37733,10 @@ function _adpMergeSleeper(cb) {
         name: s.name, pos: s.pos, team: s.team, sleeperId: String(s.sleeperId || ''),
         years_of_experience: s.years_exp, positionRank: s.positionRank,
         adp: undefined, value: 0,
-        adpSleeper: s.adp, adpSleeperN: s.n, adpSleeperD14: (s.adpDelta14 != null ? s.adpDelta14 : null),
+        adpSleeper: s.adp, adpSleeperN: s.n,
+        adpSleeperDelta7:  (s.adpDelta7  != null ? s.adpDelta7  : null),
+        adpSleeperDelta14: (s.adpDelta14 != null ? s.adpDelta14 : null),
+        adpSleeperDelta30: (s.adpDelta30 != null ? s.adpDelta30 : null),
         _sleeperOnly: true,
       }));
     cb();
@@ -37815,12 +37826,12 @@ function _adpRenderMovers(players) {
   const pool = players.filter(p => p.pos !== 'PICK' && p.pos !== 'DEF');
 
   let mode, deltaOf, headNote;
-  if (_adpSource === 'sl' && pool.some(p => p.adpSleeperD14 != null)) {
-    // Real Sleeper draft-pick movement from our daily snapshots (single 14-day window).
-    // adpDelta14 is new−old; negate so + = moved to an earlier pick (riser).
+  if (_adpSource === 'sl' && pool.some(p => p['adpSleeperDelta' + range] != null)) {
+    // Real Sleeper draft-pick movement from our daily snapshots, on the selected
+    // 7/30/90 window. adpDelta<range> is new−old; negate so + = earlier pick (riser).
     mode = 'sl';
-    deltaOf = p => (p.adpSleeperD14 != null ? -p.adpSleeperD14 : 0);
-    headNote = 'Sleeper real draft ADP · past 14 days';
+    deltaOf = p => { const d = p['adpSleeperDelta' + range]; return d != null ? -d : 0; };
+    headNote = `Sleeper real draft ADP · past ${range} days`;
   } else if (pool.some(p => p['adpRealDelta' + range] != null)) {
     mode = 'ffc';
     deltaOf = p => p['adpRealDelta' + range] || 0;
@@ -38277,7 +38288,7 @@ window.adpSetRange = function(r) {
 function _adpUpdateChangeHeader() {
   const th = document.getElementById('adp-th-change');
   // Sleeper movement is a fixed 14-day snapshot window, not the 7/30/90 toggle.
-  if (th) th.textContent = (_adpSource === 'sl' ? '14D' : `${_adpRange}D`) + ' ↕';
+  if (th) th.textContent = `${_adpRange}D ↕`;
 }
 
 window.adpSetOrder = function(o) {
@@ -38313,7 +38324,7 @@ function _adpEspnHasData() { return _adpData.some(p => p.adpEspn != null); }
 function _adpDeltaVal(p) {
   if (_adpSource === 'ffc')  return p['adpRealDelta' + _adpRange];
   if (_adpSource === 'espn') return p['adpEspnDelta' + _adpRange];
-  if (_adpSource === 'sl')   return p.adpSleeperD14 != null ? -p.adpSleeperD14 : null;   // 14-day window; negate so + = riser
+  if (_adpSource === 'sl')   { const d = p['adpSleeperDelta' + _adpRange]; return d != null ? -d : null; }   // negate so + = riser
   return p['adpDelta' + _adpRange];
 }
 // Sleeper real-draft ADP only exists for dynasty/superflex formats (adpSleeper on matched players).

@@ -109,6 +109,7 @@ SKILL_POS = {"QB", "RB", "WR", "TE"}
 # if Sleeper ever clears the player's team he'd drop out on his own anyway.
 RETIRED_OVERRIDE = {"138"}                    # Ben Roethlisberger — retired after 2021, Sleeper still lists PIT
 HISTORY_MAX = 160                             # snapshots kept per player in history file
+HISTORY_WINDOWS = (7, 14, 30)                 # change-column windows the frontend's 7/14/30 toggle reads
 
 # per-run budgets (keep a cron run comfortably inside a few minutes)
 DEF_USER_BUDGET = 400                         # frontier users processed per run
@@ -503,13 +504,12 @@ def compute_adp(corpus, mode, fmt, meta):
     return rows, ndrafts
 
 def update_history(fmt, rows, log):
-    """Append today's ADP snapshot per player; compute 14-day delta onto rows."""
+    """Append today's ADP snapshot per player; compute 7/30/90-day deltas onto rows."""
     hist = _load(f"sleeper_adp_history_{fmt}.json", {"dates": [], "adp": {}})
     today = dt.date.today().isoformat()
     if today not in hist["dates"]:
         hist["dates"].append(today)
         hist["dates"] = hist["dates"][-HISTORY_MAX:]
-    di = len(hist["dates"]) - 1
     for r in rows:
         series = hist["adp"].setdefault(r["sleeperId"], {})
         series[today] = r["adp"]
@@ -519,15 +519,20 @@ def update_history(fmt, rows, log):
         hist["adp"][pid] = {d: v for d, v in hist["adp"][pid].items() if d in keep}
         if not hist["adp"][pid]:
             del hist["adp"][pid]
-    # 14-day delta (positive = ADP got later = falling; negative = rising)
-    ref_date = None
-    cutoff = (dt.date.today() - dt.timedelta(days=14)).isoformat()
-    for d in hist["dates"]:
-        if d <= cutoff:
-            ref_date = d
-    for r in rows:
-        prev = hist["adp"].get(r["sleeperId"], {}).get(ref_date) if ref_date else None
-        r["adpDelta14"] = round(r["adp"] - prev, 1) if prev is not None else None
+    # Per-window deltas (positive = ADP got later = falling; the frontend negates
+    # so + reads as a riser). Each window's reference snapshot is the most recent
+    # one at least N days old; a window with no snapshot that old stays null, and
+    # the frontend shows "still collecting" for it. So 90D reads blank until ~90
+    # days of history accrue, while 7D fills in first.
+    for days in HISTORY_WINDOWS:
+        cutoff = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+        ref_date = None
+        for d in hist["dates"]:
+            if d <= cutoff:
+                ref_date = d
+        for r in rows:
+            prev = hist["adp"].get(r["sleeperId"], {}).get(ref_date) if ref_date else None
+            r[f"adpDelta{days}"] = round(r["adp"] - prev, 1) if prev is not None else None
     _save(f"sleeper_adp_history_{fmt}.json", hist)
     return hist
 
