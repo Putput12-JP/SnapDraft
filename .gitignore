@@ -27,3 +27,13 @@ __pycache__/
 
 # Misc
 *.log
+
+# Claude Code local tooling (session data / downloaded skills / lockfile)
+.claude/
+skills-lock.json
+
+# Redraft Strategy pipeline artifacts — regenerable by scripts/backfill_redraft_picks.py.
+# The app reads the small derived JSONs (by_slot / curves / openings / …), never these:
+# the 30M output corpus and its resumable checkpoint.
+data/redraft_strategy_picks.json
+data/redraft_strategy_picks_state.json
