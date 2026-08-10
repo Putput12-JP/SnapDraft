@@ -52,6 +52,7 @@ import gzip
 import json
 import math
 import os
+import sys
 import time
 import urllib.request
 import urllib.error
@@ -149,7 +150,12 @@ def _get(path, tries=4):
 # gzip cuts it ~10x. _load/_save switch on the extension, so aggregated outputs
 # stay plain JSON and human-inspectable.
 def _open(p, mode):
-    return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
+    # _save writes atomically to a "<name>.tmp" sibling, so classify by the REAL
+    # extension: ".json.gz.tmp" must still gzip. Keying on p.endswith(".gz") would
+    # write the corpus as raw JSON under a .gz name, which the next run's _load
+    # could not gunzip -> empty corpus (this sank the ADP + trade corpora).
+    real = p[:-4] if p.endswith(".tmp") else p
+    return gzip.open(p, mode) if real.endswith(".gz") else open(p, mode)
 
 def _load(path, default):
     p = os.path.join(DATA_DIR, path)
@@ -157,8 +163,8 @@ def _load(path, default):
         try:
             with _open(p, "rt") as f:
                 return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[redraft-strategy] WARNING: could not read {path}: {e}", file=sys.stderr)
     return default
 
 def _save(path, obj):

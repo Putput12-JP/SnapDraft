@@ -72,6 +72,7 @@ import math
 import os
 import random
 import re
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -201,7 +202,12 @@ def _fetch_json(url, tries=3):
 # reads (only the fitted trade_market.json is served), kept compressed to stay under
 # GitHub's file-size limit. _load/_save switch on the extension.
 def _open(p, mode):
-    return gzip.open(p, mode) if p.endswith(".gz") else open(p, mode)
+    # _save writes atomically to a "<name>.tmp" sibling, so classify by the REAL
+    # extension: ".json.gz.tmp" must still gzip. Keying on p.endswith(".gz")
+    # wrote the corpus as raw JSON under a .gz name, which the next run's _load
+    # could not gunzip -> empty corpus -> the trade sample collapsed.
+    real = p[:-4] if p.endswith(".tmp") else p
+    return gzip.open(p, mode) if real.endswith(".gz") else open(p, mode)
 
 
 def _load(path, default):
@@ -210,8 +216,8 @@ def _load(path, default):
         try:
             with _open(p, "rt") as f:
                 return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[sleeper-trades] WARNING: could not read {path}: {e}", file=sys.stderr)
     return default
 
 
