@@ -11963,8 +11963,14 @@ function renderSuggestions() {
   if (!pa || !pa.suggestions.length) { bar.classList.remove('pa-clock','pa-soon'); return; }
   bar.style.display = 'block';
 
-  const clock = pa.onClock;
-  const soon = !clock && pa.picksAway <= 2;
+  // The metal rim is the "you're on the clock" escalation — it should only fire
+  // in a genuinely live draft, not in the browsing preview (where an empty
+  // draftState puts the preview slot at pick 1, making pa.onClock true with no
+  // draft actually running). Gate on the live-draft status the control cell uses.
+  const _adStatus = (window._activeDraft && window._activeDraft.status) || '';
+  const liveDraft = _adStatus==='drafting' || _adStatus==='in_progress' || _adStatus==='paused';
+  const clock = pa.onClock && liveDraft;
+  const soon = !clock && liveDraft && pa.picksAway <= 2;
   bar.classList.toggle('pa-clock', clock);
   bar.classList.toggle('pa-soon', soon);
 
@@ -13159,12 +13165,13 @@ function showPage(p, opts){
     // once per session so the user can either link a draft or browse rankings.
     if (!sleeperDraftId && !window._draftPromptDismissed) {
       setTimeout(() => {
-        // Redraft Strategy is a research sub-view that needs no draft connection,
-        // so don't ambush it with the connect modal. Checked here rather than
-        // flagging _draftPromptDismissed, which would wrongly suppress the prompt
-        // for the rest of the session once the user did open the board.
+        // ADP Explorer and Redraft Strategy are research sub-views that need no
+        // draft connection, so don't ambush them with the connect modal. Checked
+        // here rather than flagging _draftPromptDismissed, which would wrongly
+        // suppress the prompt for the rest of the session once the user did open
+        // the board.
         var pd = document.getElementById('page-draft');
-        if (pd && pd.classList.contains('strategy-mode')) return;
+        if (pd && (pd.classList.contains('strategy-mode') || pd.classList.contains('adp-mode'))) return;
         try { openDraftConnect(true); } catch(e){}   // auto-entry → skip to rankings if nothing live/upcoming
       }, 120);
     }
@@ -23193,8 +23200,10 @@ function dvRenderControlCell(){
   const isSleeper = _dvDraftPlatform()==='sleeper' && typeof sleeperDraftId!=='undefined' && sleeperDraftId;
   const status = (window._activeDraft && window._activeDraft.status) || '';
   const isLive = status==='drafting' || status==='in_progress' || status==='paused';
-  if(!isSleeper || !isLive){ cell.style.display='none'; cell.classList.remove('live'); return; }
+  const card = cell.closest('.ds-card.dsc');
+  if(!isSleeper || !isLive){ cell.style.display='none'; cell.classList.remove('live'); if(card) card.classList.remove('has-ctl'); return; }
   cell.style.display='';
+  if(card) card.classList.add('has-ctl');
 
   // Lazily resolve the connection once, then repaint.
   if(window._dvControlConn===null){
@@ -40434,8 +40443,15 @@ else { _ssInjectPage();_ssInjectNav(); }
      4-character factor value (10.0) would widen the column and shove every other
      cell in the strip. Capping the minimum keeps the layout still and lets the
      clamp above absorb the extra characters instead. */
-  display:grid!important; grid-template-columns:1.3fr .52fr .52fr minmax(0,1.45fr) 1.1fr 1.4fr; gap:0!important;
+  /* Five tracks by default (pick · left · drafted · grade · clock). The Draft
+     Control cell is display:none until a live Sleeper draft is connected, so its
+     column can't be reserved here — a 6th `1.4fr` track would sit empty to the
+     right of the clock cell whenever you're just browsing. `.has-ctl` (toggled
+     by dvRenderControlCell alongside the cell's own show/hide) adds the 6th
+     track exactly when the cell is present. */
+  display:grid!important; grid-template-columns:1.3fr .52fr .52fr minmax(0,1.45fr) 1.1fr; gap:0!important;
 }
+#page-draft .ds-card.dsc.has-ctl{ grid-template-columns:1.3fr .52fr .52fr minmax(0,1.45fr) 1.1fr 1.4fr!important; }
 #page-draft .dsc-pickblock, #page-draft .dsc-stat, #page-draft .dsc-clockwrap{
   background:transparent!important; border:none!important; border-radius:0!important;
   border-left:1px solid var(--border)!important; padding:16px 20px!important;
