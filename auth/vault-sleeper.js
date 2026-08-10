@@ -68,6 +68,10 @@
       if (!window.firebase.apps || !window.firebase.apps.length) {
         window.firebase.initializeApp(window.VF_FIREBASE_CONFIG);
       }
+      // Every call below goes to a callable that can require an App Check
+      // token, so activate before the first one. Idempotent — vault-auth.js
+      // usually got here first; no-ops unless a site key is configured.
+      if (window.VaultAppCheck) await window.VaultAppCheck.activate();
       _fns = window.firebase.app().functions(REGION);
       return _fns;
     })();

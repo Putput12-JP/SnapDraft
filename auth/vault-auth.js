@@ -94,6 +94,10 @@
       return p.then(function () { return loadScript(SDK_BASE + file); });
     }, Promise.resolve()).then(function () {
       if (!firebase.apps.length) firebase.initializeApp(window.VF_FIREBASE_CONFIG);
+      // Must land between initializeApp and the first Firestore/Functions
+      // use. No-ops unless VF_APPCHECK_SITE_KEY is configured.
+      return window.VaultAppCheck ? window.VaultAppCheck.activate() : null;
+    }).then(function () {
       _db = firebase.firestore();
       return firebase.auth();
     });

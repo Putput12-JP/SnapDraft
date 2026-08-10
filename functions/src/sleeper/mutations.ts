@@ -361,7 +361,7 @@ export function buildAction(a: SleeperAction): GraphQLRequest {
       return {
         op: "draft_pick_player",
         query: `mutation draft_pick_player {
-  draft_pick_player(sport: "nfl", draft_id: "${draftId}", player_id: "${playerId}", pick_no: ${pickNo})
+  draft_pick_player(sport: "nfl", draft_id: "${draftId}", player_id: "${playerId}", pick_no: ${pickNo}) { pick_no player_id draft_id }
 }`,
       };
     }
