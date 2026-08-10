@@ -4583,7 +4583,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <button id="nb-myrankings" onclick="showPage('myrankings')">My Rankings</button>
     <button id="nb-draft" onclick="showPage('draft')">Draft Vault</button>
     <button id="nb-teams" onclick="showPage('teams')">League</button>
-    <button id="nb-trade" onclick="showPage('trade')">Calc</button>
+    <button id="nb-trade" onclick="showPage('trade')">Trade Calc</button>
     <button id="nb-betting" onclick="showPage('betting')">Betting</button>
   </div>
 
@@ -13260,6 +13260,7 @@ function setOvTab(tab) {
 
 function switchOverviewLeague(leagueId) {
   ovLeagueId = leagueId || null;
+  rememberLastLeague(leagueId);
   _txCache = null; _rosterCache = null; _usersCache = null;
   window._cachedTradeRoster = null; // invalidate trade roster cache
   renderOverview();
@@ -13356,15 +13357,30 @@ function _ccSparkline(tr, w=60, h=22){
 // (/league, /calc, …) never runs renderOverview, and without this the header
 // dropdown displays the first league while ovLeagueId/teamsLeagueId stay null,
 // so every page silently falls back to the stale draft board.
+// Persist the last league the user actively opened, so the next login lands on it.
+// Called from every user-initiated league switch (global / analyzer / overview).
+function rememberLastLeague(leagueId) {
+  try { if (leagueId) localStorage.setItem(SK+'-last-league', leagueId); } catch(e){}
+}
+
 function restoreLeagueSelection() {
   if (ovLeagueId && teamsLeagueId) return;
-  const sp = localStorage.getItem(SK+'-primary-league');
-  let ss = null; try { ss = JSON.parse(localStorage.getItem(SK+'-selected-leagues') || 'null'); } catch(e){}
-  // Prefer a league that already has a starting roster over a saved drafting/pre-draft one
-  let cand = sp;
-  const spL = myTeamsData.find(l => l.league_id === sp);
-  if (!cand || _leagueStartRank(spL) >= 3) {
-    cand = _bestLeagueId(Array.isArray(ss) ? ss : []) || _bestLeagueId(myTeamsData.map(l=>l.league_id)) || cand || (Array.isArray(ss) && ss.length ? ss[0] : null);
+  // Highest signal: the league you were last looking at. Only trust it if that
+  // league still exists in the account (a dropped/expired season falls through).
+  let cand = null;
+  try {
+    const last = localStorage.getItem(SK+'-last-league');
+    if (last && myTeamsData.some(l => l.league_id === last)) cand = last;
+  } catch(e){}
+  if (!cand) {
+    const sp = localStorage.getItem(SK+'-primary-league');
+    let ss = null; try { ss = JSON.parse(localStorage.getItem(SK+'-selected-leagues') || 'null'); } catch(e){}
+    // Prefer a league that already has a starting roster over a saved drafting/pre-draft one
+    cand = sp;
+    const spL = myTeamsData.find(l => l.league_id === sp);
+    if (!cand || _leagueStartRank(spL) >= 3) {
+      cand = _bestLeagueId(Array.isArray(ss) ? ss : []) || _bestLeagueId(myTeamsData.map(l=>l.league_id)) || cand || (Array.isArray(ss) && ss.length ? ss[0] : null);
+    }
   }
   if (cand) { if (!ovLeagueId) ovLeagueId = cand; if (!teamsLeagueId) teamsLeagueId = cand; }
 }
@@ -13382,6 +13398,9 @@ async function renderOverview() {
   // Recover the selected league from the saved profile (chosen during sign-in)
   // so we never re-prompt with the league picker once a profile exists.
   restoreLeagueSelection();
+  // Catches league-card handlers that set ovLeagueId directly (they bypass the
+  // switch* funnels) — whatever overview you're actually viewing is "last opened".
+  rememberLastLeague(ovLeagueId);
 
   const draftRoster = getMyRoster();
   const hasContext = ovLeagueId || draftRoster.length > 0;
@@ -16643,6 +16662,7 @@ function getTeamTier(rank, total) {
 
 async function switchAnalyzerLeague(leagueId) {
   teamsLeagueId = leagueId || null;
+  rememberLastLeague(leagueId);
   _txCache = null; _rosterCache = null; _usersCache = null;
   const nameEl = document.getElementById('la-league-name');
   if (!leagueId) { if(nameEl) nameEl.textContent=''; renderTeams(); return; }
@@ -18135,6 +18155,7 @@ function updateUserHeader(user) {
 async function switchGlobalLeague(leagueId) {
   teamsLeagueId = leagueId || null;
   ovLeagueId = leagueId || null;
+  rememberLastLeague(leagueId);
   _txCache = null; _rosterCache = null; _usersCache = null;
   window._cachedTradeRoster = null; // reset when league changes
   // Trade Calculator caches the previous league's rosters, clear so it reloads the new league's teams
@@ -35345,7 +35366,23 @@ body .page,body .page.on{background:transparent!important}
     RETOOL: { l:'Retool',  c:'var(--gold)',   d:'Reshaping on the fly' },
     REBUILD:{ l:'Rebuild', c:'#ff9f5b',       d:'Building for the future' },
   };
-  function windowChip(w){ const o = WINDOWS[w] || WINDOWS.RETOOL; return `<span class="lh-wchip" style="color:${o.c};background:color-mix(in srgb,${o.c} 14%,transparent);border:1px solid color-mix(in srgb,${o.c} 34%,transparent)">${o.l}</span>`; }
+  // Redraft has no future currency and age is irrelevant — every team is win-now.
+  // So the dynasty Contend/Retool/Rebuild ladder (keyed on value percentile + age)
+  // is meaningless there. Redraft reads the SAME playoff-odds model as an outlook:
+  // it's the directive layer on top of the odds number ("what do I do with this").
+  const WINDOWS_R = {
+    LOCK:     { l:'Playoff Lock', c:'var(--green)',   d:"Spot's yours to lose" },
+    HUNT:     { l:'In the Hunt',  c:'var(--accent2)', d:'You control your own fate' },
+    BUBBLE:   { l:'On the Bubble',c:'var(--gold)',    d:"Every week's a must-win" },
+    LONGSHOT: { l:'Long Shot',    c:'#ff9f5b',        d:'Need a run and some help' },
+  };
+  function windowRedraftOf(odds){
+    if (odds >= 80) return 'LOCK';
+    if (odds >= 45) return 'HUNT';
+    if (odds >= 18) return 'BUBBLE';
+    return 'LONGSHOT';
+  }
+  function windowChip(w, map){ const M = map || WINDOWS; const o = M[w] || M.RETOOL || M.BUBBLE; return `<span class="lh-wchip" style="color:${o.c};background:color-mix(in srgb,${o.c} 14%,transparent);border:1px solid color-mix(in srgb,${o.c} 34%,transparent)">${o.l}</span>`; }
   function windowOf(valPct, age){
     if (valPct >= 0.60) return 'CONTEND';
     if (valPct >= 0.36) return (age!=null && age<=25.2) ? 'BUBBLE' : 'RETOOL';
@@ -35543,6 +35580,13 @@ body .page,body .page.on{background:transparent!important}
       const r = me._rec;
       const recTxt = r ? `${r.w}–${r.l}${r.t?'–'+r.t:''}` : '—';
       const oc = oddsColor(me._odds);
+      // Window is a dynasty idea (buy/retool/rebuild off value+age). Redraft has no
+      // future, so swap in a playoff OUTLOOK read off the same odds model.
+      const _wLg = (typeof myTeamsData!=='undefined' && myTeamsData) ? myTeamsData.find(l=>l.league_id===teamsLeagueId) : null;
+      const _wIsDyn = _wLg ? (typeof _isDynastyLeague==='function' ? !!_isDynastyLeague(_wLg) : true) : true;
+      const _wMap   = _wIsDyn ? WINDOWS : WINDOWS_R;
+      const _wKey   = _wIsDyn ? me._window : windowRedraftOf(me._odds);
+      const _wHead  = _wIsDyn ? 'WINDOW' : 'OUTLOOK';
       hero = `<div class="lh-ov-hero lh-card">
         <div class="lh-ovh-l">
           <div class="lh-ovh-badge" style="--c:${me._color}"><span class="lh-ovh-rk">#${me._pr}</span><span class="lh-ovh-rkl">POWER</span></div>
@@ -35566,9 +35610,9 @@ body .page,body .page.on{background:transparent!important}
           </div>
           <div class="lh-ovh-div"></div>
           <div class="lh-ovh-stat">
-            <div class="lh-ovh-sl">WINDOW</div>
-            <div style="margin:6px 0 0">${windowChip(me._window)}</div>
-            <div class="lh-ovh-sd push lh-muted" style="line-height:1.4">${WINDOWS[me._window].d}</div>
+            <div class="lh-ovh-sl">${_wHead}</div>
+            <div style="margin:6px 0 0">${windowChip(_wKey, _wMap)}</div>
+            <div class="lh-ovh-sd push lh-muted" style="line-height:1.4">${_wMap[_wKey].d}</div>
           </div>
         </div>
       </div>`;
