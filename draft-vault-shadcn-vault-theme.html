@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft Vault — shadcn structure · Vault onyx theme</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   shadcn/ui structure — skinned with Vault onyx tokens
+   (values inlined from vault-ds.css [data-theme="onyx"])
+   ============================================================ */
+:root{
+  --bg:#0e0f13;
+  --s1:#16171c;
+  --s2:#1c1e24;
+  --s3:#23252c;
+  --s4:#2c2f38;
+  --s-bright:#343844;
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.12);
+  --border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;
+  --text2:#c9cdd6;
+  --muted:#7e8493;
+  --primary:#8fb4e0;
+  --on-primary:#0b1420;
+  --accent:#5e7c9c;
+  --accent2:#8fb4e0;
+  --accent3:#b9d2ec;
+  --red:#e23a4e;
+  --red2:#ff5a6e;
+  --value:#5fe09a;
+
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --f-upside:var(--te);--f-floor:var(--rb);--f-risk:var(--red2);--f-sit:var(--wr);
+  --dyn:#facc15;--rdr:#7bd0ff;--adp:#a78bfa;--mine:#3DCC7A;--gold:#f5c842;
+
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-sans);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:var(--font-mono)}
+svg.lucide{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.vlabel{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* ============================================================
+   App shell — shadcn sidebar-07 pattern, Vault voice
+   ============================================================ */
+.shell{display:flex;min-height:100vh}
+.sidebar{
+  width:240px;flex-shrink:0;border-right:1px solid var(--border);
+  background:var(--bg);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+.sb-head{display:flex;align-items:center;gap:10px;padding:14px 16px}
+.sb-logo{
+  width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--on-primary);
+  font-weight:800;font-size:14px;letter-spacing:-.02em;
+}
+.sb-head-txt{display:flex;flex-direction:column;line-height:1.2}
+.sb-head-txt b{font-size:13.5px;font-weight:800;letter-spacing:-.01em}
+.sb-head-txt span{font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em}
+.sb-group{padding:10px 12px 4px}
+.sb-group-label{composes:vlabel;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:6px 8px}
+.sb-item{
+  display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;
+  color:var(--muted);font-size:13.5px;font-weight:500;cursor:pointer;
+  transition:background .12s,color .12s;
+}
+.sb-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.sb-item.active{background:var(--s3);color:var(--text);box-shadow:inset 2px 0 0 var(--accent2)}
+.sb-item svg.lucide{width:15px;height:15px}
+.sb-item .kbd{margin-left:auto;font-size:9.5px;color:var(--muted);border:1px solid var(--border2);border-radius:4px;padding:0 5px;line-height:15px;font-family:var(--font-mono)}
+.sb-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:9px;cursor:pointer}
+.sb-user:hover{background:rgba(255,255,255,.05)}
+.avatar{
+  width:30px;height:30px;border-radius:9px;background:var(--s3);border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;
+  color:var(--accent2);font-family:var(--font-mono);
+}
+.sb-user-txt{line-height:1.25;flex:1;min-width:0}
+.sb-user-txt b{display:block;font-size:12.5px;font-weight:700}
+.sb-user-txt span{display:block;font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  height:56px;display:flex;align-items:center;gap:8px;padding:0 20px;
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:40;
+  background:var(--bg);
+}
+.tb-trigger{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
+.tb-trigger:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.tb-sep{width:1px;height:16px;background:var(--border2);margin:0 6px}
+.crumbs{display:flex;align-items:center;gap:8px;font-size:13px}
+.crumbs .c-muted{color:var(--muted)}
+.crumbs .c-sep{color:var(--muted);opacity:.6}
+.crumbs .c-here{font-weight:600}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.cmdk{
+  display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;width:220px;
+  border:1px solid var(--border2);border-radius:9px;background:var(--s2);
+  color:var(--muted);font-size:13px;cursor:pointer;
+}
+.cmdk .kbd{margin-left:auto;font-size:10px;border:1px solid var(--border2);background:var(--bg);border-radius:4px;padding:1px 5px;font-family:var(--font-mono)}
+
+/* ============================================================
+   Primitives — Vault-skinned shadcn components
+   ============================================================ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:32px;padding:0 12px;border-radius:8px;font-size:12.5px;font-weight:600;
+  font-family:inherit;cursor:pointer;white-space:nowrap;
+  transition:background .16s,border-color .16s,color .16s;
+  border:1px solid transparent;background:transparent;color:var(--text);
+}
+.btn svg.lucide{width:14px;height:14px}
+.btn-outline{border-color:var(--border2);background:var(--s1)}
+.btn-outline:hover{background:var(--s2);border-color:var(--border3)}
+.btn-secondary{background:var(--s3);color:var(--text)}
+.btn-secondary:hover{background:var(--s4)}
+.btn .count{
+  min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bg);
+  border:1px solid var(--border2);font-size:10px;font-weight:700;display:inline-flex;
+  align-items:center;justify-content:center;font-family:var(--font-mono);color:var(--accent2);
+}
+
+.badge{
+  display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;
+  border-radius:6px;font-size:9.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;font-family:var(--font-mono);white-space:nowrap;
+}
+.badge-outline{border:1px solid var(--border3);color:var(--text2)}
+.badge-steel{background:rgba(143,180,224,.14);color:var(--accent2)}
+.badge .dot{width:6px;height:6px;border-radius:50%}
+
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px}
+.card-header{padding:16px 20px 0}
+.card-title{font-size:15px;font-weight:800;letter-spacing:-.02em}
+.card-desc{font-size:12.5px;color:var(--muted);margin-top:2px}
+.card-content{padding:16px 20px 20px}
+
+.tabs{display:inline-flex;background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px}
+.tab{
+  height:26px;padding:0 12px;border-radius:6px;font-size:12.5px;font-weight:600;
+  color:var(--muted);display:inline-flex;align-items:center;cursor:pointer;
+  border:none;background:transparent;font-family:inherit;transition:color .12s,background .12s;
+}
+.tab.active{background:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tab:not(.active):hover{color:var(--text)}
+
+.input-wrap{position:relative;display:flex;align-items:center}
+.input-wrap svg.lucide{position:absolute;left:10px;width:14px;height:14px;color:var(--muted)}
+.input{
+  height:32px;width:100%;padding:0 12px 0 32px;border-radius:8px;font-size:13px;
+  border:1px solid var(--border2);background:var(--s2);color:var(--text);
+  font-family:inherit;outline:none;transition:border-color .16s,box-shadow .16s;
+}
+.input::placeholder{color:var(--muted)}
+.input:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(143,180,224,.16)}
+
+.select{
+  height:32px;padding:0 30px 0 12px;border-radius:8px;font-size:12.5px;font-weight:600;
+  border:1px solid var(--border2);background-color:var(--s2);color:var(--text);
+  font-family:inherit;outline:none;appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237e8493' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;
+}
+.select:hover{border-color:var(--border3)}
+
+.toggle-group{display:inline-flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--s1)}
+.toggle-item{
+  height:30px;padding:0 12px;font-size:11.5px;font-weight:700;border:none;cursor:pointer;
+  background:transparent;color:var(--muted);font-family:var(--font-mono);
+  border-right:1px solid var(--border);display:inline-flex;align-items:center;gap:6px;
+  transition:background .12s,color .12s;letter-spacing:.04em;
+}
+.toggle-item:last-child{border-right:none}
+.toggle-item:hover{background:var(--s2);color:var(--text)}
+.toggle-item.on{background:var(--s3);color:var(--text)}
+.toggle-item .pdot{width:6px;height:6px;border-radius:50%}
+
+.progress{height:7px;border-radius:999px;background:var(--s3);overflow:hidden}
+.progress > div{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
+/* ============================================================
+   Page layout
+   ============================================================ */
+.page{padding:20px 24px 48px;max-width:1320px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+.ph{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:8px 0 4px}
+.ph-l h1{font-size:23px;font-weight:800;letter-spacing:-.03em;display:flex;align-items:center;gap:10px}
+.ph-sub{font-size:12.5px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ph-sub .live{display:inline-flex;align-items:center;gap:6px;color:var(--text2)}
+.ph-sub .live .dot{width:7px;height:7px;border-radius:50%;background:var(--value);box-shadow:0 0 0 3px rgba(95,224,154,.15)}
+.ph-actions{display:flex;gap:8px}
+
+/* summary card */
+.sum-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1.4fr;align-items:stretch}
+.sum-cell{padding:16px 20px;display:flex;flex-direction:column;justify-content:center;gap:3px;border-left:1px solid var(--border)}
+.sum-cell:first-child{border-left:none}
+.sum-label{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sum-value{font-size:24px;font-weight:700;letter-spacing:-.02em;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.sum-value small{font-size:11.5px;color:var(--muted);font-weight:500;letter-spacing:0;margin-left:6px;font-family:var(--font-sans)}
+.sum-meta{font-size:11.5px;color:var(--muted)}
+.sum-grade .sum-value{color:var(--value)}
+.sum-clock{background:var(--s2);border-radius:0 12px 0 0}
+.sum-clock .sum-value{font-size:17px;font-family:var(--font-sans);font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.sum-foot{display:flex;align-items:center;gap:14px;padding:12px 20px;border-top:1px solid var(--border)}
+.sum-foot .progress{flex:1}
+.sum-foot span{font-size:11px;color:var(--muted);white-space:nowrap;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* suggested */
+.sug-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sug-card{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);
+  border:1px solid var(--border);border-radius:11px;cursor:pointer;transition:border-color .16s,background .16s;
+}
+.sug-card:hover{border-color:var(--border3);background:var(--s2)}
+.sug-info{flex:1;min-width:0}
+.sug-name{font-size:13.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center}
+.sug-why{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sug-grade{font-family:var(--font-mono);font-size:16px;font-weight:700}
+
+/* controls */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctl-label{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:-2px}
+.controls .spacer{flex:1}
+.controls .input-wrap{width:260px}
+
+/* grade key */
+.gkey{
+  display:flex;align-items:center;gap:18px;padding:9px 14px;border:1px dashed var(--border2);
+  border-radius:9px;font-size:11.5px;color:var(--muted);flex-wrap:wrap;background:rgba(255,255,255,.02);
+}
+.gkey-title{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text2)}
+.gkey-item{display:inline-flex;align-items:center;gap:6px;cursor:help}
+.gkey-item b{color:var(--text);font-weight:700}
+.gkey-item i{font-style:normal;opacity:.85}
+.gkey-item svg.lucide{width:13px;height:13px}
+.gkey-link{margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--accent2);cursor:pointer}
+.gkey-link:hover{color:var(--accent3)}
+
+/* ============================================================
+   Table
+   ============================================================ */
+.tbl-card{overflow:hidden}
+.tbl-wrap{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl thead th{
+  height:38px;padding:0 10px;text-align:right;font-family:var(--font-mono);font-size:9.5px;
+  font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--border2);white-space:nowrap;background:var(--s1);
+}
+.tbl thead th.l{text-align:left}
+.tbl thead th.c{text-align:center}
+.tbl thead th .th-src{
+  font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid var(--border2);
+  color:var(--muted);margin-left:4px;vertical-align:1px;
+}
+.tbl thead th .sort{opacity:.55;margin-left:3px;font-size:9px}
+.tbl thead th.sorted{color:var(--text)}
+.tbl thead th.sorted .sort{opacity:1;color:var(--accent2)}
+.tbl thead th svg.lucide{width:13px;height:13px;vertical-align:-3px}
+.tbl tbody td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:background .1s}
+.tbl tbody tr:hover{background:rgba(255,255,255,.03)}
+.tbl td.l{text-align:left}
+.tbl td.c{text-align:center}
+.td-rk{color:var(--muted);font-family:var(--font-mono);font-size:12px;width:44px}
+.pcell{display:flex;align-items:center;gap:11px;min-width:200px}
+.pav{
+  width:32px;height:32px;border-radius:9px;background:var(--s3);border:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  color:var(--muted);font-family:var(--font-mono);
+}
+.pmeta{line-height:1.3;min-width:0}
+.pname{font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px;font-size:13.5px}
+.psub{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:11px;color:var(--muted)}
+.pos-badge{
+  display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:5px;
+  font-size:9px;font-weight:700;font-family:var(--font-mono);letter-spacing:.04em;
+}
+.pos-badge.QB{background:rgba(255,102,128,.15);color:var(--qb)}
+.pos-badge.RB{background:rgba(61,204,122,.15);color:var(--rb)}
+.pos-badge.WR{background:rgba(123,208,255,.15);color:var(--wr)}
+.pos-badge.TE{background:rgba(245,200,66,.15);color:var(--te)}
+.val{font-family:var(--font-mono);font-weight:700;font-size:12.5px}
+.val.dyn{color:var(--dyn)}
+.val.rdr{color:var(--rdr);font-weight:500}
+.val.adp{color:var(--adp);font-weight:500}
+.val.mine{color:var(--mine)}
+.sub-rank{display:block;font-size:9.5px;color:var(--muted);margin-top:1px;font-weight:400;font-family:var(--font-mono)}
+.sub-rank .up{color:var(--rb)}
+.sub-rank .dn{color:var(--qb)}
+.fcell{font-family:var(--font-mono);font-size:13.5px;font-weight:800;letter-spacing:-.01em}
+.pg{font-family:var(--font-mono);font-weight:800;font-size:13px}
+.star{color:var(--muted);cursor:pointer;font-size:15px;opacity:.5;transition:opacity .1s,color .1s}
+.star:hover{opacity:1}
+.star.on{color:var(--gold);opacity:1}
+tr.gone td{opacity:.35}
+tr.gone .pname{text-decoration:line-through;text-decoration-color:var(--muted)}
+tr.gone td:last-child{opacity:1}
+.drafted-chip{
+  display:inline-flex;align-items:center;gap:5px;height:19px;padding:0 8px;border-radius:6px;
+  background:var(--s3);font-size:9.5px;font-weight:700;color:var(--muted);
+  font-family:var(--font-mono);letter-spacing:.04em;
+}
+tr.tier-row td{
+  padding:5px 10px;background:var(--s2);
+  font-size:9.5px;font-weight:700;letter-spacing:.14em;color:var(--muted);
+  text-align:left;font-family:var(--font-mono);border-bottom:1px solid var(--border);
+}
+tr.mypick td:first-child{box-shadow:inset 2px 0 0 var(--accent2)}
+.tbl-foot{
+  display:flex;align-items:center;justify-content:space-between;padding:10px 16px;
+  border-top:1px solid var(--border);font-size:11.5px;color:var(--muted);
+}
+.tbl-foot .pager{display:flex;gap:6px}
+.tbl-foot .btn{height:28px;padding:0 10px;font-size:12px}
+
+/* ============================================================
+   Draft board
+   ============================================================ */
+.board-scroll{overflow-x:auto;padding-bottom:4px}
+.board{display:grid;grid-template-columns:repeat(12,minmax(80px,1fr));gap:6px;min-width:1000px}
+.board-team{font-size:9.5px;font-weight:700;color:var(--muted);text-align:center;padding:2px 0 4px;font-family:var(--font-mono);letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase}
+.board-team.me{color:var(--accent2)}
+.bcell{
+  border:1px solid var(--border);border-radius:9px;background:var(--s2);
+  padding:7px 8px;min-height:52px;position:relative;overflow:hidden;
+}
+.bcell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pc,transparent)}
+.bcell .bp{font-size:9px;color:var(--muted);font-family:var(--font-mono);display:flex;justify-content:space-between}
+.bcell .bn{font-size:11.5px;font-weight:700;margin-top:2px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcell.empty{background:transparent;border-style:dashed}
+.bcell.empty .bn{color:var(--muted);font-weight:500}
+.bcell.otc{border-color:var(--accent2);border-style:solid;box-shadow:0 0 0 3px rgba(143,180,224,.12)}
+.bcell.me{border-color:rgba(143,180,224,.55);border-style:solid;background:rgba(143,180,224,.07)}
+
+@media (max-width:1100px){
+  .sidebar{display:none}
+  .sum-grid{grid-template-columns:1fr 1fr}
+  .sug-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="sb-logo">V</div>
+      <div class="sb-head-txt"><b>Vault Fantasy</b><span>Dynasty toolkit</span></div>
+    </div>
+    <nav class="sb-group">
+      <div class="sb-group-label">Platform</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Home</div>
+      <div class="sb-item active"><svg class="lucide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Draft Vault<span class="kbd">D</span></div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 14 4-4 4 4 5-6"/></svg>ADP Explorer</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>My Rankings</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>League Analyzer</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Players</div>
+    </nav>
+    <nav class="sb-group">
+      <div class="sb-group-label">Tools</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="m21 3-7 7"/><path d="M8 21H3v-5"/><path d="m3 21 7-7"/></svg>Trade Intel</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>Advanced Stats</div>
+      <div class="sb-item"><svg class="lucide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Lineup Command</div>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="avatar">PP</div>
+        <div class="sb-user-txt"><b>Putput</b><span>Early Birds · 12-team SF</span></div>
+        <svg class="lucide" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--muted)"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="topbar">
+      <div class="tb-trigger"><svg class="lucide" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></div>
+      <div class="tb-sep"></div>
+      <div class="crumbs">
+        <span class="c-muted">Draft Tools</span>
+        <span class="c-sep">/</span>
+        <span class="c-here">Draft Vault</span>
+      </div>
+      <div class="tb-right">
+        <div class="cmdk">
+          <svg class="lucide" viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          Search players…
+          <span class="kbd">⌘K</span>
+        </div>
+        <div class="avatar" style="border-radius:50%">PP</div>
+      </div>
+    </header>
+
+    <div class="page">
+
+      <!-- ===== Page header ===== -->
+      <div class="ph">
+        <div class="ph-l">
+          <h1>Draft Vault
+            <span class="badge badge-steel">Dynasty · SF</span>
+            <span class="badge badge-outline">12-team</span>
+          </h1>
+          <div class="ph-sub">
+            <span class="live"><span class="dot"></span>LIVE values</span>
+            <span>Synced · My Rankings</span>
+            <span class="mono" style="font-size:11px;letter-spacing:.04em">412 PLAYERS</span>
+          </div>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-outline"><svg class="lucide" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6L12 17.1 6.6 20l1.2-6L3.4 9.8l6-.7Z"/></svg>Watchlist</button>
+          <button class="btn btn-outline"><svg class="lucide" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg>Import CSV</button>
+          <button class="btn btn-secondary"><svg class="lucide" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>Drafted<span class="count">13</span></button>
+        </div>
+      </div>
+
+      <!-- ===== Live draft summary ===== -->
+      <div class="card">
+        <div class="sum-grid">
+          <div class="sum-cell">
+            <span class="sum-label">Your next pick · Early Birds</span>
+            <span class="sum-value">2.05<small>3 picks away</small></span>
+            <span class="sum-meta">Pick 14 of 144 · Snake · PPR</span>
+          </div>
+          <div class="sum-cell">
+            <span class="sum-label">Left</span>
+            <span class="sum-value">399</span>
+          </div>
+          <div class="sum-cell">
+            <span class="sum-label">Drafted</span>
+            <span class="sum-value">13</span>
+          </div>
+          <div class="sum-cell sum-grade">
+            <span class="sum-label">Draft grade</span>
+            <span class="sum-value">B+<small style="color:var(--muted)">78 / 100</small></span>
+          </div>
+          <div class="sum-cell sum-clock">
+            <span class="sum-label">On the clock</span>
+            <span class="sum-value">
+              <svg class="lucide" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--muted)"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v5l3 1.8"/></svg>
+              GridironGuru
+            </span>
+            <span class="sum-meta">0:42 remaining · you're up in 3</span>
+          </div>
+        </div>
+        <div class="sum-foot">
+          <div class="progress"><div style="width:9%"></div></div>
+          <span>9% COMPLETE · ROUND 2 OF 12</span>
+        </div>
+      </div>
+
+      <!-- ===== Suggested ===== -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span class="vlabel">Suggested at 2.05</span>
+        </div>
+        <div class="sug-row">
+          <div class="sug-card">
+            <div class="pav">DA</div>
+            <div class="sug-info">
+              <div class="sug-name">De'Von Achane <span class="pos-badge RB" style="margin-left:6px">RB4</span></div>
+              <div class="sug-why">Best value on board — ADP 1.09, still here at 2.05</div>
+            </div>
+            <span class="sug-grade" style="color:var(--value)">A</span>
+          </div>
+          <div class="sug-card">
+            <div class="pav">DM</div>
+            <div class="sug-info">
+              <div class="sug-name">Drake Maye <span class="pos-badge QB" style="margin-left:6px">QB5</span></div>
+              <div class="sug-why">Superflex need — 6 QBs already gone in round 1</div>
+            </div>
+            <span class="sug-grade" style="color:var(--value)">A−</span>
+          </div>
+          <div class="sug-card">
+            <div class="pav">BB</div>
+            <div class="sug-info">
+              <div class="sug-name">Brock Bowers <span class="pos-badge TE" style="margin-left:6px">TE1</span></div>
+              <div class="sug-why">Positional cliff — next TE off the board ~3 rounds later</div>
+            </div>
+            <span class="sug-grade" style="color:var(--wr)">B+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Controls ===== -->
+      <div class="controls">
+        <span class="ctl-label">Format</span>
+        <div class="tabs">
+          <button class="tab active">Dynasty</button>
+          <button class="tab">Redraft</button>
+        </div>
+        <span class="ctl-label">Source</span>
+        <select class="select">
+          <option>FantasyCalc</option>
+          <option>RosterAudit</option>
+          <option>My Rankings</option>
+        </select>
+        <span class="ctl-label">Pos</span>
+        <div class="toggle-group">
+          <button class="toggle-item on">ALL</button>
+          <button class="toggle-item"><span class="pdot" style="background:var(--qb)"></span>QB</button>
+          <button class="toggle-item"><span class="pdot" style="background:var(--rb)"></span>RB</button>
+          <button class="toggle-item"><span class="pdot" style="background:var(--wr)"></span>WR</button>
+          <button class="toggle-item"><span class="pdot" style="background:var(--te)"></span>TE</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="input-wrap">
+          <svg class="lucide" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input class="input" placeholder="Search players…">
+        </div>
+      </div>
+
+      <!-- ===== Grade key ===== -->
+      <div class="gkey">
+        <span class="gkey-title">Grade keys</span>
+        <span class="gkey-item"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-upside)"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg><b>Upside</b><i>ceiling / boom weeks</i></span>
+        <span class="gkey-item"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-floor)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg><b>Floor</b><i>weekly safety</i></span>
+        <span class="gkey-item"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-risk)"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg><b>Risk</b><i>lower is safer</i></span>
+        <span class="gkey-item"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-sit)"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><b>Situational</b><i>fit to your roster</i></span>
+        <span class="gkey-link"><svg class="lucide" viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>How the grade adds up</span>
+      </div>
+
+      <!-- ===== Player table ===== -->
+      <div class="card tbl-card">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th style="width:44px">#</th>
+                <th class="l">Player</th>
+                <th class="sorted">Dynasty<span class="th-src" style="color:var(--dyn)">FC</span><span class="sort">↓</span></th>
+                <th>Redraft<span class="sort">↕</span></th>
+                <th>ADP<span class="th-src" style="color:var(--dyn)">SF</span><span class="sort">↕</span></th>
+                <th>Mine<span class="th-src" style="color:var(--mine)">YOU</span><span class="sort">↕</span></th>
+                <th class="c" title="Upside"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-upside)"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg></th>
+                <th class="c" title="Floor"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-floor)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg></th>
+                <th class="c" title="Risk"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-risk)"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg></th>
+                <th class="c" title="Situational"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--f-sit)"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg></th>
+                <th class="c" title="Pick grade at your next slot"><svg class="lucide" viewBox="0 0 24 24" style="color:var(--gold)"><circle cx="12" cy="9" r="6"/><path d="M9 14.5 7.5 22 12 19l4.5 3-1.5-7.5"/></svg></th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="tbl-foot">
+          <span>Showing 1–15 of 412 players · 13 drafted shown dimmed</span>
+          <div class="pager">
+            <button class="btn btn-outline">Previous</button>
+            <button class="btn btn-outline">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Draft board ===== -->
+      <div class="card">
+        <div class="card-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+          <div>
+            <div class="card-title">Draft Board</div>
+            <div class="card-desc">Live snake board · Early Birds · Round 2 of 12</div>
+          </div>
+          <button class="btn btn-outline" style="height:30px"><svg class="lucide" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M21 6H8a4 4 0 0 0-4 4v1"/><path d="m7 22-4-4 4-4"/><path d="M3 18h13a4 4 0 0 0 4-4v-1"/></svg>Change draft</button>
+        </div>
+        <div class="card-content">
+          <div class="board-scroll">
+            <div class="board" id="board"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const POS_COLOR = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+const DVF_COL = {up:'var(--f-upside)', fl:'var(--f-floor)', rs:'var(--f-risk)', si:'var(--f-sit)'};
+const players = [
+  {rk:1, name:"Ja'Marr Chase",     pos:'WR', pr:1, team:'CIN', dyn:10874, rdr:9931, adp:'1.01', mine:1,  d:0,  up:9.6, fl:8.9, rs:2.1, si:7.4, pg:null, gone:'Sharks',  star:true},
+  {rk:2, name:'Justin Jefferson',  pos:'WR', pr:2, team:'MIN', dyn:10102, rdr:9445, adp:'1.03', mine:3,  d:-1, up:9.1, fl:9.2, rs:2.4, si:7.1, pg:null, gone:'BigCats', star:false},
+  {rk:3, name:'Jayden Daniels',    pos:'QB', pr:1, team:'WAS', dyn:9987,  rdr:8210, adp:'1.02', mine:2,  d:1,  up:9.3, fl:8.4, rs:2.6, si:8.8, pg:null, gone:'Putput',  star:false, me:true},
+  {rk:4, name:'Josh Allen',        pos:'QB', pr:2, team:'BUF', dyn:9412,  rdr:8804, adp:'1.04', mine:4,  d:0,  up:9.0, fl:9.4, rs:2.2, si:8.6, pg:null, gone:'Wolves',  star:false},
+  {rk:5, name:'Bijan Robinson',    pos:'RB', pr:1, team:'ATL', dyn:9247,  rdr:9612, adp:'1.05', mine:5,  d:0,  up:8.8, fl:9.0, rs:2.5, si:8.1, pg:null, gone:'Hammers', star:false},
+  {tier:2},
+  {rk:6, name:'Jahmyr Gibbs',      pos:'RB', pr:2, team:'DET', dyn:8934,  rdr:9354, adp:'1.07', mine:7,  d:-1, up:9.0, fl:8.3, rs:2.9, si:8.0, pg:'A',  star:true},
+  {rk:7, name:'Malik Nabers',      pos:'WR', pr:3, team:'NYG', dyn:8617,  rdr:8322, adp:'1.08', mine:6,  d:1,  up:8.7, fl:7.9, rs:3.4, si:7.2, pg:'A−', star:false},
+  {rk:8, name:"De'Von Achane",     pos:'RB', pr:3, team:'MIA', dyn:8244,  rdr:8871, adp:'1.09', mine:8,  d:0,  up:9.2, fl:7.4, rs:4.6, si:8.3, pg:'A',  star:true},
+  {rk:9, name:'Puka Nacua',        pos:'WR', pr:4, team:'LAR', dyn:8102,  rdr:8547, adp:'1.11', mine:11, d:-2, up:8.4, fl:8.6, rs:3.8, si:6.9, pg:'B+', star:false},
+  {rk:10,name:'CeeDee Lamb',       pos:'WR', pr:5, team:'DAL', dyn:7965,  rdr:8433, adp:'1.12', mine:9,  d:1,  up:8.2, fl:8.8, rs:2.8, si:6.8, pg:'B+', star:false},
+  {rk:11,name:'Brock Bowers',      pos:'TE', pr:1, team:'LV',  dyn:7742,  rdr:7688, adp:'2.02', mine:10, d:1,  up:8.5, fl:8.4, rs:2.7, si:9.1, pg:'B+', star:true},
+  {rk:12,name:'Drake Maye',        pos:'QB', pr:5, team:'NE',  dyn:7517,  rdr:6402, adp:'2.04', mine:12, d:0,  up:8.6, fl:7.2, rs:3.2, si:8.9, pg:'A−', star:false},
+  {tier:3},
+  {rk:13,name:'Amon-Ra St. Brown', pos:'WR', pr:6, team:'DET', dyn:7301,  rdr:8109, adp:'2.05', mine:14, d:-1, up:7.8, fl:9.1, rs:2.6, si:6.7, pg:'B',  star:false},
+  {rk:14,name:'Breece Hall',       pos:'RB', pr:4, team:'NYJ', dyn:7042,  rdr:7526, adp:'2.07', mine:13, d:1,  up:8.1, fl:7.6, rs:4.9, si:7.8, pg:'B',  star:false},
+  {rk:15,name:'Nico Collins',      pos:'WR', pr:7, team:'HOU', dyn:6874,  rdr:7348, adp:'2.09', mine:15, d:0,  up:8.3, fl:7.7, rs:4.1, si:6.6, pg:'B',  star:false},
+];
+
+// grade letters use the app's value/reach scale: A=value green, B=gold, C=red-ish
+const pgColor = g => !g ? 'var(--muted)' : g.startsWith('A') ? 'var(--value)' : g.startsWith('B') ? 'var(--gold)' : 'var(--red2)';
+const initials = n => n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+document.getElementById('tbody').innerHTML = players.map(p => {
+  if (p.tier) return `<tr class="tier-row"><td colspan="12">TIER ${p.tier}</td></tr>`;
+  const gone = !p.pg;
+  const delta = p.d > 0 ? `<span class="up">▲${p.d}</span>` : p.d < 0 ? `<span class="dn">▼${-p.d}</span>` : '·';
+  // factor cells colored by column, like the live app's fcell treatment
+  const f = k => `<td class="c fcell" style="color:${DVF_COL[k]}">${p[k].toFixed(1)}</td>`;
+  return `<tr class="${gone?'gone':''} ${p.me?'mypick':''}">
+    <td class="td-rk">${p.rk}</td>
+    <td class="l"><div class="pcell">
+      <div class="pav">${initials(p.name)}</div>
+      <div class="pmeta">
+        <div class="pname">${p.name}</div>
+        <div class="psub"><span class="pos-badge ${p.pos}">${p.pos}${p.pr}</span><span>${p.team}</span></div>
+      </div>
+    </div></td>
+    <td><span class="val dyn">${p.dyn.toLocaleString()}</span></td>
+    <td><span class="val rdr">${p.rdr.toLocaleString()}</span></td>
+    <td><span class="val adp">${p.adp}</span></td>
+    <td><span class="val mine">#${p.mine}</span><span class="sub-rank">${delta}</span></td>
+    ${f('up')}${f('fl')}${f('rs')}${f('si')}
+    <td class="c">${gone
+      ? `<span class="drafted-chip">${p.gone==='Putput' ? '✦ YOU' : p.gone.toUpperCase()}</span>`
+      : `<span class="pg" style="color:${pgColor(p.pg)}">${p.pg}</span>`}</td>
+    <td class="c"><span class="star ${p.star?'on':''}">${p.star?'★':'☆'}</span></td>
+  </tr>`;
+}).join('');
+
+/* snake board — Putput slot 8 · 13 picks in · GGuru OTC at 2.02 · your pick 2.05 */
+const teams = ['Sharks','BigCats','Wolves','Hammers','Vipers','Goons','Blitz','Putput','Iceman','Duke','GGuru','Mavs'];
+const r1 = [
+  ['Ja’Marr Chase','WR'],['Justin Jefferson','WR'],['Josh Allen','QB'],['Bijan Robinson','RB'],
+  ['Saquon Barkley','RB'],['Lamar Jackson','QB'],['Joe Burrow','QB'],['Jayden Daniels','QB'],
+  ['Jalen Hurts','QB'],['Patrick Mahomes','QB'],['Ashton Jeanty','RB'],['A.J. Brown','WR'],
+];
+const bc = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+let html = teams.map(t=>`<div class="board-team ${t==='Putput'?'me':''}">${t==='Putput'?'✦ '+t:t}</div>`).join('');
+r1.forEach((p,i)=>{ html += `<div class="bcell ${i===7?'me':''}" style="--pc:${bc[p[1]]}"><div class="bp"><span>1.${String(i+1).padStart(2,'0')}</span><span>${p[1]}</span></div><div class="bn">${p[0]}</div></div>`; });
+for (let col = 0; col < 12; col++) {
+  const pickNo = 12 - col;
+  const pick = '2.' + String(pickNo).padStart(2,'0');
+  if (pickNo === 1)      html += `<div class="bcell" style="--pc:${bc.WR}"><div class="bp"><span>2.01</span><span>WR</span></div><div class="bn">Brian Thomas Jr.</div></div>`;
+  else if (pickNo === 2) html += `<div class="bcell empty otc"><div class="bp"><span>2.02</span></div><div class="bn">On the clock…</div></div>`;
+  else if (pickNo === 5) html += `<div class="bcell empty me"><div class="bp"><span>2.05</span></div><div class="bn">✦ Your pick</div></div>`;
+  else                   html += `<div class="bcell empty"><div class="bp"><span>${pick}</span></div></div>`;
+}
+document.getElementById('board').innerHTML = html;
+</script>
+</body>
+</html>

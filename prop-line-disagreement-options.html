@@ -1,0 +1,198 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prop line disagreement — display options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* onyx tokens, inlined from vault-ds.css */
+:root{
+  --bg:#0e0f13;--s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--value:#5fe09a;--reach:#e23a4e;--gold:#8fb4e0;
+  --qb:#ff7b8a;--rb:#5fe09a;--wr:#8fb4e0;--te:#f5c842;
+  --font-sans:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --t-h1:26px;--t-body:15px;--t-secondary:13px;--t-label:12px;--t-micro:11px;--t-nano:10px;
+  --bt-s1:var(--s1);--bt-s2:var(--s2);--bt-s3:var(--s3);
+  --bt-border:var(--border);--bt-border2:var(--border2);
+  --bt-text:var(--text);--bt-muted:var(--muted);--bt-faint:var(--muted);
+  --bt-gold:var(--gold);--bt-green:var(--value);--bt-mono:var(--font-mono);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);padding:34px 30px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:27px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.lede{color:var(--muted);font-size:14px;line-height:1.55;max-width:760px;margin:0 0 30px}
+h2{font-size:15px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
+.sec{margin:0 0 34px;padding:20px 22px;background:rgba(255,255,255,.017);border:1px solid var(--border);border-radius:16px}
+.sec.rec{border-color:color-mix(in srgb,var(--value) 34%,transparent);background:color-mix(in srgb,var(--value) 5%,transparent)}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.14em;text-transform:uppercase;padding:3px 8px;border-radius:6px;margin-bottom:9px}
+.tag.bad{color:var(--reach);border:1px solid color-mix(in srgb,var(--reach) 34%,transparent);background:color-mix(in srgb,var(--reach) 10%,transparent)}
+.tag.opt{color:var(--muted);border:1px solid var(--border2);background:var(--s2)}
+.tag.rec{color:var(--value);border:1px solid color-mix(in srgb,var(--value) 40%,transparent);background:color-mix(in srgb,var(--value) 11%,transparent)}
+.note{color:var(--muted);font-size:12.5px;line-height:1.55;margin:0 0 16px;max-width:800px}
+.note b{color:var(--text2)}
+.note code{font-family:var(--font-mono);font-size:11.5px;background:var(--s3);padding:1px 5px;border-radius:4px;color:var(--text2)}
+
+/* ── shipped row styles, copied from index.html ── */
+.bt-prop{display:grid;grid-template-columns:26px 218px 96px 1fr;align-items:center;background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:15px;padding:13px 18px;margin-bottom:9px}
+.bt-rk{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:700;color:var(--bt-muted)}
+.bt-pl2{display:flex;align-items:center;gap:11px;min-width:0}
+.bt-hs{width:40px;height:40px;border-radius:11px;background:var(--bt-s3);border:1px solid var(--bt-border2);display:flex;align-items:center;justify-content:center;font:800 12px var(--font-sans);flex:none}
+.bt-pn{font-weight:700;font-size:var(--t-body);letter-spacing:-.01em;white-space:nowrap}
+.bt-pm{display:flex;align-items:center;gap:7px;margin-top:3px}
+.pb{font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;padding:1px 5px;border-radius:4px;border:1px solid}
+.tm{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted)}
+.bt-pv{text-align:center}
+.bt-pv .v{font-family:var(--bt-mono);font-size:var(--t-h1);font-weight:700;line-height:1;color:var(--bt-text)}
+.bt-pv .l{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted);letter-spacing:.08em;text-transform:uppercase;margin-top:5px}
+.bt-obs{display:flex;gap:7px;justify-content:flex-end;min-width:0}
+.bt-ob{background:var(--bt-s2);border:1px solid var(--bt-border);border-radius:10px;padding:7px 11px;text-align:center;min-width:56px;flex:none}
+.bt-ob.best{border-color:color-mix(in srgb,var(--bt-gold) 36%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
+.bt-ob .bk{font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.04em;color:var(--bt-muted);text-transform:uppercase;white-space:nowrap}
+.bt-ob .od{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:700;margin-top:3px;color:var(--bt-text)}
+.bt-ob.best .od{color:var(--bt-gold)}
+.bt-ob .sd{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted);margin-top:1px}
+
+/* ── new bits ── */
+.bt-ob .ln{font-family:var(--bt-mono);font-size:15px;font-weight:700;margin-top:3px;color:var(--bt-text);line-height:1.1}
+.bt-ob .pz{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted);margin-top:2px}
+.bt-ob.off{border-color:color-mix(in srgb,var(--te) 38%,transparent);background:color-mix(in srgb,var(--te) 8%,transparent)}
+.bt-ob.off .ln{color:var(--te)}
+.bt-ob.edge{border-color:color-mix(in srgb,var(--value) 42%,transparent);background:color-mix(in srgb,var(--value) 9%,transparent)}
+.bt-ob.edge .ln{color:var(--value)}
+.delta{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--te);margin-top:2px}
+.bt-pv .rng{font-family:var(--bt-mono);font-size:19px;font-weight:700;line-height:1.15;color:var(--bt-text)}
+.bt-pv .split{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--te);letter-spacing:.06em;text-transform:uppercase;margin-top:5px}
+.bt-pv .v.phantom{color:var(--reach)}
+.cal{display:flex;align-items:center;gap:7px;margin:-2px 0 15px;font-family:var(--font-mono);font-size:11px;color:var(--reach)}
+.cal .b{border:1px solid color-mix(in srgb,var(--reach) 30%,transparent);background:color-mix(in srgb,var(--reach) 9%,transparent);padding:2px 7px;border-radius:5px}
+table.cmp{width:100%;border-collapse:collapse;margin-top:6px;font-size:12.5px}
+table.cmp th{text-align:left;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:7px 11px;border-bottom:1px solid var(--border2)}
+table.cmp td{padding:9px 11px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);vertical-align:top;line-height:1.45}
+table.cmp td:first-child{font-weight:700;color:var(--text);white-space:nowrap}
+.yes{color:var(--value);font-weight:700}.no{color:var(--reach);font-weight:700}
+</style></head><body><div class="wrap">
+
+<h1>Books disagree on the line — display options</h1>
+<p class="lede">All rows use live values from <code style="font-family:var(--font-mono);font-size:12px">data/lineup-feed.json</code> (2026-07-22). Rec Yds market. These are the four players in the current feed where books actually post different numbers.</p>
+
+<!-- CURRENT -->
+<div class="sec">
+  <span class="tag bad">Shipped today</span>
+  <h2>One median headline, prices with no line attached</h2>
+  <p class="note">The big number is <code>median(book lines)</code>. When books disagree it lands on a value <b>no book offers</b> — and every one below is a whole number, which implies a push that pick'em apps never allow. The chips underneath show a price for a <b>different line</b> than the headline.</p>
+  <div class="cal"><span class="b">60</span><span>← A.J. Brown. Bet365 has 57.5, PrizePicks has 62.5. Nobody has 60.</span></div>
+
+  <div class="bt-prop"><div class="bt-rk">1</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">AB</span><div><div class="bt-pn">A.J. Brown</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">NE</span></div></div></div>
+    <div class="bt-pv"><div class="v phantom">60</div><div class="l">RECYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob best"><div class="bk">PrizePicks</div><div class="od">+100</div><div class="sd">OVER</div></div>
+      <div class="bt-ob"><div class="bk">Bet365</div><div class="od">-110</div><div class="sd">OVER</div></div>
+      <div class="bt-ob best"><div class="bk">BEST</div><div class="od">-100</div><div class="sd">UNDER</div></div>
+    </div></div>
+
+  <div class="bt-prop"><div class="bt-rk">2</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">RD</span><div><div class="bt-pn">Romeo Doubs</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">NE</span></div></div></div>
+    <div class="bt-pv"><div class="v phantom">33</div><div class="l">RECYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob best"><div class="bk">PrizePicks</div><div class="od">+100</div><div class="sd">OVER</div></div>
+      <div class="bt-ob"><div class="bk">Bet365</div><div class="od">-110</div><div class="sd">OVER</div></div>
+      <div class="bt-ob best"><div class="bk">BEST</div><div class="od">-100</div><div class="sd">UNDER</div></div>
+    </div></div>
+  <p class="note" style="margin:14px 0 0">Doubs is the extreme case: <b>28.5 vs 37.5</b>. Those aren't a consensus with noise, they're two different markets — and we print <code>33</code>, which is neither.</p>
+</div>
+
+<!-- OPTION A -->
+<div class="sec">
+  <span class="tag opt">Option A</span>
+  <h2>Put the line on every chip</h2>
+  <p class="note">Chip becomes <b>book / line / price</b>. Nothing is ambiguous, ever. Cost: the line repeats on every chip even though <b>93% of cells in the current feed have no disagreement at all</b> — a lot of ink to answer a question that's usually not being asked.</p>
+  <div class="bt-prop"><div class="bt-rk">1</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">AB</span><div><div class="bt-pn">A.J. Brown</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">NE</span></div></div></div>
+    <div class="bt-pv"><div class="v">62.5</div><div class="l">RECYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="ln">62.5</div><div class="pz">+100 o</div></div>
+      <div class="bt-ob"><div class="bk">Bet365</div><div class="ln">57.5</div><div class="pz">-110 o</div></div>
+    </div></div>
+  <div class="bt-prop"><div class="bt-rk">2</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--rb)">DM</span><div><div class="bt-pn">David Montgomery</div><div class="bt-pm"><span class="pb" style="color:var(--rb);border-color:var(--rb)">RB</span><span class="tm">DET</span></div></div></div>
+    <div class="bt-pv"><div class="v">54.5</div><div class="l">RUSHYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="ln">54.5</div><div class="pz">+100 o</div></div>
+      <div class="bt-ob"><div class="bk">Underdog</div><div class="ln">53.5</div><div class="pz">-112 o</div></div>
+    </div></div>
+</div>
+
+<!-- OPTION B -->
+<div class="sec rec">
+  <span class="tag rec">Option B · recommended</span>
+  <h2>Consensus headline + line only where a book breaks from it</h2>
+  <p class="note">Headline becomes the <b>modal</b> line (the number the most books actually post) — never an average, so it's always a real bettable number. Chips stay price-first. A book that's off consensus gets its own line in amber with the delta. Quiet when books agree, loud exactly when they don't.</p>
+  <div class="bt-prop"><div class="bt-rk">1</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">AB</span><div><div class="bt-pn">A.J. Brown</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">NE</span></div></div></div>
+    <div class="bt-pv"><div class="v">62.5</div><div class="l">RECYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="od">+100</div><div class="sd">OVER</div></div>
+      <div class="bt-ob off"><div class="bk">Bet365</div><div class="ln">57.5</div><div class="pz">-110 · -5.0</div></div>
+    </div></div>
+  <div class="bt-prop"><div class="bt-rk">2</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">AS</span><div><div class="bt-pn">Amon-Ra St. Brown</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">DET</span></div></div></div>
+    <div class="bt-pv"><div class="v">78.5</div><div class="l">RECYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="od">+100</div><div class="sd">OVER</div></div>
+      <div class="bt-ob off"><div class="bk">Underdog</div><div class="ln">77.5</div><div class="pz">-112 · -1.0</div></div>
+    </div></div>
+  <div class="bt-prop"><div class="bt-rk">3</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">CK</span><div><div class="bt-pn">Cooper Kupp</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">SEA</span></div></div></div>
+    <div class="bt-pv"><div class="v">35.5</div><div class="l">RECYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="od">+100</div><div class="sd">OVER</div></div>
+      <div class="bt-ob off"><div class="bk">Bet365</div><div class="ln">34.5</div><div class="pz">-110 · -1.0</div></div>
+    </div></div>
+  <p class="note" style="margin:15px 0 0">And the ordinary case — books agree, so the row looks exactly like it does today. No new ink:</p>
+  <div class="bt-prop" style="margin-top:9px"><div class="bt-rk">4</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--qb)">DP</span><div><div class="bt-pn">Dak Prescott</div><div class="bt-pm"><span class="pb" style="color:var(--qb);border-color:var(--qb)">QB</span><span class="tm">DAL</span></div></div></div>
+    <div class="bt-pv"><div class="v">257.5</div><div class="l">PAYD</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="od">+100</div><div class="sd">OVER</div></div>
+      <div class="bt-ob"><div class="bk">Underdog</div><div class="od">-112</div><div class="sd">OVER</div></div>
+    </div></div>
+</div>
+
+<!-- OPTION C -->
+<div class="sec">
+  <span class="tag opt">Option C · pairs with B</span>
+  <h2>When the split is wide, stop pretending there's one number</h2>
+  <p class="note">Past a threshold (say the spread exceeds ~10% of the line) a single headline is a lie no matter which one you pick. Show the range instead and let the chips carry the detail. Applies to <b>Doubs 28.5/37.5</b> and <b>Hunter Henry 29.5/33.5</b> in today's feed.</p>
+  <div class="bt-prop"><div class="bt-rk">1</div>
+    <div class="bt-pl2"><span class="bt-hs" style="color:var(--wr)">RD</span><div><div class="bt-pn">Romeo Doubs</div><div class="bt-pm"><span class="pb" style="color:var(--wr);border-color:var(--wr)">WR</span><span class="tm">NE</span></div></div></div>
+    <div class="bt-pv"><div class="rng">28.5–37.5</div><div class="split">split</div></div>
+    <div class="bt-obs">
+      <div class="bt-ob edge"><div class="bk">Bet365</div><div class="ln">28.5</div><div class="pz">-110 · best o</div></div>
+      <div class="bt-ob"><div class="bk">PrizePicks</div><div class="ln">37.5</div><div class="pz">+100</div></div>
+    </div></div>
+</div>
+
+<!-- THE BEST BUG -->
+<div class="sec">
+  <span class="tag bad">Separate bug this exposes</span>
+  <h2>“BEST” is picking the worse bet, 46 times out of 46</h2>
+  <p class="note"><code>bestOf()</code> takes the highest price and <b>ignores the line entirely</b>. For an OVER, a lower line is strictly better. So on A.J. Brown we badge PrizePicks <b>+100 at 62.5</b> as best, over Bet365's <b>-110 at 57.5</b> — five yards easier to hit.</p>
+  <p class="note">It's systematic, not occasional. Pick'em apps price flat by design — PrizePicks is <code>+100/-100</code> on all 132 of its quotes, Underdog <code>-112/-112</code> on all 45. A sportsbook's -110 can never beat +100, so <b>a DFS app wins “best price” 100% of the time</b> regardless of what line it's offering. The badge is a constant, not a signal.</p>
+  <p class="note" style="margin-bottom:0">Which is really the answer to the whole question: when a book's price never moves, <b>the line is the only thing that distinguishes it</b>. Showing price per book and hiding line per book is backwards. Best OVER should be the <b>lowest line</b> (tie-break on price); best UNDER the <b>highest</b>.</p>
+</div>
+
+<div class="sec" style="background:none;border-color:var(--border2)">
+  <h2 style="margin-bottom:12px">Trade-offs</h2>
+  <table class="cmp">
+    <tr><th>Option</th><th>Always bettable headline</th><th>Ink cost</th><th>Fails when…</th></tr>
+    <tr><td>Shipped</td><td class="no">No — median invents lines</td><td>Lowest</td><td>Any disagreement at all. Already wrong on 10 cells.</td></tr>
+    <tr><td>A · line on every chip</td><td class="yes">Yes</td><td>Highest — repeats on all 137 cells</td><td>Chips get noisy in-season at 10+ books; row overflows horizontally.</td></tr>
+    <tr><td>B · consensus + delta</td><td class="yes">Yes — modal, never averaged</td><td>Low — only the 7% that differ</td><td>Many books all disagree slightly; “consensus” gets thin. Falls back to C.</td></tr>
+    <tr><td>C · range</td><td class="yes">Yes — refuses to pick</td><td>Low, rare</td><td>Can't sort a range; needs a hidden sort key.</td></tr>
+  </table>
+</div>
+
+</div></body></html>

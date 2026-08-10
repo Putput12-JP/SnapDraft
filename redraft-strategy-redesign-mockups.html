@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redraft Strategy — redesign directions</title>
+<meta name="description" content="Three design directions for the Draft Vault Redraft Strategy page, each rendering the same real 14,708-team dataset.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128202;</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   REDRAFT STRATEGY — three redesign directions
+   Same data, same three components, three design languages.
+   Vault DS tokens inlined (standalone mock; opened over file://).
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#0e0f13;--s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;--value:#5fe09a;
+  --rb:#3DCC7A;--wr:#7bd0ff;--qb:#ff6680;--te:#f5c842;
+  --sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --serif:'Instrument Serif',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(0.16,1,0.3,1);
+  --z-nav:100;--z-tip:200;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+}
+/* grain — breaks digital flatness, one fixed overlay for the whole page */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.028;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{max-width:1240px;margin:0 auto;padding:0 28px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;border-radius:3px}
+
+/* ── direction switcher ─────────────────────────────────────────────── */
+.switch{
+  position:sticky;top:0;z-index:var(--z-nav);
+  background:rgba(14,15,19,.86);backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border);
+}
+.switch-in{display:flex;align-items:center;gap:20px;padding:13px 0;flex-wrap:wrap}
+.switch h1{font-size:15px;font-weight:800;margin:0;letter-spacing:-.01em}
+.switch h1 em{font-style:normal;color:var(--muted);font-weight:500}
+.tabs{display:flex;gap:4px;margin-left:auto;background:var(--s2);padding:3px;border-radius:999px;border:1px solid var(--border)}
+.tabs button{
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;
+  color:var(--muted);background:none;border:0;padding:7px 15px;border-radius:999px;cursor:pointer;
+  transition:color .15s ease,background .25s var(--ease);
+}
+.tabs button:hover{color:var(--text2)}
+.tabs button[aria-selected="true"]{background:var(--s4);color:var(--text)}
+
+.panel{display:none;padding:0 0 90px}
+.panel.on{display:block}
+
+/* season filter — shared control, restyled per direction */
+.seasons{display:inline-flex;gap:3px;background:var(--s2);border:1px solid var(--border);padding:3px;border-radius:999px}
+.seasons button{
+  font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);
+  background:none;border:0;padding:6px 13px;border-radius:999px;cursor:pointer;transition:all .2s var(--ease);
+}
+.seasons button:hover{color:var(--text2)}
+.seasons button[aria-pressed="true"]{background:var(--accent2);color:#0b1420}
+
+/* ══ shared chart primitives ══ */
+.scatter{position:relative;width:100%;aspect-ratio:4/3;min-height:280px}
+.scatter svg{width:100%;height:100%;overflow:visible}
+.q-lab{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.dot{cursor:pointer;transition:r .2s var(--ease)}
+.dot-lab{font-family:var(--sans);font-size:11px;font-weight:700;pointer-events:none}
+.axis{font-family:var(--mono);font-size:9px;fill:var(--muted)}
+.gridline{stroke:var(--border);stroke-width:1}
+
+.bars{display:grid;gap:7px;padding-top:26px}  /* room for the field-average tag */
+.barrow{display:grid;grid-template-columns:86px 1fr;gap:12px;align-items:center}
+.barrow .bl{font-size:12px;font-weight:600;text-align:right;color:var(--text2)}
+/* overflow must stay VISIBLE: the field-average line and its tag deliberately
+   extend past the track, and overflow:hidden silently ate both. The fill carries
+   its own radius, so nothing needs clipping here. */
+.bartrack{position:relative;height:29px;background:var(--s2);border-radius:5px;overflow:visible}
+.barfill{position:absolute;top:0;bottom:0;border-radius:4px;transition:width .5s var(--ease),left .5s var(--ease)}
+.barfill.pos{background:linear-gradient(90deg,rgba(95,224,154,.55),rgba(95,224,154,.9))}
+.barfill.neg{background:linear-gradient(90deg,rgba(226,58,78,.9),rgba(226,58,78,.55))}
+.barval{position:absolute;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)}
+.avgline{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--text2);opacity:.75;z-index:2}
+.avgtag{
+  position:absolute;top:-24px;transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
+  background:var(--s4);border:1px solid var(--border2);color:var(--text2);padding:3px 7px;border-radius:4px;
+}
+
+/* ═══════════════ DIRECTION A — BROADCAST ═══════════════
+   Editorial. Serif display, asymmetric split, rules instead of cards,
+   numbers carry the page. Reads like an analyst column.            */
+#dirA{background:#0d0e11}
+#dirA .lede{display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:end;padding:64px 0 34px}
+#dirA .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent2);display:block;margin-bottom:16px}
+#dirA h2.disp{font-family:var(--serif);font-size:clamp(42px,5.6vw,74px);font-weight:400;line-height:.94;letter-spacing:-.02em;margin:0}
+#dirA h2.disp em{font-style:italic;color:var(--accent3)}
+#dirA .sub{color:var(--text2);max-width:52ch;margin:20px 0 0;font-size:16px;text-wrap:pretty}
+#dirA .statline{display:flex;gap:34px;padding:22px 0;border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);margin-top:26px}
+#dirA .statline div span{display:block}
+#dirA .statline .k{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+#dirA .statline .v{font-family:var(--serif);font-size:30px;line-height:1}
+#dirA .row2{display:grid;grid-template-columns:1fr 1fr;gap:60px;padding:46px 0;border-bottom:1px solid var(--border)}
+#dirA h3{font-family:var(--serif);font-size:27px;font-weight:400;margin:0 0 6px;letter-spacing:-.01em}
+#dirA .cap{font-size:13px;color:var(--muted);margin:0 0 22px;max-width:46ch;text-wrap:pretty}
+#dirA .ledger{width:100%;border-collapse:collapse;margin-top:8px}
+#dirA .ledger th{
+  font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+  text-align:right;padding:0 0 10px;font-weight:700;border-bottom:1px solid var(--border2);
+}
+#dirA .ledger th:first-child{text-align:left}
+#dirA .ledger td{padding:14px 0;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:14px}
+#dirA .ledger td:first-child{text-align:left;font-family:var(--sans);font-size:15px;font-weight:600}
+#dirA .ledger tr:hover td{background:rgba(255,255,255,.02)}
+#dirA .big{font-family:var(--serif);font-size:22px}
+#dirA .up{color:var(--value)}#dirA .dn{color:var(--red2)}
+#dirA .pill{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border2);color:var(--muted);letter-spacing:.05em}
+#dirA .pill.ok{color:var(--accent2);border-color:rgba(143,180,224,.4)}
+
+/* ═══════════════ DIRECTION B — TERMINAL ═══════════════
+   Dense quant screen. Mono-forward, hairlines, zero radius,
+   everything on a strict grid. Built for a power user scanning fast. */
+#dirB{background:#0a0b0e;font-family:var(--mono)}
+#dirB .term-top{border-bottom:1px solid var(--border2);padding:20px 0;display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+#dirB .tag{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--value);border:1px solid rgba(95,224,154,.35);padding:4px 8px}
+#dirB h2{font-family:var(--sans);font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em}
+#dirB .meta{font-size:10px;color:var(--muted);letter-spacing:.08em;margin-left:auto}
+#dirB .grid2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);border-bottom:1px solid var(--border2)}
+#dirB .cell{padding:26px 26px 26px 0}
+#dirB .cell+.cell{border-left:1px solid var(--border2);padding-left:26px}
+#dirB .lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:16px}
+#dirB .lbl b{color:var(--text)}
+#dirB table.t{width:100%;border-collapse:collapse;font-size:12px}
+#dirB table.t th{
+  font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;
+  text-align:right;padding:7px 9px;border-bottom:1px solid var(--border2);background:rgba(255,255,255,.02);
+}
+#dirB table.t th:first-child{text-align:left}
+#dirB table.t td{padding:9px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums}
+#dirB table.t td:first-child{text-align:left;color:var(--text)}
+#dirB table.t tr:hover td{background:rgba(143,180,224,.06)}
+#dirB .sq{display:inline-block;width:7px;height:7px;margin-right:8px;vertical-align:middle}
+#dirB .up{color:var(--value)}#dirB .dn{color:var(--red2)}
+#dirB .flag{font-size:9px;padding:1px 5px;border:1px solid var(--border2);color:var(--muted);letter-spacing:.05em}
+#dirB .flag.s{color:var(--value);border-color:rgba(95,224,154,.4)}
+#dirB .seasons{border-radius:0}
+#dirB .seasons button{border-radius:0}
+#dirB .bartrack{border-radius:0;height:24px;background:rgba(255,255,255,.04)}
+#dirB .barfill{border-radius:0}
+
+/* ═══════════════ DIRECTION C — VAULT COMMAND ═══════════════
+   Evolution of the shipped onyx DS: layered depth, varied radii,
+   spotlight borders, chart as hero. Fixes the "every section is
+   the same card" monotony without leaving the design system.     */
+#dirC{background:radial-gradient(1100px 460px at 78% -12%,rgba(143,180,224,.13),transparent 66%),var(--bg)}
+#dirC .hero{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:44px;align-items:center;padding:52px 0 30px}
+#dirC .kick{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent2)}
+#dirC h2{font-size:clamp(32px,4.2vw,50px);font-weight:900;letter-spacing:-.035em;line-height:1.02;margin:14px 0 0}
+#dirC .sub{color:var(--text2);margin:14px 0 0;max-width:46ch;text-wrap:pretty}
+#dirC .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+#dirC .chip{font-family:var(--mono);font-size:10px;font-weight:700;background:var(--s2);border:1px solid var(--border);padding:6px 11px;border-radius:999px;color:var(--text2)}
+#dirC .chip b{color:var(--accent2)}
+/* hero panel — deepest elevation, largest radius */
+#dirC .glass{
+  position:relative;border-radius:22px;padding:24px;
+  background:linear-gradient(150deg,rgba(40,44,54,.92),rgba(22,23,28,.92));
+  border:1px solid var(--border2);
+  box-shadow:0 34px 80px -30px rgba(4,6,12,.9),0 1px 0 rgba(255,255,255,.07) inset;
+}
+#dirC .spot{position:relative;border-radius:14px;overflow:hidden}
+#dirC .spot::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:radial-gradient(200px 90px at var(--mx,50%) var(--my,0%),rgba(143,180,224,.65),transparent 62%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s ease;
+}
+#dirC .spot:hover::before{opacity:1}
+#dirC .sect{padding:34px 0}
+#dirC .sect-h{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+#dirC h3{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0}
+#dirC .cap{font-size:13px;color:var(--muted);margin:5px 0 0;max-width:56ch;text-wrap:pretty}
+/* build rows — flat, separated by rule, NOT another bordered card */
+#dirC .brow{
+  display:grid;grid-template-columns:30px 1fr auto;gap:16px;align-items:center;
+  padding:15px 16px;border-radius:11px;transition:background .2s ease,transform .25s var(--ease);
+}
+#dirC .brow:hover{background:var(--s2);transform:translateX(3px)}
+#dirC .brow+.brow{border-top:1px solid var(--border)}
+#dirC .bnum{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center}
+#dirC .bname{font-size:16px;font-weight:700;margin:0;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+#dirC .bmeta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;display:block}
+#dirC .bstats{display:flex;gap:24px;align-items:baseline}
+#dirC .bstat{text-align:right}
+#dirC .bstat .v{font-family:var(--mono);font-size:17px;font-weight:700;display:block}
+#dirC .bstat .k{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-top:3px}
+#dirC .tb{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+#dirC .tb.pv{color:var(--accent2);background:rgba(143,180,224,.14);border:1px solid rgba(143,180,224,.36)}
+#dirC .tb.er{color:var(--te);background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.34)}
+#dirC .tb.no{color:var(--muted);background:var(--s3);border:1px solid var(--border2)}
+#dirC .split{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+
+/* ═══════════════ DIRECTION D — KINETIC ═══════════════
+   Built on the pick-ui-library picks: `motion` for spring physics,
+   NumberFlow for rolling digits. The premise: the finding IS that the
+   ranking reshuffles by season, so changing the season physically
+   reorders the board instead of silently swapping numbers.       */
+#dirD{background:#08090c}
+#dirD .stage{padding:44px 0 0}
+#dirD .kick{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+#dirD h2{font-size:clamp(30px,3.8vw,44px);font-weight:900;letter-spacing:-.035em;margin:12px 0 0;line-height:1.03}
+#dirD .lead{color:var(--text2);max-width:50ch;margin:12px 0 0;text-wrap:pretty}
+
+/* scrubber — the primary control, deliberately oversized */
+#dirD .scrub{position:relative;display:flex;gap:0;margin:30px 0 0;border-bottom:1px solid var(--border2)}
+#dirD .scrub button{
+  position:relative;background:none;border:0;cursor:pointer;padding:14px 26px 16px;
+  font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--muted);
+  transition:color .2s ease;
+}
+#dirD .scrub button:hover{color:var(--text2)}
+#dirD .scrub button[aria-pressed="true"]{color:var(--text)}
+#dirD .ind{position:absolute;bottom:-1px;height:2px;background:var(--accent2);border-radius:2px;transition:none}
+
+/* headline readout */
+#dirD .readout{display:flex;gap:56px;flex-wrap:wrap;padding:34px 0 30px}
+#dirD .ro .k{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:9px}
+#dirD .ro .v{font-size:44px;font-weight:900;letter-spacing:-.04em;line-height:1;display:flex;align-items:baseline;gap:3px}
+#dirD .ro .v .u{font-size:19px;font-weight:700;color:var(--muted)}
+#dirD .ro .v.win{color:var(--value)}
+
+/* the reordering board — the centrepiece */
+#dirD .board{position:relative;margin-top:8px}
+#dirD .krow{
+  position:absolute;left:0;right:0;top:0;height:62px;
+  display:grid;grid-template-columns:36px 148px 1fr auto;gap:18px;align-items:center;
+  padding:0 16px;border-radius:12px;background:#0f1116;border:1px solid var(--border);
+  will-change:transform;
+}
+#dirD .krow:hover{background:#131620}
+#dirD .krk{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--muted);text-align:center}
+#dirD .knm{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+#dirD .kdot{width:9px;height:9px;border-radius:50%;flex:none}
+#dirD .kbar{position:relative;height:10px;background:rgba(255,255,255,.05);border-radius:6px}
+#dirD .kbar i{position:absolute;top:0;bottom:0;border-radius:6px;will-change:width}
+#dirD .kbar .zero{position:absolute;top:-4px;bottom:-4px;width:1.5px;background:var(--text2);opacity:.5}
+#dirD .kval{font-family:var(--mono);font-size:17px;font-weight:700;min-width:112px;text-align:right;display:flex;align-items:baseline;justify-content:flex-end;gap:6px}
+#dirD .kdelta{font-family:var(--mono);font-size:11px;font-weight:700}
+#dirD .up{color:var(--value)}#dirD .dn{color:var(--red2)}
+
+#dirD .twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:44px;padding:36px 0 0;align-items:start}
+#dirD .panelbox{border:1px solid var(--border);border-radius:16px;padding:20px;background:#0d0f14}
+#dirD .phead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+#dirD h3{font-size:16px;font-weight:800;margin:0;letter-spacing:-.01em}
+#dirD .pcap{font-size:12px;color:var(--muted);margin:0}
+
+/* ⌘K palette — cmdk's pattern, hand-rolled for a no-build host */
+#dirD .kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--border2);border-bottom-width:2px;border-radius:4px;padding:2px 6px;color:var(--text2)}
+.pal-back{position:fixed;inset:0;background:rgba(4,5,8,.7);backdrop-filter:blur(6px);z-index:var(--z-tip);display:none;align-items:flex-start;justify-content:center;padding-top:14vh}
+.pal-back.on{display:flex}
+.pal{width:min(540px,92vw);background:#14161c;border:1px solid var(--border2);border-radius:14px;box-shadow:0 40px 90px -30px rgba(0,0,0,.85);overflow:hidden}
+.pal input{width:100%;background:none;border:0;border-bottom:1px solid var(--border);padding:16px 18px;color:var(--text);font-family:var(--sans);font-size:15px}
+.pal input:focus{outline:none}
+.pal ul{list-style:none;margin:0;padding:6px;max-height:300px;overflow:auto}
+.pal li{padding:10px 13px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.pal li .hint{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.pal li[aria-selected="true"]{background:var(--accent2);color:#0b1420}
+.pal li[aria-selected="true"] .hint{color:rgba(11,20,32,.7)}
+.pal .empty{padding:22px 18px;color:var(--muted);font-size:13px}
+
+/* ── notes bar ─────────────────────────────────────────────────────── */
+.notes{border-top:1px solid var(--border);margin-top:20px;padding:26px 0 0}
+.notes h4{font-size:13px;margin:0 0 10px;font-weight:700}
+.notes ul{margin:0;padding-left:17px;color:var(--muted);font-size:13px;line-height:1.75}
+.notes b{color:var(--text2)}
+
+/* Wide ranking tables get their own scroll box; without this they force their
+   grid column past the viewport and the PAGE scrolls sideways. */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#dirA .tablewrap table{min-width:620px}
+#dirB .tablewrap table{min-width:660px}
+
+@media (max-width:960px){
+  /* minmax(0,1fr) — a bare 1fr floors at min-content, so a wide table inside
+     stretches the column and reintroduces the horizontal scroll. */
+  #dirA .lede,#dirA .row2,#dirC .hero,#dirC .split,#dirB .grid2{grid-template-columns:minmax(0,1fr);gap:30px}
+  #dirB .cell+.cell{border-left:0;border-top:1px solid var(--border2);padding-left:0}
+  #dirC .bstats{gap:16px}
+}
+@media (max-width:620px){
+  .wrap{padding:0 18px}
+  /* Four direction tabs no longer fit 375px — let the switcher scroll rather
+     than letting it push every panel sideways. */
+  .switch-in{gap:10px}
+  .tabs{margin-left:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{white-space:nowrap;padding:7px 11px}
+  /* ⌘K is a desktop affordance — no keyboard to press it on a phone, and the
+     button was the only thing pushing the scrubber past the viewport. */
+  #dirD #D-palbtn{display:none}
+  #dirD .scrub{overflow-x:auto;scrollbar-width:none}
+  #dirD .scrub::-webkit-scrollbar{display:none}
+  #dirD .scrub button{padding:14px 18px 16px}
+  #dirD .readout{gap:28px}
+  #dirD .ro .v{font-size:34px}
+  #dirD .krow{grid-template-columns:28px 1fr auto;gap:10px;padding:0 12px}
+  #dirD .kbar{display:none}
+  #dirD .twocol{grid-template-columns:minmax(0,1fr);gap:24px}
+  #dirC .brow{grid-template-columns:24px 1fr}
+  #dirC .bstats{grid-column:1/-1;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+  #dirA .statline{flex-wrap:wrap;gap:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<nav class="switch">
+  <div class="wrap switch-in">
+    <h1>Redraft Strategy <em>· redesign directions</em></h1>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true"  data-dir="A">A · Broadcast</button>
+      <button role="tab" aria-selected="false" data-dir="B">B · Terminal</button>
+      <button role="tab" aria-selected="false" data-dir="C">C · Vault Command</button>
+      <button role="tab" aria-selected="false" data-dir="D">D · Kinetic</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════ A — BROADCAST ══════════ -->
+<main class="panel on" id="dirA">
+  <div class="wrap">
+    <header class="lede">
+      <div>
+        <span class="eyebrow">Draft Vault · Research</span>
+        <h2 class="disp">The builds that<br>actually <em>won</em></h2>
+      </div>
+      <div>
+        <p class="sub">Fourteen thousand drafted teams from completed Sleeper redraft leagues, each one rebuilt pick by pick and matched to how its season ended. No projections, no opinion — just what happened.</p>
+        <div class="seasons" data-scope="A" style="margin-top:20px">
+          <button data-s="all" aria-pressed="true">All</button>
+          <button data-s="2023">2023</button>
+          <button data-s="2024">2024</button>
+          <button data-s="2025">2025</button>
+        </div>
+      </div>
+    </header>
+    <div class="statline" id="A-stats"></div>
+
+    <section class="row2">
+      <div>
+        <h3>Scoring is not winning</h3>
+        <p class="cap">Each build placed by what it scored against how often it reached the playoffs. Top-right converts points into January. Bottom-right scores and still misses.</p>
+        <div class="scatter" id="A-scatter"></div>
+      </div>
+      <div>
+        <h3>Against the field</h3>
+        <p class="cap">Playoff rate versus the league-average line for the selected seasons.</p>
+        <div class="bars" id="A-bars" style="margin-top:34px"></div>
+      </div>
+    </section>
+
+    <section style="padding:44px 0">
+      <h3>Every build, ranked</h3>
+      <p class="cap">Sorted by playoff rate. Trust column reports whether the gap clears the field at 95% confidence and holds across seasons.</p>
+      <div class="tablewrap"><table class="ledger" id="A-table"></table></div>
+    </section>
+  </div>
+</main>
+
+<!-- ══════════ B — TERMINAL ══════════ -->
+<main class="panel" id="dirB">
+  <div class="wrap">
+    <header class="term-top">
+      <span class="tag">Live corpus</span>
+      <h2>REDRAFT STRATEGY</h2>
+      <div class="seasons" data-scope="B">
+        <button data-s="all" aria-pressed="true">ALL</button>
+        <button data-s="2023">2023</button>
+        <button data-s="2024">2024</button>
+        <button data-s="2025">2025</button>
+      </div>
+      <span class="meta" id="B-meta"></span>
+    </header>
+
+    <div class="grid2">
+      <div class="cell">
+        <span class="lbl">Fig 1 — <b>points percentile</b> × <b>playoff rate</b></span>
+        <div class="scatter" id="B-scatter"></div>
+      </div>
+      <div class="cell">
+        <span class="lbl">Fig 2 — <b>playoff rate</b> vs field average</span>
+        <div class="bars" id="B-bars" style="margin-top:30px"></div>
+      </div>
+    </div>
+
+    <div style="padding:26px 0">
+      <span class="lbl">Table 1 — full ranking</span>
+      <div class="tablewrap"><table class="t" id="B-table"></table></div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════ C — VAULT COMMAND ══════════ -->
+<main class="panel" id="dirC">
+  <div class="wrap">
+    <header class="hero">
+      <div>
+        <span class="kick">Draft Vault · Research</span>
+        <h2>Redraft Strategy</h2>
+        <p class="sub">Which draft builds actually make the playoffs — rebuilt from completed Sleeper leagues, tested for significance, and checked season by season.</p>
+        <div class="chips" id="C-chips"></div>
+        <div class="seasons" data-scope="C" style="margin-top:20px">
+          <button data-s="all" aria-pressed="true">All seasons</button>
+          <button data-s="2023">2023</button>
+          <button data-s="2024">2024</button>
+          <button data-s="2025">2025</button>
+        </div>
+      </div>
+      <div class="glass spot" id="C-spot">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+          <span class="kick">Points vs playoff rate</span>
+          <span class="mono" style="font-size:10px;color:var(--muted)" id="C-sn"></span>
+        </div>
+        <div class="scatter" id="C-scatter"></div>
+      </div>
+    </header>
+
+    <section class="sect">
+      <div class="split">
+        <div>
+          <div class="sect-h"><div>
+            <h3>Against the field</h3>
+            <p class="cap">Distance from the league-average playoff rate.</p>
+          </div></div>
+          <div class="bars" id="C-bars" style="margin-top:26px"></div>
+        </div>
+        <div>
+          <div class="sect-h"><div>
+            <h3>The winning builds</h3>
+            <p class="cap">Ranked by playoff rate — read the trust badge before the number.</p>
+          </div></div>
+          <div id="C-rows"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="notes wrap" style="padding-left:0;padding-right:0">
+      <h4>What changed from the current page</h4>
+      <ul>
+        <li><b>One card treatment became three levels</b> — hero panel is elevated glass, build rows are flat and rule-separated, charts sit on the page itself. Elevation now signals hierarchy instead of decorating every block.</li>
+        <li><b>Radius varies</b> — 22px on the hero container, 14px inner, 11px on rows, 999px on chips.</li>
+        <li><b>All-caps mono is rationed</b> to kickers and data labels; every heading is sentence case.</li>
+        <li><b>Asymmetric hero</b> puts the quadrant chart in the opening viewport instead of below three screens of cards.</li>
+        <li><b>Grain overlay and a spotlight border</b> on the hero panel — subtle texture instead of flat fills.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════ D — KINETIC ══════════ -->
+<main class="panel" id="dirD">
+  <div class="wrap stage">
+    <span class="kick">Draft Vault · Research</span>
+    <h2>The answer changes<br>every season.</h2>
+    <p class="lead">Scrub the year. The board physically reorders — because the build that won last season is not the build that won the season before.</p>
+
+    <div class="scrub" role="group" aria-label="Season">
+      <button data-s="all" aria-pressed="true">ALL</button>
+      <button data-s="2023">2023</button>
+      <button data-s="2024">2024</button>
+      <button data-s="2025">2025</button>
+      <span class="ind" id="D-ind"></span>
+      <span style="margin-left:auto;align-self:center">
+        <button id="D-palbtn" style="padding:8px 12px;color:var(--muted)">Jump to <span class="kbd">⌘K</span></button>
+      </span>
+    </div>
+
+    <div class="readout">
+      <div class="ro"><span class="k">Teams analysed</span><span class="v"><span class="nfv" id="D-n">0</span></span></div>
+      <div class="ro"><span class="k">Field playoff rate</span><span class="v"><span class="nfv" id="D-base">0</span><span class="u">%</span></span></div>
+      <div class="ro"><span class="k">Best build</span><span class="v win" id="D-best" style="font-size:30px">—</span></div>
+      <div class="ro"><span class="k">Best-to-worst spread</span><span class="v"><span class="nfv" id="D-spread">0</span><span class="u">pp</span></span></div>
+    </div>
+
+    <div class="board" id="D-board"></div>
+
+    <div class="twocol">
+      <div class="panelbox">
+        <div class="phead"><h3>Points vs playoff rate</h3><span class="pcap" id="D-sn"></span></div>
+        <p class="pcap">Dots spring to their new position as the season changes.</p>
+        <div class="scatter" id="D-scatter"></div>
+      </div>
+      <div class="panelbox">
+        <div class="phead"><h3>Why motion, here</h3></div>
+        <p class="pcap" style="margin-bottom:14px">Animation is doing analytical work, not decoration.</p>
+        <ul style="margin:0;padding-left:17px;color:var(--muted);font-size:13px;line-height:1.85">
+          <li><b style="color:var(--text2)">Rank changes are the finding.</b> A silent number swap hides that Balanced topped 2024 and fell to 4th in 2025. Watching the row travel makes it unmissable.</li>
+          <li><b style="color:var(--text2)">Rolling digits</b> signal which figures actually changed between two seasons.</li>
+          <li><b style="color:var(--text2)">Springs, not fades</b> — travel distance reads as magnitude of change.</li>
+          <li>Reduced-motion is respected: transitions collapse to instant updates.</li>
+        </ul>
+        <p class="pcap" style="margin-top:16px" id="D-libstatus"></p>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h4>Libraries this direction uses (from <span class="mono">pick-ui-library</span>)</h4>
+      <ul>
+        <li><b>motion</b> — spring physics for the board reorder, bar widths and scatter dots. Framework-agnostic build, loads straight into this no-build page.</li>
+        <li><b>NumberFlow</b> — the pick for rolling stat digits, and <b>not used here</b>. Its custom element is published but is not a supported standalone API: driven directly it renders a stuck <span class="mono">NaN</span> and no digits. The count is tweened with motion instead. Revisit it the moment there is a React surface.</li>
+        <li><b>cmdk</b> (⌘K palette) and <b>recharts</b> (charts) are React-only, so neither is used. The palette is hand-rolled on cmdk's pattern; the charts stay hand-drawn SVG. <b>Three of the four curated picks need React</b> — worth knowing before Vault commits to staying vanilla.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<div class="pal-back" id="D-pal">
+  <div class="pal" role="dialog" aria-label="Jump to">
+    <input id="D-palin" placeholder="Jump to a season or build…" autocomplete="off">
+    <ul id="D-pallist"></ul>
+  </div>
+</div>
+
+<script>
+const D = {"stats":{"teams":14708,"leagues":1321,"bySeason":{"2024":7913,"2025":5119,"2023":1676},"updated":"2026-07-21T11:52:52Z"},"slices":{}};
+/* real output of scripts/build_redraft_strategy.py — injected below */
+D.slices = {"ppr|1qb":{"all":{"n":6186,"base":{"playoffRate":0.5297,"champRate":0.085,"avgWinPct":0.5001,"avgPtsPct":0.5001,"avgEff":0.883},"rows":[{"arch":"Robust RB","n":980,"playoffRate":0.5857,"champRate":0.1143,"avgPtsPct":0.5543,"avgWinPct":0.5267,"playoffLift":0.056,"significant":true,"stability":"mixed"},{"arch":"Balanced","n":1577,"playoffRate":0.5472,"champRate":0.0799,"avgPtsPct":0.5086,"avgWinPct":0.5027,"playoffLift":0.0175,"significant":false,"stability":"mixed"},{"arch":"Hero RB","n":2220,"playoffRate":0.5176,"champRate":0.0842,"avgPtsPct":0.4903,"avgWinPct":0.4958,"playoffLift":-0.0122,"significant":false,"stability":"mixed"},{"arch":"Elite TE","n":500,"playoffRate":0.496,"champRate":0.078,"avgPtsPct":0.476,"avgWinPct":0.4902,"playoffLift":-0.0337,"significant":false,"stability":"durable"},{"arch":"Zero RB","n":909,"playoffRate":0.4873,"champRate":0.0682,"avgPtsPct":0.4642,"avgWinPct":0.4829,"playoffLift":-0.0424,"significant":true,"stability":"durable"}]},"seasons":{"2023":{"n":510,"base":{"playoffRate":0.5392,"champRate":0.0843,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.892},"rows":[{"arch":"Elite TE","n":53,"playoffRate":0.6038,"champRate":0.0755,"avgPtsPct":0.5163,"avgWinPct":0.5148,"playoffLift":0.0646,"significant":false,"stability":"thin"},{"arch":"Hero RB","n":150,"playoffRate":0.5933,"champRate":0.0867,"avgPtsPct":0.4838,"avgWinPct":0.4996,"playoffLift":0.0541,"significant":false,"stability":"thin"},{"arch":"Robust RB","n":58,"playoffRate":0.5345,"champRate":0.1552,"avgPtsPct":0.5147,"avgWinPct":0.5217,"playoffLift":-0.0047,"significant":false,"stability":"thin"},{"arch":"Zero RB","n":82,"playoffRate":0.5122,"champRate":0.0732,"avgPtsPct":0.546,"avgWinPct":0.5044,"playoffLift":-0.027,"significant":false,"stability":"thin"},{"arch":"Balanced","n":167,"playoffRate":0.485,"champRate":0.0659,"avgPtsPct":0.4817,"avgWinPct":0.486,"playoffLift":-0.0542,"significant":false,"stability":"thin"}]},"2024":{"n":3071,"base":{"playoffRate":0.5301,"champRate":0.085,"avgWinPct":0.5001,"avgPtsPct":0.5001,"avgEff":0.8814},"rows":[{"arch":"Balanced","n":701,"playoffRate":0.6091,"champRate":0.0999,"avgPtsPct":0.5423,"avgWinPct":0.5191,"playoffLift":0.079,"significant":true,"stability":"thin"},{"arch":"Zero RB","n":526,"playoffRate":0.5209,"champRate":0.0703,"avgPtsPct":0.4887,"avgWinPct":0.4957,"playoffLift":-0.0092,"significant":false,"stability":"thin"},{"arch":"Hero RB","n":1161,"playoffRate":0.5125,"champRate":0.0879,"avgPtsPct":0.4931,"avgWinPct":0.4988,"playoffLift":-0.0176,"significant":false,"stability":"thin"},{"arch":"Robust RB","n":461,"playoffRate":0.5033,"champRate":0.0911,"avgPtsPct":0.4994,"avgWinPct":0.4976,"playoffLift":-0.0269,"significant":false,"stability":"thin"},{"arch":"Elite TE","n":222,"playoffRate":0.4505,"champRate":0.045,"avgPtsPct":0.4318,"avgWinPct":0.4622,"playoffLift":-0.0797,"significant":true,"stability":"thin"}]},"2025":{"n":2605,"base":{"playoffRate":0.5274,"champRate":0.0852,"avgWinPct":0.5002,"avgPtsPct":0.5002,"avgEff":0.8822},"rows":[{"arch":"Robust RB","n":461,"playoffRate":0.6746,"champRate":0.1323,"avgPtsPct":0.6142,"avgWinPct":0.5565,"playoffLift":0.1472,"significant":true,"stability":"thin"},{"arch":"Elite TE","n":225,"playoffRate":0.5156,"champRate":0.1111,"avgPtsPct":0.5101,"avgWinPct":0.512,"playoffLift":-0.0119,"significant":false,"stability":"thin"},{"arch":"Hero RB","n":909,"playoffRate":0.5116,"champRate":0.0792,"avgPtsPct":0.4879,"avgWinPct":0.4913,"playoffLift":-0.0159,"significant":false,"stability":"thin"},{"arch":"Balanced","n":709,"playoffRate":0.5007,"champRate":0.0635,"avgPtsPct":0.4817,"avgWinPct":0.4905,"playoffLift":-0.0267,"significant":false,"stability":"thin"},{"arch":"Zero RB","n":301,"playoffRate":0.4219,"champRate":0.0631,"avgPtsPct":0.399,"avgWinPct":0.4547,"playoffLift":-0.1055,"significant":true,"stability":"thin"}]}}},"ppr|sf":{"all":{"n":7358,"base":{"playoffRate":0.4365,"champRate":0.0723,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.9133},"rows":[{"arch":"Elite TE","n":676,"playoffRate":0.5015,"champRate":0.0962,"avgPtsPct":0.522,"avgWinPct":0.5152,"playoffLift":0.0649,"significant":true,"stability":"durable"},{"arch":"Robust RB","n":414,"playoffRate":0.4952,"champRate":0.1014,"avgPtsPct":0.5224,"avgWinPct":0.5166,"playoffLift":0.0586,"significant":true,"stability":"mixed"},{"arch":"Balanced","n":1975,"playoffRate":0.4461,"champRate":0.0765,"avgPtsPct":0.5123,"avgWinPct":0.5067,"playoffLift":0.0095,"significant":false,"stability":"mixed"},{"arch":"Zero RB","n":2538,"playoffRate":0.4224,"champRate":0.0599,"avgPtsPct":0.4915,"avgWinPct":0.4953,"playoffLift":-0.0142,"significant":false,"stability":"mixed"},{"arch":"Hero RB","n":1755,"playoffRate":0.4074,"champRate":0.0695,"avgPtsPct":0.4849,"avgWinPct":0.4897,"playoffLift":-0.0291,"significant":true,"stability":"mixed"}]},"seasons":{"2023":{"n":966,"base":{"playoffRate":0.4193,"champRate":0.0694,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.8956},"rows":[{"arch":"Robust RB","n":48,"playoffRate":0.6042,"champRate":0.125,"avgPtsPct":0.5576,"avgWinPct":0.5425,"playoffLift":0.1849,"significant":true,"stability":"thin"},{"arch":"Elite TE","n":121,"playoffRate":0.5124,"champRate":0.0992,"avgPtsPct":0.5761,"avgWinPct":0.5549,"playoffLift":0.0931,"significant":true,"stability":"thin"},{"arch":"Zero RB","n":375,"playoffRate":0.4293,"champRate":0.0693,"avgPtsPct":0.4957,"avgWinPct":0.491,"playoffLift":0.0101,"significant":false,"stability":"thin"},{"arch":"Hero RB","n":190,"playoffRate":0.3947,"champRate":0.0684,"avgPtsPct":0.5219,"avgWinPct":0.5063,"playoffLift":-0.0245,"significant":false,"stability":"thin"},{"arch":"Balanced","n":232,"playoffRate":0.3362,"champRate":0.0431,"avgPtsPct":0.4374,"avgWinPct":0.4719,"playoffLift":-0.083,"significant":true,"stability":"thin"}]},"2024":{"n":4242,"base":{"playoffRate":0.4298,"champRate":0.0714,"avgWinPct":0.5001,"avgPtsPct":0.5001,"avgEff":0.9251},"rows":[{"arch":"Elite TE","n":262,"playoffRate":0.4733,"champRate":0.084,"avgPtsPct":0.4878,"avgWinPct":0.4965,"playoffLift":0.0435,"significant":false,"stability":"thin"},{"arch":"Balanced","n":1125,"playoffRate":0.4667,"champRate":0.0853,"avgPtsPct":0.5313,"avgWinPct":0.5129,"playoffLift":0.0369,"significant":true,"stability":"thin"},{"arch":"Zero RB","n":1616,"playoffRate":0.4295,"champRate":0.0613,"avgPtsPct":0.5068,"avgWinPct":0.5039,"playoffLift":-0.0003,"significant":false,"stability":"thin"},{"arch":"Robust RB","n":178,"playoffRate":0.4157,"champRate":0.0843,"avgPtsPct":0.4267,"avgWinPct":0.4842,"playoffLift":-0.014,"significant":false,"stability":"thin"},{"arch":"Hero RB","n":1061,"playoffRate":0.3827,"champRate":0.0669,"avgPtsPct":0.4721,"avgWinPct":0.4841,"playoffLift":-0.0471,"significant":true,"stability":"thin"}]},"2025":{"n":2150,"base":{"playoffRate":0.4577,"champRate":0.0753,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.9145},"rows":[{"arch":"Robust RB","n":188,"playoffRate":0.5426,"champRate":0.1117,"avgPtsPct":0.604,"avgWinPct":0.5407,"playoffLift":0.0849,"significant":true,"stability":"thin"},{"arch":"Elite TE","n":293,"playoffRate":0.5222,"champRate":0.1058,"avgPtsPct":0.5303,"avgWinPct":0.5154,"playoffLift":0.0645,"significant":true,"stability":"thin"},{"arch":"Hero RB","n":504,"playoffRate":0.4643,"champRate":0.0754,"avgPtsPct":0.4979,"avgWinPct":0.4951,"playoffLift":0.0066,"significant":false,"stability":"thin"},{"arch":"Balanced","n":618,"playoffRate":0.4498,"champRate":0.0728,"avgPtsPct":0.5057,"avgWinPct":0.5083,"playoffLift":-0.0078,"significant":false,"stability":"thin"},{"arch":"Zero RB","n":547,"playoffRate":0.3967,"champRate":0.0494,"avgPtsPct":0.4435,"avgWinPct":0.4729,"playoffLift":-0.061,"significant":true,"stability":"thin"}]}}}};
+
+const SLICE='ppr|1qb';
+const state={A:'all',B:'all',C:'all',D:'all'};
+const pct=v=>(v*100).toFixed(1)+'%';
+const pct0=v=>(v*100).toFixed(0)+'%';
+const pp=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(1)+'pp';
+const COLOR={'Robust RB':'#3DCC7A','Hero RB':'#7bd0ff','Zero RB':'#ff6680','Elite TE':'#f5c842','Balanced':'#8fb4e0'};
+
+function data(scope){
+  const s=D.slices[SLICE];
+  const key=state[scope];
+  return key==='all' ? s.all : (s.seasons[key]||s.all);
+}
+
+/* ── quadrant scatter: points percentile (x) × playoff rate (y) ──────── */
+function scatter(el, d, opts={}){
+  const rows=d.rows, base=d.base;
+  const W=520,H=390, m={t:22,r:26,b:44,l:52};
+  const xs=rows.map(r=>r.avgPtsPct), ys=rows.map(r=>r.playoffRate);
+  const pad=v=>Math.max(0.02,(Math.max(...v)-Math.min(...v))*0.35);
+  const x0=Math.min(...xs)-pad(xs), x1=Math.max(...xs)+pad(xs);
+  const y0=Math.min(...ys)-pad(ys), y1=Math.max(...ys)+pad(ys);
+  const X=v=>m.l+((v-x0)/(x1-x0))*(W-m.l-m.r);
+  const Y=v=>m.t+(1-(v-y0)/(y1-y0))*(H-m.t-m.b);
+  const bx=X(base.avgPtsPct), by=Y(base.playoffRate);
+  const q=(x,y,t,anchor,fill)=>`<text class="q-lab" x="${x}" y="${y}" text-anchor="${anchor}" fill="${fill}">${t}</text>`;
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Points percentile versus playoff rate by draft build">
+    <rect x="${bx}" y="${m.t}" width="${W-m.r-bx}" height="${by-m.t}" fill="rgba(95,224,154,.05)"/>
+    <rect x="${m.l}" y="${by}" width="${bx-m.l}" height="${H-m.b-by}" fill="rgba(226,58,78,.05)"/>
+    <line class="gridline" x1="${m.l}" y1="${by}" x2="${W-m.r}" y2="${by}" stroke-dasharray="4 4"/>
+    <line class="gridline" x1="${bx}" y1="${m.t}" x2="${bx}" y2="${H-m.b}" stroke-dasharray="4 4"/>
+    <line class="gridline" x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${H-m.b}"/>
+    <line class="gridline" x1="${m.l}" y1="${H-m.b}" x2="${W-m.r}" y2="${H-m.b}"/>
+    ${q(W-m.r-4,m.t+12,'Converts points → wins','end','rgba(95,224,154,.85)')}
+    ${q(m.l+6,H-m.b-8,'Low return','start','rgba(226,58,78,.8)')}
+    ${q(W-m.r-4,H-m.b-8,'Scores, still misses','end','rgba(245,200,66,.85)')}
+    <text class="axis" x="${m.l-9}" y="${Y(y1)+4}" text-anchor="end">${pct0(y1)}</text>
+    <text class="axis" x="${m.l-9}" y="${Y(y0)+4}" text-anchor="end">${pct0(y0)}</text>
+    <text class="axis" x="${m.l}" y="${H-m.b+18}" text-anchor="start">fewer pts</text>
+    <text class="axis" x="${W-m.r}" y="${H-m.b+18}" text-anchor="end">more pts</text>
+    <text class="axis" x="${(m.l+W-m.r)/2}" y="${H-8}" text-anchor="middle" style="letter-spacing:.1em">POINTS PERCENTILE →</text>
+    ${rows.map(r=>{
+      const cx=X(r.avgPtsPct),cy=Y(r.playoffRate);
+      const rad=7+Math.min(9,Math.sqrt(r.n)/12);
+      const c=COLOR[r.arch]||'#8fb4e0';
+      return `<g><circle class="dot" cx="${cx}" cy="${cy}" r="${rad}" fill="${c}" fill-opacity=".78" stroke="${c}" stroke-width="1.5">
+          <title>${r.arch} — ${pct(r.playoffRate)} playoffs, ${r.n.toLocaleString()} teams</title></circle>
+        <text class="dot-lab" x="${cx}" y="${cy-rad-7}" text-anchor="middle" fill="${c}">${r.arch}</text></g>`;
+    }).join('')}
+  </svg>`;
+}
+
+/* ── diverging bars with a league-average reference line ─────────────── */
+function bars(el, d){
+  const rows=[...d.rows].sort((a,b)=>a.playoffRate-b.playoffRate);
+  const base=d.base.playoffRate;
+  const lo=Math.min(base,...rows.map(r=>r.playoffRate))-0.04;
+  const hi=Math.max(base,...rows.map(r=>r.playoffRate))+0.05;
+  const P=v=>((v-lo)/(hi-lo))*100;
+  const bp=P(base);
+  el.innerHTML=rows.map((r,i)=>{
+    const p=P(r.playoffRate), up=r.playoffRate>=base;
+    const left=up?bp:p, width=Math.max(0.8,Math.abs(p-bp));
+    return `<div class="barrow">
+      <span class="bl">${r.arch}</span>
+      <div class="bartrack">
+        <span class="barfill ${up?'pos':'neg'}" style="left:${left}%;width:${width}%"></span>
+        <span class="avgline" style="left:${bp}%"></span>
+        ${i===0?`<span class="avgtag" style="left:${bp}%">FIELD ${pct0(base)}</span>`:''}
+        <span class="barval" style="${up?`left:${p}%;margin-left:8px`:`right:${100-p}%;margin-right:8px`}">${pct(r.playoffRate)} <span style="color:${up?'var(--value)':'var(--red2)'}">${pp(r.playoffRate-base)}</span></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const trustOf=r=> !r.significant ? {k:'no',t:'Not proven'} : (r.stability==='durable'?{k:'pv',t:'Proven'}:{k:'er',t:'Era-dependent'});
+
+/* ── direction renderers ─────────────────────────────────────────────── */
+function renderA(){
+  const d=data('A');
+  document.getElementById('A-stats').innerHTML=[
+    ['Teams analysed',d.n.toLocaleString()],
+    ['Field playoff rate',pct(d.base.playoffRate)],
+    ['Best build',[...d.rows].sort((a,b)=>b.playoffRate-a.playoffRate)[0].arch],
+    ['Spread, best to worst',pp(Math.max(...d.rows.map(r=>r.playoffRate))-Math.min(...d.rows.map(r=>r.playoffRate)))]
+  ].map(([k,v])=>`<div><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+  scatter(document.getElementById('A-scatter'),d);
+  bars(document.getElementById('A-bars'),d);
+  const rows=[...d.rows].sort((a,b)=>b.playoffRate-a.playoffRate);
+  document.getElementById('A-table').innerHTML=
+    `<thead><tr><th>Build</th><th>Playoffs</th><th>vs field</th><th>Titles</th><th>Pts %ile</th><th>Teams</th><th>Trust</th></tr></thead>
+     <tbody>${rows.map(r=>{const t=trustOf(r);const up=r.playoffLift>=0;return `<tr>
+       <td>${r.arch}</td>
+       <td class="big">${pct(r.playoffRate)}</td>
+       <td class="${up?'up':'dn'}">${pp(r.playoffRate-d.base.playoffRate)}</td>
+       <td>${pct(r.champRate)}</td>
+       <td>${(r.avgPtsPct*100).toFixed(0)}</td>
+       <td>${r.n.toLocaleString()}</td>
+       <td><span class="pill ${t.k==='pv'?'ok':''}">${t.t}</span></td></tr>`}).join('')}</tbody>`;
+}
+
+function renderB(){
+  const d=data('B');
+  document.getElementById('B-meta').textContent=
+    `N=${d.n.toLocaleString()} TEAMS · PPR 1QB · FIELD ${pct(d.base.playoffRate)} · ${state.B==='all'?'2023–2025':state.B}`;
+  scatter(document.getElementById('B-scatter'),d);
+  bars(document.getElementById('B-bars'),d);
+  const rows=[...d.rows].sort((a,b)=>b.playoffRate-a.playoffRate);
+  document.getElementById('B-table').innerHTML=
+    `<thead><tr><th>Build</th><th>Playoff</th><th>Δ Field</th><th>Champ</th><th>Win%</th><th>Pts%ile</th><th>N</th><th>Sig</th></tr></thead>
+     <tbody>${rows.map(r=>{const t=trustOf(r);const up=r.playoffLift>=0;return `<tr>
+       <td><span class="sq" style="background:${COLOR[r.arch]}"></span>${r.arch}</td>
+       <td>${pct(r.playoffRate)}</td>
+       <td class="${up?'up':'dn'}">${pp(r.playoffRate-d.base.playoffRate)}</td>
+       <td>${pct(r.champRate)}</td>
+       <td>${pct(r.avgWinPct)}</td>
+       <td>${(r.avgPtsPct*100).toFixed(1)}</td>
+       <td>${r.n.toLocaleString()}</td>
+       <td><span class="flag ${t.k==='pv'?'s':''}">${t.k==='pv'?'YES':(t.k==='er'?'ERA':'NO')}</span></td></tr>`}).join('')}</tbody>`;
+}
+
+function renderC(){
+  const d=data('C');
+  document.getElementById('C-chips').innerHTML=
+    `<span class="chip"><b>${D.stats.teams.toLocaleString()}</b> teams</span>
+     <span class="chip"><b>${D.stats.leagues.toLocaleString()}</b> leagues</span>
+     <span class="chip">2023 – <b>2025</b></span>`;
+  document.getElementById('C-sn').textContent=`${d.n.toLocaleString()} teams · field ${pct(d.base.playoffRate)}`;
+  scatter(document.getElementById('C-scatter'),d);
+  bars(document.getElementById('C-bars'),d);
+  const rows=[...d.rows].sort((a,b)=>b.playoffRate-a.playoffRate);
+  document.getElementById('C-rows').innerHTML=rows.map((r,i)=>{
+    const t=trustOf(r), up=r.playoffLift>=0;
+    return `<article class="brow">
+      <span class="bnum">${i+1}</span>
+      <div>
+        <h4 class="bname">${r.arch} <span class="tb ${t.k}">${t.t}</span></h4>
+        <span class="bmeta">${r.n.toLocaleString()} teams · <span style="color:${up?'var(--value)':'var(--red2)'}">${pp(r.playoffRate-d.base.playoffRate)}</span> vs field</span>
+      </div>
+      <div class="bstats">
+        <div class="bstat"><span class="v">${pct0(r.playoffRate)}</span><span class="k">Playoffs</span></div>
+        <div class="bstat"><span class="v">${pct0(r.champRate)}</span><span class="k">Titles</span></div>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+/* ═══════════════ DIRECTION D — KINETIC ═══════════════
+   Loads `motion` and NumberFlow from CDN. Both are optional: if the import
+   fails (offline, file:// with no network) the direction still renders, just
+   without springs or rolling digits. A mock that breaks when a CDN blinks is
+   worse than one that degrades. */
+let MOTION=null;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ROWH=70;
+
+(async function loadLibs(){
+  const status=document.getElementById('D-libstatus');
+  let note;
+  try{ MOTION = await import('https://esm.sh/motion@11'); note='motion ✓ — springs and number tweens live'; }
+  catch(e){ note='motion ✗ — CDN unreachable, transitions fall back to instant'; }
+  status.textContent = 'Runtime: '+note;
+  renderD();
+})();
+
+/* Rolling numbers.
+   NumberFlow is the curated pick for this and would be the right call on a React
+   surface — but its low-level custom element is not a supported standalone
+   API (it renders a stuck "NaN" symbol and no digits when driven directly), so on
+   this no-build page the count is tweened with motion instead. */
+function nf(el, value, digits=0){
+  const from = Number(el.dataset.v);
+  el.dataset.v = value;
+  const write = v => el.textContent = v.toLocaleString('en-US',
+    {minimumFractionDigits:digits, maximumFractionDigits:digits});
+  if(!MOTION || REDUCED || !isFinite(from) || from===value){ write(value); return; }
+  MOTION.animate(from, value, {
+    duration:.6, ease:[0.16,1,0.3,1],
+    onUpdate: v => write(v)
+  });
+}
+
+/* spring an element, or set the property instantly */
+function spring(el, props, opts={}){
+  if(MOTION && !REDUCED){
+    MOTION.animate(el, props, {type:'spring', stiffness:260, damping:30, ...opts});
+  }else{
+    Object.entries(props).forEach(([k,v])=>{
+      if(k==='y') el.style.transform=`translateY(${v}px)`;
+      else if(k==='width') el.style.width=typeof v==='number'?v+'px':v;
+      else el.style[k]=v;
+    });
+  }
+}
+
+function renderD(){
+  const d=data('D');
+  const rows=[...d.rows].sort((a,b)=>b.playoffRate-a.playoffRate);
+  const base=d.base.playoffRate;
+
+  nf(document.getElementById('D-n'), d.n, 0);
+  nf(document.getElementById('D-base'), base*100, 1);
+  nf(document.getElementById('D-spread'),
+     (Math.max(...rows.map(r=>r.playoffRate))-Math.min(...rows.map(r=>r.playoffRate)))*100, 1);
+  document.getElementById('D-best').textContent = rows[0].arch;
+  document.getElementById('D-sn').textContent = `${d.n.toLocaleString()} teams · field ${pct(base)}`;
+
+  const board=document.getElementById('D-board');
+  board.style.height=(rows.length*ROWH)+'px';
+
+  // scale for the ± bar around the field line
+  const maxAbs=Math.max(...rows.map(r=>Math.abs(r.playoffRate-base)),0.02);
+
+  rows.forEach((r,i)=>{
+    let el=board.querySelector(`[data-arch="${r.arch}"]`);
+    const fresh=!el;
+    if(fresh){
+      el=document.createElement('article');
+      el.className='krow';
+      el.dataset.arch=r.arch;
+      el.innerHTML=`
+        <span class="krk"></span>
+        <span class="knm"><span class="kdot" style="background:${COLOR[r.arch]}"></span>${r.arch}</span>
+        <span class="kbar"><span class="zero"></span><i></i></span>
+        <span class="kval"><span class="nfv">0</span><span style="font-size:12px;color:var(--muted)">%</span><span class="kdelta"></span></span>`;
+      el.style.transform=`translateY(${i*ROWH}px)`;
+      board.appendChild(el);
+    }
+    el.querySelector('.krk').textContent=i+1;
+    const up=r.playoffRate>=base;
+    const bar=el.querySelector('.kbar i');
+    const half=Math.abs(r.playoffRate-base)/maxAbs*48;   // % of track, half-width max 48
+    bar.style.background = up ? 'linear-gradient(90deg,rgba(95,224,154,.5),rgba(95,224,154,.95))'
+                              : 'linear-gradient(90deg,rgba(226,58,78,.95),rgba(226,58,78,.5))';
+    bar.style.left = up ? '50%' : (50-half)+'%';
+    spring(bar, {width: half+'%'}, {stiffness:200,damping:26});
+
+    nf(el.querySelector('.nfv'), r.playoffRate*100, 1);
+    const dl=el.querySelector('.kdelta');
+    dl.textContent=pp(r.playoffRate-base);
+    dl.className='kdelta '+(up?'up':'dn');
+
+    // the point of the whole direction: rows travel to their new rank
+    if(fresh) el.style.transform=`translateY(${i*ROWH}px)`;
+    else spring(el,{y:i*ROWH});
+  });
+
+  scatterD(d);
+}
+
+/* scatter whose dots spring between seasons instead of redrawing */
+function scatterD(d){
+  const el=document.getElementById('D-scatter');
+  const rows=d.rows, base=d.base;
+  const W=520,H=390,m={t:22,r:26,b:44,l:52};
+  const xs=rows.map(r=>r.avgPtsPct), ys=rows.map(r=>r.playoffRate);
+  const pad=v=>Math.max(0.02,(Math.max(...v)-Math.min(...v))*0.35);
+  const x0=Math.min(...xs)-pad(xs),x1=Math.max(...xs)+pad(xs);
+  const y0=Math.min(...ys)-pad(ys),y1=Math.max(...ys)+pad(ys);
+  const X=v=>m.l+((v-x0)/(x1-x0))*(W-m.l-m.r);
+  const Y=v=>m.t+(1-(v-y0)/(y1-y0))*(H-m.t-m.b);
+  const bx=X(base.avgPtsPct),by=Y(base.playoffRate);
+
+  if(!el.querySelector('svg')){
+    el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Points percentile versus playoff rate">
+      <line class="gridline" id="D-hx" stroke-dasharray="4 4"/><line class="gridline" id="D-vy" stroke-dasharray="4 4"/>
+      <line class="gridline" x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${H-m.b}"/>
+      <line class="gridline" x1="${m.l}" y1="${H-m.b}" x2="${W-m.r}" y2="${H-m.b}"/>
+      <text class="axis" x="${(m.l+W-m.r)/2}" y="${H-8}" text-anchor="middle" style="letter-spacing:.1em">POINTS PERCENTILE →</text>
+      <g id="D-dots"></g></svg>`;
+  }
+  const svg=el.querySelector('svg');
+  svg.querySelector('#D-hx').setAttribute('x1',m.l); svg.querySelector('#D-hx').setAttribute('x2',W-m.r);
+  svg.querySelector('#D-hx').setAttribute('y1',by);  svg.querySelector('#D-hx').setAttribute('y2',by);
+  svg.querySelector('#D-vy').setAttribute('y1',m.t); svg.querySelector('#D-vy').setAttribute('y2',H-m.b);
+  svg.querySelector('#D-vy').setAttribute('x1',bx);  svg.querySelector('#D-vy').setAttribute('x2',bx);
+
+  const g=svg.querySelector('#D-dots');
+  rows.forEach(r=>{
+    const c=COLOR[r.arch]||'#8fb4e0';
+    let node=g.querySelector(`[data-a="${r.arch}"]`);
+    if(!node){
+      node=document.createElementNS('http://www.w3.org/2000/svg','g');
+      node.dataset.a=r.arch;
+      node.innerHTML=`<circle r="9" fill="${c}" fill-opacity=".78" stroke="${c}" stroke-width="1.5"></circle>
+        <text class="dot-lab" y="-17" text-anchor="middle" fill="${c}">${r.arch}</text>`;
+      node.setAttribute('transform',`translate(${X(r.avgPtsPct)},${Y(r.playoffRate)})`);
+      g.appendChild(node);
+    }
+    const tx=X(r.avgPtsPct), ty=Y(r.playoffRate);
+    if(MOTION && !REDUCED){
+      MOTION.animate(node,{x:tx,y:ty},{type:'spring',stiffness:180,damping:24});
+    }else{
+      node.setAttribute('transform',`translate(${tx},${ty})`);
+    }
+    node.querySelector('circle').setAttribute('r', 7+Math.min(9,Math.sqrt(r.n)/12));
+  });
+}
+
+/* scrubber indicator */
+function moveInd(btn){
+  const ind=document.getElementById('D-ind');
+  ind.style.width=btn.offsetWidth+'px';
+  spring(ind,{x:btn.offsetLeft},{stiffness:320,damping:32});
+  if(!MOTION||REDUCED) ind.style.transform=`translateX(${btn.offsetLeft}px)`;
+}
+document.querySelector('#dirD .scrub').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-s]'); if(!b) return;
+  [...e.currentTarget.querySelectorAll('button[data-s]')].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  state.D=b.dataset.s; moveInd(b); renderD();
+});
+
+/* ⌘K palette — cmdk's interaction model, hand-rolled for a no-build host */
+const PAL=document.getElementById('D-pal'), PALIN=document.getElementById('D-palin'), PALLIST=document.getElementById('D-pallist');
+const PAL_ITEMS=[
+  {label:'All seasons (2023–2025)', hint:'season', run:()=>setSeasonD('all')},
+  {label:'2023 only', hint:'season', run:()=>setSeasonD('2023')},
+  {label:'2024 only', hint:'season', run:()=>setSeasonD('2024')},
+  {label:'2025 only — last season', hint:'season', run:()=>setSeasonD('2025')},
+  ...['Robust RB','Hero RB','Zero RB','Elite TE','Balanced'].map(a=>({
+    label:'Highlight '+a, hint:'build', run:()=>{
+      const row=document.querySelector(`#D-board [data-arch="${a}"]`);
+      if(row){ row.scrollIntoView({block:'center',behavior:'smooth'});
+        row.animate([{outline:'2px solid #8fb4e0'},{outline:'2px solid transparent'}],{duration:1400}); }
+    }}))
+];
+let palSel=0, palFiltered=PAL_ITEMS;
+function setSeasonD(s){
+  const b=document.querySelector(`#dirD .scrub button[data-s="${s}"]`);
+  if(b) b.click();
+}
+function drawPal(){
+  const q=PALIN.value.toLowerCase();
+  palFiltered=PAL_ITEMS.filter(i=>i.label.toLowerCase().includes(q));
+  if(palSel>=palFiltered.length) palSel=0;
+  PALLIST.innerHTML = palFiltered.length
+    ? palFiltered.map((i,n)=>`<li aria-selected="${n===palSel}" data-n="${n}">${i.label}<span class="hint">${i.hint}</span></li>`).join('')
+    : `<li class="empty">No match for “${PALIN.value}”.</li>`;
+}
+function openPal(){ PAL.classList.add('on'); PALIN.value=''; palSel=0; drawPal(); PALIN.focus(); }
+function closePal(){ PAL.classList.remove('on'); }
+document.getElementById('D-palbtn').addEventListener('click',openPal);
+PAL.addEventListener('click',e=>{ if(e.target===PAL) closePal(); });
+PALIN.addEventListener('input',drawPal);
+PALLIST.addEventListener('click',e=>{
+  const li=e.target.closest('li[data-n]'); if(!li) return;
+  palFiltered[+li.dataset.n].run(); closePal();
+});
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){
+    e.preventDefault();
+    document.getElementById('dirD').classList.contains('on') ? openPal() : null;
+    return;
+  }
+  if(!PAL.classList.contains('on')) return;
+  if(e.key==='Escape'){ closePal(); }
+  else if(e.key==='ArrowDown'){ e.preventDefault(); palSel=Math.min(palSel+1,palFiltered.length-1); drawPal(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); palSel=Math.max(palSel-1,0); drawPal(); }
+  else if(e.key==='Enter'){ e.preventDefault(); if(palFiltered[palSel]){ palFiltered[palSel].run(); closePal(); } }
+});
+
+const R={A:renderA,B:renderB,C:renderC,D:renderD};
+
+/* season filters */
+document.querySelectorAll('.seasons').forEach(g=>{
+  g.addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const scope=g.dataset.scope;
+    [...g.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    state[scope]=b.dataset.s; R[scope]();
+  });
+});
+
+/* direction tabs */
+document.querySelector('.tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('dir'+b.dataset.dir).classList.add('on');
+  R[b.dataset.dir]();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+/* spotlight border follows the cursor on C's hero panel */
+const spot=document.getElementById('C-spot');
+spot.addEventListener('pointermove',e=>{
+  const r=spot.getBoundingClientRect();
+  spot.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%');
+  spot.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%');
+});
+
+renderA(); renderB(); renderC();
+</script>
+</body>
+</html>

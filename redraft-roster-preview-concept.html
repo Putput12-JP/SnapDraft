@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault · Redraft Roster Preview — Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── inlined vault-ds tokens · ONYX & STEEL FROST ── */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --green:#5fe09a;--gold:#8fb4e0;--amber:#f5a623;
+  --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --t-title:24px;--t-h1:20px;--t-h2:17px;--t-body:15px;--t-secondary:13px;
+  --t-label:11px;--t-micro:10px;--t-nano:9px;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;min-height:100vh;padding:22px}
+.wrap{max-width:1240px;margin:0 auto}
+
+/* concept header */
+.hd{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.hd h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.hd h1 em{color:var(--accent2);font-style:normal}
+.hd-pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.05em;padding:6px 11px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text2)}
+.pill.hot{color:var(--accent2);border-color:rgba(143,180,224,.3);background:rgba(143,180,224,.07)}
+
+/* ── layout (mirrors .mth-wrap in the live app) ── */
+.mth-wrap{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
+@media(max-width:980px){.mth-wrap{grid-template-columns:1fr}}
+.mth-wrap>*{min-width:0}
+
+/* left rail */
+.mth-profile{background:var(--s1);border:1px solid var(--border2);border-radius:18px;padding:24px;position:sticky;top:16px;box-shadow:var(--shadow-card)}
+@media(max-width:980px){.mth-profile{position:static}}
+.mth-profile-head{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.mth-avatar{width:60px;height:60px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--text);font-size:var(--t-h1);flex-shrink:0;border:2px solid #fff}
+.mth-mgr-label{font-size:var(--t-nano);letter-spacing:.14em;color:var(--accent2);font-family:var(--font-mono);font-weight:700;text-transform:uppercase}
+.mth-mgr-name{font-size:var(--t-title);font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:2px 0}
+.mth-league-name{font-size:var(--t-secondary);color:var(--muted)}
+.mth-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.mth-tier-pill{font-size:var(--t-label);font-weight:700;padding:5px 12px;border-radius:8px;background:rgba(143,180,224,.12);color:var(--accent2);border:1px solid rgba(143,180,224,.3);font-family:var(--font-mono)}
+.mth-fmt-badge{font-size:var(--t-label);font-weight:600;padding:5px 10px;border-radius:8px;background:var(--s2);color:var(--text2);border:1px solid var(--border2);font-family:var(--font-mono)}
+.mth-hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;border:1px solid var(--border)}
+.mth-hero-stat{background:var(--s2);padding:14px 10px;text-align:center}
+.mth-hero-label{font-size:var(--t-nano);letter-spacing:.1em;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;margin-bottom:6px}
+.mth-hero-val{font-size:var(--t-h1);font-weight:800;letter-spacing:-.02em;line-height:1}
+.mth-hero-sub{font-size:var(--t-nano);color:var(--muted);margin-top:4px;font-family:var(--font-mono)}
+.mth-block{padding:16px 0;border-top:1px solid var(--border)}
+.mth-snap-title{font-size:var(--t-nano);letter-spacing:.14em;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;font-weight:700;margin-bottom:12px}
+.mth-snap-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 10px}
+.mth-snap-item{display:flex;flex-direction:column;gap:2px}
+.mth-snap-k{font-size:var(--t-label);color:var(--muted)}
+.mth-snap-v{font-size:var(--t-secondary);font-weight:700;font-family:var(--font-mono)}
+.mth-snap-rank{font-size:var(--t-micro);color:var(--accent2);font-weight:400}
+.faab-bar{height:6px;background:var(--s3);border-radius:999px;overflow:hidden;margin-top:5px}
+.faab-bar>i{display:block;height:100%;border-radius:999px;background:var(--green);width:64%}
+.mth-lineup-str{font-size:var(--t-label);color:var(--text2);line-height:1.6;font-family:var(--font-mono)}
+.mth-ps-row{display:flex;align-items:center;gap:10px;padding:5px 0}
+.mth-ps-pos{font-size:var(--t-label);font-weight:700;font-family:var(--font-mono);width:38px;flex-shrink:0}
+.mth-ps-track{flex:1;height:6px;background:var(--s3);border-radius:999px;overflow:hidden}
+.mth-ps-fill{height:100%;border-radius:999px}
+.mth-ps-rank{font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono);width:44px;text-align:right;flex-shrink:0}
+.mth-ps-label{font-size:var(--t-label);font-weight:700;width:64px;text-align:right;flex-shrink:0}
+.mth-brand{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono)}
+
+/* right column */
+.mth-roster-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+.mth-roster-title{font-size:var(--t-h1);font-weight:800;letter-spacing:-.02em}
+.mth-roster-summary{font-size:var(--t-secondary);color:var(--muted);font-family:var(--font-mono)}
+.mth-roster-summary b{color:var(--text2)}
+
+/* cards */
+.cc-lab{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.cc-card{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:20px;min-width:0;box-shadow:var(--shadow-card)}
+.cc-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--t-micro);font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:8px}
+.cc-two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:720px){.cc-two{grid-template-columns:1fr}}
+/* Bottom pair: make both cards flex columns so the Trade Angles CTA pins to the
+   card bottom, bottom-aligning evenly with the Player Status list beside it. */
+.cc-two-pin>.cc-card{display:flex;flex-direction:column}
+.cc-two-pin .tr-cta{margin-top:auto;align-self:flex-start}
+.glowc{position:relative;overflow:hidden}
+.glowc::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit}
+.glow-sky::before{background:radial-gradient(190px 130px at 8% 0%,rgba(143,180,224,.09),transparent 62%)}
+.glow-green::before{background:radial-gradient(190px 130px at 100% 0%,rgba(95,224,154,.09),transparent 62%)}
+.glowc>*{position:relative}
+
+/* 1 · league outlook · THE RACE (Option C) */
+.lo-subhead{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+.rs-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:640px){.rs-stats{grid-template-columns:1fr;gap:8px}}
+.rs-stat{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+.rs-stat .k{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.rs-stat .v{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.1}
+.rs-stat .v small{font-size:var(--t-label);color:var(--muted);font-weight:600}
+.rs-stat .d{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;margin-top:4px}
+.rs-stat .d.up{color:var(--green)}
+.rs-sched{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px}
+@media(max-width:720px){.rs-sched{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:480px){.rs-sched{grid-template-columns:repeat(2,1fr)}}
+.rs-wk{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;position:relative}
+.rs-wk.now{border-color:rgba(143,180,224,.45);background:rgba(143,180,224,.07)}
+.rs-wk.warn{border-color:rgba(245,166,35,.35)}
+.rs-wk .w{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.08em;color:var(--muted);font-weight:700}
+.rs-wk .o{font-size:var(--t-label);font-weight:700;margin:5px 0 6px;line-height:1.2;min-height:24px;display:flex;align-items:center;justify-content:center}
+.rs-wk .p{font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:800}
+.rs-wk .bar{height:4px;border-radius:999px;background:rgba(255,255,255,.07);margin-top:6px;overflow:hidden}
+.rs-wk .bar i{display:block;height:100%;border-radius:999px}
+.rs-flag{position:absolute;top:-7px;right:-5px;font-size:10px}
+.rs-legend{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);letter-spacing:.06em;margin-top:10px;flex-wrap:wrap}
+.rs-legend b{color:var(--text2)}
+/* season trajectory chart card */
+.tj-chart{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 6px;margin-bottom:14px}
+.lo-odds{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.lo-odds .k{font-size:var(--t-label);color:var(--text2);width:92px;flex-shrink:0}
+.lo-odds .tr{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+.lo-odds .tr i{display:block;height:100%;border-radius:999px}
+.lo-odds .v{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;width:34px;text-align:right;flex-shrink:0}
+.lo-odds .d{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;width:30px;text-align:right;flex-shrink:0}
+.lo-odds .d.up{color:var(--green)}
+.lo-odds .d.dn{color:var(--red2)}
+/* 2 · status board (half-width card: action line wraps under by default) */
+.st-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;row-gap:4px}
+.st-row:last-child{border-bottom:none}
+.st-photo{width:38px;height:38px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0;border:2px solid transparent}
+.st-photo img{width:100%;height:100%;object-fit:cover}
+.st-photo.q{border-color:var(--amber)}
+.st-photo.out{border-color:var(--red2)}
+.st-photo.ir{border-color:var(--red);opacity:.75}
+.st-photo.bye{border-color:var(--border3);filter:saturate(.4)}
+.st-pill{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:6px;flex-shrink:0;width:44px;text-align:center}
+.st-pill.q{background:rgba(245,166,35,.14);color:var(--amber)}
+.st-pill.out{background:rgba(255,90,110,.14);color:var(--red2)}
+.st-pill.ir{background:transparent;border:1px solid rgba(226,58,78,.45);color:var(--red2)}
+.st-pill.bye{background:var(--s3);color:var(--muted)}
+.st-main{flex:1;min-width:0}
+.st-name{font-size:var(--t-secondary);font-weight:700}
+.st-detail{font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.st-action{font-size:var(--t-micro);font-family:var(--font-mono);color:var(--accent2);flex:0 0 100%;text-align:left;padding-left:50px;line-height:1.45}
+.st-action br{display:none}
+.st-main{flex:1 1 0;min-width:180px}
+
+/* 3 · lineup strip */
+.mth-strip-card{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:18px;margin:16px 0 20px;box-shadow:var(--shadow-card)}
+.mth-strip-label{font-size:var(--t-nano);letter-spacing:.14em;color:var(--accent2);font-family:var(--font-mono);text-transform:uppercase;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;gap:8px}
+.mth-strip-label span:last-child{color:var(--muted)}
+.mth-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:8px 6px}
+.mth-strip-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 2px;border-radius:10px}
+.mth-strip-slot{font-size:var(--t-nano);font-weight:700;font-family:var(--font-mono);letter-spacing:.04em}
+.mth-strip-photo{width:48px;height:48px;border-radius:50%;background:var(--s3);border:2px solid;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--text2);font-size:14px;overflow:hidden;position:relative}
+.mth-strip-photo img{width:100%;height:100%;object-fit:cover}
+.mth-strip-name{font-size:var(--t-label);font-weight:700;text-align:center;line-height:1.1;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mth-strip-team{font-size:var(--t-nano);color:var(--muted);font-family:var(--font-mono)}
+.strip-dot{position:absolute;right:-1px;top:-1px;width:13px;height:13px;border-radius:50%;border:2px solid #16171c;font-size:7px;font-weight:900;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);color:#0a0e14}
+.strip-dot.q{background:var(--amber)}
+
+/* 4 · position groups */
+.mth-pg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:680px){.mth-pg-grid{grid-template-columns:1fr}}
+.mth-pg-card{background:var(--s1);border:1px solid var(--border2);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-card)}
+.mth-pg-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.mth-pg-badge{font-size:var(--t-micro);font-weight:800;padding:3px 9px;border-radius:6px;font-family:var(--font-mono)}
+.mth-pg-count{font-size:var(--t-label);color:var(--muted);font-family:var(--font-mono)}
+.mth-pg-hint{margin-left:auto;font-size:var(--t-nano);font-family:var(--font-mono);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.mth-pg-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border)}
+.mth-pg-row:last-child{border-bottom:none}
+.mth-pg-photo{width:38px;height:38px;border-radius:8px;background:var(--s3);overflow:hidden;flex-shrink:0}
+.mth-pg-photo img{width:100%;height:100%;object-fit:cover}
+.mth-pg-info{flex:1;min-width:0}
+.mth-pg-name{font-size:var(--t-secondary);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mth-pg-name .tag{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.tag.q{background:rgba(245,166,35,.14);color:var(--amber)}
+.tag.out{background:rgba(255,90,110,.14);color:var(--red2)}
+.tag.bye{background:var(--s3);color:var(--muted)}
+.tag.ir{border:1px solid rgba(226,58,78,.45);color:var(--red2)}
+.mth-pg-meta{font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.mth-pg-val{text-align:right;flex-shrink:0}
+.mth-pg-val b{font-size:var(--t-secondary);font-weight:700;color:var(--accent2);font-family:var(--font-mono);display:block}
+.mth-pg-val small{font-size:var(--t-nano);color:var(--muted);font-family:var(--font-mono)}
+
+/* 5 · waivers + trades */
+.wt-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border)}
+.wt-row:last-child{border-bottom:none}
+.wt-photo{width:36px;height:36px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0}
+.wt-photo img{width:100%;height:100%;object-fit:cover}
+.wt-main{flex:1;min-width:0}
+.wt-name{font-size:var(--t-secondary);font-weight:700}
+.wt-name .pos{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;margin-left:6px}
+.wt-why{font-size:var(--t-micro);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.wt-bid{flex-shrink:0;text-align:right}
+.wt-bid b{display:block;font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:800;color:var(--green)}
+.wt-bid small{font-size:var(--t-nano);color:var(--muted);font-family:var(--font-mono)}
+.wt-foot{margin-top:12px;padding:9px 12px;border-radius:10px;background:var(--s2);border:1px solid var(--border);font-size:var(--t-micro);font-family:var(--font-mono);color:var(--muted)}
+.wt-foot b{color:var(--red2);font-weight:700}
+.tr-angle{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--s2);border:1px solid var(--border);margin-bottom:12px}
+.tr-side{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.tr-photo{width:40px;height:40px;border-radius:50%;background:var(--s3);overflow:hidden;flex-shrink:0}
+.tr-photo img{width:100%;height:100%;object-fit:cover}
+.tr-k{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.tr-k.ship{color:var(--red2)}
+.tr-k.get{color:var(--green)}
+.tr-nm{font-size:var(--t-secondary);font-weight:700;margin-top:1px}
+.tr-sub{font-size:var(--t-nano);color:var(--muted);font-family:var(--font-mono);margin-top:1px}
+.tr-arrow{font-size:16px;color:var(--muted);flex-shrink:0}
+.tr-match{font-size:var(--t-micro);font-family:var(--font-mono);color:var(--muted);line-height:1.7}
+.tr-match b{color:var(--text2)}
+.tr-match .up{color:var(--green)}
+.tr-cta{margin-top:12px;display:inline-block;font-size:var(--t-label);font-weight:700;font-family:var(--font-mono);letter-spacing:.06em;color:var(--accent2);border:1px solid rgba(143,180,224,.35);background:rgba(143,180,224,.07);padding:7px 14px;border-radius:8px;cursor:pointer}
+
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+.mb16{margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hd">
+    <h1>Roster Preview · <em>Redraft</em></h1>
+    <div class="hd-pills">
+      <span class="pill hot">CONCEPT MOCK</span>
+      <span class="pill">SAMPLE · WEEK 8</span>
+      <span class="pill hot">ONYX · STEEL FROST</span>
+    </div>
+  </div>
+
+  <div class="mth-wrap">
+
+    <!-- ═══ LEFT: manager rail (dynasty parity, redraft stats) ═══ -->
+    <div class="mth-profile">
+      <div class="mth-profile-head">
+        <div class="mth-avatar">PP</div>
+        <div>
+          <div class="mth-mgr-label">REDRAFT MANAGER</div>
+          <div class="mth-mgr-name">Putput</div>
+          <div class="mth-league-name">🏈 Early Birds</div>
+        </div>
+      </div>
+      <div class="mth-badges">
+        <span class="mth-tier-pill">🔥 Playoff Hunt</span>
+        <span class="mth-fmt-badge">12-TEAM</span>
+        <span class="mth-fmt-badge">PPR</span>
+        <span class="mth-fmt-badge">REDRAFT</span>
+      </div>
+
+      <div class="mth-hero-stats">
+        <div class="mth-hero-stat"><div class="mth-hero-label">Record</div><div class="mth-hero-val">4-3</div><div class="mth-hero-sub">W2 streak</div></div>
+        <div class="mth-hero-stat"><div class="mth-hero-label">Standing</div><div class="mth-hero-val">#4<span style="font-size:12px;color:var(--muted)">/12</span></div><div class="mth-hero-sub">6 playoff spots</div></div>
+        <div class="mth-hero-stat"><div class="mth-hero-label">Pts For</div><div class="mth-hero-val">1,012</div><div class="mth-hero-sub">#5 in league</div></div>
+      </div>
+
+      <div class="mth-block">
+        <div class="mth-snap-title">Team Snapshot</div>
+        <div class="mth-snap-grid">
+          <div class="mth-snap-item"><span class="mth-snap-k">💰 FAAB Left</span><span class="mth-snap-v">$64 <span class="mth-snap-rank">of $100</span></span><div class="faab-bar"><i></i></div></div>
+          <div class="mth-snap-item"><span class="mth-snap-k">⏳ Waiver Priority</span><span class="mth-snap-v">#9 <span class="mth-snap-rank">of 12</span></span></div>
+          <div class="mth-snap-item"><span class="mth-snap-k">📈 Proj This Week</span><span class="mth-snap-v">121.4 <span class="mth-snap-rank">opp 117.8</span></span></div>
+          <div class="mth-snap-item"><span class="mth-snap-k">🩹 Roster Health</span><span class="mth-snap-v">13/16 <span class="mth-snap-rank">active</span></span></div>
+        </div>
+      </div>
+
+      <div class="mth-block">
+        <div class="mth-snap-title">League Settings</div>
+        <div class="mth-lineup-str">Lineup: QB · 2 RB · 2 WR · TE · FLEX · K · DEF<br>Bench 6 · IR 1 · FAAB waivers (Wed)</div>
+      </div>
+
+      <div class="mth-block">
+        <div class="mth-snap-title">Positional Strength <span style="letter-spacing:.04em;color:var(--accent2)">· ROS PROJ</span></div>
+        <div class="mth-ps-row"><span class="mth-ps-pos" style="color:var(--qb)">QB</span><div class="mth-ps-track"><div class="mth-ps-fill" style="width:62%;background:var(--qb)"></div></div><span class="mth-ps-rank">#5/12</span><span class="mth-ps-label" style="color:var(--text2)">Solid</span></div>
+        <div class="mth-ps-row"><span class="mth-ps-pos" style="color:var(--rb)">RB</span><div class="mth-ps-track"><div class="mth-ps-fill" style="width:88%;background:var(--rb)"></div></div><span class="mth-ps-rank">#2/12</span><span class="mth-ps-label" style="color:var(--rb)">Elite</span></div>
+        <div class="mth-ps-row"><span class="mth-ps-pos" style="color:var(--wr)">WR</span><div class="mth-ps-track"><div class="mth-ps-fill" style="width:70%;background:var(--wr)"></div></div><span class="mth-ps-rank">#4/12</span><span class="mth-ps-label" style="color:var(--text2)">Strong</span></div>
+        <div class="mth-ps-row"><span class="mth-ps-pos" style="color:var(--te)">TE</span><div class="mth-ps-track"><div class="mth-ps-fill" style="width:34%;background:var(--te)"></div></div><span class="mth-ps-rank">#10/12</span><span class="mth-ps-label" style="color:var(--red2)">Thin</span></div>
+        <div class="mth-ps-row"><span class="mth-ps-pos" style="color:#bec6e0">Bench</span><div class="mth-ps-track"><div class="mth-ps-fill" style="width:76%;background:#bec6e0"></div></div><span class="mth-ps-rank">#3/12</span><span class="mth-ps-label" style="color:var(--text2)">Deep</span></div>
+      </div>
+
+      <div class="mth-brand">VAULT · REDRAFT COMMAND</div>
+    </div>
+
+    <!-- ═══ RIGHT: roster preview ═══ -->
+    <div class="mth-roster">
+      <div class="mth-roster-head">
+        <span class="mth-roster-title">Roster Preview</span>
+        <span class="mth-roster-summary">16 players · <b>9 starters</b> · FAAB <b>$64</b> · Waiver <b>#9</b></span>
+      </div>
+
+      <!-- 1 · LEAGUE OUTLOOK · THE RACE (schedule-first, recalcs after each week) -->
+      <div class="cc-card glowc glow-sky mb16">
+        <div class="sec-head">
+          <span class="cc-lab">League Outlook · The Race</span>
+          <span class="cc-chip" style="background:rgba(143,180,224,.12);color:var(--accent2)">UPDATED AFTER WK 7</span>
+        </div>
+        <div class="rs-stats">
+          <div class="rs-stat"><div class="k">Seed Now</div><div class="v">#4 <small>of 12</small></div><div class="d up">▲2 THIS WEEK · 1 GM CLEAR OF CUT</div></div>
+          <div class="rs-stat"><div class="k">Projected Finish</div><div class="v">8-6 <small>· #4 SEED</small></div><div class="d up">▲ WAS 7-7 · #6</div></div>
+          <div class="rs-stat"><div class="k">Playoff Odds</div><div class="v">71%</div><div class="d up">+8 AFTER WK 7 WIN · BYE 22% · TITLE 9%</div></div>
+        </div>
+        <div class="lo-subhead"><span>Remaining Schedule · Win Probability</span><span>SIMS RE-RUN EVERY TUE</span></div>
+        <div class="rs-sched">
+          <div class="rs-wk now"><div class="w">WK 8</div><div class="o">vs Couch Coaches</div><div class="p" style="color:var(--accent2)">58%</div><div class="bar"><i style="width:58%;background:var(--accent2)"></i></div></div>
+          <div class="rs-wk warn"><span class="rs-flag">⚠️</span><div class="w">WK 9</div><div class="o">@ Bandits</div><div class="p" style="color:var(--red2)">41%</div><div class="bar"><i style="width:41%;background:var(--red2)"></i></div></div>
+          <div class="rs-wk"><div class="w">WK 10</div><div class="o">vs Comeback Kids</div><div class="p" style="color:var(--accent2)">52%</div><div class="bar"><i style="width:52%;background:var(--accent2)"></i></div></div>
+          <div class="rs-wk"><div class="w">WK 11</div><div class="o">@ Turf Burners</div><div class="p" style="color:var(--amber)">46%</div><div class="bar"><i style="width:46%;background:var(--amber)"></i></div></div>
+          <div class="rs-wk"><div class="w">WK 12</div><div class="o">vs Waffle Shop</div><div class="p" style="color:var(--green)">74%</div><div class="bar"><i style="width:74%;background:var(--green)"></i></div></div>
+          <div class="rs-wk"><div class="w">WK 13</div><div class="o">vs Hail Mary Hive</div><div class="p" style="color:var(--accent2)">55%</div><div class="bar"><i style="width:55%;background:var(--accent2)"></i></div></div>
+          <div class="rs-wk"><div class="w">WK 14</div><div class="o">@ Sunday Scaries</div><div class="p" style="color:var(--amber)">48%</div><div class="bar"><i style="width:48%;background:var(--amber)"></i></div></div>
+        </div>
+        <div class="rs-legend">
+          <span>⚠️ WK 9 = YOUR BYE STACK — <b>Chase + Aubrey out</b> · odds already price it in</span>
+          <span>LAST RECALC → <b>WK 7: W 128.4–101.2</b></span>
+        </div>
+      </div>
+
+      <!-- 2 · WAIVER WIRE TARGETS | SEASON TRAJECTORY (split pair) -->
+      <div class="cc-two mb16">
+        <div class="cc-card">
+          <div class="sec-head">
+            <span class="cc-lab">Waiver Wire Targets</span>
+            <span class="cc-chip" style="background:rgba(95,224,154,.12);color:var(--green)">FAAB $64 · RUNS WED</span>
+          </div>
+          <div class="wt-row">
+            <div class="wt-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/pwvxisrnjitkkghkfcn3" alt=""></div>
+            <div class="wt-main"><div class="wt-name">Woody Marks<span class="pos" style="color:var(--rb)">RB · HOU</span></div><div class="wt-why">43% rostered · backfield lead while Mixon sits</div></div>
+            <div class="wt-bid"><b>$18</b><small>suggested</small></div>
+          </div>
+          <div class="wt-row">
+            <div class="wt-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/gdwtgcfz3mxj6codxdpn" alt=""></div>
+            <div class="wt-main"><div class="wt-name">David Njoku<span class="pos" style="color:var(--te)">TE · CLE</span></div><div class="wt-why">61% rostered · fixes your only zero-depth spot</div></div>
+            <div class="wt-bid"><b>$11</b><small>suggested</small></div>
+          </div>
+          <div class="wt-row">
+            <div class="wt-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/gqozitn9vxnp8acz6wwg" alt=""></div>
+            <div class="wt-main"><div class="wt-name">Josh Downs<span class="pos" style="color:var(--wr)">WR · IND</span></div><div class="wt-why">58% rostered · covers the Wk 9 Chase bye</div></div>
+            <div class="wt-bid"><b>$7</b><small>suggested</small></div>
+          </div>
+          <div class="wt-foot">SUGGESTED DROP → <b>Tyjae Spears</b> · on bye, RB5 on your depth chart, lowest leverage</div>
+        </div>
+        <div class="cc-card">
+          <div class="sec-head">
+            <span class="cc-lab">Season Trajectory</span>
+            <span class="cc-chip" style="background:rgba(143,180,224,.12);color:var(--accent2)">SIMS RE-RUN TUE</span>
+          </div>
+          <div class="tj-chart">
+            <svg viewBox="0 0 360 132" width="100%" xmlns="http://www.w3.org/2000/svg">
+              <text x="2" y="12" font-family="JetBrains Mono" font-size="8" fill="#7e8493">1</text>
+              <text x="2" y="60" font-family="JetBrains Mono" font-size="8" fill="#7e8493">6</text>
+              <text x="2" y="114" font-family="JetBrains Mono" font-size="8" fill="#7e8493">12</text>
+              <line x1="14" y1="58" x2="352" y2="58" stroke="#ff5a6e" stroke-width="1" stroke-dasharray="3 4" opacity=".45"/>
+              <text x="292" y="54" font-family="JetBrains Mono" font-size="7.5" fill="#ff5a6e" opacity=".8">PLAYOFF CUT</text>
+              <polyline points="14,71.6 40,80.7 66,62.5 92,62.5 118,53.5 144,53.5 170,35.3" fill="none" stroke="#8fb4e0" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+              <polyline points="170,35.3 196,35.3 222,26.2 248,26.2 274,35.3 300,35.3 326,35.3 352,35.3" fill="none" stroke="#8fb4e0" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".75"/>
+              <circle cx="170" cy="35.3" r="4.5" fill="#8fb4e0"/>
+              <circle cx="352" cy="35.3" r="3.5" fill="none" stroke="#8fb4e0" stroke-width="1.6"/>
+              <text x="160" y="24" font-family="JetBrains Mono" font-size="8" font-weight="700" fill="#8fb4e0">NOW · #4</text>
+              <text x="316" y="26" font-family="JetBrains Mono" font-size="8" fill="#8fb4e0" opacity=".85">PROJ #4</text>
+              <text x="8" y="128" font-family="JetBrains Mono" font-size="7.5" fill="#7e8493">WK 1</text>
+              <text x="160" y="128" font-family="JetBrains Mono" font-size="7.5" fill="#7e8493">WK 7</text>
+              <text x="332" y="128" font-family="JetBrains Mono" font-size="7.5" fill="#7e8493">WK 14</text>
+            </svg>
+          </div>
+          <div class="lo-odds"><span class="k">Make playoffs</span><span class="tr"><i style="width:71%;background:var(--green)"></i></span><span class="v" style="color:var(--green)">71%</span><span class="d up">+8</span></div>
+          <div class="lo-odds"><span class="k">First-round bye</span><span class="tr"><i style="width:22%;background:var(--accent2)"></i></span><span class="v" style="color:var(--accent2)">22%</span><span class="d up">+3</span></div>
+          <div class="lo-odds"><span class="k">Win title</span><span class="tr"><i style="width:9%;background:var(--red2)"></i></span><span class="v" style="color:var(--red2)">9%</span><span class="d up">+2</span></div>
+          <div class="rs-legend" style="margin-top:12px"><span>SOLID = PLAYED · DASHED = <b>SIM PROJECTION</b> — the line redraws every Tuesday</span></div>
+        </div>
+      </div>
+
+      <!-- 3 · STARTING LINEUP strip (kept from dynasty, + status dots) -->
+      <div class="mth-strip-card">
+        <div class="mth-strip-label"><span>Starting Lineup · Week 8</span><span>PROJ 121.4 · OPP 117.8</span></div>
+        <div class="mth-strip">
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:var(--qb)">QB</span><div class="mth-strip-photo" style="border-color:var(--qb)"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/c47i9v6gmokkun9cat9s" alt=""></div><span class="mth-strip-name">Hurts</span><span class="mth-strip-team">PHI · 22.1</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:var(--rb)">RB1</span><div class="mth-strip-photo" style="border-color:var(--rb)"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/rjaf9auhx3lrktzgwpfb" alt=""></div><span class="mth-strip-name">Bijan</span><span class="mth-strip-team">ATL · 19.6</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:var(--rb)">RB2</span><div class="mth-strip-photo" style="border-color:var(--amber)"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/anjbznqb9i21wzcgrtbs" alt=""><span class="strip-dot q">Q</span></div><span class="mth-strip-name">Cook</span><span class="mth-strip-team">BUF · 14.9</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:var(--wr)">WR1</span><div class="mth-strip-photo" style="border-color:var(--wr)"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/qya3dtjb5kgofcuj2tuw" alt=""></div><span class="mth-strip-name">Chase</span><span class="mth-strip-team">CIN · 18.2</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:var(--wr)">WR2</span><div class="mth-strip-photo" style="border-color:var(--wr)"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/osmqyvmib3pssxi6cyic" alt=""></div><span class="mth-strip-name">Collins</span><span class="mth-strip-team">HOU · 15.4</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:var(--te)">TE</span><div class="mth-strip-photo" style="border-color:var(--te)"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/vd7av3vdfs6q7ncjogac" alt=""></div><span class="mth-strip-name">McBride</span><span class="mth-strip-team">ARI · 13.7</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:#bec6e0">FLEX</span><div class="mth-strip-photo" style="border-color:#bec6e0"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/jpvhsregfvw46mlyckzj" alt=""></div><span class="mth-strip-name">JSN</span><span class="mth-strip-team">SEA · 14.1</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:#d19eff">K</span><div class="mth-strip-photo" style="border-color:#d19eff">BA</div><span class="mth-strip-name">Aubrey</span><span class="mth-strip-team">DAL · 8.9</span></div>
+          <div class="mth-strip-item"><span class="mth-strip-slot" style="color:#ffd166">DEF</span><div class="mth-strip-photo" style="border-color:#ffd166">DEN</div><span class="mth-strip-name">Broncos</span><span class="mth-strip-team">DEN · 7.5</span></div>
+        </div>
+      </div>
+
+      <!-- 4 · POSITION GROUPS (kept, values → weekly projections) -->
+      <div class="mth-pg-grid">
+        <div class="mth-pg-card">
+          <div class="mth-pg-head"><span class="mth-pg-badge" style="background:rgba(255,102,128,.12);color:var(--qb)">QB</span><span class="mth-pg-count">(1)</span><span class="mth-pg-hint">PROJ / WK</span></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/c47i9v6gmokkun9cat9s" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Jalen Hurts</div><div class="mth-pg-meta">PHI · started 7/7 · QB4 on season</div></div><div class="mth-pg-val"><b>22.1</b><small>proj</small></div></div>
+        </div>
+        <div class="mth-pg-card">
+          <div class="mth-pg-head"><span class="mth-pg-badge" style="background:rgba(95,224,154,.12);color:var(--rb)">RB</span><span class="mth-pg-count">(5)</span><span class="mth-pg-hint">PROJ / WK</span></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/rjaf9auhx3lrktzgwpfb" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Bijan Robinson</div><div class="mth-pg-meta">ATL · RB2 on season · 21.3 PPG</div></div><div class="mth-pg-val"><b>19.6</b><small>proj</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/anjbznqb9i21wzcgrtbs" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">James Cook<span class="tag q">Q</span></div><div class="mth-pg-meta">BUF · hamstring · GTD Sunday</div></div><div class="mth-pg-val"><b>14.9</b><small>proj</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/pjgml85ghq7oa48dctn7" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Chuba Hubbard</div><div class="mth-pg-meta">CAR · RB9 last 4 wks · sell-high</div></div><div class="mth-pg-val"><b>13.2</b><small>bench</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/f3txbqdarbabqtq4sx98" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Jaylen Warren</div><div class="mth-pg-meta">PIT · Cook insurance this week</div></div><div class="mth-pg-val"><b>11.8</b><small>bench</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/fc7vhbtw80einad9hsfu" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Tyjae Spears<span class="tag bye">BYE</span></div><div class="mth-pg-meta">TEN · bye Wk 8 · drop candidate</div></div><div class="mth-pg-val"><b>—</b><small>bye</small></div></div>
+        </div>
+        <div class="mth-pg-card">
+          <div class="mth-pg-head"><span class="mth-pg-badge" style="background:rgba(143,180,224,.12);color:var(--wr)">WR</span><span class="mth-pg-count">(6 · 1 IR)</span><span class="mth-pg-hint">PROJ / WK</span></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/qya3dtjb5kgofcuj2tuw" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Ja'Marr Chase</div><div class="mth-pg-meta">CIN · WR1 on season · bye Wk 9</div></div><div class="mth-pg-val"><b>18.2</b><small>proj</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/osmqyvmib3pssxi6cyic" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Nico Collins</div><div class="mth-pg-meta">HOU · 9 tgt/g last 3</div></div><div class="mth-pg-val"><b>15.4</b><small>proj</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/jpvhsregfvw46mlyckzj" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Jaxon Smith-Njigba</div><div class="mth-pg-meta">SEA · locked into FLEX</div></div><div class="mth-pg-val"><b>14.1</b><small>proj</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/blh2tfg9qjthqo2g6ot4" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Jayden Reed</div><div class="mth-pg-meta">GB · boom/bust · Wk 9 Chase cover</div></div><div class="mth-pg-val"><b>10.6</b><small>bench</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/s2ey8g5memyqvxc52uzy" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Jordan Addison<span class="tag out">OUT</span></div><div class="mth-pg-meta">MIN · knee · re-eval next week</div></div><div class="mth-pg-val"><b>—</b><small>out</small></div></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/iy0uidp9wokc6a7u8lwq" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Rashee Rice<span class="tag ir">IR</span></div><div class="mth-pg-meta">KC · returns Wk 10</div></div><div class="mth-pg-val"><b>—</b><small>ir</small></div></div>
+        </div>
+        <div class="mth-pg-card">
+          <div class="mth-pg-head"><span class="mth-pg-badge" style="background:rgba(245,200,66,.12);color:var(--te)">TE</span><span class="mth-pg-count">(1)</span><span class="mth-pg-hint">PROJ / WK</span></div>
+          <div class="mth-pg-row"><div class="mth-pg-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/vd7av3vdfs6q7ncjogac" alt=""></div><div class="mth-pg-info"><div class="mth-pg-name">Trey McBride</div><div class="mth-pg-meta">ARI · TE2 on season · zero backup</div></div><div class="mth-pg-val"><b>13.7</b><small>proj</small></div></div>
+          <div class="mth-pg-row" style="opacity:.55"><div class="mth-pg-photo" style="display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;color:var(--muted)">+</div><div class="mth-pg-info"><div class="mth-pg-name" style="color:var(--muted)">Empty depth slot</div><div class="mth-pg-meta">Njoku on waivers covers this</div></div><div class="mth-pg-val"><b style="color:var(--muted)">—</b></div></div>
+        </div>
+      </div>
+
+      <!-- 5 · PLAYER STATUS | TRADE ANGLES -->
+      <div class="cc-two cc-two-pin" style="margin-top:16px">
+        <div class="cc-card">
+          <div class="sec-head">
+            <span class="cc-lab">Player Status</span>
+            <span class="cc-chip" style="background:rgba(245,166,35,.12);color:var(--amber)">3 FLAGS · 1 BYE</span>
+          </div>
+          <div class="st-row">
+            <div class="st-photo q"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/anjbznqb9i21wzcgrtbs" alt=""></div>
+            <span class="st-pill q">QUES</span>
+            <div class="st-main"><div class="st-name">James Cook <span style="color:var(--muted);font-weight:400">· RB BUF</span></div><div class="st-detail">Hamstring · limited Fri · GTD Sun 1:00 ET</div></div>
+            <div class="st-action">Ready pivot: Jaylen Warren projects 11.8 in FLEX</div>
+          </div>
+          <div class="st-row">
+            <div class="st-photo out"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/s2ey8g5memyqvxc52uzy" alt=""></div>
+            <span class="st-pill out">OUT</span>
+            <div class="st-main"><div class="st-name">Jordan Addison <span style="color:var(--muted);font-weight:400">· WR MIN</span></div><div class="st-detail">Knee · ruled out Wed · re-eval next week</div></div>
+            <div class="st-action">Benched — no lineup impact</div>
+          </div>
+          <div class="st-row">
+            <div class="st-photo ir"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/iy0uidp9wokc6a7u8lwq" alt=""></div>
+            <span class="st-pill ir">IR</span>
+            <div class="st-main"><div class="st-name">Rashee Rice <span style="color:var(--muted);font-weight:400">· WR KC</span></div><div class="st-detail">Hamstring · eligible to return Wk 10</div></div>
+            <div class="st-action">Activation will need a drop — plan it now</div>
+          </div>
+          <div class="st-row">
+            <div class="st-photo bye"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/fc7vhbtw80einad9hsfu" alt=""></div>
+            <span class="st-pill bye">BYE</span>
+            <div class="st-main"><div class="st-name">Tyjae Spears <span style="color:var(--muted);font-weight:400">· RB TEN</span></div><div class="st-detail">Titans bye · back Wk 9</div></div>
+            <div class="st-action">Benched — RB depth covers it</div>
+          </div>
+        </div>
+
+        <div class="cc-card">
+          <div class="sec-head">
+            <span class="cc-lab">Trade Angles</span>
+            <span class="cc-chip" style="background:rgba(143,180,224,.12);color:var(--accent2)">RB SURPLUS → TE FIX</span>
+          </div>
+          <div class="tr-angle">
+            <div class="tr-side">
+              <div class="tr-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/pjgml85ghq7oa48dctn7" alt=""></div>
+              <div><div class="tr-k ship">Ship · Sell High</div><div class="tr-nm">Chuba Hubbard</div><div class="tr-sub">RB9 last 4 wks · tough playoff SOS</div></div>
+            </div>
+            <span class="tr-arrow">⇄</span>
+            <div class="tr-side">
+              <div class="tr-photo"><img src="https://static.www.nfl.com/image/upload/f_auto,q_auto,w_96,h_96,c_thumb,g_face/league/qfcy3taaoage00rrl0cc" alt=""></div>
+              <div><div class="tr-k get">Target · Buy</div><div class="tr-nm">Sam LaPorta</div><div class="tr-sub">Gridiron Geeks · 2-5 and fading</div></div>
+            </div>
+          </div>
+          <div class="tr-match">
+            RB-needy managers this week:<br>
+            <b>Bye Week Bandits</b> · lost their RB1 to IR Sunday <span class="up">▲ motivated</span><br>
+            <b>Gridiron Geeks</b> · RB proj #11, TE surplus <span class="up">▲ clean fit</span><br>
+            <b>Waffle Shop</b> · 1-6 · open to any offer
+          </div>
+          <span class="tr-cta">OPEN TRADE CENTER →</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

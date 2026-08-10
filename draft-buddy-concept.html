@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="vapor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Draft Buddy · Concept (Vault shield)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070d18;--s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;
+  --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#808fa6;
+  --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+  --red:#e23a4e;--sky:#4d86f0;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;--value:#3DCC7A;--violet:#a78bfa;--gold:#f5c842;
+  --vnavy:#17273f;--vred:#e23a3e;--vpaper:#fbf7ef;
+  --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
+  --shadow-card:0 24px 60px -20px rgba(4,9,20,0.62),0 1px 0 rgba(255,255,255,0.06) inset;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);--ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+  --dur-press:80ms;--dur-release:500ms;--press-btn:.94;
+}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:radial-gradient(1200px 700px at 82% -8%,rgba(47,99,196,0.12),transparent 60%),var(--bg);
+  color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+.dev{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:12px;padding:10px 22px;
+  background:rgba(7,13,24,.8);backdrop-filter:blur(12px);border-bottom:1px solid var(--border2);font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dev b{color:var(--accent2)}
+.dbtn{cursor:pointer;border:1px solid var(--border2);background:linear-gradient(180deg,var(--s3),var(--s2));color:var(--text);
+  font-family:var(--font-sans);font-weight:800;font-size:12px;letter-spacing:0;text-transform:none;border-radius:var(--radius-md);padding:7px 12px;transition:transform var(--dur-release) var(--ease-spring),border-color .2s}
+.dbtn:hover{border-color:var(--accent)}.dbtn:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
+
+/* faint Draft Vault backdrop */
+.page{max-width:1080px;margin:0 auto;padding:70px 24px 40px;opacity:.92}
+.ph{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.ph h1{font-weight:900;letter-spacing:-.03em;font-size:24px;margin:0}
+.ph .chip{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--accent2);background:rgba(123,208,255,.08);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:5px 11px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:11px 14px;min-height:60px}
+.tile .e{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-family:var(--font-mono);font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px}
+.tbl{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--s1);overflow:hidden}
+.trow{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.trow:last-child{border:0}.trow .rk{font-family:var(--font-mono);color:var(--muted);width:32px;font-weight:700}
+.trow .av{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:10px;font-weight:800;color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid var(--border)}
+.trow .nm{font-weight:600}.trow .meta{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+
+/* ══════════ DRAFT BUDDY ══════════ */
+.buddy-root{position:fixed;right:26px;bottom:26px;z-index:40;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+
+.buddy{width:74px;height:74px;cursor:pointer;position:relative;filter:drop-shadow(0 12px 24px rgba(4,9,20,.55));
+  transition:transform var(--dur-release) var(--ease-spring)}
+.buddy:hover{transform:translateY(-3px) scale(1.04)}
+.buddy:active{transform:scale(.92);transition:transform var(--dur-press) ease-out}
+.buddy.bob{animation:bob 2.8s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.buddy.pop{animation:pop .6s var(--ease-spring)}
+@keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.16) rotate(-4deg)}70%{transform:scale(.96) rotate(2deg)}100%{transform:scale(1)}}
+.buddy svg,.buddy img{width:100%;height:100%;display:block;overflow:visible}
+.eye-grp{transform-box:fill-box;transform-origin:center;animation:blink 4.8s infinite}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%,97%{transform:scaleY(.12)}}
+
+/* notification dot */
+.buddy-dot{position:absolute;top:0;right:2px;width:16px;height:16px;border-radius:50%;background:var(--red);border:2.5px solid var(--bg);
+  box-shadow:0 0 0 0 rgba(226,58,78,.6);animation:ndot 2s ease-out infinite}
+@keyframes ndot{0%{box-shadow:0 0 0 0 rgba(226,58,78,.55)}70%{box-shadow:0 0 0 8px rgba(226,58,78,0)}100%{box-shadow:0 0 0 0 rgba(226,58,78,0)}}
+/* live grade badge on the shield */
+.buddy-grade{position:absolute;bottom:-3px;right:-4px;display:none;align-items:center;justify-content:center;
+  min-width:24px;height:22px;padding:0 5px;border-radius:8px;background:var(--s2);border:1.5px solid var(--rb);
+  font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--rb);box-shadow:0 4px 12px rgba(4,9,20,.5)}
+.buddy-grade.show{display:flex;animation:gpop .5s var(--ease-spring)}
+@keyframes gpop{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* speech nudge */
+.nudge{position:absolute;right:86px;bottom:16px;white-space:nowrap;background:var(--s2);border:1px solid var(--border2);
+  border-radius:14px 14px 4px 14px;padding:9px 13px;font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-card);animation:nin .5s var(--ease-out) both}
+.nudge::after{content:"";position:absolute;right:-6px;bottom:10px;width:12px;height:12px;background:var(--s2);border-right:1px solid var(--border2);border-bottom:1px solid var(--border2);transform:rotate(-45deg)}
+.nudge small{display:block;font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent2);font-weight:700;margin-bottom:1px}
+@keyframes nin{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+
+.panel{width:344px;max-width:calc(100vw - 40px);background:linear-gradient(180deg,var(--s2),var(--s1));
+  border:1px solid var(--border2);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);overflow:hidden;transform-origin:bottom right;display:none}
+.panel.show{display:block;animation:panin .42s var(--ease-out) both}
+@keyframes panin{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:none}}
+.panel.closing{animation:panout .3s var(--ease-out) forwards}
+@keyframes panout{to{opacity:0;transform:translateY(16px) scale(.92)}}
+
+.p-hd{display:flex;align-items:center;gap:11px;padding:14px 15px 12px;position:relative}
+.p-hd .mini{width:40px;height:40px;flex-shrink:0}
+.p-speech{flex:1;min-width:0}
+.p-speech .sk{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);font-weight:800;display:flex;align-items:center;gap:7px}
+.p-speech .st{font-weight:800;letter-spacing:-.01em;font-size:15px;margin-top:2px;line-height:1.15}
+.hgrade{font-family:var(--font-mono);font-weight:800;font-size:10px;padding:2px 6px;border-radius:5px;border:1.5px solid}
+.p-x{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:8px;border:1px solid var(--border2);background:var(--s1);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px;line-height:1;transition:color .15s,border-color .15s}
+.p-x:hover{color:var(--text);border-color:var(--border3)}
+.p-min{right:44px;font-size:15px}
+
+.strat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 15px 15px}
+.strat{text-align:left;cursor:pointer;background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 11px 12px;transition:transform var(--dur-release) var(--ease-spring),border-color .18s,background .18s;color:var(--text)}
+.strat:hover{border-color:var(--accent);background:var(--s2)}
+.strat:active{transform:scale(.96);transition:transform var(--dur-press) ease-out}
+.strat .si{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;margin-bottom:8px;font-size:14px}
+.strat .sn{font-weight:800;letter-spacing:-.01em;font-size:13.5px}
+.strat .sd{font-size:10.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+
+.chk{padding:0 15px 15px}
+.chk-phase{border-radius:var(--radius-md);border:1px solid var(--border2);background:linear-gradient(120deg,rgba(47,99,196,.2),rgba(123,208,255,.05));padding:10px 12px;position:relative;overflow:hidden;margin-bottom:12px}
+.chk-phase::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2)}
+.chk-phase .ck{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2)}
+.chk-phase .cpp{width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 0 rgba(123,208,255,.5);animation:cpp 2.4s ease-out infinite}
+@keyframes cpp{0%{box-shadow:0 0 0 0 rgba(123,208,255,.45)}70%{box-shadow:0 0 0 7px rgba(123,208,255,0)}100%{box-shadow:0 0 0 0 rgba(123,208,255,0)}}
+.chk-phase .ctx{font-size:12px;line-height:1.4;margin-top:6px;color:var(--text);font-weight:500}
+.chk-phase .ctx b{color:var(--accent3);font-weight:800}
+.step{display:flex;align-items:center;gap:11px;padding:8px 4px;border-radius:var(--radius-md)}
+.step.active{background:rgba(123,208,255,.06)}
+.step .box{width:20px;height:20px;border-radius:6px;flex-shrink:0;display:grid;place-items:center;border:1.5px solid var(--border3);transition:all .3s var(--ease-spring)}
+.step.done .box{background:var(--rb);border-color:var(--rb)}
+.step.done .box svg{width:11px;height:11px;stroke:#08130c;stroke-width:3.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.step.active .box{border-color:var(--accent2);animation:ring 2.2s ease-out infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(123,208,255,.4)}70%{box-shadow:0 0 0 6px rgba(123,208,255,0)}100%{box-shadow:0 0 0 0 rgba(123,208,255,0)}}
+.step .pdot{width:7px;height:7px;border-radius:50%}
+.step .sbody{flex:1;min-width:0}
+.step .sl{font-weight:700;font-size:13px;letter-spacing:-.01em}
+.step.done .sl{color:var(--text2)}
+.step .ss{font-size:10.5px;color:var(--muted)}
+.step .sf{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--value);white-space:nowrap}
+.step.pending .sf{color:var(--muted);font-weight:500}
+/* grade strip inside checklist */
+.grade-strip{display:flex;align-items:center;gap:10px;margin:10px 0 2px;padding:10px 12px;border-radius:var(--radius-md);background:var(--s1);border:1px solid var(--border)}
+.grade-strip .gk{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.grade-strip .gl{font-family:var(--font-mono);font-weight:900;font-size:22px;letter-spacing:-.02em;line-height:1}
+.grade-strip .gfac{display:flex;align-items:flex-end;gap:3px;height:16px;margin-left:auto}
+.grade-strip .gfac i{width:6px;border-radius:2px}
+.grade-strip .gtrend{font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--rb)}
+.chk-foot{display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:11px;border-top:1px solid var(--border)}
+.chk-foot .cn{font-family:var(--font-mono);font-size:10.5px;font-weight:800}.chk-foot .cn span{color:var(--muted);font-weight:500}
+.cbar{flex:1;height:6px;border-radius:3px;background:var(--s4);overflow:hidden}
+.cbar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s var(--ease-out)}
+.chk-change{font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer;background:none;border:none}
+.chk-change:hover{color:var(--accent2)}
+/* report-card handoff button (end of draft) */
+.rc-btn{width:100%;margin-top:12px;cursor:pointer;border:none;border-radius:var(--radius-md);padding:11px;
+  background:linear-gradient(180deg,var(--accent),var(--sky));color:#fff;font-family:var(--font-sans);font-weight:800;font-size:13px;
+  transition:transform var(--dur-release) var(--ease-spring)}
+.rc-btn:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
+
+.mini-pill{display:none;align-items:center;gap:11px;background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--border2);
+  border-radius:var(--radius-pill);box-shadow:var(--shadow-card);padding:8px 9px 8px 9px;cursor:pointer;transition:transform var(--dur-release) var(--ease-spring),border-color .2s}
+.mini-pill.show{display:flex;animation:panin .4s var(--ease-out) both}
+.mini-pill:hover{border-color:var(--accent)}
+.mini-pill:active{transform:scale(.97);transition:transform var(--dur-press) ease-out}
+.mini-pill .ring{width:34px;height:34px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;position:relative;font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--accent2)}
+.mini-pill .ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.mini-pill .mtext{min-width:0}
+.mini-pill .mp-k{font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mini-pill .mp-t{font-weight:800;font-size:13px;letter-spacing:-.01em;white-space:nowrap}
+.mini-pill .mp-up{font-size:14px;color:var(--muted);margin-left:2px}
+.mini-pill .mgrade{margin-left:4px;margin-right:4px;font-family:var(--font-mono);font-weight:800;font-size:14px;padding:3px 7px;border-radius:7px;border:1.5px solid}
+
+/* report card modal (buddy hands it off) */
+.rc-scrim{position:fixed;inset:0;z-index:80;background:rgba(4,8,16,.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:44px 20px;overflow:auto}
+.rc-scrim.show{display:flex;animation:fade .25s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.rc{width:600px;max-width:100%;background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);overflow:hidden;animation:panin .35s var(--ease-out)}
+.rc-hd{position:relative;padding:20px 22px 16px;text-align:center;background:radial-gradient(400px 200px at 50% -20%,rgba(61,204,122,.16),transparent 70%)}
+.rc-hd .buddyhand{width:52px;height:52px;margin:0 auto 6px}
+.rc-hd .k{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.rc-ring{width:100px;height:100px;margin:10px auto 6px;border-radius:50%;display:grid;place-items:center;position:relative;background:conic-gradient(var(--rb) 0 91%,var(--s4) 91% 100%)}
+.rc-ring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--s1)}
+.rc-ring .g{position:relative;font-weight:900;font-size:32px;letter-spacing:-.02em;color:var(--rb)}
+.rc-ring .g small{display:block;font-family:var(--font-mono);font-size:10px;color:var(--muted);font-weight:700}
+.rc-strat{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);background:rgba(123,208,255,.1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:6px 13px}
+.rc-body{padding:6px 22px 18px}
+.rc-steal{display:flex;align-items:center;gap:12px;border:1px solid var(--border2);border-radius:var(--radius-md);padding:11px 13px;background:var(--s1);margin:8px 0 16px}
+.rc-steal .st-k{font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.rc-steal .st-nm{font-weight:800;font-size:15px;margin-top:2px}
+.rc-steal .st-v{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--value);text-align:right}
+.rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rc-sec-t{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.rings{display:flex;justify-content:space-between;gap:6px}
+.ring2{text-align:center;flex:1}
+.ring2 .rr{width:44px;height:44px;margin:0 auto 5px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-weight:800;font-size:13px}
+.ring2 .rlbl{font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mix-row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.mix-row .ml{font-family:var(--font-mono);font-size:10px;font-weight:700;width:26px;color:var(--text2)}
+.mix-bar{flex:1;height:8px;border-radius:4px;background:var(--s4);position:relative}
+.mix-bar .fillb{height:100%;border-radius:4px}
+.mix-bar .lgtick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text2);opacity:.7;border-radius:2px}
+.mix-row .mv{font-family:var(--font-mono);font-size:9px;color:var(--muted);width:74px;text-align:right}
+.rc-foot{display:flex;gap:10px;padding:15px 22px 20px;border-top:1px solid var(--border)}
+.rc-foot .dbtn{flex:1;text-align:center;font-size:12px}
+.rc-foot .primary{background:linear-gradient(180deg,var(--accent),var(--sky));border-color:transparent;color:#fff}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="dev">
+  <span>Draft Buddy · <b>Vault shield</b></span>
+  <button class="dbtn" id="sim">▶ Simulate pick</button>
+  <button class="dbtn" id="rst" style="background:transparent;font-weight:600;color:var(--muted)">Reset</button>
+  <span style="margin-left:auto">click the shield ↘</span>
+</div>
+
+<div class="page">
+  <div class="ph"><h1>Draft Vault</h1><span class="chip">Turf Wars · PPR · 10-TM</span></div>
+  <div class="tiles">
+    <div class="tile"><div class="e">Your next pick</div><div class="v">3.05</div></div>
+    <div class="tile"><div class="e">Left</div><div class="v" id="bd-left">142</div></div>
+    <div class="tile"><div class="e">Drafted</div><div class="v" id="bd-gone">24</div></div>
+    <div class="tile"><div class="e">Draft grade</div><div class="v" id="bd-grade" style="color:var(--te)">B+</div></div>
+  </div>
+  <div class="tbl">
+    <div class="trow" style="--pc:var(--wr)"><span class="rk">154</span><span class="av">WR</span><span class="nm">Chris Bell</span><span class="meta">ADP 216 · ▲62</span></div>
+    <div class="trow" style="--pc:var(--rb)"><span class="rk">31</span><span class="av">RB</span><span class="nm">Breece Hall</span><span class="meta">ADP 31 · on-plan</span></div>
+    <div class="trow" style="--pc:var(--wr)"><span class="rk">18</span><span class="av">WR</span><span class="nm">Brian Thomas Jr.</span><span class="meta">ADP 34 · Upside 9.0</span></div>
+    <div class="trow" style="--pc:var(--qb)"><span class="rk">96</span><span class="av">QB</span><span class="nm">Jared Goff</span><span class="meta">ADP 96 · wait to R10</span></div>
+    <div class="trow" style="--pc:var(--te)"><span class="rk">40</span><span class="av">TE</span><span class="nm">Colston Loveland</span><span class="meta">ADP 92 · value</span></div>
+  </div>
+</div>
+
+<div class="buddy-root" id="broot">
+  <div class="panel" id="panel"></div>
+  <div class="mini-pill" id="pill">
+    <div class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--s4)" stroke-width="3"/><circle id="pill-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--accent2)" stroke-width="3" stroke-linecap="round" stroke-dasharray="94" stroke-dashoffset="94"/></svg><span id="pill-n">2/6</span></div>
+    <div class="mtext"><div class="mp-k" id="pill-k">Robust RB · phase 2</div><div class="mp-t" id="pill-t">Secure the backfield</div></div>
+    <span class="mgrade" id="pill-grade">A−</span>
+  </div>
+  <div class="buddy bob" id="buddy">
+    <span class="buddy-dot" id="bdot"></span>
+    <span class="buddy-grade" id="bgrade">A−</span>
+    <span id="buddy-svg"></span>
+  </div>
+</div>
+
+<div class="rc-scrim" id="rcScrim">
+  <div class="rc">
+    <div class="rc-hd">
+      <div class="buddyhand" id="rc-buddy"></div>
+      <div class="k">Draft complete · your buddy graded it</div>
+      <div class="rc-ring"><span class="g" id="rc-letter">A−<small id="rc-score">91 / 100</small></span></div>
+      <div class="rc-strat">◆ <span id="rc-strat">Robust RB</span></div>
+    </div>
+    <div class="rc-body">
+      <div class="rc-steal">
+        <div><div class="st-k">Steal of the draft</div><div class="st-nm">Breece Hall · RB</div></div>
+        <div class="st-v">R3 pick<br>+1.4 rds value</div>
+      </div>
+      <div class="rc-grid">
+        <div>
+          <div class="rc-sec-t">Team 4-factor</div>
+          <div class="rings">
+            <div class="ring2"><div class="rr" style="color:var(--te);background:conic-gradient(var(--te) 0 82%,var(--s4) 82%)">8.2</div><div class="rlbl">Upside</div></div>
+            <div class="ring2"><div class="rr" style="color:var(--rb);background:conic-gradient(var(--rb) 0 86%,var(--s4) 86%)">8.6</div><div class="rlbl">Floor</div></div>
+            <div class="ring2"><div class="rr" style="color:var(--red);background:conic-gradient(var(--red) 0 50%,var(--s4) 50%)">5.0</div><div class="rlbl">Risk</div></div>
+            <div class="ring2"><div class="rr" style="color:var(--wr);background:conic-gradient(var(--wr) 0 80%,var(--s4) 80%)">8.0</div><div class="rlbl">Situ</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="rc-sec-t">Positional mix vs league</div>
+          <div class="mix-row"><span class="ml">QB</span><div class="mix-bar"><div class="fillb" style="width:13%;background:var(--qb)"></div><div class="lgtick" style="left:9%"></div></div><span class="mv">13% · lg 9%</span></div>
+          <div class="mix-row"><span class="ml">RB</span><div class="mix-bar"><div class="fillb" style="width:44%;background:var(--rb)"></div><div class="lgtick" style="left:30%"></div></div><span class="mv">44% · lg 30%</span></div>
+          <div class="mix-row"><span class="ml">WR</span><div class="mix-bar"><div class="fillb" style="width:31%;background:var(--wr)"></div><div class="lgtick" style="left:34%"></div></div><span class="mv">31% · lg 34%</span></div>
+          <div class="mix-row"><span class="ml">TE</span><div class="mix-bar"><div class="fillb" style="width:12%;background:var(--te)"></div><div class="lgtick" style="left:12%"></div></div><span class="mv">12% · lg 12%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="rc-foot">
+      <button class="dbtn primary">⤓ Share image</button>
+      <button class="dbtn">Compare league</button>
+      <button class="dbtn" id="rcClose" style="background:transparent;color:var(--muted)">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const POS={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+
+/* ── Vault shield mascot (faithful recreation + eyes on the football) ── */
+const VAULT_SHIELD="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2aWV3Qm94PSI0NTIgMTg2IDM3NiA0NTIiPgo8ZyB0cmFuc2Zvcm09Im1hdHJpeCgxLjkyMTE1Mzg0NjE1Mzg0NjIgMCAwIDEuOTIxMTUzODQ2MTUzODQ2MiA2NDAgNDEzLjAwMjk0MjMwNzY5MjM2KSIgaWQ9ImxvZ28tbG9nbyIgID4KPGcgc3R5bGU9IiIgIHBhaW50LW9yZGVyPSJzdHJva2UiICAgPgoJCTxnIHRyYW5zZm9ybT0ibWF0cml4KDAuNzI1MTAwODMzODA3MjE4OCAwIDAgMC43MjUxMDA4MzM4MDcyMTg2IDAgMCkiICA+CjxwYXRoIHN0eWxlPSJzdHJva2U6IG5vbmU7IHN0cm9rZS13aWR0aDogMTsgc3Ryb2tlLWRhc2hhcnJheTogbm9uZTsgc3Ryb2tlLWxpbmVjYXA6IGJ1dHQ7IHN0cm9rZS1kYXNob2Zmc2V0OiAwOyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbWl0ZXJsaW1pdDogNDsgZmlsbDogcmdiKDEyLDQ0LDc2KTsgZmlsbC1ydWxlOiBub256ZXJvOyBvcGFjaXR5OiAxOyIgIHBhaW50LW9yZGVyPSJzdHJva2UiICB0cmFuc2Zvcm09IiB0cmFuc2xhdGUoLTQ0OS4xMTYsIC0zOTYuMTU4NSkiIGQ9Ik0gNDQ1LjIyMSA1NTQuMzE4IEwgNDM4LjA3IDU1Mi4yNzMgQyAzNzUuNzcyIDUzNC40OTYgMzE5IDUxOC4yOTEgMzE5IDQ0MS4yNTYgTCAzMTkgMjczLjA4NCBMIDMzNC4wNzcgMjczLjk4MiBDIDMzNC4yNDYgMjczLjk5MTAwMDAwMDAwMDA0IDM5Mi44MTMgMjc3LjgyODAwMDAwMDAwMDAzIDQ0MC45MzggMjQzLjc4NDAwMDAwMDAwMDAyIEwgNDQ5LjExNiAyMzcuOTk5MDAwMDAwMDAwMDIgTCA0NTcuMjkzIDI0My43ODQwMDAwMDAwMDAwMiBDIDUwNS40MTggMjc3LjgyODAwMDAwMDAwMDAzIDU2My45ODYgMjczLjk5MiA1NjQuMTU0IDI3My45ODIgTCA1NzkuMjMyIDI3My4wODQgTCA1NzkuMjMyIDQ0MS4yNTUgQyA1NzkuMjMyIDUxOC4yOSA1MjIuNDU5IDUzNC40OTUgNDYwLjE1OTk5OTk5OTk5OTk3IDU1Mi4yNzMgTCA0NTMuMDEgNTU0LjMxOCBMIDQ0NS4yMjEgNTU0LjMxOCBMIDQ0NS4yMjEgNTU0LjMxOCB6IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CjwvZz4KCQk8ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjcyNTEwMDgzMzgwNzIxODggMCAwIDAuNzI1MTAwODMzODA3MjE4NiAwLjAwMDAxMzMxODEwMjg0NDU1MDU5IDQ5LjI5MzA3OTc4MzA0ODU0KSIgID4KPHBhdGggc3R5bGU9InN0cm9rZTogbm9uZTsgc3Ryb2tlLXdpZHRoOiAxOyBzdHJva2UtZGFzaGFycmF5OiBub25lOyBzdHJva2UtbGluZWNhcDogYnV0dDsgc3Ryb2tlLWRhc2hvZmZzZXQ6IDA7IHN0cm9rZS1saW5lam9pbjogbWl0ZXI7IHN0cm9rZS1taXRlcmxpbWl0OiA0OyBmaWxsOiByZ2IoMjM2LDUxLDU2KTsgZmlsbC1ydWxlOiBldmVub2RkOyBvcGFjaXR5OiAxOyIgIHBhaW50LW9yZGVyPSJzdHJva2UiICB0cmFuc2Zvcm09IiB0cmFuc2xhdGUoLTQ0OS4xMTYwMTgzNjcyNDI0LCAtNDY0LjEzOTUpIiBkPSJNIDM0NS45MzcgNDAyLjI0NiBMIDM0NS45MzcgNDQwLjk5IEMgMzQ1LjIyOSA0NzguMDcyIDM3Mi44NzMgNTAyLjAwNjAwMDAwMDAwMDAzIDQwNS44NTkwMDAwMDAwMDAwNCA1MTIuNjgzIEwgNDQ5LjExNjAwMDAwMDAwMDA0IDUyNi4wMzMgTCA0OTIuMzczMDAwMDAwMDAwMDUgNTEyLjY4MyBDIDUyNS4zNTkgNTAyLjAwNSA1NTMuMDA0IDQ3OC4wNzIgNTUyLjI5NTAwMDAwMDAwMDEgNDQwLjk5IEwgNTUyLjI5NTAwMDAwMDAwMDEgNDAyLjI0NiBDIDQ5OC41MSA0NTguOTY1IDM5OS42NzMgNDU5LjMzMiAzNDUuOTM3IDQwMi4yNDYgTCAzNDUuOTM3IDQwMi4yNDYgeiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgo8L2c+CgkJPGcgdHJhbnNmb3JtPSJtYXRyaXgoMC43MjUxMDA4MzM4MDcyMTg4IDAgMCAwLjcyNTEwMDgzMzgwNzIxODYgMC4wMDA3MjUxMDA4MzM3OTAyOTMxIDIzLjEyOTg3Nzk2MTU4NzIyNikiICA+CjxwYXRoIHN0eWxlPSJzdHJva2U6IG5vbmU7IHN0cm9rZS13aWR0aDogMTsgc3Ryb2tlLWRhc2hhcnJheTogbm9uZTsgc3Ryb2tlLWxpbmVjYXA6IGJ1dHQ7IHN0cm9rZS1kYXNob2Zmc2V0OiAwOyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbWl0ZXJsaW1pdDogNDsgZmlsbDogcmdiKDE5OSw0NCw0OSk7IGZpbGwtcnVsZTogZXZlbm9kZDsgb3BhY2l0eTogMTsiICBwYWludC1vcmRlcj0ic3Ryb2tlIiAgdHJhbnNmb3JtPSIgdHJhbnNsYXRlKC00NDkuMTE2OTk5OTk5OTk5OTYsIC00MjguMDU3MzQzNDIwMzU3NikiIGQ9Ik0gMzQ1LjkzNyA0MDIuMjQ2IEwgMzQ1LjkzNyA0MTEuMzExOTk5OTk5OTk5OTUgQyAzNTUuNjAxIDQyMS4yMjU5OTk5OTk5OTk5NCAzNjguNzg3MDAwMDAwMDAwMDMgNDMxLjk3MiAzODUuODY4IDQ0MC4xOTQ5OTk5OTk5OTk5NCBDIDQwMi45NjYgNDQ4LjQyNDk5OTk5OTk5OTk1IDQyMy45MzM5OTk5OTk5OTk5NyA0NTQuMTA2OTk5OTk5OTk5OSA0NDkuMTE4IDQ1My44NjA5OTk5OTk5OTk5MyBDIDQ3NC4zIDQ1NC4xMDY5OTk5OTk5OTk5IDQ5NS4yNjkgNDQ4LjQyNDk5OTk5OTk5OTk1IDUxMi4zNjcgNDQwLjE5NDk5OTk5OTk5OTk0IEMgNTI5LjQ0NyA0MzEuOTcxOTk5OTk5OTk5OSA1NDIuNjMyOTk5OTk5OTk5OSA0MjEuMjI1OTk5OTk5OTk5OTQgNTUyLjI5Njk5OTk5OTk5OTkgNDExLjMxMTk5OTk5OTk5OTk1IEwgNTUyLjI5Njk5OTk5OTk5OTkgNDAyLjI0NiBDIDQ5OC41MSA0NTguOTY1IDM5OS42NzMgNDU5LjMzMiAzNDUuOTM3IDQwMi4yNDYgTCAzNDUuOTM3IDQwMi4yNDYgeiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgo8L2c+CgkJPGcgdHJhbnNmb3JtPSJtYXRyaXgoMC43MjUxMDA4MzM4MDcyMTg4IDAgMCAwLjcyNTEwMDgzMzgwNzIxODYgMCAwLjc3NDQwNzY5MDUwNjEwOTIpIiAgPgo8cGF0aCBzdHlsZT0ic3Ryb2tlOiBub25lOyBzdHJva2Utd2lkdGg6IDE7IHN0cm9rZS1kYXNoYXJyYXk6IG5vbmU7IHN0cm9rZS1saW5lY2FwOiBidXR0OyBzdHJva2UtZGFzaG9mZnNldDogMDsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlcjsgc3Ryb2tlLW1pdGVybGltaXQ6IDQ7IGZpbGw6IHJnYigyNTUsMjU1LDI1NSk7IGZpbGwtcnVsZTogZXZlbm9kZDsgb3BhY2l0eTogMTsiICBwYWludC1vcmRlcj0ic3Ryb2tlIiAgdHJhbnNmb3JtPSIgdHJhbnNsYXRlKC00NDkuMTE2LCAtMzk3LjIyNjUpIiBkPSJNIDM3Ni4zMzQgNDI2LjA1NyBMIDM3Ni4zMzQgNDk4LjI0NiBDIDM2Ny44NTEgNDkyLjUyNyAzNjAuNzQ0IDQ4NS42NDU5OTk5OTk5OTk5NiAzNTUuNTM5IDQ3Ny4wMzEgTCAzNTUuNTM5IDQxMS4yNDQgQyAzNjEuNTIxIDQxNi4zNzEgMzY4LjQzNiA0MjEuNDUzIDM3Ni4zMzQgNDI2LjA1NyBMIDM3Ni4zMzQgNDI2LjA1NyB6IE0gNDQ3LjQ4NSA1NDYuMzYzIEwgNDQwLjMzNTAwMDAwMDAwMDA0IDU0NC4zMTYgQyAzODEuMTg0IDUyNy40MzcgMzI3LjI4MDAwMDAwMDAwMDAzIDUxMi4wNTIgMzI3LjI4MDAwMDAwMDAwMDAzIDQ0MS4yNTUgTCAzMjcuMjgwMDAwMDAwMDAwMDMgMjgxLjg1NCBMIDMzMy41OTEgMjgyLjIyOTk5OTk5OTk5OTk2IEMgMzMzLjc2ODAwMDAwMDAwMDAzIDI4Mi4yMzkgMzk1LjE1NiAyODYuMjYwOTk5OTk5OTk5OTcgNDQ1LjY5MyAyNTAuNTEwOTk5OTk5OTk5OTcgTCA0NDkuMTE2IDI0OC4wODk5OTk5OTk5OTk5NyBMIDQ1Mi41MzkgMjUwLjUxMDk5OTk5OTk5OTk3IEMgNTAzLjA3Mzk5OTk5OTk5OTk2IDI4Ni4yNjA5OTk5OTk5OTk5NyA1NjQuNDY1IDI4Mi4yMzkgNTY0LjY0MSAyODIuMjI5OTk5OTk5OTk5OTYgTCA1NzAuOTUyIDI4MS44NTQgTCA1NzAuOTUyIDQ0MS4yNTUgQyA1NzAuOTUyIDUxMi4wNTIgNTE3LjA1IDUyNy40MzcgNDU3Ljg5NyA1NDQuMzE2IEwgNDUwLjc0NyA1NDYuMzYzIEwgNDQ3LjQ4NSA1NDYuMzYzIEwgNDQ3LjQ4NSA1NDYuMzYzIHogTSAzODkuMjI2IDMxNi4zODkgQyAzNzUuMzgxIDM0Ny40MjQwMDAwMDAwMDAwNCAzNzcuMjQgMzg0LjI2MzAwMDAwMDAwMDAzIDM4OS4xNCA0MTAuMDQzIEMgMzg5Ljk1NCA0MTAuNDU5IDM5MC43NzcgNDEwLjg2NyAzOTEuNjExOTk5OTk5OTk5OTcgNDExLjI3IEMgNDA3LjEwNDk5OTk5OTk5OTk2IDQxOC43MjkgNDI2LjE0Mzk5OTk5OTk5OTk1IDQyMy44NzUgNDQ5LjA2NiA0MjMuNjQzIEwgNDQ5LjE2OTk5OTk5OTk5OTk2IDQyMy42NDMgQyA0NzIuMDkwOTk5OTk5OTk5OTUgNDIzLjg3NSA0OTEuMTI5OTk5OTk5OTk5OTQgNDE4LjcyOSA1MDYuNjIyOTk5OTk5OTk5OTMgNDExLjI3IEMgNTA3LjQ1Njk5OTk5OTk5OTk0IDQxMC44NjggNTA4LjI3ODk5OTk5OTk5OTk0IDQxMC40NTkgNTA5LjA5Mzk5OTk5OTk5OTk0IDQxMC4wNDMgQyA1MjAuOTkzOTk5OTk5OTk5OSAzODQuMjYyIDUyMi44NTM5OTk5OTk5OTk5IDM0Ny40MjMgNTA5LjAwNzk5OTk5OTk5OTkgMzE2LjM4OSBDIDUwNy45MDc5OTk5OTk5OTk5IDMxNS44MyA1MDYuNzg4OTk5OTk5OTk5OTMgMzE1LjI4MiA1MDUuNjUyOTk5OTk5OTk5OSAzMTQuNzQ3IEMgNDkwLjMzODk5OTk5OTk5OTkgMzA3LjUzOCA0NzEuNjE1OTk5OTk5OTk5OTMgMzAyLjYwNiA0NDkuMTcwOTk5OTk5OTk5OTQgMzAyLjgzMiBMIDQ0OS4wNjY5OTk5OTk5OTk5NSAzMDIuODMyIEMgNDI2LjYyMTk5OTk5OTk5OTk2IDMwMi42MDYgNDA3Ljg5ODk5OTk5OTk5OTk0IDMwNy41MzggMzkyLjU4Mzk5OTk5OTk5OTk1IDMxNC43NDcgQyAzOTEuNDQ0IDMxNS4yODEgMzkwLjMyNiAzMTUuODI5IDM4OS4yMjYgMzE2LjM4OSBMIDM4OS4yMjYgMzE2LjM4OSB6IE0gMzYwLjM3NiAzODkuODk0IEMgMzU2Ljc5OCAzNzcuMTgxIDM1My42MDY5OTk5OTk5OTk5NyAzNTcuMjY4MDAwMDAwMDAwMDMgMzU5LjkzMyAzMzYuOTg2IEMgMzU2LjcxOSAzMzkuOTg4IDM1My44NTEgMzQyLjk2MiAzNTEuMzIwOTk5OTk5OTk5OTcgMzQ1LjgwMTk5OTk5OTk5OTk2IEwgMzUxLjQyOCAzNDUuODg4IEMgMzQ5LjUyMiAzNDguMDYzOTk5OTk5OTk5OTYgMzQ3LjU0OSAzNTAuMTg2IDM0NS43NjkgMzUyLjQ2Nzk5OTk5OTk5OTk2IEwgMzQ1Ljc2IDM1Mi40NjA5OTk5OTk5OTk5NiBMIDM0NS4xOTUgMzUzLjE5MyBMIDM0NS4yMDQgMzUzLjIgQyAzNDIuNjI3IDM1Ni43OTMgMzQxLjc4MDAwMDAwMDAwMDAzIDM2MC4xOCAzNDEuODQyIDM2My4xNDYgQyAzNDEuOTQgMzY3Ljc4MjAwMDAwMDAwMDA0IDM0NC4xNjYgMzcxLjczMyAzNDUuNjUxIDM3My44NjQwMDAwMDAwMDAwMyBDIDM0OS4zNzggMzc4LjY1IDM1NC4yNjIgMzg0LjIzMyAzNjAuMzc2IDM4OS44OTQgTCAzNjAuMzc2IDM4OS44OTQgeiBNIDQ0OS4xMTcgNDM2Ljg0IEMgNDIzLjkzNCA0MzcuMDg1OTk5OTk5OTk5OTYgNDAyLjk2NTAwMDAwMDAwMDAzIDQzMS40MDIgMzg1Ljg2NyA0MjMuMTcxOTk5OTk5OTk5OTcgQyAzNjQuNDE2IDQxMi44NDU5OTk5OTk5OTk5NSAzNDkuMTA3IDM5OC41MzkgMzM5LjIwNCAzODYuODk4OTk5OTk5OTk5OTQgTCAzMzkuMjA0IDQ0MS4yNTYgQyAzMzkuMjA0IDUwMy4wNjg5OTk5OTk5OTk5NiAzODguOTc3MDAwMDAwMDAwMDMgNTE3LjI3NCA0NDMuNTk2IDUzMi44NiBMIDQ0OS4xMTYgNTM0LjQzOCBMIDQ1NC42MzcgNTMyLjg2IEMgNTA5LjI1NCA1MTcuMjc0IDU1OS4wMjggNTAzLjA2OSA1NTkuMDI4IDQ0MS4yNTYwMDAwMDAwMDAwMyBMIDU1OS4wMjggMzg2LjkgQyA1NDkuMTI2IDM5OC41MzkgNTMzLjgxNyA0MTIuODQ2IDUxMi4zNjYgNDIzLjE3MTk5OTk5OTk5OTk3IEMgNDk1LjI2OCA0MzEuNDAyIDQ3NC4yOTkgNDM3LjA4NiA0NDkuMTE3IDQzNi44NCBMIDQ0OS4xMTcgNDM2Ljg0IHogTSAzMzkuMjA0IDMzOS41OTkgQyAzNDkuMjc3IDMyNy43NTMgMzY0LjkzNyAzMTMuMTQ5IDM4Ni45NDEwMDAwMDAwMDAwMyAzMDIuNzkxIEMgNDAzLjgzOCAyOTQuODM4IDQyNC40NTYgMjg5LjM5NSA0NDkuMTE3IDI4OS42MzYgQyA0NzMuNzc4IDI4OS4zOTUwMDAwMDAwMDAwNCA0OTQuMzk1MDAwMDAwMDAwMDQgMjk0LjgzOCA1MTEuMjkxIDMwMi43OTEgQyA1MzMuMjk1IDMxMy4xNDcgNTQ4Ljk1NSAzMjcuNzUyIDU1OS4wMjcgMzM5LjU5OCBMIDU1OS4wMjcgMjk0LjI1NSBDIDU0MS44MDQwMDAwMDAwMDAxIDI5NC4yNSA0OTIuMzYzMDAwMDAwMDAwMDYgMjkxLjQ4OCA0NDkuMTE1IDI2Mi41NDcgQyA0MDUuODY3IDI5MS40ODggMzU2LjQyNjAwMDAwMDAwMDA0IDI5NC4yNTEwMDAwMDAwMDAwMyAzMzkuMjAzIDI5NC4yNTUgTCAzMzkuMjAzIDMzOS41OTkgTCAzMzkuMjA0IDMzOS41OTkgeiBNIDUzNy44NTUgMzg5Ljg5MiBDIDU0My45NjgwMDAwMDAwMDAxIDM4NC4yMzEgNTQ4Ljg1MSAzNzguNjQ3IDU1Mi41NzYgMzczLjg1OSBDIDU1NC4wNjYgMzcxLjczMyA1NTYuMjkzIDM2Ny43ODIgNTU2LjM5IDM2My4xNDU5OTk5OTk5OTk5NiBDIDU1Ni40NTMgMzYwLjE3OTk5OTk5OTk5OTk1IDU1NS42MDUgMzU2Ljc5Mjk5OTk5OTk5OTk1IDU1My4wMjY5OTk5OTk5OTk5IDM1My4xOTk5OTk5OTk5OTk5MyBMIDU1My4wMzY5OTk5OTk5OTk5IDM1My4xOTI5OTk5OTk5OTk5IEwgNTUyLjQ3MyAzNTIuNDYwOTk5OTk5OTk5OSBMIDU1Mi40NjQ5OTk5OTk5OTk5IDM1Mi40Njc5OTk5OTk5OTk5IEMgNTUwLjY3NTk5OTk5OTk5OTkgMzUwLjE5Mjk5OTk5OTk5OTkgNTQ4LjcwOSAzNDguMDY0OTk5OTk5OTk5OSA1NDYuODAyOTk5OTk5OTk5OSAzNDUuODg3OTk5OTk5OTk5OSBMIDU0Ni45MDk5OTk5OTk5OTk5IDM0NS44MDA5OTk5OTk5OTk5MyBDIDU0NC4zNzg5OTk5OTk5OTk5IDM0Mi45NTk5OTk5OTk5OTk5IDU0MS41MTE5OTk5OTk5OTk4IDMzOS45ODU5OTk5OTk5OTk5MyA1MzguMjk4OTk5OTk5OTk5OSAzMzYuOTgzOTk5OTk5OTk5OSBDIDU0NC42MjMgMzU3LjI2NiA1NDEuNDM2IDM3Ny4xNzkgNTM3Ljg1NSAzODkuODkyIEwgNTM3Ljg1NSAzODkuODkyIHogTSA0ODIuNjM5IDM1NC4zNjYgQyA0ODEuODY4IDM1Mi4xMTggNDgzLjA2NyAzNDkuNjcxIDQ4NS4zMTUgMzQ4LjkgQyA0ODcuNTYxIDM0OC4xMjg5OTk5OTk5OTk5NiA0OTAuMDEgMzQ5LjMyNyA0OTAuNzggMzUxLjU3NSBDIDQ5Mi4yNTUgMzU1Ljg2ODk5OTk5OTk5OTk3IDQ5My4wMDEgMzYwLjM0OCA0OTMuMDA1IDM2NS4wMDkgQyA0OTMuMDA5IDM2OS41ODEgNDkyLjI4MiAzNzQuMjkgNDkwLjgxNiAzNzkuMTMzMDAwMDAwMDAwMDQgQyA0OTAuMTI4IDM4MS4zOTkwMDAwMDAwMDAwNiA0ODcuNzMxOTk5OTk5OTk5OTcgMzgyLjY3OTAwMDAwMDAwMDAzIDQ4NS40NjU5OTk5OTk5OTk5NSAzODEuOTkyIEMgNDgzLjE5OCAzODEuMzA1IDQ4MS45MTg5OTk5OTk5OTk5IDM3OC45MDkgNDgyLjYwNjk5OTk5OTk5OTk3IDM3Ni42NDMwMDAwMDAwMDAwMyBDIDQ4My4zNTEgMzc0LjE4ODAwMDAwMDAwMDA1IDQ4My44NjQ5OTk5OTk5OTk5NSAzNzEuNzg4IDQ4NC4xNTQgMzY5LjQ0MzAwMDAwMDAwMDA0IEwgNDc2LjAxMDk5OTk5OTk5OTk3IDM2OS40NDMwMDAwMDAwMDAwNCBDIDQ3Ni4xMjE5OTk5OTk5OTk5NiAzNjcuOTI5MDAwMDAwMDAwMDMgNDc2LjE3Njk5OTk5OTk5OTk2IDM2Ni40MjUwMDAwMDAwMDAwNyA0NzYuMTc0OTk5OTk5OTk5OTUgMzY0LjkzMTAwMDAwMDAwMDA0IEMgNDc2LjE3Mjk5OTk5OTk5OTk0IDM2My41NTMwMDAwMDAwMDAwNSA0NzYuMTIzOTk5OTk5OTk5OTcgMzYyLjE4NjAwMDAwMDAwMDA0IDQ3Ni4wMjY5OTk5OTk5OTk5MyAzNjAuODMxIEwgNDg0LjE1Nzk5OTk5OTk5OTkgMzYwLjgzMSBDIDQ4My44NzEgMzU4LjYzOSA0ODMuMzY1IDM1Ni40ODQgNDgyLjYzOSAzNTQuMzY2IEwgNDgyLjYzOSAzNTQuMzY2IHogTSA0NjIuOTI4IDM1MS44MzEgQyA0NjIuMjcgMzQ5LjU1NjAwMDAwMDAwMDA0IDQ2My41OCAzNDcuMTc1IDQ2NS44NTQgMzQ2LjUxNyBDIDQ2OC4xMjg5OTk5OTk5OTk5NiAzNDUuODU4IDQ3MC41MSAzNDcuMTY4IDQ3MS4xNjggMzQ5LjQ0NCBDIDQ3Mi42MDcgMzU0LjQyOTAwMDAwMDAwMDAzIDQ3My4zMzggMzU5LjU5MjAwMDAwMDAwMDA0IDQ3My4zNDIgMzY0LjkzMTAwMDAwMDAwMDA0IEMgNDczLjM0NiAzNzAuMjU2MDAwMDAwMDAwMDMgNDcyLjY0MyAzNzUuNzA3MDAwMDAwMDAwMDUgNDcxLjIxOSAzODEuMjgxMDAwMDAwMDAwMDYgQyA0NzAuNjM1IDM4My41ODQwMDAwMDAwMDAwNiA0NjguMjkzIDM4NC45NzcwMDAwMDAwMDAxIDQ2NS45ODkgMzg0LjM5MzAwMDAwMDAwMDEgQyA0NjMuNjg2IDM4My44MDkwMDAwMDAwMDAxIDQ2Mi4yOTQgMzgxLjQ2NTAwMDAwMDAwMDEgNDYyLjg3OCAzNzkuMTYyMDAwMDAwMDAwMSBDIDQ2My43Mjk5OTk5OTk5OTk5NiAzNzUuODI3MDAwMDAwMDAwMSA0NjQuMjkyIDM3Mi41ODcwMDAwMDAwMDAxIDQ2NC41NjcgMzY5LjQ0MzAwMDAwMDAwMDEgTCA0NTMuNDIyIDM2OS40NDMwMDAwMDAwMDAxIEwgNDUzLjQyMiAzODAuMjIxMDAwMDAwMDAwMSBDIDQ1My40MjIgMzgyLjU5ODAwMDAwMDAwMDEgNDUxLjQ5NCAzODQuNTI3MDAwMDAwMDAwMSA0NDkuMTE2MDAwMDAwMDAwMDQgMzg0LjUyNzAwMDAwMDAwMDEgQyA0NDYuNzM5MDAwMDAwMDAwMDMgMzg0LjUyNzAwMDAwMDAwMDEgNDQ0LjgxMDAwMDAwMDAwMDA2IDM4Mi41OTgwMDAwMDAwMDAxIDQ0NC44MTAwMDAwMDAwMDAwNiAzODAuMjIxMDAwMDAwMDAwMSBMIDQ0NC44MTAwMDAwMDAwMDAwNiAzNjkuNDQzMDAwMDAwMDAwMSBMIDQzMy42NjYwMDAwMDAwMDAwNSAzNjkuNDQzMDAwMDAwMDAwMSBDIDQzMy45NDEwMDAwMDAwMDAwMyAzNzIuNTg3MDAwMDAwMDAwMSA0MzQuNTAzMDAwMDAwMDAwMDQgMzc1LjgyNjAwMDAwMDAwMDEgNDM1LjM1NDAwMDAwMDAwMDA0IDM3OS4xNjIwMDAwMDAwMDAxIEMgNDM1LjkzODAwMDAwMDAwMDA1IDM4MS40NjUwMDAwMDAwMDAxIDQzNC41NDUgMzgzLjgwODAwMDAwMDAwMDEgNDMyLjI0MiAzODQuMzkzMDAwMDAwMDAwMSBDIDQyOS45MzkgMzg0Ljk3NzAwMDAwMDAwMDEgNDI3LjU5NiAzODMuNTg0MDAwMDAwMDAwMDYgNDI3LjAxMSAzODEuMjgxMDAwMDAwMDAwMDYgQyA0MjUuNTg5IDM3NS43MDcwMDAwMDAwMDAwNSA0MjQuODg2IDM3MC4yNTcwMDAwMDAwMDAwNiA0MjQuODg5IDM2NC45MzEwMDAwMDAwMDAwNCBDIDQyNC44OTMwMDAwMDAwMDAwMyAzNTkuNTkyMDAwMDAwMDAwMDQgNDI1LjYyMiAzNTQuNDI5MDAwMDAwMDAwMDMgNDI3LjA2MTAwMDAwMDAwMDA0IDM0OS40NDQgQyA0MjcuNzIgMzQ3LjE2OTAwMDAwMDAwMDA0IDQzMC4xMDEwMDAwMDAwMDAwNiAzNDUuODU4IDQzMi4zNzUwMDAwMDAwMDAwNiAzNDYuNTE3IEMgNDM0LjY1MDAwMDAwMDAwMDAzIDM0Ny4xNzYgNDM1Ljk2MDAwMDAwMDAwMDA0IDM0OS41NTYgNDM1LjMwMjAwMDAwMDAwMDEgMzUxLjgzMSBDIDQzNC40NTcwMDAwMDAwMDAwNSAzNTQuNzU3IDQzMy45MDIwMDAwMDAwMDAxIDM1Ny43NTcgNDMzLjY0MDAwMDAwMDAwMDEgMzYwLjgzMSBMIDQ0NC44MDgwMDAwMDAwMDAxIDM2MC44MzEgTCA0NDQuODA4MDAwMDAwMDAwMSAzNTAuNjM3IEMgNDQ0LjgwODAwMDAwMDAwMDEgMzQ4LjI1OSA0NDYuNzM2MDAwMDAwMDAwMSAzNDYuMzMxIDQ0OS4xMTQwMDAwMDAwMDAxIDM0Ni4zMzEgQyA0NTEuNDkyMDAwMDAwMDAwMSAzNDYuMzMxIDQ1My40MjAwMDAwMDAwMDAxIDM0OC4yNTkgNDUzLjQyMDAwMDAwMDAwMDEgMzUwLjYzNyBMIDQ1My40MjAwMDAwMDAwMDAxIDM2MC44MzEgTCA0NjQuNTg4MDAwMDAwMDAwMSAzNjAuODMxIEMgNDY0LjMyOCAzNTcuNzU3IDQ2My43NzEgMzU0Ljc1NiA0NjIuOTI4IDM1MS44MzEgTCA0NjIuOTI4IDM1MS44MzEgeiBNIDQwNy40NTEgMzUxLjU3NSBDIDQwOC4yMjIwMDAwMDAwMDAwNCAzNDkuMzI3IDQxMC42NyAzNDguMTMgNDEyLjkxOCAzNDguOSBDIDQxNS4xNjYgMzQ5LjY2OTk5OTk5OTk5OTk2IDQxNi4zNjMgMzUyLjExOCA0MTUuNTkzIDM1NC4zNjYgQyA0MTQuODY2MDAwMDAwMDAwMDQgMzU2LjQ4NSA0MTQuMzYgMzU4LjYzOSA0MTQuMDc2IDM2MC44MzA5OTk5OTk5OTk5NiBMIDQyMi43MzcgMzYwLjgzMDk5OTk5OTk5OTk2IEMgNDIyLjYzOSAzNjIuMTg2IDQyMi41OTAwMDAwMDAwMDAwMyAzNjMuNTUxOTk5OTk5OTk5OTYgNDIyLjU4OSAzNjQuOTMxIEMgNDIyLjU4OSAzNjYuNDI1IDQyMi42NDMgMzY3LjkzIDQyMi43NTQgMzY5LjQ0MyBMIDQxNC4wODAwMDAwMDAwMDAwNCAzNjkuNDQzIEMgNDE0LjM2ODAwMDAwMDAwMDA1IDM3MS43ODggNDE0Ljg4MzAwMDAwMDAwMDA0IDM3NC4xODg5OTk5OTk5OTk5NiA0MTUuNjI3MDAwMDAwMDAwMDcgMzc2LjY0MyBDIDQxNi4zMTQwMDAwMDAwMDAxIDM3OC45MDk5OTk5OTk5OTk5NyA0MTUuMDM0MDAwMDAwMDAwMDUgMzgxLjMwNDk5OTk5OTk5OTk1IDQxMi43NjcwMDAwMDAwMDAwNSAzODEuOTkxOTk5OTk5OTk5OTYgQyA0MTAuNTAxMDAwMDAwMDAwMDMgMzgyLjY3OSA0MDguMTA1MDAwMDAwMDAwMSAzODEuMzk4OTk5OTk5OTk5OTQgNDA3LjQxODAwMDAwMDAwMDA2IDM3OS4xMzMgQyA0MDUuOTUxMDAwMDAwMDAwMSAzNzQuMjg5OTk5OTk5OTk5OTYgNDA1LjIyNTAwMDAwMDAwMDEgMzY5LjU4MDk5OTk5OTk5OTk2IDQwNS4yMjkwMDAwMDAwMDAwNCAzNjUuMDA4OTk5OTk5OTk5OTYgQyA0MDUuMjMxIDM2MC4zNDkgNDA1Ljk3OSAzNTUuODcgNDA3LjQ1MSAzNTEuNTc1IEwgNDA3LjQ1MSAzNTEuNTc1IHogTSAzOTkuNzUyIDM2OS40NDIgQyAzOTcuMzc1IDM2OS40NDIgMzk1LjQ0NiAzNjcuNTE0IDM5NS40NDYgMzY1LjEzNiBDIDM5NS40NDYgMzYyLjc1ODAwMDAwMDAwMDA0IDM5Ny4zNzUgMzYwLjgzMDAwMDAwMDAwMDA0IDM5OS43NTIgMzYwLjgzMDAwMDAwMDAwMDA0IEwgNDAzLjEzNCAzNjAuODMwMDAwMDAwMDAwMDQgQyA0MDIuOTk3IDM2Mi4yMDYgNDAyLjkyOCAzNjMuNTk5MDAwMDAwMDAwMDUgNDAyLjkyNiAzNjUuMDA4MDAwMDAwMDAwMDQgQyA0MDIuOTI1IDM2Ni40NzIwMDAwMDAwMDAwNCA0MDIuOTk4IDM2Ny45NTAwMDAwMDAwMDAwNSA0MDMuMTQ3IDM2OS40NDIwMDAwMDAwMDAwNiBMIDM5OS43NTIgMzY5LjQ0MjAwMDAwMDAwMDA2IEwgMzk5Ljc1MiAzNjkuNDQyIHogTSA0OTUuNjI5IDM2MC44MzEgTCA0OTguNDgxIDM2MC44MzEgQyA1MDAuODU4IDM2MC44MzEgNTAyLjc4NiAzNjIuNzYgNTAyLjc4NiAzNjUuMTM3IEMgNTAyLjc4NiAzNjcuNTE0IDUwMC44NTggMzY5LjQ0MyA0OTguNDgxIDM2OS40NDMgTCA0OTUuNjE0IDM2OS40NDMgQyA0OTUuNzYzOTk5OTk5OTk5OTUgMzY3Ljk1MDk5OTk5OTk5OTk2IDQ5NS44MzcgMzY2LjQ3Mjk5OTk5OTk5OTk2IDQ5NS44MzcgMzY1LjAwODk5OTk5OTk5OTk2IEMgNDk1LjgzNCAzNjMuNTk5IDQ5NS43NjYgMzYyLjIwNyA0OTUuNjI5IDM2MC44MzEgTCA0OTUuNjI5IDM2MC44MzEgeiBNIDU0Mi42OTMgNDExLjI0NiBMIDU0Mi42OTMgNDc3LjAzMDk5OTk5OTk5OTk1IEMgNTM3LjQ4Nzk5OTk5OTk5OTkgNDg1LjY0Nzk5OTk5OTk5OTk3IDUzMC4zNzkgNDkyLjUyNjk5OTk5OTk5OTkzIDUyMS44OTggNDk4LjI0NTk5OTk5OTk5OTkgTCA1MjEuODk4IDQyNi4wNTY5OTk5OTk5OTk5IEMgNTI5Ljc5NSA0MjEuNDU1IDUzNi43MTEgNDE2LjM3MSA1NDIuNjkzIDQxMS4yNDYgTCA1NDIuNjkzIDQxMS4yNDYgeiBNIDUwMS4xMDQgNDM1LjkyNiBMIDUwMS4xMDQgNTA5LjI0IEMgNDk0LjUzMiA1MTIuMDE5IDQ4Ny41NTMgNTE0LjQ5OCA0ODAuMzA4OTk5OTk5OTk5OTcgNTE2LjgyNiBMIDQ4MC4zMDg5OTk5OTk5OTk5NyA0NDEuODgxMDAwMDAwMDAwMDMgQyA0ODcuNzE3IDQ0MC4zNzUgNDk0LjY0NSA0MzguMzQ0IDUwMS4xMDQgNDM1LjkyNiBMIDUwMS4xMDQgNDM1LjkyNiB6IE0gNDU5LjUxNCA0NDQuNTQ3IEwgNDU5LjUxNCA1MjMuMDYxIEwgNDU0LjI5OTAwMDAwMDAwMDA0IDUyNC41NTEgTCA0NDkuMTE2MDAwMDAwMDAwMDQgNTI2LjAzMyBMIDQ0My45MzQgNTI0LjU1MSBMIDQzOC43MTkwMDAwMDAwMDAwNSA1MjMuMDYxIEwgNDM4LjcxOTAwMDAwMDAwMDA1IDQ0NC41NDcgQyA0NDUuNTMgNDQ0LjkzIDQ1Mi43MDEgNDQ0LjkzMiA0NTkuNTE0IDQ0NC41NDcgTCA0NTkuNTE0IDQ0NC41NDcgeiBNIDQxNy45MjMgNDQxLjg3OSBMIDQxNy45MjMgNTE2LjgyNiBDIDQxMC42NzkgNTE0LjQ5OCA0MDMuNzAxIDUxMi4wMTkgMzk3LjEyOCA1MDkuMjQgTCAzOTcuMTI4IDQzNS45MjYwMDAwMDAwMDAwNCBDIDQwMy41ODcgNDM4LjM0MiA0MTAuNTE0IDQ0MC4zNzUgNDE3LjkyMyA0NDEuODc5IEwgNDE3LjkyMyA0NDEuODc5IHoiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KPC9nPgoJCTxnIHRyYW5zZm9ybT0ibWF0cml4KDAuNzI1MTAwODMzODA3MjE4OCAwIDAgMC43MjUxMDA4MzM4MDcyMTg2IDAgMjYuMzkyMTUzMzAzOTY2NTUyKSIgID4KPHBhdGggc3R5bGU9InN0cm9rZTogbm9uZTsgc3Ryb2tlLXdpZHRoOiAxOyBzdHJva2UtZGFzaGFycmF5OiBub25lOyBzdHJva2UtbGluZWNhcDogYnV0dDsgc3Ryb2tlLWRhc2hvZmZzZXQ6IDA7IHN0cm9rZS1saW5lam9pbjogbWl0ZXI7IHN0cm9rZS1taXRlcmxpbWl0OiA0OyBmaWxsOiByZ2IoMjA5LDIxMSwyMTIpOyBmaWxsLXJ1bGU6IGV2ZW5vZGQ7IG9wYWNpdHk6IDE7IiAgcGFpbnQtb3JkZXI9InN0cm9rZSIgIHRyYW5zZm9ybT0iIHRyYW5zbGF0ZSgtNDQ5LjExNiwgLTQzMi41NTY0MDc4MTI4OTI0KSIgZD0iTSAzNzYuMzM0IDQyNi4wNTcgTCAzNzYuMzM0IDQzNS4xMzEwMDAwMDAwMDAwMyBDIDM2OC40MzYgNDMwLjUyOTAwMDAwMDAwMDA1IDM2MS41MjEgNDI1LjQ0NyAzNTUuNTM5IDQyMC4zMjAwMDAwMDAwMDAwNSBMIDM1NS41MzkgNDExLjI0NCBDIDM2MS41MjEgNDE2LjM3MSAzNjguNDM2IDQyMS40NTMgMzc2LjMzNCA0MjYuMDU3IEwgMzc2LjMzNCA0MjYuMDU3IHogTSA0NDkuMTE3IDQ1My44NjEgQyA0NDUuNTY3IDQ1My44OTYgNDQyLjEwMjAwMDAwMDAwMDAzIDQ1My44MTIgNDM4LjcxOSA0NTMuNjIxIEwgNDM4LjcxOSA0NDQuNTQ2OTk5OTk5OTk5OTcgQyA0NDUuNTMgNDQ0LjkyOTk5OTk5OTk5OTk1IDQ1Mi43MDEgNDQ0LjkzMTk5OTk5OTk5OTk2IDQ1OS41MTQgNDQ0LjU0Njk5OTk5OTk5OTk3IEwgNDU5LjUxNCA0NTMuNjIxIEMgNDU2LjEzMSA0NTMuODEzIDQ1Mi42NjYgNDUzLjg5NiA0NDkuMTE3IDQ1My44NjEgTCA0NDkuMTE3IDQ1My44NjEgeiBNIDQxNy45MjMgNDUwLjk1NSBDIDQxMC41MTMgNDQ5LjQ0OSA0MDMuNTg3IDQ0Ny40MTggMzk3LjEyOCA0NDUgTCAzOTcuMTI4IDQzNS45MjYgQyA0MDMuNTg3IDQzOC4zNDIgNDEwLjUxMyA0NDAuMzc1IDQxNy45MjMgNDQxLjg3ODk5OTk5OTk5OTk2IEwgNDE3LjkyMyA0NTAuOTU1IEwgNDE3LjkyMyA0NTAuOTU1IHogTSA1NDIuNjkzIDQyMC4zMiBDIDUzNi43MTEgNDI1LjQ0NyA1MjkuNzk1IDQzMC41MjkgNTIxLjg5OCA0MzUuMTMzIEwgNTIxLjg5OCA0MjYuMDU2OTk5OTk5OTk5OTYgQyA1MjkuNzk0IDQyMS40NTUgNTM2LjcxMSA0MTYuMzcxIDU0Mi42OTMgNDExLjI0NiBMIDU0Mi42OTMgNDIwLjMyIEwgNTQyLjY5MyA0MjAuMzIgeiBNIDUwMS4xMDQgNDQ1LjAwMiBDIDQ5NC42NDUgNDQ3LjQyIDQ4Ny43MTcgNDQ5LjQ0OSA0ODAuMzA4OTk5OTk5OTk5OTcgNDUwLjk1NSBMIDQ4MC4zMDg5OTk5OTk5OTk5NyA0NDEuODgxIEMgNDg3LjcxNyA0NDAuMzc1IDQ5NC42NDUgNDM4LjM0NCA1MDEuMTA0IDQzNS45MjYgTCA1MDEuMTA0IDQ0NS4wMDIgTCA1MDEuMTA0IDQ0NS4wMDIgeiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgo8L2c+CjwvZz4KPC9nPgo8L3N2Zz4K";
+function vaultShield(px,face){return `<img src="${VAULT_SHIELD}" width="${px}" height="${px}" alt="Vault" draggable="false" style="display:block;width:${px}px;height:${px}px;pointer-events:none">`;}
+
+/* strategies (each with its own checklist + phase directives) */
+const STRATS={
+ robust:{name:'Robust RB',ic:'🏈',c:'var(--rb)',desc:'Two early backs, then hammer value',
+   steps:[
+    {pos:'WR',lbl:'R1 anchor',ss:'best player, any pos',round:'RD 1',fill:'Smith-Njigba',dir:'Take the <b>highest-value</b> player — the plan forms around him.'},
+    {pos:'RB',lbl:'Early RB1',ss:'RB1/2-caliber back',round:'RD 2',fill:'K. Walker',dir:'Lock your <b>first anchor back</b>. Don’t leave R2 without one.'},
+    {pos:'RB',lbl:'Early RB2',ss:'two backs by R3',round:'RD 3',fill:'Breece Hall',dir:'Land your <b>second RB1/2 back by end of R3</b> — while the tier holds.'},
+    {pos:'RB',lbl:'RB3 window',ss:'depth swing',round:'R5–7',fill:'Pollard',dir:'Core set. <b>RB3 window is R5–7</b>; take WR value in between.'},
+    {pos:'QB',lbl:'One QB',ss:'value faller',round:'R10+',fill:'Goff',dir:'<b>One QB from R10</b> — a faller, never a reach.'},
+    {pos:'TE',lbl:'TE path',ss:'elite or wait',round:'value',fill:'Loveland',dir:'Last need — grab your <b>TE at value</b>, then upside darts.'},
+   ]},
+ balanced:{name:'Balanced',ic:'⚖️',c:'var(--accent2)',desc:'Best value each round, no holes',
+   steps:[
+    {pos:'RB',lbl:'R1 best',ss:'top of the board',round:'RD 1',fill:'Bijan',dir:'Take the <b>best board value</b> — stay flexible.'},
+    {pos:'WR',lbl:'R2 opposite',ss:'balance R1',round:'RD 2',fill:'Nabers',dir:'Take the <b>opposite position</b> to R1 to stay balanced.'},
+    {pos:'RB',lbl:'3rd starter',ss:'RB/WR core',round:'R3–4',fill:'Kyren',dir:'Round out your <b>RB/WR core</b> — two of each by R5.'},
+    {pos:'WR',lbl:'4th starter',ss:'depth + upside',round:'R4–5',fill:'B. Thomas',dir:'Add a <b>4th startable skill</b>, lean upside.'},
+    {pos:'QB',lbl:'QB mid',ss:'don’t chase',round:'R8–10',fill:'Goff',dir:'Grab a <b>mid-tier QB</b> — no need to chase elite.'},
+    {pos:'TE',lbl:'TE + depth',ss:'fill the roster',round:'late',fill:'Loveland',dir:'<b>Fill TE + bench upside</b> to close out.'},
+   ]},
+ hero:{name:'Hero RB',ic:'🦸',c:'var(--gold)',desc:'One elite RB, then load WRs',
+   steps:[
+    {pos:'RB',lbl:'Elite RB',ss:'your one anchor',round:'RD 1',fill:'Bijan',dir:'Spend R1 on <b>one elite anchor back</b> — your only early RB.'},
+    {pos:'WR',lbl:'WR1',ss:'target hog',round:'RD 2',fill:'Nabers',dir:'Now <b>hammer WR</b> — start your receiver core.'},
+    {pos:'WR',lbl:'WR2',ss:'stack targets',round:'RD 3',fill:'B. Thomas',dir:'<b>Second WR</b> — stack elite targets while RB fades.'},
+    {pos:'WR',lbl:'WR3',ss:'keep stacking',round:'R4–5',fill:'Jennings',dir:'Keep <b>stacking WR value</b> through R5.'},
+    {pos:'RB',lbl:'RB depth',ss:'upside backs',round:'R6+',fill:'Pollard',dir:'Fish for <b>RB2 upside</b> in the dead zone — handcuffs & committees.'},
+    {pos:'QB',lbl:'QB / TE late',ss:'stream/value',round:'late',fill:'Goff',dir:'Close with <b>QB + TE at value</b>.'},
+   ]},
+ zero:{name:'Zero RB',ic:'🚫',c:'var(--red)',desc:'WRs early, mine RB value late',
+   steps:[
+    {pos:'WR',lbl:'WR1',ss:'elite receiver',round:'RD 1',fill:'Chase',dir:'Open with an <b>elite WR</b> — zero RBs early.'},
+    {pos:'WR',lbl:'WR2',ss:'target share',round:'RD 2',fill:'Nabers',dir:'<b>Second elite WR</b> — build an unbeatable receiving corps.'},
+    {pos:'WR',lbl:'WR3 / TE',ss:'keep the run',round:'RD 3',fill:'B. Thomas',dir:'Third WR or elite TE — <b>still no RB</b>.'},
+    {pos:'RB',lbl:'RB value R4-6',ss:'pass-catchers',round:'R4–6',fill:'Pollard',dir:'Now <b>mine RB value</b> — target pass-catching backs.'},
+    {pos:'RB',lbl:'RB volume',ss:'upside/role',round:'R6–8',fill:'Kyren',dir:'Add <b>volume/role RBs</b> — you need bodies, take swings.'},
+    {pos:'QB',lbl:'QB + TE',ss:'value only',round:'late',fill:'Goff',dir:'Fill <b>QB + TE at value</b> to finish.'},
+   ]},
+ te:{name:'Premium TE',ic:'⭐',c:'var(--te)',desc:'Lock an elite TE edge early',
+   steps:[
+    {pos:'RB',lbl:'R1 best',ss:'anchor value',round:'RD 1',fill:'Bijan',dir:'Take the <b>best R1 value</b> before your TE swing.'},
+    {pos:'TE',lbl:'Elite TE',ss:'the edge pick',round:'R2–3',fill:'Bowers',dir:'Grab an <b>elite TE</b> now — the weekly positional edge.'},
+    {pos:'RB',lbl:'RB core',ss:'two backs',round:'R3–5',fill:'Kyren',dir:'Build your <b>RB core</b> — two startable backs.'},
+    {pos:'WR',lbl:'WR core',ss:'target share',round:'R4–6',fill:'B. Thomas',dir:'Add <b>WR value</b> to fill the flex.'},
+    {pos:'QB',lbl:'QB late',ss:'value faller',round:'R10+',fill:'Goff',dir:'<b>One QB late</b> — you spent early capital on TE.'},
+    {pos:'RB',lbl:'Depth',ss:'upside darts',round:'late',fill:'Pollard',dir:'Close with <b>bench upside</b>.'},
+   ]},
+ bpa:{name:'Best Available',ic:'🎯',c:'var(--violet)',desc:'Pure value — take the board',
+   steps:[
+    {pos:'RB',lbl:'R1 · top value',ss:'highest grade',round:'RD 1',fill:'Bijan',dir:'Take the <b>single highest-value</b> player. No positional rules.'},
+    {pos:'WR',lbl:'R2 · top value',ss:'highest grade',round:'RD 2',fill:'Nabers',dir:'Again — <b>best player on the board</b>.'},
+    {pos:'RB',lbl:'R3 · top value',ss:'highest grade',round:'RD 3',fill:'Kyren',dir:'Keep taking <b>value over need</b>.'},
+    {pos:'WR',lbl:'R4–6 · fill needs',ss:'value + roster',round:'R4–6',fill:'B. Thomas',dir:'Now let <b>roster need break ties</b>.'},
+    {pos:'QB',lbl:'QB when it falls',ss:'value tier',round:'flex',fill:'Goff',dir:'Take QB <b>only when the value is right</b>.'},
+    {pos:'TE',lbl:'TE when it falls',ss:'value tier',round:'flex',fill:'Loveland',dir:'Same for TE — <b>value dictates</b>, not slot.'},
+   ]},
+};
+/* live draft grade as picks land (climbs with on-plan value) */
+const GRADES=['B','B+','A−','A−','A','A','A'];
+function gradeAt(i){return GRADES[Math.min(i,GRADES.length-1)];}
+function gradeColor(g){return g[0]==='A'?'var(--rb)':g[0]==='B'?'var(--gold)':'var(--muted)';}
+
+let strat=null, idx=2, minimized=false, prevGrade=gradeAt(2);
+const buddy=document.getElementById('buddy'), panel=document.getElementById('panel'),
+      pill=document.getElementById('pill'), broot=document.getElementById('broot'),
+      bdot=document.getElementById('bdot'), bgrade=document.getElementById('bgrade');
+
+/* paint the shield */
+document.getElementById('buddy-svg').innerHTML=vaultShield(74,true);
+document.getElementById('rc-buddy').innerHTML=vaultShield(52,true);
+
+function popBuddy(){buddy.classList.remove('pop');void buddy.offsetWidth;buddy.classList.add('pop');}
+function syncBuddyGrade(){
+  const g=gradeAt(idx);
+  document.getElementById('bd-grade').textContent=g;
+  document.getElementById('bd-grade').style.color=gradeColor(g);
+  if(strat){bgrade.textContent=g;bgrade.style.color=gradeColor(g);bgrade.style.borderColor=gradeColor(g);bgrade.classList.add('show');bdot.style.display='none';}
+}
+
+function openPicker(){
+  bdot.style.display='none';buddy.classList.remove('bob');
+  const nudge=document.getElementById('nudge');if(nudge)nudge.remove();
+  panel.innerHTML=`
+    <div class="p-hd">
+      <div class="mini">${vaultShield(40,true)}</div>
+      <div class="p-speech"><div class="sk">Draft Buddy</div><div class="st">Yo — what’s the plan?</div></div>
+      <button class="p-x" id="pclose">✕</button>
+    </div>
+    <div class="strat-grid">
+      ${Object.entries(STRATS).map(([k,s])=>`
+        <button class="strat" data-k="${k}">
+          <div class="si" style="background:color-mix(in srgb,${s.c} 18%,transparent);color:${s.c}">${s.ic}</div>
+          <div class="sn">${s.name}</div><div class="sd">${s.desc}</div>
+        </button>`).join('')}
+    </div>`;
+  showPanel();
+  panel.querySelectorAll('.strat').forEach(b=>b.onclick=()=>chooseStrat(b.dataset.k));
+  document.getElementById('pclose').onclick=closeAll;
+}
+function chooseStrat(k){strat=k;idx=0;prevGrade=gradeAt(0);popBuddy();syncBuddyGrade();renderChecklist(true);}
+
+function renderChecklist(anim){
+  const s=STRATS[strat];
+  const active=s.steps[Math.min(idx,s.steps.length-1)];
+  const complete=idx>=s.steps.length;
+  const g=gradeAt(idx);
+  panel.innerHTML=`
+    <div class="p-hd">
+      <div class="mini">${vaultShield(40,true)}</div>
+      <div class="p-speech"><div class="sk">${s.name} · your plan <span class="hgrade" style="color:${gradeColor(g)};border-color:${gradeColor(g)}">${g}</span></div>
+        <div class="st" style="font-size:13px">${complete?'Draft complete — nice work.':'Following the plan…'}</div></div>
+      <button class="p-x p-min" id="pmin" title="Minimize">▁</button>
+      <button class="p-x" id="pclose2" title="Close">✕</button>
+    </div>
+    <div class="chk">
+      <div class="chk-phase">
+        <div class="ck"><span class="cpp"></span>${complete?'Draft complete':'Current phase'}</div>
+        <div class="ctx">${complete?'Every step is locked. Want me to <b>grade the whole draft</b>?':active.dir}</div>
+      </div>
+      ${s.steps.map((st,i)=>{const done=i<idx,act=i===idx;
+        return `<div class="step ${done?'done':act?'active':'pending'}">
+          <div class="box">${done?'<svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 5"/></svg>':`<span class="pdot" style="background:${POS[st.pos]}"></span>`}</div>
+          <div class="sbody"><div class="sl">${st.lbl}</div><div class="ss">${st.ss}</div></div>
+          <div class="sf">${done?st.fill:st.round}</div>
+        </div>`}).join('')}
+      <div class="grade-strip">
+        <div><div class="gk">Live draft grade</div><div class="gl" style="color:${gradeColor(g)}">${g}</div></div>
+        <div class="gfac">
+          <i style="background:var(--te);height:13px"></i><i style="background:var(--rb);height:15px"></i>
+          <i style="background:var(--red);height:8px"></i><i style="background:var(--wr);height:12px"></i>
+        </div>
+        <div class="gtrend">${idx>2?'▲ trending up':'starting build'}</div>
+      </div>
+      <div class="chk-foot">
+        <div class="cn">${Math.min(idx,s.steps.length)} <span>/ ${s.steps.length} locked</span></div>
+        <div class="cbar"><span style="width:${Math.round(Math.min(idx,s.steps.length)/s.steps.length*100)}%"></span></div>
+        <button class="chk-change" id="pchange">change</button>
+      </div>
+      ${complete?'<button class="rc-btn" id="rcOpen">🏆 See my report card</button>':''}
+    </div>`;
+  if(anim!==false)showPanel();
+  document.getElementById('pmin').onclick=minimize;
+  document.getElementById('pclose2').onclick=closeAll;
+  document.getElementById('pchange').onclick=openPicker;
+  const ro=document.getElementById('rcOpen');if(ro)ro.onclick=openReport;
+  updatePill();
+}
+
+function minimize(){minimized=true;panel.classList.remove('show');pill.classList.add('show');buddy.classList.remove('bob');updatePill();}
+function expand(){minimized=false;pill.classList.remove('show');renderChecklist(true);}
+function updatePill(){
+  if(!strat)return;const s=STRATS[strat];
+  const active=s.steps[Math.min(idx,s.steps.length-1)];const complete=idx>=s.steps.length;
+  const frac=Math.min(idx,s.steps.length)/s.steps.length;const g=gradeAt(idx);
+  document.getElementById('pill-ring').style.strokeDashoffset=94*(1-frac);
+  document.getElementById('pill-n').textContent=`${Math.min(idx,s.steps.length)}/${s.steps.length}`;
+  document.getElementById('pill-k').textContent=`${s.name} · ${complete?'done':'phase '+(idx+1)}`;
+  document.getElementById('pill-t').textContent=(complete?'Report card ready':active.lbl);
+  const pg=document.getElementById('pill-grade');pg.textContent=g;pg.style.color=gradeColor(g);pg.style.borderColor=gradeColor(g);
+}
+
+function showPanel(){panel.classList.remove('closing');panel.classList.add('show');}
+function closeAll(){panel.classList.add('closing');setTimeout(()=>panel.classList.remove('show','closing'),300);
+  pill.classList.remove('show');minimized=false;buddy.classList.add('bob');}
+
+function react(txt){
+  const b=document.createElement('div');b.className='nudge';b.style.right='92px';b.style.bottom='20px';
+  b.innerHTML=`<small>Draft Buddy</small>${txt}`;broot.appendChild(b);popBuddy();
+  setTimeout(()=>b.remove(),2800);
+}
+
+const scrim=document.getElementById('rcScrim');
+function openReport(){const g=gradeAt(idx);document.getElementById('rc-letter').firstChild.textContent=g;
+  document.getElementById('rc-strat').textContent=strat?STRATS[strat].name:'Robust RB';scrim.classList.add('show');}
+document.getElementById('rcClose').onclick=()=>scrim.classList.remove('show');
+scrim.onclick=e=>{if(e.target===scrim)scrim.classList.remove('show')};
+
+buddy.onclick=()=>{ if(minimized){expand();return;}
+  if(panel.classList.contains('show')){closeAll();} else if(strat){renderChecklist(true);} else {openPicker();} };
+pill.onclick=expand;
+
+document.getElementById('sim').onclick=()=>{
+  if(!strat){openPicker();return;}
+  const s=STRATS[strat];
+  if(idx<s.steps.length){const step=s.steps[idx];idx++;
+    document.getElementById('bd-left').textContent=142-(idx)*10;
+    document.getElementById('bd-gone').textContent=24+(idx)*10;
+    const g=gradeAt(idx);const up=g!==prevGrade;prevGrade=g;syncBuddyGrade();
+    if(minimized){updatePill();react(up?`📈 Grade up to <b style="color:${gradeColor(g)}">${g}</b>`:`✓ <b style="color:var(--rb)">${step.lbl}</b> locked`);}
+    else{renderChecklist(false);react(up?`📈 <b style="color:var(--rb)">${step.fill}</b> — grade up to ${g}!`:`✓ <b style="color:var(--rb)">${step.fill}</b> — ${step.lbl} locked`);}
+  }
+};
+document.getElementById('rst').onclick=()=>{strat=null;idx=2;minimized=false;prevGrade=gradeAt(2);closeAll();
+  buddy.classList.add('bob');bdot.style.display='block';bgrade.classList.remove('show');
+  document.getElementById('bd-left').textContent=142;document.getElementById('bd-gone').textContent=24;
+  document.getElementById('bd-grade').textContent='B+';document.getElementById('bd-grade').style.color='var(--te)';};
+
+setTimeout(()=>{const n=document.createElement('div');n.className='nudge';n.id='nudge';
+  n.innerHTML='<small>Draft Buddy</small>Draft’s live — pick a plan?';broot.appendChild(n);},600);
+</script>
+</body>
+</html>

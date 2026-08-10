@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="onyx">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redraft Strategy — Draft Vault concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   Inlined Vault DS tokens (onyx) — standalone mock, no external CSS
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --primary:#8fb4e0;--accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --value:#5fe09a;--gold:#8fb4e0;
+  --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',ui-monospace,monospace;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
+  --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --t-title:24px;--t-h1:20px;--t-h2:17px;--t-body:15px;--t-secondary:13px;--t-label:11px;--t-micro:10px;--t-nano:9px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-sans);font-size:var(--t-body);line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding:0 0 80px;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* ── kickers / type ─────────────────────────────────────────── */
+.kicker{font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--font-mono);font-weight:700;font-variant-numeric:tabular-nums}
+.sec-title{font-size:var(--t-h1);font-weight:800;letter-spacing:-.02em;margin:0}
+.sec-sub{font-size:var(--t-secondary);color:var(--muted);margin:6px 0 0}
+
+/* ── hero ───────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;
+  border-bottom:1px solid var(--border);
+  background:
+    radial-gradient(900px 340px at 15% -40%, rgba(143,180,224,.16), transparent 70%),
+    linear-gradient(180deg,#14161c,var(--bg));
+  padding:44px 0 30px;margin-bottom:30px;
+}
+.hero h1{
+  font-size:clamp(30px,4.4vw,46px);font-weight:900;letter-spacing:-.035em;line-height:1.02;
+  margin:12px 0 0;
+}
+.hero .lead{max-width:640px;color:var(--text2);margin:12px 0 0;font-size:var(--t-body)}
+.prov{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.prov span{
+  font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;letter-spacing:.06em;
+  color:var(--text2);background:var(--s2);border:1px solid var(--border);
+  padding:5px 10px;border-radius:var(--radius-pill);
+}
+.prov span b{color:var(--accent2)}
+
+/* ── controls ───────────────────────────────────────────────── */
+.controls{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;margin-bottom:26px}
+.ctl-label{display:block;margin-bottom:7px}
+.seg{display:inline-flex;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-pill);padding:3px}
+.seg button{
+  font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);background:transparent;border:0;cursor:pointer;
+  padding:7px 15px;border-radius:var(--radius-pill);
+  transition:color .15s ease, background .2s var(--ease-out);
+}
+.seg button:hover{color:var(--text2)}
+.seg button[aria-pressed="true"]{background:var(--s4);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,.06) inset}
+.seg button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+
+/* ── section shell ──────────────────────────────────────────── */
+section.block{margin:38px 0 0}
+.block-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+
+/* ── archetype cards ────────────────────────────────────────── */
+.builds{display:grid;gap:12px}
+.build{
+  position:relative;display:grid;
+  grid-template-columns:44px 1fr auto;gap:18px;align-items:center;
+  background:linear-gradient(135deg,var(--s2),var(--s1));
+  border:1px solid var(--border);border-left:3px solid var(--border2);
+  border-radius:var(--radius-lg);padding:18px 20px;
+  box-shadow:var(--shadow-card);
+  transition:transform .25s var(--ease-out), border-color .2s ease;
+}
+.build:hover{transform:translateY(-2px);border-color:var(--border2)}
+.build.pos{border-left-color:var(--value)}
+.build.neg{border-left-color:var(--red)}
+.build.lead-card{
+  background:
+    radial-gradient(420px 130px at 0% 0%, rgba(95,224,154,.10), transparent 70%),
+    linear-gradient(135deg,var(--s3),var(--s1));
+  border-color:rgba(95,224,154,.28);
+}
+.rank{
+  font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--muted);
+  width:34px;height:34px;display:grid;place-items:center;
+  background:var(--s3);border:1px solid var(--border);border-radius:50%;
+}
+.build.lead-card .rank{color:var(--value);border-color:rgba(95,224,154,.35);background:rgba(95,224,154,.08)}
+.b-name{font-size:var(--t-h2);font-weight:800;letter-spacing:-.01em;margin:0}
+.b-desc{font-size:var(--t-secondary);color:var(--muted);margin:3px 0 0}
+.b-metrics{display:flex;gap:26px;align-items:center}
+.metric{text-align:right;min-width:64px}
+.metric .m-val{font-family:var(--font-mono);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);display:block;line-height:1.1}
+.metric .m-lab{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-top:5px}
+.metric.hero-metric .m-val{font-size:27px}
+.lift{
+  display:inline-block;font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;
+  padding:3px 8px;border-radius:var(--radius-pill);margin-top:6px;
+}
+.lift.pos{color:var(--value);background:rgba(95,224,154,.12);border:1px solid rgba(95,224,154,.28)}
+.lift.neg{color:var(--red2);background:rgba(226,58,78,.12);border:1px solid rgba(226,58,78,.28)}
+.build.thin{opacity:.5}
+.thin-note{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);letter-spacing:.06em}
+
+/* ── heatmap ────────────────────────────────────────────────── */
+.heat{
+  background:linear-gradient(135deg,var(--s2),var(--s1));
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:20px;box-shadow:var(--shadow-card);overflow-x:auto;
+}
+table.hm{border-collapse:separate;border-spacing:4px;width:100%;min-width:640px}
+table.hm th{
+  font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);padding:0 0 6px;text-align:center;font-weight:700;
+}
+table.hm th.rowh{text-align:left;width:52px}
+table.hm td.rowh{
+  font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;
+  color:var(--text);text-align:left;padding-right:6px;
+}
+.pos-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.cell{
+  border-radius:var(--radius-sm);text-align:center;padding:9px 4px;
+  border:1px solid var(--border);min-width:46px;
+}
+.cell .c-val{font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:700;font-variant-numeric:tabular-nums;display:block;line-height:1}
+.cell .c-n{font-family:var(--font-mono);font-size:var(--t-nano);color:rgba(255,255,255,.58);display:block;margin-top:3px}
+.cell.empty{background:var(--s2);opacity:.35}
+.legend{display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap}
+.legend .swatches{display:flex;gap:3px}
+.legend .sw{width:26px;height:9px;border-radius:2px;border:1px solid var(--border)}
+.legend .lg-txt{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* ── insight callout ────────────────────────────────────────── */
+.insight{
+  display:flex;gap:14px;align-items:flex-start;
+  background:linear-gradient(135deg,rgba(143,180,224,.10),transparent 60%),var(--s2);
+  border:1px solid rgba(143,180,224,.22);border-left:3px solid var(--accent2);
+  border-radius:var(--radius-md);padding:15px 18px;margin-top:16px;
+}
+.insight .i-icon{flex:none;margin-top:2px;color:var(--accent2)}
+.insight p{margin:0;font-size:var(--t-secondary);color:var(--text2)}
+.insight b{color:var(--text)}
+
+/* ── slot strip (accruing) ──────────────────────────────────── */
+.accruing{
+  background:var(--s1);border:1px dashed var(--border2);border-radius:var(--radius-lg);
+  padding:22px;text-align:center;
+}
+.accruing .kicker{margin-bottom:8px;display:block}
+.accruing p{margin:0 auto;max-width:520px;font-size:var(--t-secondary);color:var(--muted)}
+.bar{height:5px;background:var(--s3);border-radius:var(--radius-pill);overflow:hidden;max-width:320px;margin:16px auto 0}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:var(--radius-pill)}
+
+/* ── method footer ──────────────────────────────────────────── */
+.method{margin-top:40px;padding-top:22px;border-top:1px solid var(--border)}
+.method p{font-size:var(--t-secondary);color:var(--muted);margin:8px 0 0;max-width:820px}
+.method code{font-family:var(--font-mono);font-size:var(--t-micro);background:var(--s2);border:1px solid var(--border);padding:2px 6px;border-radius:4px;color:var(--text2)}
+
+/* ── personal decoder ───────────────────────────────────────── */
+.decoder{
+  background:
+    radial-gradient(700px 200px at 10% -30%, rgba(143,180,224,.14), transparent 70%),
+    linear-gradient(135deg,var(--s2),var(--s1));
+  border:1px solid var(--border2);border-radius:var(--radius-xl);
+  padding:24px;margin-bottom:30px;box-shadow:var(--shadow-card);
+}
+.dec-form{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.dec-form input{
+  flex:1;min-width:210px;
+  background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-md);
+  padding:12px 14px;color:var(--text);font-family:var(--font-sans);font-size:var(--t-body);
+}
+.dec-form input:focus{outline:2px solid var(--accent2);outline-offset:1px;border-color:transparent}
+.dec-form button{
+  background:var(--accent2);color:#0b1420;border:0;border-radius:var(--radius-md);
+  padding:12px 22px;font-family:var(--font-sans);font-weight:800;font-size:var(--t-body);cursor:pointer;
+  transition:filter .15s ease, transform .2s var(--ease-out);
+}
+.dec-form button:hover{filter:brightness(1.08)}
+.dec-form button:active{transform:translateY(1px)}
+.dec-form button:disabled{opacity:.55;cursor:default}
+.dec-status{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);margin-top:12px;display:block}
+.dec-status.err{color:var(--red2)}
+
+.lg-card{
+  background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:18px 20px;margin-top:14px;
+}
+.lg-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.lg-name{font-size:var(--t-h2);font-weight:800;margin:0}
+.lg-meta{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.verdict-line{
+  background:linear-gradient(135deg,rgba(143,180,224,.10),transparent 60%),var(--s2);
+  border:1px solid rgba(143,180,224,.22);border-left:3px solid var(--accent2);
+  border-radius:var(--radius-md);padding:12px 15px;margin:12px 0 14px;
+  font-size:var(--t-secondary);color:var(--text2);
+}
+.verdict-line b{color:var(--text)}
+/* Six columns do not fit a phone. Give the table its own scroll box so the PAGE
+   body never scrolls sideways — measured at 576px against a 375px viewport. */
+.std-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+table.std{width:100%;min-width:520px;border-collapse:collapse;font-size:var(--t-secondary)}
+table.std th{
+  font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);
+}
+table.std td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.std tr:last-child td{border-bottom:0}
+table.std tr.you{background:rgba(143,180,224,.09)}
+table.std tr.champ{background:rgba(245,200,66,.08)}
+.mgr{font-weight:700;color:var(--text)}
+.tag{
+  font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.06em;
+  padding:2px 6px;border-radius:var(--radius-pill);margin-left:6px;text-transform:uppercase;
+}
+.tag.champ{color:var(--te);background:rgba(245,200,66,.14);border:1px solid rgba(245,200,66,.34)}
+.tag.you{color:var(--accent2);background:rgba(143,180,224,.14);border:1px solid rgba(143,180,224,.34)}
+.tag.po{color:var(--value);background:rgba(95,224,154,.12);border:1px solid rgba(95,224,154,.30)}
+.mini-seq{display:inline-flex;gap:3px}
+.mini-seq span{
+  font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;
+  width:23px;height:20px;display:grid;place-items:center;border-radius:4px;
+  background:var(--s3);border:1px solid var(--border2);
+}
+.mini-seq span[data-p="RB"]{color:var(--rb)}
+.mini-seq span[data-p="WR"]{color:var(--wr)}
+.mini-seq span[data-p="QB"]{color:var(--qb)}
+.mini-seq span[data-p="TE"]{color:var(--te)}
+.num{font-family:var(--font-mono);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ── trust badges ───────────────────────────────────────────── */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:var(--radius-pill);white-space:nowrap;
+}
+/* Trust is a SEPARATE axis from good/bad — "Zero RB · Proven" means the finding is
+   reliable, and the finding is that it loses. Green here would read as endorsement,
+   so verification uses the steel accent and only the lift pill carries good/bad. */
+.badge.proven{color:var(--accent2);background:rgba(143,180,224,.14);border:1px solid rgba(143,180,224,.38)}
+.badge.era   {color:var(--te);background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.34)}
+.badge.unprov{color:var(--muted);background:var(--s3);border:1px solid var(--border2)}
+.badge i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}
+
+/* CI bar — shows the interval, not just the point estimate */
+.ci{position:relative;height:6px;background:var(--s3);border-radius:var(--radius-pill);margin-top:9px;overflow:hidden}
+.ci .band{position:absolute;top:0;bottom:0;background:rgba(143,180,224,.45);border-radius:var(--radius-pill)}
+.ci .base{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text2);opacity:.8}
+.ci-cap{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);margin-top:5px;display:block}
+
+/* ── headline verdict strip ─────────────────────────────────── */
+.verdict{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:26px;
+}
+.vcard{
+  background:linear-gradient(135deg,var(--s2),var(--s1));border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px 18px;
+}
+.vcard .v-num{font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--text);display:block;line-height:1}
+.vcard .v-lab{font-size:var(--t-secondary);color:var(--muted);display:block;margin-top:6px}
+.vcard.accent .v-num{color:var(--value)}
+
+/* ── openings ───────────────────────────────────────────────── */
+.op-list{display:grid;gap:8px}
+.op{
+  display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;
+  background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:13px 16px;
+}
+.op.sig{border-color:rgba(95,224,154,.30);background:linear-gradient(135deg,rgba(95,224,154,.06),var(--s1))}
+.op.sig.bad{border-color:rgba(226,58,78,.30);background:linear-gradient(135deg,rgba(226,58,78,.06),var(--s1))}
+.op-seq{display:flex;gap:4px}
+.op-seq span{
+  font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;
+  width:28px;height:26px;display:grid;place-items:center;border-radius:var(--radius-sm);
+  background:var(--s3);border:1px solid var(--border2);
+}
+.op-seq span[data-p="RB"]{color:var(--rb);border-color:rgba(61,204,122,.35)}
+.op-seq span[data-p="WR"]{color:var(--wr);border-color:rgba(123,208,255,.35)}
+.op-seq span[data-p="QB"]{color:var(--qb);border-color:rgba(255,102,128,.35)}
+.op-seq span[data-p="TE"]{color:var(--te);border-color:rgba(245,200,66,.35)}
+.op-rate{font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--text);text-align:right}
+.op-rate small{display:block;font-size:var(--t-nano);color:var(--muted);font-weight:700;margin-top:3px}
+.op-mid{min-width:0}
+
+/* ── curve ──────────────────────────────────────────────────── */
+.curve{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:6px}
+.curve .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.curve .bar-i{width:100%;background:linear-gradient(180deg,var(--accent2),var(--accent));border-radius:var(--radius-sm) var(--radius-sm) 0 0;min-height:3px}
+.curve .col.peak .bar-i{background:linear-gradient(180deg,var(--value),#3aa86f)}
+.curve .c-lab{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted)}
+.curve .c-rate{font-family:var(--font-mono);font-size:var(--t-micro);font-weight:700;color:var(--text)}
+
+/* ── responsive ─────────────────────────────────────────────── */
+@media (max-width:820px){
+  .build{grid-template-columns:36px 1fr;gap:12px;padding:16px}
+  .b-metrics{grid-column:1/-1;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+  .metric{text-align:left;min-width:0}
+  .metric.hero-metric .m-val{font-size:23px}
+  .controls{gap:16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">Draft Vault · Research</span>
+    <h1>Redraft Strategy</h1>
+    <p class="lead">What real draft data says about the builds that actually make the playoffs — reconstructed from completed Sleeper redraft leagues, not opinion.</p>
+    <div class="prov" id="prov"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ── Personal decoder: your own 2025 leagues ─────────────── -->
+  <section class="decoder">
+    <span class="kicker">Your leagues</span>
+    <h2 class="sec-title" style="margin:8px 0 0">How your league was actually won</h2>
+    <p class="sec-sub" style="max-width:640px">Enter your Sleeper username to pull your completed <b>2025</b> redraft leagues. We rebuild every manager's draft, name the build that won it, and check that build against all 14,708 teams below.</p>
+    <form class="dec-form" id="dec-form">
+      <input id="dec-user" type="text" placeholder="Sleeper username" autocomplete="off" spellcheck="false" aria-label="Sleeper username" value="Putput">
+      <button type="submit" id="dec-go">Decode my 2025</button>
+    </form>
+    <span class="dec-status" id="dec-status"></span>
+    <div id="dec-out"></div>
+  </section>
+
+  <div class="controls">
+    <div>
+      <span class="kicker ctl-label">Scoring</span>
+      <div class="seg" id="seg-sc" role="group" aria-label="Scoring format">
+        <button data-v="std"  aria-pressed="false">Std</button>
+        <button data-v="half" aria-pressed="false">Half</button>
+        <button data-v="ppr"  aria-pressed="true">PPR</button>
+      </div>
+    </div>
+    <div>
+      <span class="kicker ctl-label">Format</span>
+      <div class="seg" id="seg-fmt" role="group" aria-label="League format">
+        <button data-v="1qb" aria-pressed="true">1QB</button>
+        <button data-v="sf"  aria-pressed="false">Superflex</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict"></div>
+
+  <!-- ── Winning builds ─────────────────────────────────────── -->
+  <section class="block">
+    <div class="block-head">
+      <div>
+        <h2 class="sec-title">The Winning Builds</h2>
+        <p class="sec-sub">Every drafted team bucketed by its early-round shape, then joined to how the season actually ended. Ranked by playoff rate — but read the badge first.</p>
+      </div>
+      <span class="kicker" id="slice-n"></span>
+    </div>
+    <div class="builds" id="builds"></div>
+  </section>
+
+  <!-- ── The openings ───────────────────────────────────────── -->
+  <section class="block">
+    <div class="block-head">
+      <div>
+        <h2 class="sec-title">The Openings</h2>
+        <p class="sec-sub">Exact first-four-pick sequences. Highlighted rows clear the field at 95% confidence — the rest are ranked noise.</p>
+      </div>
+      <span class="kicker" id="op-n"></span>
+    </div>
+    <div class="op-list" id="openings"></div>
+  </section>
+
+  <!-- ── How many is too many ───────────────────────────────── -->
+  <section class="block">
+    <div class="block-head">
+      <div>
+        <h2 class="sec-title">How many is too many</h2>
+        <p class="sec-sub">Playoff rate by the number of each position taken in the first six rounds. The green column is the peak.</p>
+      </div>
+    </div>
+    <div class="heat" id="curves"></div>
+  </section>
+
+  <!-- ── Position timing heatmap ────────────────────────────── -->
+  <section class="block">
+    <div class="block-head">
+      <div>
+        <h2 class="sec-title">When the winners drafted each position</h2>
+        <p class="sec-sub">Playoff rate by the round a team took its <em>first</em> player at each position.</p>
+      </div>
+    </div>
+    <div class="heat">
+      <table class="hm" id="hm"></table>
+      <div class="legend">
+        <span class="lg-txt">vs field</span>
+        <span class="swatches" id="legend-sw"></span>
+        <span class="lg-txt" id="legend-range"></span>
+      </div>
+    </div>
+    <div class="insight">
+      <svg class="i-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/>
+      </svg>
+      <p id="insight-txt"></p>
+    </div>
+  </section>
+
+  <!-- ── Slot intel (accruing) ──────────────────────────────── -->
+  <section class="block">
+    <div class="block-head">
+      <div>
+        <h2 class="sec-title">From your draft slot</h2>
+        <p class="sec-sub">Which build wins from seat 1.01 vs 1.12 — needs a deeper corpus before the numbers are trustworthy.</p>
+      </div>
+    </div>
+    <div class="accruing">
+      <span class="kicker">Accruing</span>
+      <p>Slot-level splits currently sit at ~35 teams per seat — enough to render, not enough to trust. The crawler adds leagues every run; this section unlocks at <b>250+ teams per slot</b>.</p>
+      <div class="bar"><i id="accrue-bar" style="width:14%"></i></div>
+    </div>
+  </section>
+
+  <!-- ── Method ─────────────────────────────────────────────── -->
+  <section class="method">
+    <span class="kicker">Method</span>
+    <p>Built from completed Sleeper redraft leagues. For every team we reconstruct the draft from <code>/draft/{id}/picks</code> (round, slot, position — keeper picks excluded) and join it on <code>roster_id</code> to that season's outcome from <code>/league/{id}/rosters</code> and <code>/league/{id}/winners_bracket</code>.</p>
+    <p><b>Build definitions</b> — <b>Robust RB</b>: 2+ RB in rounds 1–2. <b>Elite TE</b>: first TE in rounds 1–2. <b>Zero RB</b>: no RB through round 3. <b>Hero RB</b>: exactly one RB in rounds 1–2, none in round 3. <b>Balanced</b>: everything else. Archetypes are reported only at 40+ teams; lift is measured against that slice's own field baseline, so leagues with different playoff sizes stay comparable.</p>
+    <p><b>Why the badges exist</b> — a ranked table of rates is mostly noise at these sample sizes. Every rate here carries a <b>95% Wilson confidence interval</b>; a finding is <b>significant</b> only if its interval clears the field baseline entirely. It is <b>Proven</b> only if it is also <b>stable</b> — same direction in every season with enough teams. Most rows fail one of those tests, and we say so rather than ranking them anyway. In PPR 1QB only 4 of 47 openings survive the first test.</p>
+    <p><b>Known bias</b> — the corpus spans 2023–2025, a stretch where early running backs beat their ADP. The RB-forward edge is real in this window but is era-dependent by construction; the by-season line on each card is there so you can see whether an edge held up or came from one season.</p>
+  </section>
+
+</main>
+
+<script>
+/* Real output from scripts/build_redraft_strategy.py — 4,692 teams / 421 leagues */
+const RDS = {"stats":{"teams":14708,"leagues":1321,"seasons":["2023","2024","2025"],"teams_by_season":{"2024":7913,"2025":5119,"2023":1676},"teams_by_scoring":{"half":1010,"ppr":13544,"std":154},"frontier":12312,"seen_leagues":3506,"updated":"2026-07-21T11:35:44Z"},"meta":{"seasons":["2023","2024","2025"],"teams":14708,"updated":"2026-07-21T11:35:44Z"},"arch":{"half|1qb":{"n":668,"baseline":{"playoffRate":0.5419,"champRate":0.0853,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.896},"archetypes":[{"arch":"Robust RB","n":112,"ci95":[0.5236,0.7009],"significant":false,"stability":"thin","bySeason":{"2024":0.0723},"share":0.1677,"playoffRate":0.6161,"champRate":0.1429,"avgWinPct":0.5358,"avgPtsPct":0.5752,"playoffLift":0.0742,"champLift":0.0575,"expPlayoffRate":0.6158,"luckDelta":0.0003,"avgEff":0.8995,"effLift":0.0034},{"arch":"Hero RB","n":264,"ci95":[0.5003,0.6192],"significant":false,"stability":"durable","bySeason":{"2024":0.0099,"2025":0.0272},"share":0.3952,"playoffRate":0.5606,"champRate":0.0644,"avgWinPct":0.4998,"avgPtsPct":0.4932,"playoffLift":0.0187,"champLift":-0.0209,"expPlayoffRate":0.532,"luckDelta":0.0286,"avgEff":0.893,"effLift":-0.003},{"arch":"Balanced","n":175,"ci95":[0.4576,0.6039],"significant":false,"stability":"durable","bySeason":{"2024":-0.0595,"2025":-0.067},"share":0.262,"playoffRate":0.5314,"champRate":0.1029,"avgWinPct":0.4848,"avgPtsPct":0.4922,"playoffLift":-0.0105,"champLift":0.0175,"expPlayoffRate":0.5359,"luckDelta":-0.0045,"avgEff":0.8957,"effLift":-0.0003},{"arch":"Zero RB","n":72,"ci95":[0.3354,0.5591],"significant":false,"stability":"thin","bySeason":{},"share":0.1078,"playoffRate":0.4444,"champRate":0.0556,"avgWinPct":0.5014,"avgPtsPct":0.4928,"playoffLift":-0.0975,"champLift":-0.0298,"expPlayoffRate":0.5431,"luckDelta":-0.0987,"avgEff":0.8973,"effLift":0.0013},{"arch":"Elite TE","n":45,"ci95":[0.3094,0.5882],"significant":false,"stability":"thin","bySeason":{},"share":0.0674,"playoffRate":0.4444,"champRate":0.0444,"avgWinPct":0.469,"avgPtsPct":0.3946,"playoffLift":-0.0975,"champLift":-0.0409,"expPlayoffRate":0.4376,"luckDelta":0.0069,"avgEff":0.9034,"effLift":0.0074}]},"half|sf":{"n":342,"baseline":{"playoffRate":0.2749,"champRate":0.0468,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.9607},"archetypes":[{"arch":"Balanced","n":99,"ci95":[0.2756,0.4618],"significant":true,"stability":"thin","bySeason":{},"share":0.2895,"playoffRate":0.3636,"champRate":0.0505,"avgWinPct":0.5014,"avgPtsPct":0.5019,"playoffLift":0.0888,"champLift":0.0037,"expPlayoffRate":0.2794,"luckDelta":0.0843,"avgEff":0.9491,"effLift":-0.0116},{"arch":"Hero RB","n":87,"ci95":[0.2534,0.4494],"significant":false,"stability":"thin","bySeason":{},"share":0.2544,"playoffRate":0.3448,"champRate":0.069,"avgWinPct":0.5216,"avgPtsPct":0.5267,"playoffLift":0.07,"champLift":0.0222,"expPlayoffRate":0.2906,"luckDelta":0.0542,"avgEff":0.9537,"effLift":-0.0071},{"arch":"Elite TE","n":49,"ci95":[0.0851,0.2904],"significant":false,"stability":"thin","bySeason":{},"share":0.1433,"playoffRate":0.1633,"champRate":0.0204,"avgWinPct":0.487,"avgPtsPct":0.5162,"playoffLift":-0.1116,"champLift":-0.0264,"expPlayoffRate":0.2829,"luckDelta":-0.1197,"avgEff":0.9757,"effLift":0.015},{"arch":"Zero RB","n":86,"ci95":[0.0995,0.2549],"significant":true,"stability":"thin","bySeason":{},"share":0.2515,"playoffRate":0.1628,"champRate":0.0349,"avgWinPct":0.474,"avgPtsPct":0.4412,"playoffLift":-0.1121,"champLift":-0.0119,"expPlayoffRate":0.2385,"luckDelta":-0.0757,"avgEff":0.9706,"effLift":0.0098},{"arch":"Robust RB","n":21,"insufficient":true}]},"ppr|1qb":{"n":6186,"baseline":{"playoffRate":0.5297,"champRate":0.085,"avgWinPct":0.5001,"avgPtsPct":0.5001,"avgEff":0.883},"archetypes":[{"arch":"Robust RB","n":980,"ci95":[0.5546,0.6162],"significant":true,"stability":"mixed","bySeason":{"2024":-0.0269,"2025":0.1472},"share":0.1584,"playoffRate":0.5857,"champRate":0.1143,"avgWinPct":0.5267,"avgPtsPct":0.5543,"playoffLift":0.056,"champLift":0.0293,"expPlayoffRate":0.5831,"luckDelta":0.0026,"avgEff":0.8834,"effLift":0.0004},{"arch":"Balanced","n":1577,"ci95":[0.5226,0.5717],"significant":false,"stability":"mixed","bySeason":{"2023":-0.0542,"2024":0.079,"2025":-0.0267},"share":0.2549,"playoffRate":0.5472,"champRate":0.0799,"avgWinPct":0.5027,"avgPtsPct":0.5086,"playoffLift":0.0175,"champLift":-0.0051,"expPlayoffRate":0.5401,"luckDelta":0.0072,"avgEff":0.8819,"effLift":-0.001},{"arch":"Hero RB","n":2220,"ci95":[0.4968,0.5383],"significant":false,"stability":"mixed","bySeason":{"2023":0.0541,"2024":-0.0176,"2025":-0.0159},"share":0.3589,"playoffRate":0.5176,"champRate":0.0842,"avgWinPct":0.4958,"avgPtsPct":0.4903,"playoffLift":-0.0122,"champLift":-0.0008,"expPlayoffRate":0.519,"luckDelta":-0.0015,"avgEff":0.8834,"effLift":0.0004},{"arch":"Elite TE","n":500,"ci95":[0.4524,0.5397],"significant":false,"stability":"durable","bySeason":{"2024":-0.0797,"2025":-0.0119},"share":0.0808,"playoffRate":0.496,"champRate":0.078,"avgWinPct":0.4902,"avgPtsPct":0.476,"playoffLift":-0.0337,"champLift":-0.007,"expPlayoffRate":0.5057,"luckDelta":-0.0097,"avgEff":0.8858,"effLift":0.0028},{"arch":"Zero RB","n":909,"ci95":[0.455,0.5198],"significant":true,"stability":"durable","bySeason":{"2023":-0.027,"2024":-0.0092,"2025":-0.1055},"share":0.1469,"playoffRate":0.4873,"champRate":0.0682,"avgWinPct":0.4829,"avgPtsPct":0.4642,"playoffLift":-0.0424,"champLift":-0.0168,"expPlayoffRate":0.4937,"luckDelta":-0.0063,"avgEff":0.8818,"effLift":-0.0012}]},"ppr|sf":{"n":7358,"baseline":{"playoffRate":0.4365,"champRate":0.0723,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.9133},"archetypes":[{"arch":"Elite TE","n":676,"ci95":[0.4639,0.5391],"significant":true,"stability":"durable","bySeason":{"2023":0.0931,"2024":0.0435,"2025":0.0645},"share":0.0919,"playoffRate":0.5015,"champRate":0.0962,"avgWinPct":0.5152,"avgPtsPct":0.522,"playoffLift":0.0649,"champLift":0.0239,"expPlayoffRate":0.455,"luckDelta":0.0465,"avgEff":0.906,"effLift":-0.0073},{"arch":"Robust RB","n":414,"ci95":[0.4473,0.5432],"significant":true,"stability":"mixed","bySeason":{"2024":-0.014,"2025":0.0849},"share":0.0563,"playoffRate":0.4952,"champRate":0.1014,"avgWinPct":0.5166,"avgPtsPct":0.5224,"playoffLift":0.0586,"champLift":0.0291,"expPlayoffRate":0.4564,"luckDelta":0.0388,"avgEff":0.905,"effLift":-0.0083},{"arch":"Balanced","n":1975,"ci95":[0.4243,0.4681],"significant":false,"stability":"mixed","bySeason":{"2023":-0.083,"2024":0.0369,"2025":-0.0078},"share":0.2684,"playoffRate":0.4461,"champRate":0.0765,"avgWinPct":0.5067,"avgPtsPct":0.5123,"playoffLift":0.0095,"champLift":0.0042,"expPlayoffRate":0.4455,"luckDelta":0.0006,"avgEff":0.9206,"effLift":0.0073},{"arch":"Zero RB","n":2538,"ci95":[0.4033,0.4417],"significant":false,"stability":"mixed","bySeason":{"2023":0.0101,"2024":-0.0003,"2025":-0.061},"share":0.3449,"playoffRate":0.4224,"champRate":0.0599,"avgWinPct":0.4953,"avgPtsPct":0.4915,"playoffLift":-0.0142,"champLift":-0.0124,"expPlayoffRate":0.431,"luckDelta":-0.0086,"avgEff":0.9087,"effLift":-0.0046},{"arch":"Hero RB","n":1755,"ci95":[0.3846,0.4306],"significant":true,"stability":"mixed","bySeason":{"2023":-0.0245,"2024":-0.0471,"2025":0.0066},"share":0.2385,"playoffRate":0.4074,"champRate":0.0695,"avgWinPct":0.4897,"avgPtsPct":0.4849,"playoffLift":-0.0291,"champLift":-0.0028,"expPlayoffRate":0.4227,"luckDelta":-0.0153,"avgEff":0.9171,"effLift":0.0038}]},"std|1qb":{"n":132,"baseline":{"playoffRate":0.5455,"champRate":0.0833,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":0.9075},"archetypes":[{"arch":"Hero RB","n":50,"ci95":[0.4231,0.6884],"significant":false,"stability":"thin","bySeason":{},"share":0.3788,"playoffRate":0.56,"champRate":0.06,"avgWinPct":0.4993,"avgPtsPct":0.48,"playoffLift":0.0145,"champLift":-0.0233,"expPlayoffRate":0.5491,"luckDelta":0.0109,"avgEff":0.9,"effLift":-0.0075},{"arch":"Robust RB","n":21,"insufficient":true},{"arch":"Zero RB","n":17,"insufficient":true},{"arch":"Elite TE","n":13,"insufficient":true},{"arch":"Balanced","n":31,"insufficient":true}]},"std|sf":{"n":22,"baseline":{"playoffRate":0.6364,"champRate":0.0909,"avgWinPct":0.5,"avgPtsPct":0.5,"avgEff":null},"archetypes":[{"arch":"Robust RB","n":1,"insufficient":true},{"arch":"Hero RB","n":9,"insufficient":true},{"arch":"Zero RB","n":5,"insufficient":true},{"arch":"Elite TE","n":0,"insufficient":true},{"arch":"Balanced","n":7,"insufficient":true}]}},"op":{"half|1qb":{"n":498,"distinctOpenings":95,"reported":0,"significant":0,"baseline":{"playoffRate":0.5703,"champRate":0.0884},"openings":[]},"half|sf":{"n":280,"distinctOpenings":123,"reported":0,"significant":0,"baseline":{"playoffRate":0.2286,"champRate":0.0393},"openings":[]},"ppr|1qb":{"n":4760,"distinctOpenings":161,"reported":47,"significant":4,"baseline":{"playoffRate":0.5296,"champRate":0.0853},"openings":[{"seq":"RB-RB-WR-RB","n":69,"share":0.0145,"playoffRate":0.6667,"playoffLift":0.137,"ci95":[0.5493,0.7665],"significant":true,"stability":"thin","bySeason":{"2025":0.0812},"champRate":0.087,"champLift":0.0017,"avgPtsPct":0.5618,"luckDelta":0.0675},{"seq":"RB-RB-TE-WR","n":41,"share":0.0086,"playoffRate":0.6585,"playoffLift":0.1289,"ci95":[0.5055,0.7844],"significant":false,"stability":"thin","bySeason":{"2025":0.3526},"champRate":0.2439,"champLift":0.1586,"avgPtsPct":0.6832,"luckDelta":-0.0395},{"seq":"RB-RB-RB-WR","n":122,"share":0.0256,"playoffRate":0.6557,"playoffLift":0.1261,"ci95":[0.5678,0.7341],"significant":true,"stability":"durable","bySeason":{"2024":0.0828,"2025":0.1353},"champRate":0.123,"champLift":0.0377,"avgPtsPct":0.6067,"luckDelta":0.0171},{"seq":"RB-WR-TE-RB","n":36,"share":0.0076,"playoffRate":0.6389,"playoffLift":0.1093,"ci95":[0.4757,0.7752],"significant":false,"stability":"thin","bySeason":{},"champRate":0.1944,"champLift":0.1092,"avgPtsPct":0.6126,"luckDelta":0.0162},{"seq":"WR-RB-RB-TE","n":41,"share":0.0086,"playoffRate":0.6341,"playoffLift":0.1045,"ci95":[0.4812,0.7641],"significant":false,"stability":"thin","bySeason":{},"champRate":0.122,"champLift":0.0367,"avgPtsPct":0.5899,"luckDelta":0.014},{"seq":"WR-RB-TE-RB","n":46,"share":0.0097,"playoffRate":0.6304,"playoffLift":0.1008,"ci95":[0.486,0.7548],"significant":false,"stability":"thin","bySeason":{"2025":0.1392},"champRate":0.0435,"champLift":-0.0418,"avgPtsPct":0.6203,"luckDelta":-0.0053},{"seq":"RB-WR-RB-RB","n":59,"share":0.0124,"playoffRate":0.6271,"playoffLift":0.0975,"ci95":[0.4995,0.7392],"significant":false,"stability":"thin","bySeason":{"2025":0.1392},"champRate":0.0847,"champLift":-0.0005,"avgPtsPct":0.5533,"luckDelta":0.0387},{"seq":"RB-RB-QB-WR","n":63,"share":0.0132,"playoffRate":0.619,"playoffLift":0.0894,"ci95":[0.4956,0.7288],"significant":false,"stability":"thin","bySeason":{"2025":0.1555},"champRate":0.0794,"champLift":-0.0059,"avgPtsPct":0.534,"luckDelta":0.0543},{"seq":"RB-WR-RB-TE","n":36,"share":0.0076,"playoffRate":0.6111,"playoffLift":0.0815,"ci95":[0.4486,0.7522],"significant":false,"stability":"thin","bySeason":{},"champRate":0.1667,"champLift":0.0814,"avgPtsPct":0.5277,"luckDelta":0.0465},{"seq":"WR-RB-WR-TE","n":64,"share":0.0134,"playoffRate":0.6094,"playoffLift":0.0798,"ci95":[0.4869,0.7194],"significant":false,"stability":"thin","bySeason":{"2024":0.1199},"champRate":0.1094,"champLift":0.0241,"avgPtsPct":0.5185,"luckDelta":0.0562},{"seq":"WR-RB-TE-QB","n":44,"share":0.0092,"playoffRate":0.4318,"playoffLift":-0.0978,"ci95":[0.2968,0.5778],"significant":false,"stability":"thin","bySeason":{},"champRate":0.1136,"champLift":0.0283,"avgPtsPct":0.4934,"luckDelta":-0.0768},{"seq":"WR-WR-WR-RB","n":152,"share":0.0319,"playoffRate":0.4276,"playoffLift":-0.102,"ci95":[0.3517,0.5071],"significant":true,"stability":"mixed","bySeason":{"2024":0.0216,"2025":-0.2312},"champRate":0.0724,"champLift":-0.0129,"avgPtsPct":0.4458,"luckDelta":-0.041},{"seq":"WR-WR-RB-QB","n":75,"share":0.0158,"playoffRate":0.4267,"playoffLift":-0.103,"ci95":[0.321,0.5395],"significant":false,"stability":"thin","bySeason":{"2025":-0.2592},"champRate":0.0133,"champLift":-0.072,"avgPtsPct":0.3869,"luckDelta":0.0048},{"seq":"RB-WR-QB-RB","n":48,"share":0.0101,"playoffRate":0.4167,"playoffLift":-0.113,"ci95":[0.2885,0.5572],"significant":false,"stability":"thin","bySeason":{"2025":-0.2274},"champRate":0.0625,"champLift":-0.0228,"avgPtsPct":0.4219,"luckDelta":-0.0339},{"seq":"RB-WR-WR-TE","n":39,"share":0.0082,"playoffRate":0.3077,"playoffLift":-0.2219,"ci95":[0.1857,0.4642],"significant":true,"stability":"thin","bySeason":{},"champRate":0.0769,"champLift":-0.0084,"avgPtsPct":0.3716,"luckDelta":-0.0897}]},"ppr|sf":{"n":4358,"distinctOpenings":237,"reported":52,"significant":10,"baseline":{"playoffRate":0.4321,"champRate":0.0714},"openings":[{"seq":"RB-RB-RB-WR","n":32,"share":0.0073,"playoffRate":0.6875,"playoffLift":0.2554,"ci95":[0.5143,0.8205],"significant":true,"stability":"thin","bySeason":{"2025":0.2346},"champRate":0.0,"champLift":-0.0714,"avgPtsPct":0.6944,"luckDelta":0.0935},{"seq":"QB-RB-RB-RB","n":44,"share":0.0101,"playoffRate":0.5909,"playoffLift":0.1588,"ci95":[0.4441,0.7231],"significant":true,"stability":"thin","bySeason":{"2025":0.2482},"champRate":0.1364,"champLift":0.065,"avgPtsPct":0.6061,"luckDelta":0.0678},{"seq":"RB-WR-WR-RB","n":36,"share":0.0083,"playoffRate":0.5833,"playoffLift":0.1513,"ci95":[0.422,0.7286],"significant":false,"stability":"thin","bySeason":{"2025":0.1852},"champRate":0.0833,"champLift":0.012,"avgPtsPct":0.601,"luckDelta":0.0749},{"seq":"QB-QB-WR-RB","n":79,"share":0.0181,"playoffRate":0.5443,"playoffLift":0.1122,"ci95":[0.435,0.6495],"significant":true,"stability":"durable","bySeason":{"2023":0.1879,"2025":0.1552},"champRate":0.1139,"champLift":0.0426,"avgPtsPct":0.4671,"luckDelta":0.1435},{"seq":"WR-RB-RB-WR","n":30,"share":0.0069,"playoffRate":0.5333,"playoffLift":0.1013,"ci95":[0.3614,0.6977],"significant":false,"stability":"thin","bySeason":{"2025":0.0623},"champRate":0.1,"champLift":0.0286,"avgPtsPct":0.6246,"luckDelta":-0.0153},{"seq":"WR-RB-WR-RB","n":30,"share":0.0069,"playoffRate":0.5333,"playoffLift":0.1013,"ci95":[0.3614,0.6977],"significant":false,"stability":"thin","bySeason":{},"champRate":0.1333,"champLift":0.062,"avgPtsPct":0.5226,"luckDelta":0.0732},{"seq":"WR-WR-RB-RB","n":66,"share":0.0151,"playoffRate":0.5303,"playoffLift":0.0982,"ci95":[0.4116,0.6457],"significant":false,"stability":"thin","bySeason":{"2025":0.0878},"champRate":0.0909,"champLift":0.0195,"avgPtsPct":0.4806,"luckDelta":0.1163},{"seq":"RB-WR-WR-QB","n":41,"share":0.0094,"playoffRate":0.5122,"playoffLift":0.0801,"ci95":[0.3648,0.6575],"significant":false,"stability":"thin","bySeason":{"2025":0.109},"champRate":0.0488,"champLift":-0.0226,"avgPtsPct":0.5184,"luckDelta":0.0604},{"seq":"RB-RB-WR-WR","n":45,"share":0.0103,"playoffRate":0.5111,"playoffLift":0.079,"ci95":[0.37,0.6504],"significant":false,"stability":"thin","bySeason":{"2025":0.0701},"champRate":0.1111,"champLift":0.0397,"avgPtsPct":0.5517,"luckDelta":0.0351},{"seq":"RB-WR-RB-WR","n":44,"share":0.0101,"playoffRate":0.5,"playoffLift":0.0679,"ci95":[0.3583,0.6417],"significant":false,"stability":"thin","bySeason":{"2025":0.0423},"champRate":0.1136,"champLift":0.0423,"avgPtsPct":0.5949,"luckDelta":-0.02},{"seq":"WR-RB-QB-WR","n":45,"share":0.0103,"playoffRate":0.2667,"playoffLift":-0.1654,"ci95":[0.1596,0.4104],"significant":true,"stability":"thin","bySeason":{},"champRate":0.0444,"champLift":-0.0269,"avgPtsPct":0.5004,"luckDelta":-0.1562},{"seq":"WR-QB-WR-RB","n":30,"share":0.0069,"playoffRate":0.2667,"playoffLift":-0.1654,"ci95":[0.1418,0.4445],"significant":false,"stability":"thin","bySeason":{},"champRate":0.0,"champLift":-0.0714,"avgPtsPct":0.4424,"luckDelta":-0.1353},{"seq":"QB-WR-WR-RB","n":119,"share":0.0273,"playoffRate":0.2605,"playoffLift":-0.1716,"ci95":[0.19,0.346],"significant":true,"stability":"durable","bySeason":{"2023":-0.1934,"2025":-0.1823},"champRate":0.042,"champLift":-0.0293,"avgPtsPct":0.4317,"luckDelta":-0.1131},{"seq":"WR-WR-WR-QB","n":36,"share":0.0083,"playoffRate":0.25,"playoffLift":-0.1821,"ci95":[0.1375,0.4107],"significant":true,"stability":"thin","bySeason":{},"champRate":0.0278,"champLift":-0.0436,"avgPtsPct":0.4549,"luckDelta":-0.1454},{"seq":"WR-RB-QB-QB","n":30,"share":0.0069,"playoffRate":0.2333,"playoffLift":-0.1987,"ci95":[0.1179,0.4093],"significant":true,"stability":"thin","bySeason":{},"champRate":0.0333,"champLift":-0.038,"avgPtsPct":0.3741,"luckDelta":-0.0821}]},"std|1qb":{"n":120,"distinctOpenings":59,"reported":0,"significant":0,"baseline":{"playoffRate":0.55,"champRate":0.0833},"openings":[]}},"cv":{"half|1qb":{"baseline":0.5419,"n":668,"positions":{"RB":{"curve":[{"count":1,"n":97,"playoffRate":0.4845,"playoffLift":-0.0574},{"count":2,"n":392,"playoffRate":0.5281,"playoffLift":-0.0139},{"count":3,"n":158,"playoffRate":0.6203,"playoffLift":0.0783}],"peak":3},"WR":{"curve":[{"count":2,"n":275,"playoffRate":0.5491,"playoffLift":0.0072},{"count":3,"n":280,"playoffRate":0.5286,"playoffLift":-0.0133},{"count":4,"n":76,"playoffRate":0.5,"playoffLift":-0.0419}],"peak":2},"QB":{"curve":[{"count":0,"n":173,"playoffRate":0.6127,"playoffLift":0.0708},{"count":1,"n":321,"playoffRate":0.5483,"playoffLift":0.0064}],"peak":0},"TE":{"curve":[{"count":0,"n":231,"playoffRate":0.5801,"playoffLift":0.0382},{"count":1,"n":262,"playoffRate":0.5573,"playoffLift":0.0153}],"peak":0}}},"half|sf":{"baseline":0.2749,"n":342,"positions":{"RB":{"curve":[{"count":1,"n":109,"playoffRate":0.2385,"playoffLift":-0.0363},{"count":2,"n":166,"playoffRate":0.3313,"playoffLift":0.0565}],"peak":2},"WR":{"curve":[{"count":1,"n":76,"playoffRate":0.2632,"playoffLift":-0.0117},{"count":2,"n":126,"playoffRate":0.3254,"playoffLift":0.0505},{"count":3,"n":107,"playoffRate":0.2336,"playoffLift":-0.0412}],"peak":2},"QB":{"curve":[{"count":1,"n":98,"playoffRate":0.2449,"playoffLift":-0.03},{"count":2,"n":166,"playoffRate":0.2349,"playoffLift":-0.0399}],"peak":1},"TE":{"curve":[{"count":0,"n":118,"playoffRate":0.2966,"playoffLift":0.0218},{"count":1,"n":130,"playoffRate":0.2154,"playoffLift":-0.0595}],"peak":0}}},"ppr|1qb":{"baseline":0.5297,"n":6186,"positions":{"RB":{"curve":[{"count":0,"n":147,"playoffRate":0.4626,"playoffLift":-0.0672},{"count":1,"n":1105,"playoffRate":0.4869,"playoffLift":-0.0429},{"count":2,"n":3373,"playoffRate":0.5304,"playoffLift":0.0006},{"count":3,"n":1341,"playoffRate":0.569,"playoffLift":0.0392},{"count":4,"n":197,"playoffRate":0.5381,"playoffLift":0.0083}],"peak":3},"WR":{"curve":[{"count":1,"n":286,"playoffRate":0.5315,"playoffLift":0.0017},{"count":2,"n":2094,"playoffRate":0.5124,"playoffLift":-0.0173},{"count":3,"n":2540,"playoffRate":0.5508,"playoffLift":0.021},{"count":4,"n":1087,"playoffRate":0.5198,"playoffLift":-0.01},{"count":5,"n":135,"playoffRate":0.4741,"playoffLift":-0.0557}],"peak":3},"QB":{"curve":[{"count":0,"n":2175,"playoffRate":0.5384,"playoffLift":0.0086},{"count":1,"n":2546,"playoffRate":0.5232,"playoffLift":-0.0066}],"peak":0},"TE":{"curve":[{"count":0,"n":2344,"playoffRate":0.5452,"playoffLift":0.0155},{"count":1,"n":2309,"playoffRate":0.5149,"playoffLift":-0.0148},{"count":2,"n":97,"playoffRate":0.5361,"playoffLift":0.0063}],"peak":0}}},"ppr|sf":{"baseline":0.4365,"n":7358,"positions":{"RB":{"curve":[{"count":0,"n":780,"playoffRate":0.4397,"playoffLift":0.0032},{"count":1,"n":2493,"playoffRate":0.4128,"playoffLift":-0.0238},{"count":2,"n":3025,"playoffRate":0.4374,"playoffLift":0.0008},{"count":3,"n":868,"playoffRate":0.4735,"playoffLift":0.037},{"count":4,"n":167,"playoffRate":0.5749,"playoffLift":0.1383}],"peak":4},"WR":{"curve":[{"count":0,"n":384,"playoffRate":0.5521,"playoffLift":0.1156},{"count":1,"n":1306,"playoffRate":0.4862,"playoffLift":0.0497},{"count":2,"n":2960,"playoffRate":0.4284,"playoffLift":-0.0082},{"count":3,"n":2031,"playoffRate":0.3993,"playoffLift":-0.0372},{"count":4,"n":561,"playoffRate":0.4403,"playoffLift":0.0038},{"count":5,"n":102,"playoffRate":0.3529,"playoffLift":-0.0836}],"peak":0},"QB":{"curve":[{"count":0,"n":320,"playoffRate":0.5594,"playoffLift":0.1228},{"count":1,"n":1490,"playoffRate":0.4228,"playoffLift":-0.0137},{"count":2,"n":2175,"playoffRate":0.4097,"playoffLift":-0.0269},{"count":3,"n":308,"playoffRate":0.5162,"playoffLift":0.0797},{"count":4,"n":52,"playoffRate":0.3846,"playoffLift":-0.0519}],"peak":0},"TE":{"curve":[{"count":0,"n":2482,"playoffRate":0.4118,"playoffLift":-0.0248},{"count":1,"n":1637,"playoffRate":0.4459,"playoffLift":0.0094},{"count":2,"n":209,"playoffRate":0.5407,"playoffLift":0.1041}],"peak":2}}},"std|1qb":{"baseline":0.5455,"n":132,"positions":{"RB":{"curve":[{"count":2,"n":73,"playoffRate":0.4932,"playoffLift":-0.0523}],"peak":2},"WR":{"curve":[{"count":2,"n":57,"playoffRate":0.5088,"playoffLift":-0.0367},{"count":3,"n":55,"playoffRate":0.5636,"playoffLift":0.0182}],"peak":3},"QB":{"curve":[{"count":0,"n":42,"playoffRate":0.619,"playoffLift":0.0736},{"count":1,"n":74,"playoffRate":0.527,"playoffLift":-0.0184}],"peak":0},"TE":{"curve":[{"count":0,"n":51,"playoffRate":0.5686,"playoffLift":0.0232},{"count":1,"n":66,"playoffRate":0.5455,"playoffLift":0.0}],"peak":0}}},"std|sf":{"baseline":0.6364,"n":22,"positions":{}}},"pr":{"half|1qb":{"RB":[{"round":1,"n":297,"playoffRate":0.5556},{"round":2,"n":193,"playoffRate":0.5907},{"round":3,"n":95,"playoffRate":0.5053},{"round":4,"n":43,"playoffRate":0.5349}],"WR":[{"round":1,"n":336,"playoffRate":0.5506},{"round":2,"n":169,"playoffRate":0.4911},{"round":3,"n":89,"playoffRate":0.6067},{"round":4,"n":51,"playoffRate":0.4706}],"QB":[{"round":2,"n":46,"playoffRate":0.4783},{"round":3,"n":116,"playoffRate":0.5603},{"round":4,"n":114,"playoffRate":0.5175},{"round":5,"n":73,"playoffRate":0.4795},{"round":6,"n":64,"playoffRate":0.5469},{"round":7,"n":48,"playoffRate":0.3958},{"round":8,"n":65,"playoffRate":0.7077},{"round":9,"n":37,"playoffRate":0.6216},{"round":10,"n":31,"playoffRate":0.5161},{"round":11,"n":27,"playoffRate":0.5556}],"TE":[{"round":2,"n":30,"playoffRate":0.6},{"round":3,"n":68,"playoffRate":0.4559},{"round":4,"n":68,"playoffRate":0.6618},{"round":5,"n":96,"playoffRate":0.5521},{"round":6,"n":92,"playoffRate":0.4891},{"round":7,"n":82,"playoffRate":0.5244},{"round":8,"n":69,"playoffRate":0.4638},{"round":9,"n":45,"playoffRate":0.6444},{"round":10,"n":37,"playoffRate":0.5135},{"round":11,"n":25,"playoffRate":0.6}]},"half|sf":{"RB":[{"round":1,"n":64,"playoffRate":0.2969},{"round":2,"n":94,"playoffRate":0.3404},{"round":3,"n":70,"playoffRate":0.3143},{"round":4,"n":42,"playoffRate":0.2619},{"round":5,"n":28,"playoffRate":0.2143}],"WR":[{"round":1,"n":81,"playoffRate":0.2346},{"round":2,"n":93,"playoffRate":0.1828},{"round":3,"n":50,"playoffRate":0.42},{"round":4,"n":53,"playoffRate":0.3585},{"round":5,"n":30,"playoffRate":0.3667}],"QB":[{"round":1,"n":168,"playoffRate":0.2857},{"round":2,"n":47,"playoffRate":0.2766},{"round":3,"n":48,"playoffRate":0.2917},{"round":4,"n":34,"playoffRate":0.2059}],"TE":[{"round":2,"n":28,"playoffRate":0.2143},{"round":3,"n":29,"playoffRate":0.069},{"round":4,"n":31,"playoffRate":0.2258},{"round":5,"n":32,"playoffRate":0.3438},{"round":6,"n":51,"playoffRate":0.2745},{"round":7,"n":53,"playoffRate":0.3962},{"round":8,"n":26,"playoffRate":0.3462}]},"ppr|1qb":{"RB":[{"round":1,"n":2543,"playoffRate":0.5364},{"round":2,"n":1777,"playoffRate":0.547},{"round":3,"n":778,"playoffRate":0.5334},{"round":4,"n":501,"playoffRate":0.485},{"round":5,"n":281,"playoffRate":0.5125},{"round":6,"n":159,"playoffRate":0.4465},{"round":7,"n":101,"playoffRate":0.4851},{"round":8,"n":33,"playoffRate":0.4242}],"WR":[{"round":1,"n":3330,"playoffRate":0.533},{"round":2,"n":1355,"playoffRate":0.5063},{"round":3,"n":829,"playoffRate":0.532},{"round":4,"n":436,"playoffRate":0.5528},{"round":5,"n":152,"playoffRate":0.5789},{"round":6,"n":50,"playoffRate":0.56}],"QB":[{"round":1,"n":156,"playoffRate":0.4167},{"round":2,"n":373,"playoffRate":0.4853},{"round":3,"n":818,"playoffRate":0.5293},{"round":4,"n":892,"playoffRate":0.528},{"round":5,"n":672,"playoffRate":0.5223},{"round":6,"n":562,"playoffRate":0.532},{"round":7,"n":564,"playoffRate":0.5408},{"round":8,"n":515,"playoffRate":0.5592},{"round":9,"n":453,"playoffRate":0.5475},{"round":10,"n":406,"playoffRate":0.5271},{"round":11,"n":286,"playoffRate":0.528},{"round":12,"n":218,"playoffRate":0.555},{"round":13,"n":132,"playoffRate":0.6288},{"round":14,"n":74,"playoffRate":0.7027}],"TE":[{"round":1,"n":114,"playoffRate":0.5526},{"round":2,"n":391,"playoffRate":0.4783},{"round":3,"n":627,"playoffRate":0.5199},{"round":4,"n":619,"playoffRate":0.5057},{"round":5,"n":777,"playoffRate":0.5045},{"round":6,"n":797,"playoffRate":0.527},{"round":7,"n":661,"playoffRate":0.528},{"round":8,"n":677,"playoffRate":0.5598},{"round":9,"n":499,"playoffRate":0.5631},{"round":10,"n":340,"playoffRate":0.5941},{"round":11,"n":233,"playoffRate":0.618},{"round":12,"n":177,"playoffRate":0.5367},{"round":13,"n":106,"playoffRate":0.5377},{"round":14,"n":83,"playoffRate":0.4337},{"round":15,"n":29,"playoffRate":0.5172}]},"ppr|sf":{"RB":[{"round":1,"n":1307,"playoffRate":0.4552},{"round":2,"n":1673,"playoffRate":0.4268},{"round":3,"n":1486,"playoffRate":0.4462},{"round":4,"n":994,"playoffRate":0.4427},{"round":5,"n":672,"playoffRate":0.4211},{"round":6,"n":446,"playoffRate":0.3901},{"round":7,"n":296,"playoffRate":0.3986},{"round":8,"n":211,"playoffRate":0.4502},{"round":9,"n":113,"playoffRate":0.5044},{"round":10,"n":81,"playoffRate":0.4691},{"round":11,"n":33,"playoffRate":0.4848}],"WR":[{"round":1,"n":2113,"playoffRate":0.4179},{"round":2,"n":1921,"playoffRate":0.4222},{"round":3,"n":1235,"playoffRate":0.4219},{"round":4,"n":878,"playoffRate":0.4294},{"round":5,"n":549,"playoffRate":0.4718},{"round":6,"n":278,"playoffRate":0.536},{"round":7,"n":175,"playoffRate":0.6114},{"round":8,"n":83,"playoffRate":0.5301},{"round":9,"n":43,"playoffRate":0.6047}],"QB":[{"round":1,"n":3472,"playoffRate":0.4404},{"round":2,"n":1075,"playoffRate":0.3805},{"round":3,"n":876,"playoffRate":0.4007},{"round":4,"n":620,"playoffRate":0.4081},{"round":5,"n":505,"playoffRate":0.4772},{"round":6,"n":307,"playoffRate":0.5081},{"round":7,"n":208,"playoffRate":0.5288},{"round":8,"n":116,"playoffRate":0.5776},{"round":9,"n":89,"playoffRate":0.5281},{"round":10,"n":46,"playoffRate":0.5435}],"TE":[{"round":1,"n":236,"playoffRate":0.4873},{"round":2,"n":462,"playoffRate":0.5065},{"round":3,"n":615,"playoffRate":0.4472},{"round":4,"n":644,"playoffRate":0.4472},{"round":5,"n":624,"playoffRate":0.4455},{"round":6,"n":698,"playoffRate":0.4097},{"round":7,"n":703,"playoffRate":0.4367},{"round":8,"n":703,"playoffRate":0.4424},{"round":9,"n":677,"playoffRate":0.449},{"round":10,"n":537,"playoffRate":0.4153},{"round":11,"n":389,"playoffRate":0.4036},{"round":12,"n":329,"playoffRate":0.4438},{"round":13,"n":212,"playoffRate":0.4245},{"round":14,"n":151,"playoffRate":0.3642},{"round":15,"n":88,"playoffRate":0.2727},{"round":16,"n":84,"playoffRate":0.3095},{"round":17,"n":49,"playoffRate":0.551},{"round":18,"n":32,"playoffRate":0.2188}]},"std|1qb":{"RB":[{"round":1,"n":58,"playoffRate":0.5517},{"round":2,"n":37,"playoffRate":0.5405}],"WR":[{"round":1,"n":61,"playoffRate":0.541},{"round":2,"n":37,"playoffRate":0.5405}],"QB":[{"round":3,"n":33,"playoffRate":0.5758}],"TE":[]},"std|sf":{"RB":[],"WR":[],"QB":[],"TE":[]}}};
+
+const DESC = {
+  "Robust RB":"Two-plus running backs in the first two rounds.",
+  "Hero RB" :"One anchor back early, then receivers — no RB in round 3.",
+  "Zero RB"  :"No running back at all through round three.",
+  "Elite TE" :"A tight end off the board in rounds one or two.",
+  "Balanced" :"No structural commitment — takes the board as it falls."
+};
+const POS_COLOR = {RB:'var(--rb)',WR:'var(--wr)',QB:'var(--qb)',TE:'var(--te)'};
+const MAX_ROUND = 12;
+const pct = v => (v*100).toFixed(0) + '%';
+const signed = v => (v>=0?'+':'−') + Math.abs(v*100).toFixed(1);
+
+let SC='ppr', FMT='1qb';
+
+/* diverging colour around the slice baseline */
+function heatStyle(rate, base){
+  const t = Math.max(-1, Math.min(1, (rate-base)/0.12));
+  const a = 0.10 + 0.50*Math.abs(t);
+  if (t >= 0) return `background:rgba(95,224,154,${a.toFixed(3)});border-color:rgba(95,224,154,${(a+0.15).toFixed(3)})`;
+  return `background:rgba(226,58,78,${a.toFixed(3)});border-color:rgba(226,58,78,${(a+0.15).toFixed(3)})`;
+}
+
+function renderProv(){
+  const s = RDS.stats;
+  const when = new Date(RDS.meta.updated).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  document.getElementById('prov').innerHTML = `
+    <span><b>${s.teams.toLocaleString()}</b> drafted teams</span>
+    <span><b>${s.leagues.toLocaleString()}</b> completed leagues</span>
+    <span>Seasons <b>${s.seasons.join(', ')}</b></span>
+    <span>Updated <b>${when}</b></span>`;
+}
+
+/* Two-axis trust: is the gap real (CI clears the field), and does it hold up
+   season to season? Only findings that pass BOTH get called Proven. */
+function trust(row){
+  if (!row.significant) return {cls:'unprov', label:'Not proven', why:'interval overlaps the field'};
+  if (row.stability === 'durable') return {cls:'proven', label:'Proven', why:'holds every season measured'};
+  if (row.stability === 'mixed')  return {cls:'era', label:'Era-dependent', why:'flips sign between seasons'};
+  return {cls:'era', label:'Thin history', why:'only one season has the sample'};
+}
+const badge = t => `<span class="badge ${t.cls}" title="${t.why}"><i></i>${t.label}</span>`;
+
+/* CI bar drawn on a fixed 20%–80% scale so bars are comparable across rows */
+function ciBar(row, base){
+  const LO=0.2, HI=0.8, span=HI-LO;
+  const x = v => Math.max(0, Math.min(100, ((v-LO)/span)*100));
+  const a=x(row.ci95[0]), b=x(row.ci95[1]);
+  return `<div class="ci">
+      <span class="band" style="left:${a}%;width:${Math.max(1.5,b-a)}%"></span>
+      <span class="base" style="left:${x(base)}%"></span>
+    </div>
+    <span class="ci-cap">95% CI ${pct(row.ci95[0])}–${pct(row.ci95[1])} · field ${pct(base)}</span>`;
+}
+
+function renderVerdict(){
+  const a = RDS.arch[`${SC}|${FMT}`];
+  const o = RDS.op[`${SC}|${FMT}`];
+  const host = document.getElementById('verdict');
+  if(!a || !a.n){ host.innerHTML=''; return; }
+  const reported = a.archetypes.filter(x=>!x.insufficient);
+  const proven = reported.filter(x=>trust(x).cls==='proven').length;
+  const opRep = o ? o.reported : 0, opSig = o ? o.significant : 0;
+  host.innerHTML = `
+    <div class="vcard"><span class="v-num" style="color:var(--accent2)">${proven}/${reported.length}</span>
+      <span class="v-lab">builds are <b style="color:var(--text)">proven</b> — significant and stable across seasons</span></div>
+    <div class="vcard"><span class="v-num">${opSig}/${opRep}</span>
+      <span class="v-lab">openings clear the field at 95% confidence. The other ${opRep-opSig} are noise in rank order.</span></div>
+    <div class="vcard"><span class="v-num">${a.n.toLocaleString()}</span>
+      <span class="v-lab">drafted teams in this slice · field makes playoffs ${pct(a.baseline.playoffRate)}</span></div>`;
+}
+
+function renderOpenings(){
+  const o = RDS.op[`${SC}|${FMT}`];
+  const host = document.getElementById('openings');
+  const nEl = document.getElementById('op-n');
+  if(!o || !o.openings.length){
+    nEl.textContent='';
+    host.innerHTML = `<div class="accruing"><span class="kicker">Accruing</span>
+      <p>No opening sequence in this slice has reached 30 teams yet.</p></div>`;
+    return;
+  }
+  const base = o.baseline.playoffRate;
+  nEl.innerHTML = `${o.distinctOpenings} distinct openings · ${o.reported} with 30+ teams · <b style="color:var(--value)">${o.significant} significant</b>`;
+  host.innerHTML = o.openings.map(r=>{
+    const t = trust(r);
+    const bad = r.playoffLift < 0;
+    return `<article class="op ${r.significant?'sig':''} ${bad?'bad':''}">
+      <div class="op-seq">${r.seq.split('-').map(p=>`<span data-p="${p}">${p}</span>`).join('')}</div>
+      <div class="op-mid">${badge(t)} <span class="ci-cap" style="margin-left:6px">${r.n} teams · ${signed(r.playoffLift)} vs field</span>
+        ${ciBar(r, base)}</div>
+      <div class="op-rate">${pct(r.playoffRate)}<small>PLAYOFFS</small></div>
+    </article>`;
+  }).join('');
+}
+
+function renderCurves(){
+  const c = RDS.cv[`${SC}|${FMT}`];
+  const host = document.getElementById('curves');
+  if(!c || !Object.keys(c.positions||{}).length){
+    host.innerHTML = `<span class="thin-note">Not enough teams in this slice yet.</span>`;
+    return;
+  }
+  const base = c.baseline;
+  host.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:22px">` +
+    Object.entries(c.positions).map(([pos,blk])=>{
+      const max = Math.max(...blk.curve.map(r=>r.playoffRate));
+      return `<div>
+        <span class="kicker"><span class="pos-dot" style="background:${POS_COLOR[pos]}"></span>${pos} in first 6</span>
+        <div class="curve">${blk.curve.map(r=>`
+          <div class="col ${r.count===blk.peak?'peak':''}" title="${r.count} ${pos} — ${pct(r.playoffRate)} playoff rate, ${r.n} teams">
+            <span class="c-rate">${pct(r.playoffRate)}</span>
+            <span class="bar-i" style="height:${Math.max(4,(r.playoffRate/max)*78)}px"></span>
+            <span class="c-lab">${r.count}</span>
+          </div>`).join('')}</div>
+      </div>`;
+    }).join('') + `</div>
+    <span class="ci-cap" style="margin-top:14px">Field baseline ${pct(base)} · column label = how many taken · bars scaled within each position</span>`;
+}
+
+function renderBuilds(){
+  const slice = RDS.arch[`${SC}|${FMT}`];
+  const host = document.getElementById('builds');
+  const nEl = document.getElementById('slice-n');
+  if (!slice || !slice.n){
+    nEl.textContent = '';
+    host.innerHTML = `<div class="accruing"><span class="kicker">No data yet</span>
+      <p>No completed leagues in this slice yet. Sleeper redraft leagues skew heavily PPR — Standard and Half fill in as the crawler accretes.</p></div>`;
+    return;
+  }
+  const base = slice.baseline;
+  nEl.innerHTML = `${slice.n.toLocaleString()} teams · field baseline <b style="color:var(--text)">${pct(base.playoffRate)}</b> playoffs`;
+
+  const ranked = slice.archetypes.filter(a=>!a.insufficient);
+  const thin   = slice.archetypes.filter(a=>a.insufficient);
+
+  host.innerHTML = ranked.map((a,i)=>{
+    const positive = a.playoffLift >= 0;
+    const t = trust(a);
+    const seasons = Object.entries(a.bySeason||{})
+      .map(([s,v])=>`<span style="color:${v>=0?'var(--value)':'var(--red2)'}">${s} ${signed(v)}</span>`).join('  ');
+    return `<article class="build ${positive?'pos':'neg'} ${i===0?'lead-card':''}">
+      <div class="rank mono">${i+1}</div>
+      <div>
+        <h3 class="b-name">${a.arch} ${badge(t)}</h3>
+        <p class="b-desc">${DESC[a.arch]||''}</p>
+        <span class="lift ${positive?'pos':'neg'}">${signed(a.playoffLift)} pts vs field</span>
+        ${seasons?`<span class="ci-cap">By season: ${seasons}</span>`:''}
+      </div>
+      <div class="b-metrics">
+        <div class="metric hero-metric"><span class="m-val">${pct(a.playoffRate)}</span><span class="m-lab">Playoffs</span></div>
+        <div class="metric"><span class="m-val">${pct(a.champRate)}</span><span class="m-lab">Titles</span></div>
+        <div class="metric"><span class="m-val">${pct(a.avgWinPct)}</span><span class="m-lab">Win %</span></div>
+        <div class="metric"><span class="m-val">${(a.avgPtsPct*100).toFixed(0)}</span><span class="m-lab">Pts %ile</span></div>
+        <div class="metric"><span class="m-val">${a.n}</span><span class="m-lab">Teams</span></div>
+      </div>
+    </article>`;
+  }).join('') + (thin.length ? `<div class="build thin" style="grid-template-columns:1fr">
+      <span class="thin-note">Not yet reported (under 40 teams): ${thin.map(t=>`${t.arch} · ${t.n}`).join('  ·  ')}</span>
+    </div>` : '');
+}
+
+function renderHeat(){
+  const block = RDS.pr[`${SC}|${FMT}`] || {};
+  const slice = RDS.arch[`${SC}|${FMT}`];
+  const base = slice && slice.n ? slice.baseline.playoffRate : 0.5;
+  const rounds = Array.from({length:MAX_ROUND},(_,i)=>i+1);
+
+  let html = '<thead><tr><th class="rowh"></th>' +
+    rounds.map(r=>`<th>R${r}</th>`).join('') + '</tr></thead><tbody>';
+
+  ['RB','WR','QB','TE'].forEach(pos=>{
+    const rows = block[pos] || [];
+    const byRound = Object.fromEntries(rows.map(r=>[r.round,r]));
+    html += `<tr><td class="rowh"><span class="pos-dot" style="background:${POS_COLOR[pos]}"></span>${pos}</td>`;
+    rounds.forEach(r=>{
+      const d = byRound[r];
+      html += d
+        ? `<td class="cell" style="${heatStyle(d.playoffRate, base)}" title="${pos} first taken in round ${r} — ${pct(d.playoffRate)} playoff rate across ${d.n} teams">
+             <span class="c-val">${pct(d.playoffRate)}</span><span class="c-n">${d.n}</span></td>`
+        : `<td class="cell empty"></td>`;
+    });
+    html += '</tr>';
+  });
+  document.getElementById('hm').innerHTML = html + '</tbody>';
+
+  // legend
+  document.getElementById('legend-sw').innerHTML =
+    [-1,-0.5,0,0.5,1].map(t=>{
+      const a = 0.10 + 0.50*Math.abs(t);
+      const c = t>=0 ? `rgba(95,224,154,${a.toFixed(3)})` : `rgba(226,58,78,${a.toFixed(3)})`;
+      return `<span class="sw" style="background:${c}"></span>`;
+    }).join('');
+  document.getElementById('legend-range').textContent = `−12 pts → +12 pts · baseline ${pct(base)}`;
+
+  renderInsight(block, base);
+}
+
+/* 95% Wilson interval — same test the pipeline uses, so the callout can never
+   assert an edge the numbers do not support. */
+function wilsonJS(p, n, z=1.96){
+  if(!n) return [0,0];
+  const d = 1 + z*z/n;
+  const ctr = (p + z*z/(2*n))/d;
+  const rad = z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n))/d;
+  return [Math.max(0,ctr-rad), Math.min(1,ctr+rad)];
+}
+
+/* The callout must EARN its claim. An earlier build of this page hard-coded
+   "the early-RB tax is the clearest signal" — true on 2024 alone, and false once
+   three seasons were in (54% vs 55%). So the claim is now derived and tested. */
+function renderInsight(block, base){
+  const el = document.getElementById('insight-txt');
+  const rb = (block.RB||[]).filter(r=>r.n>=80);
+  if (rb.length < 2){
+    el.innerHTML = 'Not enough teams in this slice yet to test a timing edge — the crawler keeps adding completed leagues each run.';
+    return;
+  }
+  const best  = rb.reduce((a,b)=> b.playoffRate>a.playoffRate ? b : a);
+  const first = rb.reduce((a,b)=> b.round<a.round ? b : a);
+  const [bLo] = wilsonJS(best.playoffRate, best.n);
+  const [,fHi] = wilsonJS(first.playoffRate, first.n);
+  const gap = (best.playoffRate - first.playoffRate)*100;
+
+  // separated intervals = a real timing edge; otherwise say so plainly
+  if (bLo > fHi && gap >= 4){
+    el.innerHTML = `Teams that waited until <b>round ${best.round}</b> for their first running back made the playoffs
+      <b>${pct(best.playoffRate)}</b> of the time — <b>${gap.toFixed(1)} points</b> clear of teams that spent
+      round ${first.round} on one (${pct(first.playoffRate)}, ${first.n.toLocaleString()} teams), with no overlap
+      between the two confidence intervals.`;
+    return;
+  }
+  el.innerHTML = `<b>No reliable edge in RB timing here.</b> The best round to take your first back
+    (round ${best.round}, ${pct(best.playoffRate)}) is only ${gap.toFixed(1)} points ahead of round ${first.round}
+    (${pct(first.playoffRate)}), and the confidence intervals overlap — that gap is inside the noise.
+    The signal that does hold up is <b>how many</b> backs you take, not when: see the curve above.`;
+}
+
+function renderAll(){ renderVerdict(); renderBuilds(); renderOpenings(); renderCurves(); renderHeat(); }
+
+function wireSeg(id, set){
+  document.getElementById(id).addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    set(b.dataset.v); renderAll();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PERSONAL DECODER — live Sleeper reads, entirely client-side.
+   The Sleeper API is public, keyless and CORS-open, so this works
+   straight from the browser (verified from a file:// origin).
+   classify() below is a faithful port of the Python classifier in
+   scripts/build_redraft_strategy.py — if one changes, change both.
+   ═══════════════════════════════════════════════════════════════ */
+const SLEEPER = 'https://api.sleeper.app/v1';
+const SKILL = new Set(['QB','RB','WR','TE']);
+
+const sGet = async p => {
+  const r = await fetch(`${SLEEPER}/${p}`);
+  if(!r.ok) return null;
+  const t = await r.text();
+  return (!t || t==='null') ? null : JSON.parse(t);
+};
+
+function classifyJS(pbr){
+  const cnt = (pos,a,b)=>{ let n=0; for(let r=a;r<=b;r++) n += (pbr[r]||[]).filter(p=>p===pos).length; return n; };
+  const rb12=cnt('RB',1,2), rb13=cnt('RB',1,3), rb3=cnt('RB',3,3), te12=cnt('TE',1,2);
+  if (rb12>=2) return 'Robust RB';
+  if (te12>=1) return 'Elite TE';
+  if (rb13===0) return 'Zero RB';
+  if (rb12===1 && rb3===0) return 'Hero RB';
+  return 'Balanced';
+}
+
+function parseBracketJS(wb){
+  const playoff=new Set(); const placement={}; let champion=null, maxR=0, finalM=null;
+  (wb||[]).forEach(m=>{
+    ['t1','t2'].forEach(k=>{ if(Number.isInteger(m[k])) playoff.add(m[k]); });
+    if((m.r||0)>maxR){ maxR=m.r||0; finalM=m; }
+    if(Number.isInteger(m.p)){
+      if(Number.isInteger(m.w) && placement[m.w]===undefined) placement[m.w]=m.p;
+      if(Number.isInteger(m.l) && placement[m.l]===undefined) placement[m.l]=m.p+1;
+      if(m.p===1 && Number.isInteger(m.w)) champion=m.w;
+    }
+  });
+  if(champion===null && finalM && Number.isInteger(finalM.w)) champion=finalM.w;
+  return {playoff, placement, champion};
+}
+
+const scoringOf = lg => {
+  const rec = parseFloat((lg.scoring_settings||{}).rec) || 0;
+  return rec>=0.75 ? 'ppr' : (rec>=0.25 ? 'half' : 'std');
+};
+const formatOf = lg => {
+  const rp = lg.roster_positions||[];
+  return (rp.includes('SUPER_FLEX') || rp.filter(x=>x==='QB').length>=2) ? 'sf' : '1qb';
+};
+
+async function analyzeLeague(lg, myUserId){
+  const lid = lg.league_id;
+  const [users, rosters, wb, drafts] = await Promise.all([
+    sGet(`league/${lid}/users`), sGet(`league/${lid}/rosters`),
+    sGet(`league/${lid}/winners_bracket`), sGet(`league/${lid}/drafts`)
+  ]);
+  if(!rosters || !drafts || !drafts.length) return null;
+  const draft = drafts.reduce((a,b)=>((b.settings||{}).rounds||0)>((a.settings||{}).rounds||0)?b:a);
+  const picks = await sGet(`draft/${draft.draft_id}/picks`);
+  if(!picks || !picks.length) return null;             // offline draft — nothing to rebuild
+
+  const nameOf = {}; (users||[]).forEach(u=> nameOf[u.user_id] = u.display_name || u.username);
+  const {playoff, placement, champion} = parseBracketJS(wb);
+
+  const builds = {};
+  picks.forEach(pk=>{
+    if(pk.is_keeper) return;
+    const pos = (pk.metadata||{}).position || '';
+    if(pk.roster_id==null || !SKILL.has(pos) || !pk.round) return;
+    const b = builds[pk.roster_id] || (builds[pk.roster_id]={pbr:{},order:[],slot:pk.draft_slot});
+    (b.pbr[pk.round] = b.pbr[pk.round]||[]).push(pos);
+    b.order.push([pk.pick_no||0, pos, `${(pk.metadata||{}).first_name||''} ${(pk.metadata||{}).last_name||''}`.trim()]);
+    if(b.slot==null && pk.draft_slot!=null) b.slot=pk.draft_slot;
+  });
+
+  const teams = rosters.map(r=>{
+    const b = builds[r.roster_id];
+    const st = r.settings||{};
+    const ord = b ? b.order.slice().sort((x,y)=>x[0]-y[0]) : [];
+    return {
+      rosterId:r.roster_id,
+      manager: nameOf[r.owner_id] || 'Unknown',
+      isYou: r.owner_id === myUserId,
+      wins: st.wins||0, losses: st.losses||0, ties: st.ties||0,
+      pf: Math.round((st.fpts||0) + (st.fpts_decimal||0)/100),
+      slot: b ? b.slot : null,
+      arch: b ? classifyJS(b.pbr) : null,
+      seq: ord.slice(0,4).map(x=>x[1]),
+      picks: ord.slice(0,4).map(x=>`${x[1]} ${x[2]}`),
+      champ: champion===r.roster_id,
+      playoff: playoff.has(r.roster_id),
+      place: placement[r.roster_id] || null
+    };
+  }).filter(t=>t.arch);
+
+  teams.sort((a,b)=> (b.wins-a.wins) || (b.pf-a.pf));
+  return {
+    name: lg.name, teams: rosters.length,
+    sc: scoringOf(lg), fmt: formatOf(lg),
+    rows: teams
+  };
+}
+
+/* Tie the personal result back to the 14,708-team corpus: what did the winning
+   build do league-wide LAST SEASON specifically? bySeason carries that. */
+function archVerdict(arch, sc, fmt){
+  const slice = RDS.arch[`${sc}|${fmt}`];
+  if(!slice || !slice.n) return null;
+  const row = (slice.archetypes||[]).find(a=>a.arch===arch && !a.insufficient);
+  if(!row) return null;
+  return {lift2025: (row.bySeason||{})['2025'], overall: row.playoffLift,
+          trust: trust(row), rate: row.playoffRate};
+}
+
+function renderLeague(L){
+  const champ = L.rows.find(r=>r.champ);
+  const you   = L.rows.find(r=>r.isYou);
+  const label = {ppr:'PPR', half:'Half-PPR', std:'Standard'}[L.sc] + ' · ' + (L.fmt==='sf'?'Superflex':'1QB');
+
+  let verdict = '';
+  if(champ){
+    const v = archVerdict(champ.arch, L.sc, L.fmt);
+    let tail = '';
+    if(v && v.lift2025 !== undefined){
+      const d = v.lift2025;
+      tail = ` League-wide in 2025, <b>${champ.arch}</b> ran ${signed(d)} points ${d>=0?'above':'below'} the field — ${v.trust.label.toLowerCase()}.`;
+    } else if (v){
+      tail = ` League-wide, <b>${champ.arch}</b> sits ${signed(v.overall)} vs the field.`;
+    }
+    verdict = `<div class="verdict-line"><b>${champ.manager}</b> won it from the
+      <b>${champ.slot ? ordinal(champ.slot) : '?'}</b> slot with a <b>${champ.arch}</b> build —
+      opened ${champ.picks.slice(0,3).join(', ')}.${tail}</div>`;
+  }
+
+  let mine = '';
+  if(you){
+    const v = archVerdict(you.arch, L.sc, L.fmt);
+    const d = v ? v.lift2025 : undefined;
+    mine = `<div class="verdict-line" style="border-left-color:var(--te);background:linear-gradient(135deg,rgba(245,200,66,.08),transparent 60%),var(--s2)">
+      <b>You</b> finished ${you.wins}-${you.losses} on a <b>${you.arch}</b> build from the ${you.slot?ordinal(you.slot):'?'} slot${you.champ?' — and won the whole thing.':'.'}
+      ${d!==undefined ? ` That build was ${signed(d)} vs the field league-wide in 2025.` : ''}</div>`;
+  }
+
+  return `<div class="lg-card">
+    <div class="lg-head"><h3 class="lg-name">${L.name}</h3>
+      <span class="lg-meta">${L.teams}-team · ${label}</span></div>
+    ${verdict}${mine}
+    <div class="std-wrap"><table class="std">
+      <thead><tr><th>Manager</th><th>Rec</th><th>PF</th><th>Slot</th><th>Build</th><th>Opening</th></tr></thead>
+      <tbody>${L.rows.map(r=>`
+        <tr class="${r.champ?'champ':''}${r.isYou?' you':''}">
+          <td><span class="mgr">${r.manager}</span>${r.champ?'<span class="tag champ">Champ</span>':''}${r.isYou?'<span class="tag you">You</span>':''}${(!r.champ&&r.playoff)?'<span class="tag po">Playoffs</span>':''}</td>
+          <td class="num">${r.wins}-${r.losses}</td>
+          <td class="num">${r.pf.toLocaleString()}</td>
+          <td class="num">${r.slot||'—'}</td>
+          <td>${r.arch}</td>
+          <td><span class="mini-seq">${r.seq.map(p=>`<span data-p="${p}">${p}</span>`).join('')}</span></td>
+        </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+const ordinal = n => n + (['th','st','nd','rd'][(n%100-20)%10] || ['th','st','nd','rd'][n%100] || 'th');
+
+async function decode(username){
+  const status = document.getElementById('dec-status');
+  const out = document.getElementById('dec-out');
+  const btn = document.getElementById('dec-go');
+  out.innerHTML=''; status.className='dec-status'; btn.disabled=true;
+  try{
+    status.textContent = 'Looking up user…';
+    const user = await sGet(`user/${encodeURIComponent(username)}`);
+    if(!user || !user.user_id){ status.className='dec-status err'; status.textContent=`No Sleeper user "${username}".`; return; }
+
+    status.textContent = 'Finding your 2025 leagues…';
+    const leagues = await sGet(`user/${user.user_id}/leagues/nfl/2025`) || [];
+    const redraft = leagues.filter(l => (l.settings||{}).type===0 && l.status==='complete');
+    if(!redraft.length){
+      status.className='dec-status err';
+      status.textContent = `Found ${leagues.length} league(s) for ${user.display_name} in 2025, but no COMPLETED redraft ones.`;
+      return;
+    }
+
+    status.textContent = `Rebuilding ${redraft.length} league${redraft.length>1?'s':''}…`;
+    const results = [];
+    for(const lg of redraft){
+      const L = await analyzeLeague(lg, user.user_id);
+      if(L) results.push(L);
+      out.innerHTML = results.map(renderLeague).join('');   // stream them in
+    }
+    status.textContent = results.length
+      ? `${user.display_name} · ${results.length} completed 2025 redraft league${results.length>1?'s':''} decoded.`
+      : 'Those leagues drafted offline — Sleeper has no picks to rebuild.';
+  }catch(e){
+    status.className='dec-status err';
+    status.textContent = 'Sleeper request failed: ' + e.message;
+  }finally{ btn.disabled=false; }
+}
+
+document.getElementById('dec-form').addEventListener('submit', e=>{
+  e.preventDefault();
+  const v = document.getElementById('dec-user').value.trim();
+  if(v) decode(v);
+});
+
+renderProv();
+wireSeg('seg-sc', v=>SC=v);
+wireSeg('seg-fmt', v=>FMT=v);
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="onyx">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault · League Outlook — 3 Redesign Options (Onyx)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── inlined vault-ds tokens · ONYX & STEEL FROST ── */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --green:#5fe09a;--gold:#8fb4e0;--amber:#f5a623;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --t-title:24px;--t-h1:20px;--t-h2:17px;--t-body:15px;--t-secondary:13px;
+  --t-label:11px;--t-micro:10px;--t-nano:9px;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;min-height:100vh;padding:22px}
+.wrap{max-width:900px;margin:0 auto}
+
+.hd{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+.hd h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.hd h1 em{color:var(--accent2);font-style:normal}
+.pill{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.05em;padding:6px 11px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text2)}
+.pill.hot{color:var(--accent2);border-color:rgba(143,180,224,.35);background:rgba(143,180,224,.08)}
+
+.opt{margin-bottom:56px}
+.opt-label{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.opt-label b{font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:800;letter-spacing:.1em;color:var(--accent2)}
+.opt-label span{font-size:var(--t-h2);font-weight:800;letter-spacing:-.01em}
+.opt-cap{font-size:var(--t-secondary);color:var(--muted);margin:0 0 16px;line-height:1.5;max-width:640px}
+
+.cc-lab{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.cc-card{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:20px;min-width:0;box-shadow:var(--shadow-card)}
+.cc-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--t-micro);font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:8px}
+.chip-steel{background:rgba(143,180,224,.10);color:var(--accent2)}
+.chip-green{background:rgba(95,224,154,.10);color:var(--green)}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+.two{display:grid;grid-template-columns:1fr 1.15fr;gap:16px}
+@media(max-width:720px){.two{grid-template-columns:1fr}}
+/* hero-only steel glow (onyx rule: glow reserved for the lead card) */
+.glow-steel{position:relative;overflow:hidden}
+.glow-steel::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:radial-gradient(220px 140px at 12% 0%,rgba(143,180,224,.10),transparent 62%)}
+.glow-steel>*{position:relative}
+
+/* shared standings rows */
+.lg-row{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:8px;font-family:var(--font-mono);font-size:var(--t-label)}
+.lg-row .rk{width:22px;color:var(--muted);font-weight:700;flex-shrink:0}
+.lg-row .tm{flex:1;min-width:0;color:var(--text2);font-family:var(--font-sans);font-weight:600;font-size:var(--t-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-row .rec{width:34px;text-align:right;color:var(--text2);font-weight:700;flex-shrink:0}
+.lg-row .pf{width:46px;text-align:right;color:var(--muted);flex-shrink:0}
+.lg-row .mv{width:26px;text-align:right;font-weight:800;font-size:var(--t-nano);flex-shrink:0}
+.lg-row .mv.up{color:var(--green)}
+.lg-row .mv.dn{color:var(--red2)}
+.lg-row .mv.flat{color:var(--muted);opacity:.4}
+.lg-row.me{background:rgba(143,180,224,.10);border:1px solid rgba(143,180,224,.32)}
+.lg-row.me .tm{color:var(--accent2);font-weight:800}
+.lg-cut{display:flex;align-items:center;gap:8px;margin:4px 0;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.1em;color:var(--muted)}
+.lg-cut::before,.lg-cut::after{content:'';flex:1;border-top:1px dashed var(--border3)}
+.lo-subhead{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+.foot-note{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:var(--t-micro);font-family:var(--font-mono);color:var(--muted);line-height:1.6}
+.foot-note b{color:var(--text2)}
+
+/* odds rows */
+.lo-odds{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.lo-odds .k{font-size:var(--t-label);color:var(--text2);width:92px;flex-shrink:0}
+.lo-odds .tr{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+.lo-odds .tr i{display:block;height:100%;border-radius:999px}
+.lo-odds .v{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;width:34px;text-align:right;flex-shrink:0}
+.lo-odds .d{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;width:30px;text-align:right;flex-shrink:0}
+.lo-odds .d.up{color:var(--green)}
+
+/* ═══ OPTION A · trajectory ═══ */
+.tj-chart{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 6px;margin-bottom:14px}
+.tj-week{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:14px}
+.tj-week .wk{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.08em;color:var(--muted);flex-shrink:0}
+.tj-week .who{flex:1;font-size:var(--t-secondary);font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tj-week .who span{color:var(--muted);font-weight:400}
+.tj-week .pct{font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:800;color:var(--accent2);flex-shrink:0}
+
+/* ═══ OPTION B · gamecast ═══ */
+.gc-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:6px 4px 14px}
+.gc-team{display:flex;align-items:center;gap:12px;min-width:0}
+.gc-team.opp{flex-direction:row-reverse;text-align:right}
+.gc-crest{width:52px;height:52px;border-radius:14px;background:var(--s3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;font-size:15px;flex-shrink:0}
+.gc-crest.me{color:var(--accent2);border-color:rgba(143,180,224,.4);background:rgba(143,180,224,.08)}
+.gc-nm{font-size:var(--t-body);font-weight:800;letter-spacing:-.01em;line-height:1.15}
+.gc-meta{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);margin-top:3px;letter-spacing:.04em}
+.gc-proj{font-family:var(--font-mono);font-size:22px;font-weight:800;margin-top:4px}
+.gc-dial{position:relative;width:92px;height:92px;flex-shrink:0}
+.gc-dial svg{transform:rotate(-90deg)}
+.gc-dial .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gc-dial .in b{font-family:var(--font-mono);font-size:19px;font-weight:800;color:var(--accent2)}
+.gc-dial .in span{font-family:var(--font-mono);font-size:7.5px;letter-spacing:.14em;color:var(--muted)}
+.gc-ticker{border-top:1px solid var(--border);padding-top:12px;font-family:var(--font-mono);font-size:var(--t-micro);color:var(--text2);line-height:1.7}
+.gc-ticker b{color:var(--green)}
+.gc-ticker em{color:var(--red2);font-style:normal}
+.sb-grid{display:grid;grid-template-columns:1.2fr 1fr 1.3fr;gap:18px}
+@media(max-width:720px){.sb-grid{grid-template-columns:1fr}}
+.sb-cellk{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px}
+.sb-projrow{display:flex;gap:10px}
+.sb-proj{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.sb-proj .v{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.sb-proj .k{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.sb-proj .s{font-family:var(--font-mono);font-size:var(--t-nano);color:var(--green);margin-top:3px;font-weight:700}
+
+/* ═══ OPTION C · race strip ═══ */
+.rs-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:640px){.rs-stats{grid-template-columns:1fr;gap:8px}}
+.rs-stat{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+.rs-stat .k{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.rs-stat .v{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.1}
+.rs-stat .v small{font-size:var(--t-label);color:var(--muted);font-weight:600}
+.rs-stat .d{font-family:var(--font-mono);font-size:var(--t-nano);font-weight:800;margin-top:4px}
+.rs-stat .d.up{color:var(--green)}
+.rs-sched{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px}
+@media(max-width:720px){.rs-sched{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:480px){.rs-sched{grid-template-columns:repeat(2,1fr)}}
+.rs-wk{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;position:relative}
+.rs-wk.now{border-color:rgba(143,180,224,.45);background:rgba(143,180,224,.07)}
+.rs-wk.warn{border-color:rgba(245,166,35,.35)}
+.rs-wk .w{font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.08em;color:var(--muted);font-weight:700}
+.rs-wk .o{font-size:var(--t-label);font-weight:700;margin:5px 0 6px;line-height:1.2;min-height:24px;display:flex;align-items:center;justify-content:center}
+.rs-wk .p{font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:800}
+.rs-wk .bar{height:4px;border-radius:999px;background:rgba(255,255,255,.07);margin-top:6px;overflow:hidden}
+.rs-wk .bar i{display:block;height:100%;border-radius:999px}
+.rs-flag{position:absolute;top:-7px;right:-5px;font-size:10px}
+.rs-legend{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--font-mono);font-size:var(--t-nano);color:var(--muted);letter-spacing:.06em;margin-top:10px;flex-wrap:wrap}
+.rs-legend b{color:var(--text2)}
+.mb16{margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hd">
+    <h1>League Outlook · <em>3 Options</em></h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="pill hot">ONYX · STEEL FROST</span>
+      <span class="pill">CONCEPT · SAMPLE WK 8</span>
+    </div>
+  </div>
+
+  <!-- ════════════════ OPTION A ════════════════ -->
+  <div class="opt" id="opt-a">
+    <div class="opt-label"><b>OPTION A</b><span>Ladder &amp; Trajectory — two cards, side by side</span></div>
+    <p class="opt-cap">Standings get their own card; the right card tells the time story — your seed charted week by week with the projection dashed ahead of today, so every Tuesday the line visibly moves.</p>
+    <div class="two">
+      <div class="cc-card">
+        <div class="sec-head"><span class="cc-lab">League Ladder</span><span class="cc-chip chip-steel">WK 7 FINAL</span></div>
+        <div class="lg-row"><span class="rk">1</span><span class="tm">Bye Week Bandits</span><span class="rec">6-1</span><span class="pf">1,089</span><span class="mv flat">—</span></div>
+        <div class="lg-row"><span class="rk">2</span><span class="tm">Turf Burners</span><span class="rec">5-2</span><span class="pf">1,067</span><span class="mv up">▲1</span></div>
+        <div class="lg-row"><span class="rk">3</span><span class="tm">Sunday Scaries</span><span class="rec">5-2</span><span class="pf">1,031</span><span class="mv dn">▼1</span></div>
+        <div class="lg-row me"><span class="rk">4</span><span class="tm">Putput</span><span class="rec">4-3</span><span class="pf">1,012</span><span class="mv up">▲2</span></div>
+        <div class="lg-row"><span class="rk">5</span><span class="tm">Comeback Kids</span><span class="rec">4-3</span><span class="pf">998</span><span class="mv dn">▼1</span></div>
+        <div class="lg-row"><span class="rk">6</span><span class="tm">Hail Mary Hive</span><span class="rec">4-3</span><span class="pf">972</span><span class="mv dn">▼1</span></div>
+        <div class="lg-cut">PLAYOFF CUT · TOP 6</div>
+        <div class="lg-row"><span class="rk">7</span><span class="tm">Prime Time Players</span><span class="rec">3-4</span><span class="pf">941</span><span class="mv flat">—</span></div>
+        <div class="lg-row"><span class="rk">8</span><span class="tm">Couch Coaches</span><span class="rec">3-4</span><span class="pf">918</span><span class="mv flat">—</span></div>
+        <div class="lg-row"><span class="rk">11</span><span class="tm" style="color:var(--muted)">… Gridiron Geeks</span><span class="rec">2-5</span><span class="pf">861</span><span class="mv dn">▼2</span></div>
+        <div class="lg-row"><span class="rk">12</span><span class="tm" style="color:var(--muted)">Waffle Shop</span><span class="rec">1-6</span><span class="pf">812</span><span class="mv dn">▼1</span></div>
+        <div class="foot-note">▲2 after <b>Wk 7: W 128.4–101.2</b> over Waffle Shop. One game clear of the cut, one back of the 3-seed.</div>
+      </div>
+      <div class="cc-card glow-steel">
+        <div class="sec-head"><span class="cc-lab">Season Trajectory</span><span class="cc-chip chip-steel">SIMS RE-RUN TUE</span></div>
+        <div class="tj-week">
+          <span class="wk">WK 8</span>
+          <span class="who">vs Couch Coaches <span>· proj 121.4 – 117.8</span></span>
+          <span class="pct">58% WIN</span>
+        </div>
+        <div class="tj-chart">
+          <svg viewBox="0 0 360 132" width="100%" xmlns="http://www.w3.org/2000/svg">
+            <text x="2" y="12" font-family="JetBrains Mono" font-size="8" fill="#7e8493">1</text>
+            <text x="2" y="60" font-family="JetBrains Mono" font-size="8" fill="#7e8493">6</text>
+            <text x="2" y="114" font-family="JetBrains Mono" font-size="8" fill="#7e8493">12</text>
+            <line x1="14" y1="58" x2="352" y2="58" stroke="#ff5a6e" stroke-width="1" stroke-dasharray="3 4" opacity=".45"/>
+            <text x="292" y="54" font-family="JetBrains Mono" font-size="7.5" fill="#ff5a6e" opacity=".8">PLAYOFF CUT</text>
+            <polyline points="14,71.6 40,80.7 66,62.5 92,62.5 118,53.5 144,53.5 170,35.3" fill="none" stroke="#8fb4e0" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+            <polyline points="170,35.3 196,35.3 222,26.2 248,26.2 274,35.3 300,35.3 326,35.3 352,35.3" fill="none" stroke="#8fb4e0" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".75"/>
+            <circle cx="170" cy="35.3" r="4.5" fill="#8fb4e0"/>
+            <circle cx="352" cy="35.3" r="3.5" fill="none" stroke="#8fb4e0" stroke-width="1.6"/>
+            <text x="160" y="24" font-family="JetBrains Mono" font-size="8" font-weight="700" fill="#8fb4e0">NOW · #4</text>
+            <text x="316" y="26" font-family="JetBrains Mono" font-size="8" fill="#8fb4e0" opacity=".85">PROJ #4</text>
+            <text x="8" y="128" font-family="JetBrains Mono" font-size="7.5" fill="#7e8493">WK 1</text>
+            <text x="160" y="128" font-family="JetBrains Mono" font-size="7.5" fill="#7e8493">WK 7</text>
+            <text x="332" y="128" font-family="JetBrains Mono" font-size="7.5" fill="#7e8493">WK 14</text>
+          </svg>
+        </div>
+        <div class="lo-odds"><span class="k">Make playoffs</span><span class="tr"><i style="width:71%;background:var(--green)"></i></span><span class="v" style="color:var(--green)">71%</span><span class="d up">+8</span></div>
+        <div class="lo-odds"><span class="k">First-round bye</span><span class="tr"><i style="width:22%;background:var(--accent2)"></i></span><span class="v" style="color:var(--accent2)">22%</span><span class="d up">+3</span></div>
+        <div class="lo-odds"><span class="k">Win title</span><span class="tr"><i style="width:9%;background:var(--red2)"></i></span><span class="v" style="color:var(--red2)">9%</span><span class="d up">+2</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ OPTION B ════════════════ -->
+  <div class="opt" id="opt-b">
+    <div class="opt-label"><b>OPTION B</b><span>Gamecast &amp; Season Board — two cards, stacked</span></div>
+    <p class="opt-cap">This week's projected outcome becomes a broadcast-style hero with a win-probability dial; the second card compresses standings to the three seats around you plus the season sim, so the weekly stakes lead and the math follows.</p>
+    <div class="cc-card glow-steel mb16">
+      <div class="sec-head"><span class="cc-lab">This Week · Projected</span><span class="cc-chip chip-steel">WK 8 · SUN 1:00</span></div>
+      <div class="gc-top">
+        <div class="gc-team">
+          <div class="gc-crest me">PP</div>
+          <div style="min-width:0">
+            <div class="gc-nm">Putput</div>
+            <div class="gc-meta">#4 SEED · 4-3 · W2</div>
+            <div class="gc-proj" style="color:var(--accent2)">121.4</div>
+          </div>
+        </div>
+        <div class="gc-dial">
+          <svg width="92" height="92" viewBox="0 0 92 92">
+            <circle cx="46" cy="46" r="38" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="7"/>
+            <circle cx="46" cy="46" r="38" fill="none" stroke="#8fb4e0" stroke-width="7" stroke-linecap="round" stroke-dasharray="138.5 238.8" />
+          </svg>
+          <div class="in"><b>58%</b><span>WIN PROB</span></div>
+        </div>
+        <div class="gc-team opp">
+          <div class="gc-crest">CC</div>
+          <div style="min-width:0">
+            <div class="gc-nm">Couch Coaches</div>
+            <div class="gc-meta">#8 SEED · 3-4 · 1-4 ROAD</div>
+            <div class="gc-proj" style="color:var(--muted)">117.8</div>
+          </div>
+        </div>
+      </div>
+      <div class="gc-ticker">STAKES → win jumps you to the <b>#3 seed</b> (Scaries draw the Bandits) · loss drops you to <em>#5 on points</em> behind Comeback Kids</div>
+    </div>
+    <div class="cc-card">
+      <div class="sec-head"><span class="cc-lab">Season Board</span><span class="cc-chip chip-steel">RECALCS EVERY TUE</span></div>
+      <div class="sb-grid">
+        <div>
+          <div class="sb-cellk">The seats around you</div>
+          <div class="lg-row"><span class="rk">3</span><span class="tm">Sunday Scaries</span><span class="rec">5-2</span><span class="mv dn">▼1</span></div>
+          <div class="lg-row me"><span class="rk">4</span><span class="tm">Putput</span><span class="rec">4-3</span><span class="mv up">▲2</span></div>
+          <div class="lg-row"><span class="rk">5</span><span class="tm">Comeback Kids</span><span class="rec">4-3</span><span class="mv dn">▼1</span></div>
+          <div class="lg-cut" style="margin-top:6px">CUT · 2 GAMES CLEAR</div>
+        </div>
+        <div>
+          <div class="sb-cellk">Projected finish</div>
+          <div class="sb-projrow">
+            <div class="sb-proj"><div class="v">8-6</div><div class="k">Record</div><div class="s">▲ was 7-7</div></div>
+            <div class="sb-proj"><div class="v">#4</div><div class="k">Seed</div><div class="s">▲ was #6</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="sb-cellk">Odds · wk over wk</div>
+          <div class="lo-odds"><span class="k">Playoffs</span><span class="tr"><i style="width:71%;background:var(--green)"></i></span><span class="v" style="color:var(--green)">71%</span><span class="d up">+8</span></div>
+          <div class="lo-odds"><span class="k">Rd-1 bye</span><span class="tr"><i style="width:22%;background:var(--accent2)"></i></span><span class="v" style="color:var(--accent2)">22%</span><span class="d up">+3</span></div>
+          <div class="lo-odds"><span class="k">Title</span><span class="tr"><i style="width:9%;background:var(--red2)"></i></span><span class="v" style="color:var(--red2)">9%</span><span class="d up">+2</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ OPTION C ════════════════ -->
+  <div class="opt" id="opt-c">
+    <div class="opt-label"><b>OPTION C</b><span>The Race Strip — one card, schedule-first</span></div>
+    <p class="opt-cap">One command strip: where you sit, where the sims say you finish, and every remaining week laid out with a live win probability — the bye-stack trap week is flagged before it costs you.</p>
+    <div class="cc-card glow-steel">
+      <div class="sec-head"><span class="cc-lab">League Outlook · The Race</span><span class="cc-chip chip-steel">UPDATED AFTER WK 7</span></div>
+      <div class="rs-stats">
+        <div class="rs-stat"><div class="k">Seed Now</div><div class="v">#4 <small>of 12</small></div><div class="d up">▲2 THIS WEEK · 1 GM CLEAR OF CUT</div></div>
+        <div class="rs-stat"><div class="k">Projected Finish</div><div class="v">8-6 <small>· #4 SEED</small></div><div class="d up">▲ WAS 7-7 · #6</div></div>
+        <div class="rs-stat"><div class="k">Playoff Odds</div><div class="v">71%</div><div class="d up">+8 AFTER WK 7 WIN · BYE 22% · TITLE 9%</div></div>
+      </div>
+      <div class="lo-subhead"><span>Remaining Schedule · Win Probability</span><span>SIMS RE-RUN EVERY TUE</span></div>
+      <div class="rs-sched">
+        <div class="rs-wk now"><div class="w">WK 8</div><div class="o">vs Couch Coaches</div><div class="p" style="color:var(--accent2)">58%</div><div class="bar"><i style="width:58%;background:var(--accent2)"></i></div></div>
+        <div class="rs-wk warn"><span class="rs-flag">⚠️</span><div class="w">WK 9</div><div class="o">@ Bandits</div><div class="p" style="color:var(--red2)">41%</div><div class="bar"><i style="width:41%;background:var(--red2)"></i></div></div>
+        <div class="rs-wk"><div class="w">WK 10</div><div class="o">vs Comeback Kids</div><div class="p" style="color:var(--accent2)">52%</div><div class="bar"><i style="width:52%;background:var(--accent2)"></i></div></div>
+        <div class="rs-wk"><div class="w">WK 11</div><div class="o">@ Turf Burners</div><div class="p" style="color:var(--amber)">46%</div><div class="bar"><i style="width:46%;background:var(--amber)"></i></div></div>
+        <div class="rs-wk"><div class="w">WK 12</div><div class="o">vs Waffle Shop</div><div class="p" style="color:var(--green)">74%</div><div class="bar"><i style="width:74%;background:var(--green)"></i></div></div>
+        <div class="rs-wk"><div class="w">WK 13</div><div class="o">vs Hail Mary Hive</div><div class="p" style="color:var(--accent2)">55%</div><div class="bar"><i style="width:55%;background:var(--accent2)"></i></div></div>
+        <div class="rs-wk"><div class="w">WK 14</div><div class="o">@ Sunday Scaries</div><div class="p" style="color:var(--amber)">48%</div><div class="bar"><i style="width:48%;background:var(--amber)"></i></div></div>
+      </div>
+      <div class="rs-legend">
+        <span>⚠️ WK 9 = YOUR BYE STACK — <b>Chase + Aubrey out</b> · odds already price it in</span>
+        <span>LAST RECALC → <b>WK 7: W 128.4–101.2</b></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -237,13 +237,13 @@
   <div class="strip" data-rise>
     <div class="tpick">
       <div class="tlogo" style="background:rgba(143,180,224,.15);color:var(--accent2)">PP</div>
-      <div><div class="tname">Putput</div><div class="towner">YOU · 8–2 · 71% PLAYOFF</div></div>
+      <div><div class="tname">The Vault</div><div class="towner">YOU · 8–2 · 71% PLAYOFF</div></div>
       <span style="margin-left:auto;color:var(--muted);font-size:11px">▾</span>
     </div>
     <div class="swapbtn" title="Swap sides"><svg viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg></div>
     <div class="tpick">
       <div class="tlogo" style="background:rgba(226,58,78,.15);color:var(--red2)">HB</div>
-      <div><div class="tname">hunterbue4</div><div class="towner">FRINGE · 5–5 · 17% PLAYOFF</div></div>
+      <div><div class="tname">Bench Mob</div><div class="towner">FRINGE · 5–5 · 17% PLAYOFF</div></div>
       <span style="margin-left:auto;color:var(--muted);font-size:11px">▾</span>
     </div>
   </div>
@@ -276,7 +276,7 @@
 
       <div class="balance">
         <div class="btrack"><div class="bfill" id="bfill"></div><div class="btick"></div></div>
-        <div class="bends"><span>hunterbue4</span><span>even</span><span>Putput</span></div>
+        <div class="bends"><span>Bench Mob</span><span>even</span><span>The Vault</span></div>
       </div>
 
       <div class="dt">
@@ -387,7 +387,7 @@ var MODES = {
     ],
     chip:'Pacheco is your <b>#1 trade currency</b> — high dynasty value, near-zero starter impact behind Henry &amp; Hampton.',
     fit:'92 / 100 fit',
-    reason:'You’re a <b>contender at 71% playoff odds</b> in a superflex dynasty, and your board grades <b class="wr">WR</b> your softest starting spot (11th of 12). <b class="wr">Olave</b> is 14% off his peak while the market fades him faster than production says it should. You pay with a <b class="rb">bench RB</b> and a 2027 first that lands outside your window. Market says even; the Vault says the <b>timing is the trade</b> — you convert future currency into <b>+2.5 PPG</b> and <b class="te">+6.0% title odds</b> while hunterbue4 (17% playoff) gets exactly the youth-and-picks pivot a fading team wants. Both sides say yes.'
+    reason:'You’re a <b>contender at 71% playoff odds</b> in a superflex dynasty, and your board grades <b class="wr">WR</b> your softest starting spot (11th of 12). <b class="wr">Olave</b> is 14% off his peak while the market fades him faster than production says it should. You pay with a <b class="rb">bench RB</b> and a 2027 first that lands outside your window. Market says even; the Vault says the <b>timing is the trade</b> — you convert future currency into <b>+2.5 PPG</b> and <b class="te">+6.0% title odds</b> while Bench Mob (17% playoff) gets exactly the youth-and-picks pivot a fading team wants. Both sides say yes.'
   },
   redraft: {
     kick:'Verdict · redraft · this season only',
@@ -411,7 +411,7 @@ var MODES = {
     ],
     chip:'Pacheco is your most sellable piece <b>this season</b> — he’s behind Henry &amp; Hampton and never cracks your optimal lineup.',
     fit:'95 / 100 fit',
-    reason:'Season-long math is simpler: you never start <b class="rb">Pacheco</b>, and the 2027 first is worth zero between now and your title game. Trading them for <b class="wr">Olave</b> (WR14 rest-of-season) and <b class="rb">Warren</b> upgrades your weekly floor by <b>+2.5 PPG</b>, lifts playoff odds <b>+4.2%</b> and title odds <b class="te">+6.0%</b>. hunterbue4 is playing for next year — the pick is the whole point for them. Send it.'
+    reason:'Season-long math is simpler: you never start <b class="rb">Pacheco</b>, and the 2027 first is worth zero between now and your title game. Trading them for <b class="wr">Olave</b> (WR14 rest-of-season) and <b class="rb">Warren</b> upgrades your weekly floor by <b>+2.5 PPG</b>, lifts playoff odds <b>+4.2%</b> and title odds <b class="te">+6.0%</b>. Bench Mob is playing for next year — the pick is the whole point for them. Send it.'
   }
 };
 
@@ -509,9 +509,9 @@ function setMode(m){
    1-click → offer text on clipboard → Sleeper league opens ready to build. */
 function buildBlock(){
   var M=MODES[mode];
-  return 'VAULT TRADE OFFER — Putput ⇄ hunterbue4\n'
-    +'Putput receives: '+M.get.map(function(a){return a.n+' ('+a.pos+(a.pick?'':' '+a.team)+')'}).join(', ')+'\n'
-    +'hunterbue4 receives: '+M.give.map(function(a){return a.pick?a.n:a.n+' ('+a.pos+' '+a.team+')'}).join(', ')+'\n'
+  return 'VAULT TRADE OFFER — The Vault ⇄ Bench Mob\n'
+    +'The Vault receives: '+M.get.map(function(a){return a.n+' ('+a.pos+(a.pick?'':' '+a.team)+')'}).join(', ')+'\n'
+    +'Bench Mob receives: '+M.give.map(function(a){return a.pick?a.n:a.n+' ('+a.pos+' '+a.team+')'}).join(', ')+'\n'
     +'Market ('+mode+'): '+fmtVal(M.mkt,'int')+' · Proj PPG +2.5 · Title odds +6.0%\n'
     +'— built with Vault Trade Intelligence';
 }

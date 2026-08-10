@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Animated StatCard exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0f13;--s1:#16171c;--s2:#1c1e24;--s3:#23252c;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --green:#3DCC7A;--amber:#f5c842;--sky:#7bd0ff;--red2:#ff5a6e;
+  --font-sans:'Archivo',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;padding:40px 44px 80px}
+h2{font-size:15px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.tag{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:5px}
+.tag.faith{background:rgba(255,102,128,.13);color:var(--red2)}
+.tag.tuned{background:rgba(61,204,122,.14);color:var(--green)}
+.tag.now{background:rgba(255,255,255,.06);color:var(--muted)}
+.sub{font-size:12.5px;color:var(--muted);margin-bottom:18px;max-width:760px;line-height:1.55}
+section{margin-bottom:52px}
+.vlabel{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* ============================================================
+   A · FAITHFUL CSS PORT of the animated StatCard
+   (Framer Motion → CSS keyframes; same halo / ray / glow / lines)
+   ============================================================ */
+.faith-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.sc{position:relative;height:180px;border-radius:14px;overflow:hidden;padding:2px;background:linear-gradient(135deg,#262626,#171717,#000)}
+.sc-halo{position:absolute;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);filter:blur(18px);animation:scHalo 10s linear infinite}
+@keyframes scHalo{0%{top:10%;left:10%}25%{top:10%;left:75%}50%{top:70%;left:75%}75%{top:70%;left:10%}100%{top:10%;left:10%}}
+.sc-inner{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(135deg,rgba(23,23,23,.8),rgba(0,0,0,.6));backdrop-filter:blur(10px);overflow:hidden}
+.sc-ray{position:absolute;width:180px;height:44px;border-radius:999px;background:rgba(255,255,255,.1);filter:blur(34px);animation:scRay 12s linear infinite}
+@keyframes scRay{to{transform:rotate(360deg)}}
+.sc-val{font-size:44px;font-weight:800;background:linear-gradient(90deg,#fff,#d1d5db,#fff);-webkit-background-clip:text;background-clip:text;color:transparent;animation:scGlow 4s ease-in-out infinite;font-family:var(--font-mono)}
+@keyframes scGlow{0%,100%{filter:drop-shadow(0 0 10px rgba(255,255,255,.55))}50%{filter:drop-shadow(0 0 2px rgba(255,255,255,.18))}}
+.sc-lbl{margin-top:10px;font-size:11px;letter-spacing:.04em;color:#9ca3af;text-transform:uppercase;font-family:var(--font-mono);font-weight:600}
+.sc-line-top{position:absolute;top:13%;width:78%;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.3),transparent);animation:scL1 6s ease-in-out infinite}
+.sc-line-bot{position:absolute;bottom:13%;width:78%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3));animation:scL2 6s ease-in-out infinite}
+@keyframes scL1{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes scL2{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ============================================================
+   B · VAULT-TUNED — same premium glow, dialed into the system
+   steel halo instead of white · meaning-coded value color ·
+   mono numerals · calmer, slower motion · KPI-strip height
+   ============================================================ */
+.tuned-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.vc{position:relative;height:132px;border-radius:14px;overflow:hidden;padding:1px;background:linear-gradient(150deg,rgba(143,180,224,.28),var(--border),rgba(0,0,0,0))}
+.vc-inner{position:relative;display:flex;flex-direction:column;justify-content:center;gap:8px;width:100%;height:100%;padding:16px 18px;border-radius:13px;background:radial-gradient(120% 140% at 15% 0%,rgba(143,180,224,.08),transparent 55%),linear-gradient(180deg,var(--s1),#101116);overflow:hidden}
+.vc-halo{position:absolute;top:-30%;right:-10%;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,var(--glow,rgba(143,180,224,.22)),transparent 70%);filter:blur(14px);animation:vcHalo 14s ease-in-out infinite}
+@keyframes vcHalo{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,16px)}}
+.vc-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);position:relative}
+.vc-val{font-size:34px;font-weight:700;letter-spacing:-.02em;font-family:var(--font-mono);line-height:1;position:relative;color:var(--vcolor,var(--accent2))}
+.vc-hint{font-size:10.5px;color:var(--muted);position:relative}
+.vc-spark{position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,var(--vcolor,var(--accent2)),transparent);opacity:.5;animation:vcSpark 5s ease-in-out infinite}
+@keyframes vcSpark{0%,100%{opacity:.2}50%{opacity:.7}}
+
+/* ============================================================
+   C · CURRENT (shipped mock) — divided-cell strip, for reference
+   ============================================================ */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:14px}
+.sum{display:grid;grid-template-columns:repeat(6,1fr)}
+.sum-cell{padding:15px 18px;display:flex;flex-direction:column;gap:5px;border-left:1px solid var(--border)}
+.sum-cell:first-child{border-left:none}
+.sum-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sum-value{font-size:26px;font-weight:700;letter-spacing:-.02em;font-family:var(--font-mono);line-height:1}
+
+.reduce-note{margin-top:14px;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+@media (prefers-reduced-motion:reduce){
+  .sc-halo,.sc-ray,.sc-val,.sc-line-top,.sc-line-bot,.vc-halo,.vc-spark{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+  <section>
+    <h2><span class="tag now">C · Current</span> The shipped mock — divided-cell strip</h2>
+    <div class="sub">What Trade Center uses today. Calm, dense, reads as one object. This is the baseline the other two are reacting against.</div>
+    <div class="card"><div class="sum">
+      <div class="sum-cell"><span class="sum-label">Open</span><span class="sum-value" style="color:var(--accent2)">4</span></div>
+      <div class="sum-cell"><span class="sum-label">Incoming</span><span class="sum-value" style="color:var(--amber)">2</span></div>
+      <div class="sum-cell"><span class="sum-label">Outgoing</span><span class="sum-value" style="color:var(--sky)">1</span></div>
+      <div class="sum-cell"><span class="sum-label">Waiting</span><span class="sum-value">1</span></div>
+      <div class="sum-cell"><span class="sum-label">Completed</span><span class="sum-value" style="color:var(--green)">7</span></div>
+      <div class="sum-cell"><span class="sum-label">Rejected</span><span class="sum-value" style="color:var(--red2)">3</span></div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2><span class="tag faith">A · Faithful port</span> The StatCard effect, exactly — in CSS</h2>
+    <div class="sub">Your component, reproduced 1:1 without React/Framer/Tailwind: moving halo, rotating blurred ray, pulsing gradient value, breathing accent lines, gradient border. Every card animates continuously.</div>
+    <div class="faith-row">
+      <div class="sc"><span class="sc-halo"></span><div class="sc-inner"><span class="sc-ray"></span><span class="sc-line-top"></span><span class="sc-val">4</span><span class="sc-lbl">Open</span><span class="sc-line-bot"></span></div></div>
+      <div class="sc"><span class="sc-halo" style="animation-delay:-2s"></span><div class="sc-inner"><span class="sc-ray" style="animation-delay:-3s"></span><span class="sc-line-top"></span><span class="sc-val">2</span><span class="sc-lbl">Incoming</span><span class="sc-line-bot"></span></div></div>
+      <div class="sc"><span class="sc-halo" style="animation-delay:-4s"></span><div class="sc-inner"><span class="sc-ray" style="animation-delay:-6s"></span><span class="sc-line-top"></span><span class="sc-val">1</span><span class="sc-lbl">Outgoing</span><span class="sc-line-bot"></span></div></div>
+      <div class="sc"><span class="sc-halo" style="animation-delay:-6s"></span><div class="sc-inner"><span class="sc-ray" style="animation-delay:-1s"></span><span class="sc-line-top"></span><span class="sc-val">1</span><span class="sc-lbl">Waiting</span><span class="sc-line-bot"></span></div></div>
+      <div class="sc"><span class="sc-halo" style="animation-delay:-8s"></span><div class="sc-inner"><span class="sc-ray" style="animation-delay:-9s"></span><span class="sc-line-top"></span><span class="sc-val">7</span><span class="sc-lbl">Completed</span><span class="sc-line-bot"></span></div></div>
+      <div class="sc"><span class="sc-halo" style="animation-delay:-5s"></span><div class="sc-inner"><span class="sc-ray" style="animation-delay:-7s"></span><span class="sc-line-top"></span><span class="sc-val">3</span><span class="sc-lbl">Rejected</span><span class="sc-line-bot"></span></div></div>
+    </div>
+    <div class="reduce-note">⚠︎ 6 cards × (moving halo + rotating ray + pulsing text + 2 lines) + backdrop-blur = ~30 always-on animations behind a blur — the exact scroll-stutter pattern we scoped <code>backdrop-filter:none</code> around on onyx.</div>
+  </section>
+
+  <section>
+    <h2><span class="tag tuned">B · Vault-tuned</span> Same premium glow, dialed into the system</h2>
+    <div class="sub">Keeps the halo + gradient border + a faint moving glow, but: steel accent instead of pure white, value color-coded by meaning, mono numerals, KPI height, and one slow drifting halo per card instead of a stack of spinning rays. Reads premium without shouting — and it survives a scroll.</div>
+    <div class="tuned-row">
+      <div class="vc" style="--vcolor:var(--accent2);--glow:rgba(143,180,224,.24)"><div class="vc-inner"><span class="vc-halo"></span><span class="vc-lbl">Open</span><span class="vc-val">4</span><span class="vc-hint">need a response</span><span class="vc-spark"></span></div></div>
+      <div class="vc" style="--vcolor:var(--amber);--glow:rgba(245,200,66,.22)"><div class="vc-inner"><span class="vc-halo" style="animation-delay:-3s"></span><span class="vc-lbl">Incoming</span><span class="vc-val">2</span><span class="vc-hint">offers for you</span><span class="vc-spark" style="animation-delay:-2s"></span></div></div>
+      <div class="vc" style="--vcolor:var(--sky);--glow:rgba(123,208,255,.2)"><div class="vc-inner"><span class="vc-halo" style="animation-delay:-6s"></span><span class="vc-lbl">Outgoing</span><span class="vc-val">1</span><span class="vc-hint">sent by you</span><span class="vc-spark" style="animation-delay:-4s"></span></div></div>
+      <div class="vc" style="--vcolor:var(--text2);--glow:rgba(201,205,214,.14)"><div class="vc-inner"><span class="vc-halo" style="animation-delay:-9s"></span><span class="vc-lbl">Waiting</span><span class="vc-val">1</span><span class="vc-hint">others deciding</span><span class="vc-spark" style="animation-delay:-1s"></span></div></div>
+      <div class="vc" style="--vcolor:var(--green);--glow:rgba(61,204,122,.2)"><div class="vc-inner"><span class="vc-halo" style="animation-delay:-4s"></span><span class="vc-lbl">Completed</span><span class="vc-val">7</span><span class="vc-hint">this season</span><span class="vc-spark" style="animation-delay:-3s"></span></div></div>
+      <div class="vc" style="--vcolor:var(--red2);--glow:rgba(255,90,110,.18)"><div class="vc-inner"><span class="vc-halo" style="animation-delay:-7s"></span><span class="vc-lbl">Rejected</span><span class="vc-val">3</span><span class="vc-hint">didn't land</span><span class="vc-spark" style="animation-delay:-5s"></span></div></div>
+    </div>
+    <div class="reduce-note">✓ One 14s ease drift + a slow spark per card, no backdrop-filter. Honors <code>prefers-reduced-motion</code>. Cheap enough to keep on during scroll.</div>
+  </section>
+
+</body>
+</html>

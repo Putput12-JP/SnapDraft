@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft Vault — GitHub Primer concept</title>
+<style>
+/* ============================================================
+   GitHub Primer token layer — dark default theme
+   ============================================================ */
+:root{
+  --canvas:#0d1117;
+  --canvas-subtle:#161b22;
+  --canvas-inset:#010409;
+  --border-default:#30363d;
+  --border-muted:#21262d;
+  --fg-default:#e6edf3;
+  --fg-muted:#8b949e;
+  --fg-subtle:#6e7681;
+  --accent:#2f81f7;
+  --accent-emphasis:#1f6feb;
+  --success:#3fb950;
+  --success-emphasis:#238636;
+  --danger:#f85149;
+  --attention:#d29922;
+  --severe:#db6d28;
+  --done:#a371f7;
+  --sponsors:#db61a2;
+  --underline:#f78166;
+
+  --pos-qb:var(--sponsors);
+  --pos-rb:#56d364;
+  --pos-wr:#58a6ff;
+  --pos-te:#e3b341;
+  --f-upside:var(--severe);
+  --f-floor:#56d364;
+  --f-risk:var(--danger);
+  --f-sit:#58a6ff;
+  --dyn:#e3b341;--rdr:#79c0ff;--adp:#bc8cff;--mine:#56d364;
+
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--canvas);color:var(--fg-default);
+  font-family:var(--font);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:var(--font-mono)}
+svg.octicon{width:16px;height:16px;fill:currentColor;flex-shrink:0}
+svg.oline{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ============================================================
+   GitHub app header + underline nav
+   ============================================================ */
+.gh-header{
+  background:var(--canvas-inset);border-bottom:1px solid var(--border-default);
+  padding:12px 24px;display:flex;align-items:center;gap:14px;
+}
+.gh-mark{
+  width:32px;height:32px;border-radius:50%;background:var(--fg-default);color:var(--canvas-inset);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;
+}
+.gh-context{display:flex;align-items:center;gap:8px;font-size:14px}
+.gh-context .sep{color:var(--fg-subtle)}
+.gh-context .repo{font-weight:600}
+.gh-context .visibility{
+  font-size:11px;color:var(--fg-muted);border:1px solid var(--border-default);
+  border-radius:999px;padding:1px 8px;font-weight:500;
+}
+.gh-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.gh-search{
+  display:flex;align-items:center;gap:8px;height:30px;width:280px;padding:0 10px;
+  background:var(--canvas);border:1px solid var(--border-default);border-radius:6px;
+  color:var(--fg-muted);font-size:13px;cursor:text;
+}
+.gh-search .slash{
+  margin-left:auto;border:1px solid var(--border-default);border-radius:4px;
+  padding:0 6px;font-size:11px;font-family:var(--font-mono);
+}
+.gh-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1f6feb,#a371f7);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff}
+
+.gh-nav{background:var(--canvas-inset);padding:0 24px;display:flex;gap:4px;border-bottom:1px solid var(--border-default)}
+.gh-tab{
+  display:flex;align-items:center;gap:8px;padding:10px 12px 12px;font-size:14px;color:var(--fg-default);
+  border-bottom:2px solid transparent;cursor:pointer;position:relative;top:1px;
+}
+.gh-tab:hover{border-bottom-color:var(--border-default)}
+.gh-tab.selected{font-weight:600;border-bottom-color:var(--underline)}
+.gh-tab svg{color:var(--fg-muted)}
+.gh-tab .counter{
+  background:rgba(110,118,129,.4);border-radius:999px;padding:0 7px;font-size:11px;
+  font-weight:500;line-height:18px;
+}
+
+/* ============================================================
+   Primitives — Button, Label, Box, Flash, SegmentedControl
+   ============================================================ */
+.page{max-width:1280px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:16px}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;
+  border-radius:6px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;
+  background:#21262d;color:var(--fg-default);border:1px solid rgba(240,246,252,0.1);
+  white-space:nowrap;transition:background .12s;
+}
+.btn:hover{background:#30363d;border-color:#8b949e33}
+.btn svg{width:15px;height:15px;color:var(--fg-muted)}
+.btn-primary{background:var(--success-emphasis);border-color:rgba(240,246,252,0.1);color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-primary svg{color:rgba(255,255,255,.8)}
+.btn .counter{background:rgba(110,118,129,.4);border-radius:999px;padding:0 7px;font-size:11px;font-weight:500;line-height:18px}
+
+.label{
+  display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;
+  font-size:11px;font-weight:500;border:1px solid;white-space:nowrap;
+}
+.label.blue{color:#58a6ff;border-color:rgba(88,166,255,.4)}
+.label.green{color:#56d364;border-color:rgba(86,211,100,.4)}
+.label.purple{color:#bc8cff;border-color:rgba(188,140,255,.4)}
+.label.pink{color:#ff9bce;border-color:rgba(255,155,206,.4)}
+.label.orange{color:#ffa657;border-color:rgba(255,166,87,.4)}
+.label.yellow{color:#e3b341;border-color:rgba(227,179,65,.4)}
+.label.gray{color:var(--fg-muted);border-color:var(--border-default)}
+
+.box{background:var(--canvas);border:1px solid var(--border-default);border-radius:8px;overflow:hidden}
+.box-header{
+  background:var(--canvas-subtle);border-bottom:1px solid var(--border-default);
+  padding:12px 16px;display:flex;align-items:center;gap:10px;
+}
+.box-header .title{font-size:14px;font-weight:600}
+.box-header .desc{font-size:12px;color:var(--fg-muted)}
+.box-row{padding:12px 16px;border-bottom:1px solid var(--border-muted);display:flex;align-items:center;gap:12px}
+.box-row:last-child{border-bottom:none}
+.box-row:hover{background:var(--canvas-subtle)}
+
+.flash{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;
+  background:rgba(56,139,253,.1);border:1px solid rgba(56,139,253,.4);font-size:14px;
+}
+.flash svg{color:var(--accent);width:16px;height:16px}
+.flash .flash-sub{color:var(--fg-muted);font-size:13px}
+.flash .flash-action{margin-left:auto;white-space:nowrap}
+
+.segmented{display:inline-flex;background:transparent;border:1px solid var(--border-default);border-radius:6px;padding:0}
+.seg-btn{
+  height:30px;padding:0 12px;font-size:13px;font-weight:500;color:var(--fg-default);
+  background:transparent;border:none;cursor:pointer;font-family:inherit;position:relative;
+}
+.seg-btn.selected{background:#30363d;font-weight:600;border-radius:5px;margin:1px;height:28px;box-shadow:inset 0 0 0 1px var(--border-default)}
+.seg-btn:not(.selected):hover{background:var(--canvas-subtle)}
+
+.gh-select{
+  height:32px;padding:0 28px 0 12px;border-radius:6px;font-size:13px;font-weight:500;
+  background-color:#21262d;color:var(--fg-default);border:1px solid rgba(240,246,252,0.1);
+  font-family:inherit;appearance:none;cursor:pointer;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16' fill='%238b949e'%3E%3Cpath d='M4.427 6.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 6H4.604a.25.25 0 0 0-.177.427z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+}
+.gh-select:hover{background-color:#30363d}
+
+.gh-input{position:relative;display:flex;align-items:center}
+.gh-input svg{position:absolute;left:10px;width:14px;height:14px;color:var(--fg-muted)}
+.gh-input input{
+  height:32px;width:100%;padding:0 12px 0 32px;border-radius:6px;font-size:13px;
+  background:var(--canvas);border:1px solid var(--border-default);color:var(--fg-default);
+  font-family:inherit;outline:none;
+}
+.gh-input input::placeholder{color:var(--fg-muted)}
+.gh-input input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,129,247,.3)}
+
+.progress{height:8px;border-radius:999px;background:#21262d;overflow:hidden}
+.progress>div{height:100%;background:var(--success-emphasis);border-radius:999px}
+
+/* ============================================================
+   Page header + stats
+   ============================================================ */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.ph h1{font-size:22px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ph-sub{font-size:13px;color:var(--fg-muted);margin-top:4px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.ph-sub .live-dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px}
+.ph-actions{display:flex;gap:8px}
+
+.stats{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1.4fr}
+.stat{padding:16px;border-left:1px solid var(--border-muted);display:flex;flex-direction:column;gap:2px}
+.stat:first-child{border-left:none}
+.stat-label{font-size:12px;color:var(--fg-muted);font-weight:500}
+.stat-value{font-size:24px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat-value small{font-size:12px;color:var(--fg-muted);font-weight:400;margin-left:6px;font-family:var(--font);letter-spacing:0}
+.stat-meta{font-size:12px;color:var(--fg-subtle)}
+.stat.grade .stat-value{color:var(--success)}
+.stat.clock{background:var(--canvas-subtle)}
+.stat.clock .stat-value{font-size:16px;font-family:var(--font);display:flex;align-items:center;gap:7px}
+.stats-foot{display:flex;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid var(--border-muted)}
+.stats-foot .progress{flex:1}
+.stats-foot span{font-size:12px;color:var(--fg-muted);white-space:nowrap}
+
+/* suggested rows (Box list, like PR list) */
+.sug-row-title{font-size:14px;font-weight:600}
+.sug-icon{width:16px;height:16px;color:var(--success)}
+.sug-desc{font-size:12px;color:var(--fg-muted);margin-top:1px}
+.sug-grade{font-family:var(--font-mono);font-size:15px;font-weight:700;margin-left:auto}
+.sug-labels{display:flex;gap:6px;margin-left:12px}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.toolbar .lbl{font-size:12px;color:var(--fg-muted);font-weight:500}
+.toolbar .spacer{flex:1}
+.toolbar .gh-input{width:280px}
+.pos-links{display:flex;gap:2px}
+.pos-link{
+  height:30px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;border-radius:6px;
+  font-size:13px;font-weight:500;color:var(--fg-muted);cursor:pointer;background:transparent;border:none;font-family:inherit;
+}
+.pos-link:hover{background:var(--canvas-subtle);color:var(--fg-default)}
+.pos-link.on{background:#30363d;color:var(--fg-default);font-weight:600}
+.pos-link .pdot{width:7px;height:7px;border-radius:50%}
+
+/* grade key note */
+.gkey{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--fg-muted);
+  background:var(--canvas-subtle);border:1px solid var(--border-muted);border-radius:8px;padding:9px 14px;
+}
+.gkey b{color:var(--fg-default);font-weight:600}
+.gkey-item{display:inline-flex;align-items:center;gap:6px;cursor:help}
+.gkey-item svg{width:13px;height:13px}
+.gkey a{margin-left:auto}
+
+/* ============================================================
+   Table — Primer data table (repo-list feel)
+   ============================================================ */
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl thead th{
+  height:40px;padding:0 12px;background:var(--canvas-subtle);color:var(--fg-muted);
+  font-size:12px;font-weight:600;text-align:right;white-space:nowrap;
+  border-bottom:1px solid var(--border-default);
+}
+.tbl thead th.l{text-align:left}
+.tbl thead th.c{text-align:center}
+.tbl thead th.sorted{color:var(--fg-default)}
+.tbl thead th .arr{font-size:10px;margin-left:3px;color:var(--accent)}
+.tbl thead th .src{
+  font-size:10px;font-family:var(--font-mono);border:1px solid var(--border-default);
+  border-radius:999px;padding:0 6px;margin-left:5px;color:var(--fg-muted);vertical-align:1px;
+}
+.tbl thead th svg{width:14px;height:14px;vertical-align:-3px}
+.tbl tbody td{
+  padding:8px 12px;border-bottom:1px solid var(--border-muted);text-align:right;
+  white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--fg-muted);
+}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:var(--canvas-subtle)}
+.tbl td.l{text-align:left}
+.tbl td.c{text-align:center}
+.td-rk{color:var(--fg-subtle);font-family:var(--font-mono);font-size:12px;width:44px}
+.pcell{display:flex;align-items:center;gap:11px;min-width:210px}
+.pav{
+  width:30px;height:30px;border-radius:50%;background:var(--canvas-subtle);border:1px solid var(--border-default);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--fg-muted);flex-shrink:0;
+}
+.pname{font-weight:600;color:var(--fg-default);font-size:13.5px}
+.pname:hover{color:var(--accent);cursor:pointer}
+.psub{display:flex;align-items:center;gap:7px;margin-top:1px;font-size:12px;color:var(--fg-muted)}
+.pos-txt{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;font-family:var(--font-mono)}
+.pos-txt .pdot{width:6px;height:6px;border-radius:50%}
+.val{font-family:var(--font-mono);font-size:12.5px;font-weight:600}
+.sub-rank{display:block;font-size:10.5px;color:var(--fg-subtle);font-family:var(--font-mono)}
+.up{color:var(--success)}.dn{color:var(--danger)}
+.fnum{font-family:var(--font-mono);font-size:12.5px;font-weight:600}
+.star{cursor:pointer;font-size:15px;color:var(--fg-subtle)}
+.star.on{color:var(--attention)}
+tr.gone td{opacity:.4}
+tr.gone .pname{text-decoration:line-through}
+tr.gone td:last-child{opacity:1}
+tr.mypick td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+tr.tier-row td{
+  padding:4px 12px;background:var(--canvas-subtle);font-size:11px;font-weight:600;
+  color:var(--fg-muted);text-align:left;font-family:var(--font-mono);letter-spacing:.06em;
+}
+.tbl-foot{
+  display:flex;align-items:center;justify-content:space-between;padding:10px 16px;
+  border-top:1px solid var(--border-default);font-size:12.5px;color:var(--fg-muted);background:var(--canvas-subtle);
+}
+.tbl-foot .pager{display:flex;gap:6px}
+.tbl-foot .btn{height:28px;padding:0 10px;font-size:12.5px}
+
+/* board */
+.board-scroll{overflow-x:auto;padding:16px}
+.board{display:grid;grid-template-columns:repeat(12,minmax(80px,1fr));gap:6px;min-width:1000px}
+.board-team{font-size:10.5px;font-weight:600;color:var(--fg-muted);text-align:center;padding:2px 0 6px;font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-team.me{color:var(--accent)}
+.bcell{
+  border:1px solid var(--border-default);border-radius:6px;background:var(--canvas-subtle);
+  padding:7px 8px;min-height:52px;position:relative;overflow:hidden;
+}
+.bcell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pc,transparent)}
+.bcell .bp{font-size:9.5px;color:var(--fg-subtle);font-family:var(--font-mono);display:flex;justify-content:space-between}
+.bcell .bn{font-size:11.5px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcell.empty{background:transparent;border-style:dashed;border-color:var(--border-muted)}
+.bcell.empty .bn{color:var(--fg-subtle);font-weight:400}
+.bcell.otc{border-color:var(--accent);border-style:solid;box-shadow:0 0 0 3px rgba(47,129,247,.15)}
+.bcell.me{border-color:rgba(63,185,80,.6);border-style:solid;background:rgba(46,160,67,.08)}
+
+@media (max-width:1100px){
+  .stats{grid-template-columns:1fr 1fr}
+  .gh-search{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<header class="gh-header">
+  <div class="gh-mark">V</div>
+  <div class="gh-context">
+    <a href="#">Putput</a>
+    <span class="sep">/</span>
+    <span class="repo">early-birds-draft</span>
+    <span class="visibility">Live</span>
+  </div>
+  <div class="gh-right">
+    <div class="gh-search">
+      <svg class="octicon" viewBox="0 0 16 16"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+      Search players…
+      <span class="slash">/</span>
+    </div>
+    <div class="gh-avatar">PP</div>
+  </div>
+</header>
+
+<!-- ================= UNDERLINE NAV ================= -->
+<nav class="gh-nav">
+  <div class="gh-tab selected">
+    <svg class="oline" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+    Draft Vault
+  </div>
+  <div class="gh-tab">
+    <svg class="oline" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 14 4-4 4 4 5-6"/></svg>
+    ADP Explorer
+  </div>
+  <div class="gh-tab">
+    <svg class="oline" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+    My Rankings
+  </div>
+  <div class="gh-tab">
+    <svg class="oline" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+    League
+  </div>
+  <div class="gh-tab">
+    <svg class="oline" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    Players
+    <span class="counter">412</span>
+  </div>
+</nav>
+
+<main class="page">
+
+  <!-- ===== Page header ===== -->
+  <div class="ph">
+    <div>
+      <h1>Draft Vault
+        <span class="label blue">Dynasty · Superflex</span>
+        <span class="label gray">12-team</span>
+      </h1>
+      <div class="ph-sub">
+        <span><span class="live-dot"></span>Live values</span>
+        <span>Synced with My Rankings</span>
+        <span class="mono" style="font-size:12px">412 players</span>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <button class="btn"><svg class="oline" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6L12 17.1 6.6 20l1.2-6L3.4 9.8l6-.7Z"/></svg>Watchlist</button>
+      <button class="btn"><svg class="oline" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>Drafted<span class="counter">13</span></button>
+      <button class="btn btn-primary"><svg class="oline" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg>Import CSV</button>
+    </div>
+  </div>
+
+  <!-- ===== Flash: on the clock ===== -->
+  <div class="flash">
+    <svg class="octicon" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm7-3.25v2.992l2.028 .812a.75.75 0 0 1-.557 1.392l-2.5-1A.751.751 0 0 1 7 8.25v-3.5a.75.75 0 0 1 1.5 0Z"/></svg>
+    <div>
+      <b>GridironGuru</b> is on the clock — pick 2.02 · 0:42 remaining
+      <div class="flash-sub">You're up in 3 picks at 2.05</div>
+    </div>
+    <a class="flash-action" href="#">Re-sync draft</a>
+  </div>
+
+  <!-- ===== Stats box ===== -->
+  <div class="box">
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Your next pick · Early Birds</span>
+        <span class="stat-value">2.05<small>3 picks away</small></span>
+        <span class="stat-meta">Pick 14 of 144 · Snake · PPR</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Left</span>
+        <span class="stat-value">399</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Drafted</span>
+        <span class="stat-value">13</span>
+      </div>
+      <div class="stat grade">
+        <span class="stat-label">Draft grade</span>
+        <span class="stat-value">B+<small>78 / 100</small></span>
+      </div>
+      <div class="stat clock">
+        <span class="stat-label">On the clock</span>
+        <span class="stat-value">
+          <svg class="oline" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--fg-muted)"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v5l3 1.8"/></svg>
+          GridironGuru
+        </span>
+        <span class="stat-meta">0:42 remaining · you're up in 3</span>
+      </div>
+    </div>
+    <div class="stats-foot">
+      <div class="progress"><div style="width:9%"></div></div>
+      <span>9% complete · Round 2 of 12</span>
+    </div>
+  </div>
+
+  <!-- ===== Suggested (Box list, PR-style rows) ===== -->
+  <div class="box">
+    <div class="box-header">
+      <span class="title">Suggested at 2.05</span>
+      <span class="desc">recalculates after every pick</span>
+    </div>
+    <div class="box-row">
+      <svg class="sug-icon octicon" viewBox="0 0 16 16"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
+      <div>
+        <div class="sug-row-title">De'Von Achane</div>
+        <div class="sug-desc">Best value on board — ADP 1.09, still here at 2.05</div>
+      </div>
+      <div class="sug-labels"><span class="label green">RB4 · MIA</span><span class="label green">value</span></div>
+      <span class="sug-grade" style="color:var(--success)">A</span>
+    </div>
+    <div class="box-row">
+      <svg class="sug-icon octicon" viewBox="0 0 16 16"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
+      <div>
+        <div class="sug-row-title">Drake Maye</div>
+        <div class="sug-desc">Superflex need — 6 QBs already gone in round 1</div>
+      </div>
+      <div class="sug-labels"><span class="label pink">QB5 · NE</span><span class="label blue">roster need</span></div>
+      <span class="sug-grade" style="color:var(--success)">A−</span>
+    </div>
+    <div class="box-row">
+      <svg class="sug-icon octicon" viewBox="0 0 16 16"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
+      <div>
+        <div class="sug-row-title">Brock Bowers</div>
+        <div class="sug-desc">Positional cliff — next TE off the board ~3 rounds later</div>
+      </div>
+      <div class="sug-labels"><span class="label yellow">TE1 · LV</span><span class="label purple">scarcity</span></div>
+      <span class="sug-grade" style="color:#a3e635">B+</span>
+    </div>
+  </div>
+
+  <!-- ===== Toolbar ===== -->
+  <div class="toolbar">
+    <span class="lbl">Format</span>
+    <div class="segmented">
+      <button class="seg-btn selected">Dynasty</button>
+      <button class="seg-btn">Redraft</button>
+    </div>
+    <span class="lbl">Source</span>
+    <select class="gh-select">
+      <option>FantasyCalc</option>
+      <option>RosterAudit</option>
+      <option>My Rankings</option>
+    </select>
+    <span class="lbl">Position</span>
+    <div class="pos-links">
+      <button class="pos-link on">All</button>
+      <button class="pos-link"><span class="pdot" style="background:var(--pos-qb)"></span>QB</button>
+      <button class="pos-link"><span class="pdot" style="background:var(--pos-rb)"></span>RB</button>
+      <button class="pos-link"><span class="pdot" style="background:var(--pos-wr)"></span>WR</button>
+      <button class="pos-link"><span class="pdot" style="background:var(--pos-te)"></span>TE</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="gh-input">
+      <svg class="octicon" viewBox="0 0 16 16"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+      <input placeholder="Filter players…">
+    </div>
+  </div>
+
+  <!-- ===== Grade key ===== -->
+  <div class="gkey">
+    <b>Grade keys</b>
+    <span class="gkey-item"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-upside)"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg><b>Upside</b> ceiling / boom weeks</span>
+    <span class="gkey-item"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-floor)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg><b>Floor</b> weekly safety</span>
+    <span class="gkey-item"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-risk)"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg><b>Risk</b> lower is safer</span>
+    <span class="gkey-item"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-sit)"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><b>Situational</b> fit to your roster</span>
+    <a>How the grade adds up</a>
+  </div>
+
+  <!-- ===== Player table ===== -->
+  <div class="box">
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th style="width:44px">#</th>
+            <th class="l">Player</th>
+            <th class="sorted">Dynasty<span class="src">FC</span><span class="arr">▼</span></th>
+            <th>Redraft</th>
+            <th>ADP<span class="src" style="color:var(--dyn)">SF</span></th>
+            <th>Mine<span class="src" style="color:var(--mine)">YOU</span></th>
+            <th class="c" title="Upside"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-upside)"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg></th>
+            <th class="c" title="Floor"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-floor)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg></th>
+            <th class="c" title="Risk"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-risk)"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg></th>
+            <th class="c" title="Situational"><svg class="oline" viewBox="0 0 24 24" style="color:var(--f-sit)"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg></th>
+            <th class="c">Grade</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="tbl-foot">
+      <span>Showing 1–15 of 412 players · 13 drafted shown dimmed</span>
+      <div class="pager">
+        <button class="btn">Previous</button>
+        <button class="btn">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Draft board ===== -->
+  <div class="box">
+    <div class="box-header" style="justify-content:space-between">
+      <div>
+        <div class="title">Draft board</div>
+        <div class="desc">Live snake board · Early Birds · Round 2 of 12</div>
+      </div>
+      <button class="btn"><svg class="oline" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M21 6H8a4 4 0 0 0-4 4v1"/><path d="m7 22-4-4 4-4"/><path d="M3 18h13a4 4 0 0 0 4-4v-1"/></svg>Change draft</button>
+    </div>
+    <div class="board-scroll">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const POS_COLOR = {QB:'var(--pos-qb)',RB:'var(--pos-rb)',WR:'var(--pos-wr)',TE:'var(--pos-te)'};
+const players = [
+  {rk:1, name:"Ja'Marr Chase",     pos:'WR', pr:1, team:'CIN', dyn:10874, rdr:9931, adp:'1.01', mine:1,  d:0,  up:9.6, fl:8.9, rs:2.1, si:7.4, pg:null, gone:'Sharks',  star:true},
+  {rk:2, name:'Justin Jefferson',  pos:'WR', pr:2, team:'MIN', dyn:10102, rdr:9445, adp:'1.03', mine:3,  d:-1, up:9.1, fl:9.2, rs:2.4, si:7.1, pg:null, gone:'BigCats', star:false},
+  {rk:3, name:'Jayden Daniels',    pos:'QB', pr:1, team:'WAS', dyn:9987,  rdr:8210, adp:'1.02', mine:2,  d:1,  up:9.3, fl:8.4, rs:2.6, si:8.8, pg:null, gone:'Putput',  star:false, me:true},
+  {rk:4, name:'Josh Allen',        pos:'QB', pr:2, team:'BUF', dyn:9412,  rdr:8804, adp:'1.04', mine:4,  d:0,  up:9.0, fl:9.4, rs:2.2, si:8.6, pg:null, gone:'Wolves',  star:false},
+  {rk:5, name:'Bijan Robinson',    pos:'RB', pr:1, team:'ATL', dyn:9247,  rdr:9612, adp:'1.05', mine:5,  d:0,  up:8.8, fl:9.0, rs:2.5, si:8.1, pg:null, gone:'Hammers', star:false},
+  {tier:2},
+  {rk:6, name:'Jahmyr Gibbs',      pos:'RB', pr:2, team:'DET', dyn:8934,  rdr:9354, adp:'1.07', mine:7,  d:-1, up:9.0, fl:8.3, rs:2.9, si:8.0, pg:'A',  star:true},
+  {rk:7, name:'Malik Nabers',      pos:'WR', pr:3, team:'NYG', dyn:8617,  rdr:8322, adp:'1.08', mine:6,  d:1,  up:8.7, fl:7.9, rs:3.4, si:7.2, pg:'A−', star:false},
+  {rk:8, name:"De'Von Achane",     pos:'RB', pr:3, team:'MIA', dyn:8244,  rdr:8871, adp:'1.09', mine:8,  d:0,  up:9.2, fl:7.4, rs:4.6, si:8.3, pg:'A',  star:true},
+  {rk:9, name:'Puka Nacua',        pos:'WR', pr:4, team:'LAR', dyn:8102,  rdr:8547, adp:'1.11', mine:11, d:-2, up:8.4, fl:8.6, rs:3.8, si:6.9, pg:'B+', star:false},
+  {rk:10,name:'CeeDee Lamb',       pos:'WR', pr:5, team:'DAL', dyn:7965,  rdr:8433, adp:'1.12', mine:9,  d:1,  up:8.2, fl:8.8, rs:2.8, si:6.8, pg:'B+', star:false},
+  {rk:11,name:'Brock Bowers',      pos:'TE', pr:1, team:'LV',  dyn:7742,  rdr:7688, adp:'2.02', mine:10, d:1,  up:8.5, fl:8.4, rs:2.7, si:9.1, pg:'B+', star:true},
+  {rk:12,name:'Drake Maye',        pos:'QB', pr:5, team:'NE',  dyn:7517,  rdr:6402, adp:'2.04', mine:12, d:0,  up:8.6, fl:7.2, rs:3.2, si:8.9, pg:'A−', star:false},
+  {tier:3},
+  {rk:13,name:'Amon-Ra St. Brown', pos:'WR', pr:6, team:'DET', dyn:7301,  rdr:8109, adp:'2.05', mine:14, d:-1, up:7.8, fl:9.1, rs:2.6, si:6.7, pg:'B',  star:false},
+  {rk:14,name:'Breece Hall',       pos:'RB', pr:4, team:'NYJ', dyn:7042,  rdr:7526, adp:'2.07', mine:13, d:1,  up:8.1, fl:7.6, rs:4.9, si:7.8, pg:'B',  star:false},
+  {rk:15,name:'Nico Collins',      pos:'WR', pr:7, team:'HOU', dyn:6874,  rdr:7348, adp:'2.09', mine:15, d:0,  up:8.3, fl:7.7, rs:4.1, si:6.6, pg:'B',  star:false},
+];
+
+const fCol = (v, invert) => {
+  const good = invert ? 10 - v : v;
+  if (good >= 8.5) return 'var(--success)';
+  if (good >= 7)   return '#a3e635';
+  if (good >= 5.5) return 'var(--attention)';
+  return 'var(--danger)';
+};
+const pgLabel = g => {
+  if (!g) return '<span style="color:var(--fg-subtle)">–</span>';
+  const c = g.startsWith('A') ? 'green' : g.startsWith('B') ? 'yellow' : 'gray';
+  return `<span class="label ${c}" style="font-family:var(--font-mono);font-weight:700">${g}</span>`;
+};
+const initials = n => n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+document.getElementById('tbody').innerHTML = players.map(p => {
+  if (p.tier) return `<tr class="tier-row"><td colspan="12">TIER ${p.tier}</td></tr>`;
+  const gone = !p.pg;
+  const delta = p.d > 0 ? `<span class="up">▲${p.d}</span>` : p.d < 0 ? `<span class="dn">▼${-p.d}</span>` : '·';
+  const f = (k, inv) => `<td class="c"><span class="fnum" style="color:${fCol(p[k], inv)}">${p[k].toFixed(1)}</span></td>`;
+  return `<tr class="${gone?'gone':''} ${p.me?'mypick':''}">
+    <td class="td-rk">${p.rk}</td>
+    <td class="l"><div class="pcell">
+      <div class="pav">${initials(p.name)}</div>
+      <div>
+        <div class="pname">${p.name}</div>
+        <div class="psub"><span class="pos-txt" style="color:${POS_COLOR[p.pos]}"><span class="pdot" style="background:${POS_COLOR[p.pos]}"></span>${p.pos}${p.pr}</span><span>${p.team}</span></div>
+      </div>
+    </div></td>
+    <td><span class="val" style="color:${gone?'inherit':'var(--dyn)'}">${p.dyn.toLocaleString()}</span></td>
+    <td><span class="val" style="color:${gone?'inherit':'var(--rdr)'}">${p.rdr.toLocaleString()}</span></td>
+    <td><span class="val" style="color:${gone?'inherit':'var(--adp)'}">${p.adp}</span></td>
+    <td><span class="val" style="color:${gone?'inherit':'var(--mine)'}">#${p.mine}</span><span class="sub-rank">${delta}</span></td>
+    ${f('up')}${f('fl')}${f('rs',true)}${f('si')}
+    <td class="c">${gone
+      ? `<span class="label gray">${p.gone==='Putput' ? '✦ you' : p.gone}</span>`
+      : pgLabel(p.pg)}</td>
+    <td class="c"><span class="star ${p.star?'on':''}">${p.star?'★':'☆'}</span></td>
+  </tr>`;
+}).join('');
+
+/* snake board — Putput slot 8 · 13 picks in · GGuru OTC at 2.02 · your pick 2.05 */
+const teams = ['Sharks','BigCats','Wolves','Hammers','Vipers','Goons','Blitz','Putput','Iceman','Duke','GGuru','Mavs'];
+const r1 = [
+  ['Ja’Marr Chase','WR'],['Justin Jefferson','WR'],['Josh Allen','QB'],['Bijan Robinson','RB'],
+  ['Saquon Barkley','RB'],['Lamar Jackson','QB'],['Joe Burrow','QB'],['Jayden Daniels','QB'],
+  ['Jalen Hurts','QB'],['Patrick Mahomes','QB'],['Ashton Jeanty','RB'],['A.J. Brown','WR'],
+];
+const bc = {QB:'var(--pos-qb)',RB:'var(--pos-rb)',WR:'var(--pos-wr)',TE:'var(--pos-te)'};
+let html = teams.map(t=>`<div class="board-team ${t==='Putput'?'me':''}">${t==='Putput'?'✦ '+t:t}</div>`).join('');
+r1.forEach((p,i)=>{ html += `<div class="bcell ${i===7?'me':''}" style="--pc:${bc[p[1]]}"><div class="bp"><span>1.${String(i+1).padStart(2,'0')}</span><span>${p[1]}</span></div><div class="bn">${p[0]}</div></div>`; });
+for (let col = 0; col < 12; col++) {
+  const pickNo = 12 - col;
+  const pick = '2.' + String(pickNo).padStart(2,'0');
+  if (pickNo === 1)      html += `<div class="bcell" style="--pc:${bc.WR}"><div class="bp"><span>2.01</span><span>WR</span></div><div class="bn">Brian Thomas Jr.</div></div>`;
+  else if (pickNo === 2) html += `<div class="bcell empty otc"><div class="bp"><span>2.02</span></div><div class="bn">On the clock…</div></div>`;
+  else if (pickNo === 5) html += `<div class="bcell empty me"><div class="bp"><span>2.05</span></div><div class="bn">✦ Your pick</div></div>`;
+  else                   html += `<div class="bcell empty"><div class="bp"><span>${pick}</span></div></div>`;
+}
+document.getElementById('board').innerHTML = html;
+</script>
+</body>
+</html>

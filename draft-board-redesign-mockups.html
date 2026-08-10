@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="vapor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Board — Redesign Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Inlined Vault tokens (subset) so the mock stands alone via file:// ── */
+:root{
+  --bg:#070d18;--surface:#0e1626;
+  --s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
+  --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#7d8ca3;
+  --primary:#bec6e0;--on-primary:#0a1424;
+  --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --value:#3DCC7A;--reach:#e23a4e;--gold:#f5c842;
+  --pos-ink:#12151c;
+  --beam-hi:#EDE9E0;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
+  --shadow-card:0 24px 60px -20px rgba(4,9,20,0.62),0 1px 0 rgba(255,255,255,0.06) inset;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+}
+[data-theme="onyx"]{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;
+  --primary:#8fb4e0;--on-primary:#0b1420;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --qb:#ff6680;--rb:#5fe09a;--wr:#8fb4e0;--te:#f5c842;
+  --value:#5fe09a;--reach:#e23a4e;--gold:#8fb4e0;
+  --pos-ink:#0e0f13;
+}
+[data-theme="light"]{
+  --bg:#f4efe4;--surface:#fffdf8;
+  --s1:#fffdf8;--s2:#f3eede;--s3:#ece5d4;--s4:#e1d8c4;--s-bright:#ffffff;
+  --border:rgba(29,40,66,0.10);--border2:rgba(29,40,66,0.17);--border3:rgba(29,40,66,0.28);
+  --text:#1d2433;--text2:#3a4658;--muted:#6e7582;
+  --primary:#16233a;--on-primary:#ffffff;
+  --accent:#16233a;--accent2:#2c4063;--accent3:#4a5d80;
+  --red:#c52d3a;--red2:#d8434f;
+  --qb:#c52d3a;--rb:#0a7a4c;--wr:#1f6fb0;--te:#a76a16;
+  --value:#0a7a4c;--reach:#c52d3a;--gold:#a76a16;
+  --pos-ink:#ffffff;
+  --beam-hi:#16233a;
+  --shadow-card:0 20px 48px -22px rgba(41,50,66,0.24),0 1px 0 rgba(255,255,255,0.5) inset;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+body{padding:0 0 80px}
+
+/* ── Page chrome ── */
+.page-head{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:18px 26px 16px}
+.ph-top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.ph-title{font-size:22px;font-weight:900;letter-spacing:-.03em}
+.ph-sub{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;gap:2px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-pill);padding:3px}
+.seg button{appearance:none;border:0;background:transparent;color:var(--muted);font-family:var(--font-sans);font-weight:700;font-size:12.5px;letter-spacing:.01em;padding:7px 15px;border-radius:var(--radius-pill);cursor:pointer;transition:color .18s ease,background .22s var(--ease-out)}
+.seg button.on{background:var(--primary);color:var(--on-primary)}
+.seg.small button{font-size:11px;padding:5px 11px}
+.seg.small{background:var(--s1)}
+.dir-note{color:var(--muted);font-size:12.5px;max-width:640px;line-height:1.5;margin-top:2px}
+.dir-note b{color:var(--text2);font-weight:700}
+
+/* ── Board frame shared ── */
+.board-wrap{overflow-x:auto;padding:20px 22px 0}
+.rnd-tag{font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.thead{display:grid;grid-template-columns:34px var(--cols);gap:var(--cell-gap,7px);position:sticky;top:0;z-index:5;margin-bottom:var(--cell-gap,7px)}
+.thead .spacer{}
+.tcol{padding:10px 12px;border-radius:var(--radius-md) var(--radius-md) 0 0;background:var(--s1);border:1px solid var(--border);border-bottom:0;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tcol .tname{font-weight:800;font-size:12.5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tcol .tgrade{display:flex;align-items:center;gap:6px}
+.tcol .tg-letter{font-family:var(--font-mono);font-weight:800;font-size:12px}
+.tcol .tg-score{font-family:var(--font-mono);font-size:10.5px;color:var(--muted)}
+.tcol.me{background:linear-gradient(180deg,color-mix(in srgb,var(--accent2) 20%,var(--s2)),var(--s1));border-color:var(--border3);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent2) 30%,transparent) inset}
+.me-chip{align-self:flex-start;font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2);background:color-mix(in srgb,var(--accent2) 16%,transparent);padding:2px 6px;border-radius:var(--radius-pill)}
+
+.rows{display:grid;gap:var(--cell-gap,7px)}
+.row{display:grid;grid-template-columns:34px var(--cols);gap:var(--cell-gap,7px);align-items:stretch}
+.cell{height:100%}
+
+/* avatar monogram */
+.mono{border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-weight:800;color:var(--text);background:var(--s3);flex:none;position:relative}
+.mono>img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 18%;z-index:1;background:var(--s3)}
+.mono::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--pc);opacity:.9;z-index:2}
+
+.pos-badge{font-family:var(--font-mono);font-weight:800;font-size:9px;letter-spacing:.04em;color:var(--pos-ink);background:var(--pc);padding:2px 5px;border-radius:4px;line-height:1}
+.rank{font-family:var(--font-mono);font-weight:700;font-size:10px;color:var(--muted)}
+.grade{font-family:var(--font-mono);font-weight:800;font-size:11px}
+.fname{font-size:10.5px;color:var(--muted);font-weight:500;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lname{font-weight:800;letter-spacing:-.02em;line-height:1.05}
+
+/* ═══ DIRECTION A — EDITORIAL COLUMN ═══ */
+.dirA .cell{position:relative;background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 10px 9px 12px;overflow:hidden;transition:transform .5s var(--ease-spring),border-color .2s ease}
+.dirA .cell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pc)}
+.dirA .cell:hover{transform:translateY(-2px);border-color:var(--border3)}
+.dirA .cell.me{background:linear-gradient(180deg,color-mix(in srgb,var(--accent2) 8%,var(--s1)),var(--s1))}
+.dirA .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.dirA .body{display:flex;align-items:center;gap:9px}
+.dirA .mono{width:34px;height:34px;font-size:12px}
+.dirA .name{min-width:0}
+.dirA .lname{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.dirA .meta{margin-top:2px;display:flex;align-items:center;gap:5px}
+
+/* ═══ DIRECTION D — A + ROTATING BEAM BORDER ═══ */
+.dirD{--cell-gap:8px}
+@keyframes beam-spin{to{transform:rotate(1turn)}}
+.dirD .beam{position:relative;padding:1.5px;overflow:hidden;border-radius:14px;height:100%}
+.dirD .beam::before{content:'';position:absolute;inset:-50%;
+  background:conic-gradient(from 0deg,transparent 0 72%,var(--pc) 84%,var(--beam-hi) 90%,transparent 96%);
+  animation:beam-spin 3s linear infinite}
+.dirD .beam-inner{position:relative;border-radius:12.5px;background:var(--s1);height:100%;padding:9px 11px 9px 12px;overflow:hidden}
+.dirD .beam-inner.me{background:linear-gradient(180deg,color-mix(in srgb,var(--accent2) 12%,var(--s1)),var(--s1))}
+.dirD .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.dirD .body{display:flex;align-items:center;gap:9px}
+.dirD .mono{width:34px;height:34px;font-size:12px}
+.dirD .name{min-width:0}
+.dirD .lname{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.dirD .meta{margin-top:8px;display:flex;align-items:center;gap:5px}
+@media (prefers-reduced-motion:reduce){.dirD .beam::before{animation:none}}
+
+/* ═══ DIRECTION E — A + CAUSTICS (frosted glass + drifting light) ═══ */
+.dirE{--cell-gap:8px}
+@keyframes drift{
+  0%  {transform:translate(-7%,-5%) scale(1.05) rotate(-4deg)}
+  50% {transform:translate(4%,3%)  scale(1.18) rotate(3deg)}
+  100%{transform:translate(7%,6%)  scale(1.10) rotate(6deg)}
+}
+.dirE .cell{position:relative;overflow:hidden;border-radius:14px;background:var(--s1);border:1px solid var(--border2)}
+.dirE .cell::before{content:'';position:absolute;inset:-45%;z-index:0;
+  background:
+    radial-gradient(42% 46% at 24% 28%, color-mix(in srgb,var(--pc) 78%,transparent), transparent 70%),
+    radial-gradient(38% 42% at 78% 68%, color-mix(in srgb,var(--accent2) 62%,transparent), transparent 70%),
+    radial-gradient(32% 36% at 62% 18%, color-mix(in srgb,var(--pc) 50%,transparent), transparent 66%);
+  filter:blur(12px);opacity:.55;
+  animation:drift 9s ease-in-out infinite alternate}
+.dirE .cell.me::before{opacity:.8}
+.dirE .glass{position:relative;z-index:1;height:100%;padding:8px 8px 10px;
+  display:flex;flex-direction:column;align-items:center;
+  background:color-mix(in srgb,var(--s1) 52%,transparent);
+  backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset}
+.dirE .top{width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.dirE .photo{margin:2px 0 8px}
+.dirE .mono{width:54px;height:54px;font-size:19px;
+  background:radial-gradient(120% 120% at 50% 20%, color-mix(in srgb,var(--pc) 22%,var(--s3)), var(--s2))}
+.dirE .mono::after{inset:-2.5px;border-width:2.5px}
+.dirE .name{min-width:0;max-width:100%;text-align:center}
+.dirE .fname{text-align:center}
+.dirE .lname{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.dirE .foot{margin-top:auto;padding-top:8px;display:flex;align-items:center;gap:5px}
+@media (prefers-reduced-motion:reduce){.dirE .cell::before{animation:none}}
+
+/* ═══ DIRECTION B — CARBON CARDS ═══ */
+.dirB{--cell-gap:9px}
+.dirB .cell{position:relative;border-radius:14px;padding:13px 11px 11px;overflow:hidden;isolation:isolate;
+  background:
+    radial-gradient(120% 80% at 50% -20%, color-mix(in srgb,var(--pc) 26%,transparent), transparent 70%),
+    linear-gradient(180deg,var(--s2),var(--s1));
+  border:1px solid var(--border);box-shadow:0 10px 30px -18px rgba(0,0,0,.7);
+  transition:transform .5s var(--ease-spring),box-shadow .3s var(--ease-out),border-color .2s ease}
+.dirB .cell:hover{transform:translateY(-3px);box-shadow:0 20px 40px -18px rgba(0,0,0,.8);border-color:var(--border3)}
+.dirB .cell.me{border-color:color-mix(in srgb,var(--accent2) 45%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent2) 30%,transparent),0 14px 34px -18px rgba(0,0,0,.8)}
+.dirB .crnr{position:absolute;top:9px;right:10px;font-family:var(--font-mono);font-weight:800;font-size:10px;color:var(--muted)}
+.dirB .mono{width:46px;height:46px;font-size:16px;margin:2px auto 9px}
+.dirB .name{text-align:center;min-width:0}
+.dirB .fname{text-align:center}
+.dirB .lname{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dirB .foot{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px;padding-top:9px;border-top:1px solid var(--border)}
+
+/* ═══ DIRECTION C — HEAT GRID ═══ */
+.dirC{--cell-gap:5px}
+.dirC .cell{position:relative;border-radius:8px;padding:7px 9px 8px;overflow:hidden;border:1px solid var(--border);
+  background:var(--heat);transition:transform .4s var(--ease-spring),filter .2s ease}
+.dirC .cell::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--pc);opacity:.95}
+.dirC .cell:hover{transform:scale(1.03);z-index:2;filter:brightness(1.08)}
+.dirC .cell.me{outline:1.5px solid color-mix(in srgb,var(--accent2) 55%,transparent);outline-offset:-1px}
+.dirC .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:2px}
+.dirC .dot{width:7px;height:7px;border-radius:50%;background:var(--pc)}
+.dirC .cr{font-family:var(--font-mono);font-size:9px;color:var(--muted);font-weight:700}
+.dirC .lname{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dirC .fname{font-size:9px}
+.dirC .cgrade{position:absolute;bottom:6px;right:8px;font-family:var(--font-mono);font-weight:800;font-size:11px}
+.dirC .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 22px 0;color:var(--muted);font-size:11px;font-family:var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
+.dirC .legend .sw{display:inline-flex;align-items:center;gap:6px}
+.dirC .legend i{width:16px;height:10px;border-radius:3px;display:inline-block}
+
+.hidden{display:none!important}
+.foot-note{padding:26px 26px 0;color:var(--muted);font-size:11.5px;line-height:1.6;max-width:760px}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="ph-top">
+    <span class="ph-title">Draft Board</span>
+    <span class="ph-sub">Redesign mockups · illustrative data</span>
+  </div>
+  <div class="controls">
+    <div class="seg" id="dirSeg">
+      <button data-dir="A" class="on">A · Editorial</button>
+      <button data-dir="B">B · Carbon Cards</button>
+      <button data-dir="C">C · Heat Grid</button>
+      <button data-dir="D">A + Beam</button>
+      <button data-dir="E">A + Caustics</button>
+    </div>
+    <div class="seg small" id="themeSeg">
+      <button data-theme="vapor" class="on">Vapor</button>
+      <button data-theme="onyx">Onyx</button>
+      <button data-theme="light">Light</button>
+    </div>
+  </div>
+  <p class="dir-note" id="dirNote"></p>
+</div>
+
+<div id="stage"></div>
+
+<p class="foot-note">
+  All three render the same picks with <b>full first names shown when they fit</b> (dim, above the bold last name) — long or hyphenated names gracefully fall back to the surname alone.
+  <b>PUTPUT</b> is highlighted as "your" column. Direction&nbsp;C tints every cell by pick grade so the whole board reads as a draft-quality heatmap at a glance.
+</p>
+
+<script>
+const TEAMS = [
+  ['LINHARDT23','C+','5.0'],['XINO','C+','5.0'],['FELI3X','C+','5.1'],['BUTZERR','C+','5.0'],
+  ['TEAM 9','C','4.6'],['SCREAMINGYETI','C','4.4'],['JASONSON93','C+','5.1'],['BEAMERJENSEN','B-','5.4'],
+  ['PUTPUT','B','6.0'],['BIGROB904','C+','4.7'],['JACOBLINDBERG','C+','4.9'],['MARKO1998','C+','5.1']
+];
+const ME = 8; // PUTPUT index
+
+// [pos,last,first,rank,grade]
+const ROUNDS = [
+ [['RB','Robinson','Bijan',1,'B+'],['RB','Gibbs','Jahmyr',2,'B+'],['WR','Chase',"Ja'Marr",3,'B'],['WR','Nacua','Puka',7,'B+'],['WR','Smith-Njigba','Jaxon',5,'B+'],['RB','Jeanty','Ashton',12,'C'],['RB','McCaffrey','Christian',51,'B+'],['RB','Taylor','Jonathan',28,'C'],['WR','Brown','A.J.',9,'B+'],['RB','Hampton','Omarion',21,'C'],['WR','Lamb','CeeDee',20,'B'],['RB','Cook','James',32,'B+']],
+ [['RB','Hall','Breece',53,'C+'],['WR','Brown','Marquise',64,'C+'],['RB','Henry','Derrick',94,'B'],['RB','Walker','Kenneth',45,'C+'],['WR','Pickens','George',40,'B-'],['WR','Collins','Nico',46,'C+'],['RB','Barkley','Saquon',61,'B-'],['TE','McBride','Trey',11,'B-'],['RB','Achane',"De'Von",23,'A-'],['WR','London','Drake',22,'C+'],['WR','Jefferson','Justin',13,'B'],['RB','Brown','Chase',54,'C+']],
+ [['QB','Allen','Josh',4,'B-'],['RB','Love','Jordan',18,'B'],['WR','Rice','Rashee',71,'B-'],['TE','Bowers','Brock',8,'A'],['RB','Jacobs','Josh',99,'C+'],['WR','Nabers','Malik',17,'C'],['RB','Williams','Javonte',87,'B-'],['RB','Williams','Kyren',69,'B+'],['WR','Olave','Chris',57,'A-'],['WR','Smith','DeVonta',67,'C'],['WR','Higgins','Tee',78,'C+'],['RB','Etienne','Travis',91,'B']],
+ [['WR','McLaurin','Terry',124,'C'],['WR','Waddle','Jaylen',85,'B-'],['WR','McConkey','Ladd',59,'B'],['RB','Montgomery','David',126,'C-'],['WR','Burden','Luther',63,'C-'],['RB','Judkins','Quinshon',52,'C'],['WR','Egbuka','Emeka',41,'B'],['WR','Wilson','Garrett',47,'C+'],['WR','McMillan','Tetairoa',38,'A-'],['WR','Flowers','Zay',77,'C'],['TE','Loveland','Colston',29,'B-'],['RB','Skattebo','Cam',75,'C']],
+ [['TE','Warren','Tyler',37,'B'],['QB','Jackson','Lamar',14,'C+'],['RB','Irving','Bucky',84,'B+'],['RB','Swift',"D'Andre",115,'B'],['RB','Tuten','Bhayshul',106,'C-'],['WR','Odunze','Rome',73,'C'],['WR','Evans','Mike',139,'C-'],['RB','Henderson','TreVeyon',58,'B+'],['RB','Price','',56,'C-'],['WR','Williams','Jameson',93,'B-'],['RB','Hubbard','Chuba',144,'D'],['WR','Moore','D.J.',112,'C+']],
+ [['WR','Washington','',127,'D'],['TE','Kraft','Tucker',68,'B'],['WR','Metcalf','DK',140,'C'],['WR','Tyson','',44,'C-'],['WR','Lemon','',50,'D'],['RB','Warren','Jaylen',154,'C+'],['WR','Harrison','Marvin',76,'D'],['WR','Thomas','Brian',79,'C-'],['WR','Adams','Davante',150,'A-'],['WR','Watson','Christian',113,'C+'],['QB','Burrow','Joe',19,'C-'],['WR','Tate','',31,'C+']]
+];
+
+const NOTES = {
+ A:'<b>Editorial Column</b> — a refined version of today’s board. Position lives as a slim colour rail, the pick number and grade sit on one quiet top line, and the name gets room to breathe next to a position-ringed monogram. Calm, legible, scannable top-to-bottom.',
+ B:'<b>Carbon Cards</b> — every pick becomes a tactile collectible: a position-tinted glow bleeds from the top, the monogram is the hero, and rank + position + grade anchor a footer. Feels premium and hover-lifts like a real card.',
+ C:'<b>Heat Grid</b> — the analyst view. Each cell is tinted by <i>pick grade</i> (green = value, red = reach), position is a top accent + dot, and the letter grade sits bottom-right. Dense on purpose so a full board becomes an instant draft-quality heatmap.',
+ D:'<b>A + Beam</b> — Editorial A, but the static position rail is replaced by a rotating conic-gradient border that sweeps in the pick’s <i>position colour</i> with a bright trailing highlight. Premium and alive. Note: 70+ spinning gradients is a real GPU cost — in production restrain it to <b>your own column</b> or the <b>most-recent pick</b>, static border elsewhere.',
+ E:'<b>A + Caustics</b> — a frosted-glass cell floating over soft, slowly drifting light in the pick’s <i>position colour</i>. The content sits on a <code>backdrop-filter</code> glass layer so the moving colour reads as ambient glow, not noise. Calm, liquid, iOS-like. Note: blurred backdrop-filter on every cell is GPU-heavy on a repainting board — pause the drift while dragging/scrolling, or reserve caustics for your column.'
+};
+
+// Real NFL.com Cloudinary headshots (same source vaultHeadshot() resolves from nflverse_stats.json)
+const HEADSHOTS={"Bijan Robinson":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/rjaf9auhx3lrktzgwpfb","Jahmyr Gibbs":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hjxk3judytgsxkqiilre","Ja'Marr Chase":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qya3dtjb5kgofcuj2tuw","Puka Nacua":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/zvi4hdm6fywcekfe7ceb","Jaxon Smith-Njigba":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/jpvhsregfvw46mlyckzj","Ashton Jeanty":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/syspis1mntov9kgspb7r","Christian McCaffrey":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/resjdwihunsqckohcorj","Jonathan Taylor":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/uwmnrhwtwug0wrgkomjk","A.J. Brown":"https://static.www.nfl.com/image/private/f_auto,q_auto/league/a014sgzctarbvhwb35lw","Omarion Hampton":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ck7xcbwuka7wu2zwhssk","CeeDee Lamb":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ijxzvtumjhqu3zva1bwc","James Cook":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/anjbznqb9i21wzcgrtbs","Breece Hall":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/m3dviruymtm2wl2zcpmr","Marquise Brown":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ixuddegcphzmvjn4jq6r","Derrick Henry":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/jxtikemnvpkw9r0ex2wv","George Pickens":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/cbpyykoguf7rsxezqzvk","Nico Collins":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/osmqyvmib3pssxi6cyic","Saquon Barkley":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ern1nbhivkmwkg82c7v1","Trey McBride":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vd7av3vdfs6q7ncjogac","De'Von Achane":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xk1xwio0bryfxo1ylweu","Drake London":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/np91pvk7mczra1iyjkmo","Justin Jefferson":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/f0ccavu3ppzcs51e1cuv","Chase Brown":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/pv3sq3uzosixxexbznq5","Josh Allen":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/servs1fpsynfxep4rz2z","Jordan Love":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/uneiwen9drvci9ahuebp","Rashee Rice":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/iy0uidp9wokc6a7u8lwq","Brock Bowers":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/uzp2ffi0lomamxofsrhy","Josh Jacobs":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/drtobqw2mk7yw3edjgwo","Malik Nabers":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/w3edoyyuomqlovvp9ixc","Javonte Williams":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hwzske22c4wrlf27qrih","Kyren Williams":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/smsyrjrwy0lf0hu9hkvg","Chris Olave":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vrrmyvpvujynckag9jop","DeVonta Smith":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vj2fz8veorg1k5qthnjm","Tee Higgins":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/flr9f8oqigbyroeaubxb","Travis Etienne":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gc0iljgj34piecyfueyd","Terry McLaurin":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wokz1etv1wj1vhbmvxgs","Jaylen Waddle":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/dsxd2zcqm42wsv4ewtfc","Ladd McConkey":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qsvdiebsa34jtkcrjpju","David Montgomery":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xeb6fq4zimgkksq7uari","Quinshon Judkins":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ojtce2im0wp2ltyel0vc","Emeka Egbuka":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qolqqtwamffi0pi4np7h","Garrett Wilson":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/kbijsheobhwej7lh8mvf","Tetairoa McMillan":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hokqp6gl5xujtlqwecg8","Zay Flowers":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/sqqh8gmxdpo55qwpsszj","Colston Loveland":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/tyjb6vfug7gaunvcune3","Cam Skattebo":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vnftthkbvw7ucsqtqjpq","Tyler Warren":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/jt2almbzdk0kbha39otb","Lamar Jackson":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/cruqs6qpbykh7a2whd7p","Bucky Irving":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hmgpumoxwhvrrkcjuuuw","D'Andre Swift":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/owpmwzoilitcodc6cmxo","Bhayshul Tuten":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/uf6bidyfjeemrlgsibiz","Rome Odunze":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/yqjdhpsno75du0n72u4w","Mike Evans":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/yaxorbdsvk1ucfuiyrkj","TreVeyon Henderson":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/cfcux3dnfmbmz3qzrnco","Jameson Williams":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gpjarmglg1jhwq5wr1uu","Chuba Hubbard":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/pjgml85ghq7oa48dctn7","D.J. Moore":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qphturmeiifnqrnf5pax","Tucker Kraft":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/yr6nj1zqaqg6nbdnxu3q","DK Metcalf":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/tknefloqsleltfmslj2y","Jaylen Warren":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/f3txbqdarbabqtq4sx98","Davante Adams":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qtonvcqpixixqhc6lhnc","Christian Watson":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/syljognztlbghfeqyqn1","Joe Burrow":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gnnvcgui1cijybukk2w7","Kenneth Walker":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/mnzsnemdzbey5hbahdhk","Luther Burden":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/iyuwdz7pbowdkwzq2tg5","Marvin Harrison":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hwpoo1icpnh8emjvqaii","Brian Thomas":"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/plnekkriys4cm11rnxwl"};
+
+const COLS = TEAMS.map(()=> 'minmax(0,1fr)').join(' ');
+function posColor(p){return {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'}[p]||'var(--muted)';}
+function gradeColor(g){
+  const l=g[0];
+  if(l==='A') return 'var(--value)';
+  if(l==='B') return 'var(--accent2)';
+  if(l==='C') return 'var(--muted)';
+  return 'var(--reach)';
+}
+function gradeScore(g){const m={'A+':12,'A':11,'A-':10,'B+':9,'B':8,'B-':7,'C+':6,'C':5,'C-':4,'D+':3,'D':2,'F':1};return m[g]??5;}
+function heatBg(g){
+  const s=gradeScore(g);
+  // green for value, red for reach, neutral middle
+  if(s>=10) return 'color-mix(in srgb, var(--value) 24%, var(--s1))';
+  if(s>=8)  return 'color-mix(in srgb, var(--value) 12%, var(--s1))';
+  if(s>=6)  return 'var(--s1)';
+  if(s>=4)  return 'color-mix(in srgb, var(--reach) 12%, var(--s1))';
+  return 'color-mix(in srgb, var(--reach) 24%, var(--s1))';
+}
+function nameBlock(p, big){
+  const first = p[2];
+  const last = p[1];
+  const f = first ? `<div class="fname">${first}</div>` : '';
+  return `<div class="name">${f}<div class="lname">${last}</div></div>`;
+}
+function mono(p){
+  const init = p[1][0];
+  const full = (p[2]?p[2]+' ':'')+p[1];
+  const h = HEADSHOTS[full];
+  const src = h ? h.replace('/f_auto,q_auto/','/f_auto,q_auto,w_140,h_140,c_thumb,g_face/') : '';
+  const img = src ? `<img src="${src}" loading="lazy" onerror="this.style.display='none'">` : '';
+  return `<div class="mono" style="--pc:${posColor(p[0])}">${init}${img}</div>`;
+}
+
+function header(dir){
+  const cells = TEAMS.map((t,i)=>{
+    const me = i===ME;
+    return `<div class="tcol ${me?'me':''}">
+      ${me?'<span class="me-chip">You</span>':''}
+      <span class="tname">${t[0]}</span>
+      <span class="tgrade"><span class="tg-letter" style="color:${gradeColor(t[1])}">${t[1]}</span><span class="tg-score">${t[2]}</span></span>
+    </div>`;
+  }).join('');
+  return `<div class="thead" style="--cols:${COLS}"><div class="spacer"></div>${cells}</div>`;
+}
+
+function cellA(p,i){
+  const me=i===ME?'me':'';
+  return `<div class="cell ${me}" style="--pc:${posColor(p[0])}">
+    <div class="top"><span class="rank">#${p[3]}</span><span class="grade" style="color:${gradeColor(p[4])}">${p[4]}</span></div>
+    <div class="body">${mono(p)}${nameBlock(p)}</div>
+    <div class="meta"><span class="pos-badge" style="--pc:${posColor(p[0])}">${p[0]}</span></div>
+  </div>`;
+}
+function cellB(p,i){
+  const me=i===ME?'me':'';
+  return `<div class="cell ${me}" style="--pc:${posColor(p[0])}">
+    <span class="crnr">#${p[3]}</span>
+    ${mono(p)}
+    ${nameBlock(p)}
+    <div class="foot"><span class="pos-badge" style="--pc:${posColor(p[0])}">${p[0]}</span><span class="grade" style="color:${gradeColor(p[4])}">${p[4]}</span></div>
+  </div>`;
+}
+function cellC(p,i){
+  const me=i===ME?'me':'';
+  return `<div class="cell ${me}" style="--pc:${posColor(p[0])};--heat:${heatBg(p[4])}">
+    <div class="top"><span class="dot"></span><span class="cr">#${p[3]}</span></div>
+    ${nameBlock(p)}
+    <span class="cgrade" style="color:${gradeColor(p[4])}">${p[4]}</span>
+  </div>`;
+}
+
+function cellD(p,i){
+  const me=i===ME?'me':'';
+  return `<div class="beam" style="--pc:${posColor(p[0])}"><div class="beam-inner ${me}">
+    <div class="top"><span class="rank">#${p[3]}</span><span class="grade" style="color:${gradeColor(p[4])}">${p[4]}</span></div>
+    <div class="body">${mono(p)}${nameBlock(p)}</div>
+    <div class="meta"><span class="pos-badge" style="--pc:${posColor(p[0])}">${p[0]}</span></div>
+  </div></div>`;
+}
+
+function cellE(p,i){
+  const me=i===ME?'me':'';
+  return `<div class="cell ${me}" style="--pc:${posColor(p[0])}"><div class="glass">
+    <div class="top"><span class="rank">#${p[3]}</span><span class="grade" style="color:${gradeColor(p[4])}">${p[4]}</span></div>
+    <div class="photo">${mono(p)}</div>
+    ${nameBlock(p)}
+    <div class="foot"><span class="pos-badge" style="--pc:${posColor(p[0])}">${p[0]}</span></div>
+  </div></div>`;
+}
+
+function render(dir){
+  const cellFn = {A:cellA,B:cellB,C:cellC,D:cellD,E:cellE}[dir];
+  const rowsHtml = ROUNDS.map((r,i)=>`<div class="row" style="--cols:${COLS}"><div class="rnd-tag">${i+1}</div>${r.map(cellFn).join('')}</div>`).join('');
+  const legend = dir==='C' ? `<div class="legend">
+     <span class="sw"><i style="background:color-mix(in srgb,var(--value) 40%,var(--s1))"></i>Value</span>
+     <span class="sw"><i style="background:var(--s1);border:1px solid var(--border)"></i>Fair</span>
+     <span class="sw"><i style="background:color-mix(in srgb,var(--reach) 40%,var(--s1))"></i>Reach</span>
+     <span style="margin-left:8px">QB<i style="background:var(--qb);width:8px;height:8px;border-radius:50%;margin:0 4px"></i></span>
+     <span>RB<i style="background:var(--rb);width:8px;height:8px;border-radius:50%;margin:0 4px"></i></span>
+     <span>WR<i style="background:var(--wr);width:8px;height:8px;border-radius:50%;margin:0 4px"></i></span>
+     <span>TE<i style="background:var(--te);width:8px;height:8px;border-radius:50%;margin:0 4px"></i></span>
+   </div>` : '';
+  return `${legend}
+   <div class="board-wrap dir${dir}">
+     ${header(dir)}
+     <div class="rows">${rowsHtml}</div>
+   </div>`;
+}
+
+let curDir='E';
+const stage=document.getElementById('stage');
+const dirNote=document.getElementById('dirNote');
+function paint(){stage.innerHTML=render(curDir);dirNote.innerHTML=NOTES[curDir];
+  [...document.querySelectorAll('#dirSeg button')].forEach(x=>x.classList.toggle('on',x.dataset.dir===curDir));}
+paint();
+
+document.getElementById('dirSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  curDir=b.dataset.dir;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+  paint();
+});
+document.getElementById('themeSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  document.documentElement.dataset.theme=b.dataset.theme;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault Fantasy · Mobile Rehaul — antd-mobile Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── inlined vault-ds tokens · ONYX & STEEL FROST ── */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --red:#e23a4e;--red2:#ff5a6e;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --green:#5fe09a;--gold:#8fb4e0;--amber:#f5a623;
+  --shadow-card:0 24px 60px -20px rgba(6,6,8,0.62),0 1px 0 rgba(255,255,255,0.05) inset;
+  --font-sans:'Archivo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --t-title:24px;--t-h1:20px;--t-h2:17px;--t-body:15px;--t-secondary:13px;
+  --t-label:11px;--t-micro:10px;--t-nano:9px;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ease-sheet:cubic-bezier(0.32,0.72,0,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;padding:26px 22px 80px}
+.wrap{max-width:1560px;margin:0 auto}
+
+/* ── gallery chrome ── */
+.hd{margin-bottom:8px}
+.hd h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em}
+.hd h1 em{color:var(--accent2);font-style:normal}
+.hd p{margin:8px 0 0;color:var(--muted);font-size:14px;max-width:70ch;line-height:1.55}
+.hd-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pill{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.05em;padding:6px 11px;border-radius:8px;background:var(--s2);border:1px solid var(--border2);color:var(--text2)}
+.pill.hot{color:var(--accent2);border-color:rgba(143,180,224,.3);background:rgba(143,180,224,.07)}
+.sec{margin-top:46px}
+.sec>h2{font-size:17px;font-weight:800;letter-spacing:-.01em;margin:0 0 4px;color:var(--text)}
+.sec>p{margin:0 0 18px;color:var(--muted);font-size:13px;max-width:76ch;line-height:1.5}
+.frames{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.fwrap{width:376px}
+.fcap{margin-top:12px;padding:0 6px}
+.fcap b{display:block;font-size:13px;font-weight:700;color:var(--text)}
+.fcap span{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px}
+.fcap .adm{font-family:var(--font-mono);font-size:10px;color:var(--accent2);letter-spacing:.04em}
+
+/* ── phone frame ── */
+.phone{width:376px;height:790px;border-radius:44px;background:#08090c;border:1px solid var(--border2);box-shadow:var(--shadow-card);padding:10px;position:relative}
+.scr{width:100%;height:100%;border-radius:36px;background:var(--bg);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.sb{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px}
+.sb .tm{font-size:14px;font-weight:700;letter-spacing:.02em}
+.sb .ic{display:flex;gap:5px;align-items:center;color:var(--text2)}
+.sb .ic svg{display:block}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:118px;height:30px;border-radius:16px;background:#08090c;z-index:9}
+.body{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.scroll{flex:1;overflow:hidden;padding:0 14px}
+
+/* ── antd-mobile styled primitives (Vault-tokened) ── */
+/* NavBar */
+.nav{height:48px;flex:none;display:flex;align-items:center;padding:0 14px;gap:10px}
+.nav .back{width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--text2);flex:none}
+.nav .ttl{flex:1;text-align:center;font-size:16px;font-weight:700;letter-spacing:-.01em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav .rt{flex:none;display:flex;gap:14px;color:var(--text2);min-width:28px;justify-content:flex-end}
+.nav.lft .ttl{text-align:left;font-size:20px;font-weight:800}
+/* TabBar */
+.tabbar{flex:none;height:76px;border-top:1px solid var(--border);background:rgba(14,15,19,.92);display:flex;align-items:stretch;padding:6px 6px 18px;position:relative;z-index:5}
+.tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);position:relative}
+.tb svg{display:block}
+.tb small{font-size:10px;font-weight:600;letter-spacing:.02em}
+.tb.on{color:var(--accent2)}
+.tb .bdg{position:absolute;top:2px;right:calc(50% - 16px);min-width:8px;height:8px;border-radius:99px;background:var(--red)}
+.tb .bdg.n{min-width:16px;height:16px;font-family:var(--font-mono);font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 4px;top:-2px}
+.tb-fab{flex:none;width:64px;display:flex;align-items:center;justify-content:center;margin-top:-24px}
+.tb-fab .puck{width:54px;height:54px;border-radius:18px;background:linear-gradient(160deg,var(--s4),var(--s2));border:1px solid var(--border3);box-shadow:0 10px 26px -8px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.10) inset;display:flex;align-items:center;justify-content:center;color:var(--accent2)}
+/* SearchBar */
+.search{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--muted);font-size:14px;margin:8px 0 10px}
+.search svg{flex:none}
+/* CapsuleTabs */
+.caps{display:flex;gap:8px;overflow:hidden;padding:2px 0 12px}
+.cap{flex:none;font-size:13px;font-weight:600;color:var(--text2);background:var(--s2);border:1px solid var(--border);border-radius:999px;padding:7px 14px}
+.cap.on{color:#0b1420;background:var(--accent2);border-color:var(--accent2);font-weight:700}
+/* underline Tabs */
+.utabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:12px}
+.ut{flex:1;text-align:center;padding:10px 0 11px;font-size:14px;font-weight:600;color:var(--muted);position:relative}
+.ut.on{color:var(--text)}
+.ut.on::after{content:"";position:absolute;left:25%;right:25%;bottom:-1px;height:2px;border-radius:2px;background:var(--accent2)}
+/* List */
+.list{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px}
+.lh{font-family:var(--font-mono);font-size:var(--t-label);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:12px 14px 8px}
+.row{display:flex;align-items:center;gap:11px;padding:11px 14px;border-top:1px solid var(--border)}
+.row:first-child,.lh+.row{border-top:none}
+.row .main{flex:1;min-width:0}
+.row .t{font-size:15px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .d{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .x{flex:none;text-align:right}
+.row .chev{flex:none;color:var(--muted);margin-left:2px}
+/* avatar */
+.av{flex:none;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;font-size:13px;color:#0b1420;background:var(--s3)}
+.av.sm{width:30px;height:30px;border-radius:9px;font-size:11px}
+.av.QB{background:var(--qb)}.av.RB{background:var(--rb)}.av.WR{background:var(--wr)}.av.TE{background:var(--te)}
+.av.team{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+/* Tag */
+.tag{display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 7px;border-radius:6px;background:var(--s3);color:var(--text2)}
+.tag.QB{color:var(--qb);background:rgba(255,102,128,.12)}
+.tag.RB{color:var(--rb);background:rgba(61,204,122,.12)}
+.tag.WR{color:var(--wr);background:rgba(123,208,255,.12)}
+.tag.TE{color:var(--te);background:rgba(245,200,66,.12)}
+.tag.up{color:var(--green);background:rgba(95,224,154,.1)}
+.tag.dn{color:var(--red2);background:rgba(226,58,78,.12)}
+.tag.st{color:var(--accent2);background:rgba(143,180,224,.1)}
+/* data text */
+.mono{font-family:var(--font-mono);font-weight:700;font-variant-numeric:tabular-nums}
+.big{font-size:22px;letter-spacing:-.01em}
+.pos{color:var(--green)}.neg{color:var(--red2)}
+/* Card */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
+.card .ch{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.card .ch b{font-size:15px;font-weight:700}
+.card .ch a{font-size:12px;color:var(--accent2);font-weight:600;text-decoration:none}
+/* gradient hero cards */
+.gcard{border-radius:16px;padding:16px;position:relative;overflow:hidden;border:1px solid var(--border2)}
+.gcard.steel{background:linear-gradient(150deg,#233246 0%,#16202e 55%,#131a25 100%)}
+.gcard.win{background:linear-gradient(150deg,#173226 0%,#12231c 60%,#101a16 100%)}
+.gcard.loss{background:linear-gradient(150deg,#3a1c22 0%,#241318 60%,#1a1013 100%)}
+/* ProgressBar */
+.prog{height:5px;border-radius:99px;background:var(--s3);overflow:hidden}
+.prog i{display:block;height:100%;border-radius:99px;background:var(--accent2)}
+.prog.g i{background:var(--green)}
+.prog.r i{background:var(--red2)}
+.prog.gold i{background:var(--te)}
+/* Swiper dots */
+.dots{display:flex;gap:5px;justify-content:center;padding:10px 0 2px}
+.dots i{width:5px;height:5px;border-radius:99px;background:var(--s4)}
+.dots i.on{width:14px;background:var(--accent2)}
+/* FloatingPanel / sheet */
+.dimmer{position:absolute;inset:0;background:rgba(5,6,9,.6);backdrop-filter:blur(2px);z-index:6}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:7;background:var(--s1);border:1px solid var(--border2);border-bottom:none;border-radius:22px 22px 0 0;padding:8px 16px 20px;box-shadow:0 -20px 50px -18px rgba(0,0,0,.8)}
+.grab{width:38px;height:4px;border-radius:99px;background:var(--s4);margin:4px auto 12px}
+/* Steps */
+.steps{display:flex;align-items:flex-start;margin:4px 0 16px}
+.step{flex:1;text-align:center;position:relative}
+.step::before{content:"";position:absolute;top:11px;left:-50%;width:100%;height:2px;background:var(--s3)}
+.step:first-child::before{display:none}
+.step.done::before,.step.on::before{background:var(--accent2)}
+.step .dot{width:22px;height:22px;border-radius:99px;margin:0 auto;background:var(--s3);color:var(--muted);font-family:var(--font-mono);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;border:1px solid var(--border2)}
+.step.done .dot,.step.on .dot{background:var(--accent2);color:#0b1420;border-color:var(--accent2)}
+.step small{display:block;font-size:10px;color:var(--muted);margin-top:5px;font-weight:600}
+.step.on small{color:var(--text)}
+/* buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:13px;font-size:15px;font-weight:700;background:var(--accent2);color:#0b1420}
+.btn.ghost{background:var(--s2);color:var(--text);border:1px solid var(--border2)}
+.btn.sm{padding:9px 12px;font-size:13px;border-radius:10px}
+/* misc */
+.krow{display:flex;gap:10px;margin-bottom:14px}
+.krow .k{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:11px 12px}
+.k .kl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.k .kv{font-family:var(--font-mono);font-weight:800;font-size:19px;margin-top:4px;letter-spacing:-.01em}
+.k .kd{font-size:10px;margin-top:2px;color:var(--muted)}
+.hr{height:1px;background:var(--border);margin:12px 0}
+.bars{display:flex;flex-direction:column;gap:9px}
+.bar{display:flex;align-items:center;gap:10px}
+.bar label{width:70px;flex:none;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.bar .prog{flex:1}
+.bar b{width:30px;flex:none;text-align:right;font-family:var(--font-mono);font-size:12px}
+/* draft board mini-grid */
+.bgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.bcell{border-radius:9px;padding:7px 8px;background:var(--s2);border:1px solid var(--border);min-height:52px}
+.bcell .bp{font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--muted);letter-spacing:.05em}
+.bcell .bn{font-size:11px;font-weight:700;margin-top:2px;line-height:1.15;color:var(--text)}
+.bcell.QB{border-left:3px solid var(--qb)}
+.bcell.RB{border-left:3px solid var(--rb)}
+.bcell.WR{border-left:3px solid var(--wr)}
+.bcell.TE{border-left:3px solid var(--te)}
+.bcell.me{background:rgba(143,180,224,.10);border-color:rgba(143,180,224,.35)}
+.bcell.otc{background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.4);border-left:3px solid var(--te)}
+/* grade ring */
+.ring{width:52px;height:52px;border-radius:99px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;font-size:16px;position:relative}
+.ring::before{content:"";position:absolute;inset:0;border-radius:99px;padding:3px;background:conic-gradient(var(--green) calc(var(--p)*1%),var(--s3) 0);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+/* command grid */
+.cmdg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cmd{background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:13px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.cmd svg{color:var(--accent2)}
+.cmd b{font-size:11.5px;font-weight:700;color:var(--text)}
+.cmd small{font-size:9.5px;color:var(--muted);line-height:1.3}
+/* index bar (antd IndexBar) */
+.ixbar{position:absolute;right:3px;top:120px;display:flex;flex-direction:column;gap:3px;z-index:4}
+.ixbar i{font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--muted);text-align:center;font-style:normal;padding:1px 4px;border-radius:6px}
+.ixbar i.on{color:#0b1420;background:var(--accent2)}
+/* sim chart */
+.sim{display:flex;align-items:flex-end;gap:3px;height:86px;padding:6px 2px 0}
+.sim i{flex:1;border-radius:3px 3px 0 0;background:var(--s3)}
+.sim i.hot{background:var(--accent2)}
+.sim i.me{background:var(--green)}
+/* notice */
+.note{display:flex;gap:9px;align-items:flex-start;background:rgba(143,180,224,.07);border:1px solid rgba(143,180,224,.22);border-radius:12px;padding:11px 12px;font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:14px}
+.note svg{flex:none;color:var(--accent2);margin-top:1px}
+@media (max-width:430px){.phone{width:100%;height:auto;min-height:720px}.fwrap{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hd">
+  <h1>Vault Fantasy · <em>Mobile Rehaul</em></h1>
+  <p>Full mobile redesign concept for every current page and function, rebuilt on Ant Design Mobile component patterns (TabBar, NavBar, CapsuleTabs, List, SearchBar, FloatingPanel, Steps, Result, Swiper, IndexBar) and skinned with the Vault onyx and steel-frost tokens. Static mockups; nothing here touches the live app.</p>
+  <div class="hd-pills">
+    <span class="pill hot">CONCEPT · NOT WIRED</span>
+    <span class="pill">antd-mobile patterns</span>
+    <span class="pill">onyx tokens inlined</span>
+    <span class="pill">14 screens</span>
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 1 · NAVIGATION SHELL ═══════════ -->
+<div class="sec">
+  <h2>1 · Navigation shell</h2>
+  <p>The dock keeps four anchors plus the Vault Command puck. Everything that used to hide behind desktop nav (Rankings, Calc, Sync, Season Sim, ADP, Betting, Portfolio) lives one tap away in the Command sheet, an antd Popup with a destination grid.</p>
+  <div class="frames">
+
+    <!-- SCREEN 1: HOME -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav lft">
+          <div class="ttl">Team Review</div>
+          <div class="rt">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          </div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="caps">
+            <span class="cap on">Early Birds</span><span class="cap">Dynasty Degens</span><span class="cap">The Gauntlet</span>
+          </div>
+          <div class="gcard steel" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="av team" style="width:46px;height:46px;border-radius:14px;font-size:15px">PP</div>
+              <div style="flex:1">
+                <div style="font-size:17px;font-weight:800;letter-spacing:-.01em">Putput</div>
+                <div class="mono" style="font-size:11px;color:var(--accent3);margin-top:2px">9-5 · 2ND PLACE · SUPERFLEX</div>
+              </div>
+              <div style="text-align:right">
+                <div class="mono big" style="color:var(--accent3)">87.4</div>
+                <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.08em">POWER</div>
+              </div>
+            </div>
+            <div class="hr" style="background:rgba(255,255,255,.09)"></div>
+            <div style="display:flex;gap:0">
+              <div style="flex:1"><div class="mono" style="font-size:15px">1,847</div><div style="font-size:9.5px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em;margin-top:2px">PF</div></div>
+              <div style="flex:1"><div class="mono" style="font-size:15px">1,671</div><div style="font-size:9.5px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em;margin-top:2px">PA</div></div>
+              <div style="flex:1"><div class="mono" style="font-size:15px;color:var(--green)">74%</div><div style="font-size:9.5px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em;margin-top:2px">PLAYOFF ODDS</div></div>
+              <div style="flex:1"><div class="mono" style="font-size:15px">#3</div><div style="font-size:9.5px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em;margin-top:2px">WAIVER</div></div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><b>The Race</b><a>Standings</a></div>
+            <div class="bars">
+              <div class="bar"><label>Birds R Us</label><div class="prog gold"><i style="width:92%"></i></div><b>10-4</b></div>
+              <div class="bar"><label style="color:var(--accent2)">Putput</label><div class="prog"><i style="width:86%"></i></div><b>9-5</b></div>
+              <div class="bar"><label>Waffle Hse</label><div class="prog"><i style="width:80%;background:var(--s4)"></i></div><b>9-5</b></div>
+              <div class="bar"><label>Gridlock</label><div class="prog"><i style="width:72%;background:var(--s4)"></i></div><b>8-6</b></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><b>Week 15 · vs Waffle House</b><a>Preview</a></div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="flex:1;text-align:center">
+                <div class="mono big">128.6</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">projected</div>
+              </div>
+              <div style="flex:none;text-align:center">
+                <div class="tag st" style="font-size:11px;padding:5px 10px">62% WIN</div>
+              </div>
+              <div style="flex:1;text-align:center">
+                <div class="mono big" style="color:var(--muted)">119.2</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">projected</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><span class="bdg"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Home · Team Review</b><span>League switcher as <span class="adm">CapsuleTabs</span>, hero record card, The Race with quiet progress bars, matchup card with win odds. Search and alerts live in the <span class="adm">NavBar</span> right slot.</span></div>
+    </div>
+
+    <!-- SCREEN 2: COMMAND SHEET -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav lft"><div class="ttl">Team Review</div></div>
+        <div class="body">
+          <div class="scroll" style="filter:blur(1px);opacity:.55">
+            <div class="gcard steel" style="margin-bottom:14px;height:120px"></div>
+            <div class="card" style="height:130px"></div>
+            <div class="card" style="height:120px"></div>
+          </div>
+          <div class="dimmer"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+              <b style="font-size:16px;font-weight:800">Vault Command</b>
+              <span class="mono" style="font-size:10px;color:var(--muted)">EARLY BIRDS</span>
+            </div>
+            <div class="cmdg">
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 4v16"/></svg><b>Draft Vault</b><small>Rankings + board</small></div>
+              <div class="cmd" style="border-color:rgba(245,200,66,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--te)" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><b>Draft Room</b><small>LIVE · pick 3.04</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v4M16 3v4M4 11h16M7 21h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3z"/></svg><b>ADP Explorer</b><small>Market movement</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 16V8m5 8V5m5 11v-6"/><path d="M3 21h18"/></svg><b>My Rankings</b><small>Tiers + edits</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg><b>Trade Calc</b><small>Value + verdicts</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg><b>Season Sim</b><small>Playoff odds</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.56"/><path d="M21 3v6h-6"/></svg><b>Sleeper Sync</b><small>3 leagues linked</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><b>Compare</b><small>Head to head</small></div>
+              <div class="cmd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg><b>Betting</b><small>Props + parlay</small></div>
+            </div>
+            <div class="hr"></div>
+            <div style="display:flex;align-items:center;gap:11px">
+              <div class="av team">EB</div>
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:700">Early Birds</div>
+                <div style="font-size:11px;color:var(--muted)">12-team · SF · TEP · synced 2m ago</div>
+              </div>
+              <span class="btn ghost sm">Switch</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="fcap"><b>Vault Command sheet</b><span>The center puck opens an antd <span class="adm">Popup</span> destination grid: every tool in the app, two taps max from anywhere. Live states surface inline (Draft Room shows the on-the-clock pick).</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 2 · DRAFT ═══════════ -->
+<div class="sec">
+  <h2>2 · Draft Vault</h2>
+  <p>Rankings, live board, ADP market and the player sheet. CapsuleTabs swap the four draft views in place; the pick ticker is a pinned bar, not a modal, so the list never disappears while you are on the clock.</p>
+  <div class="frames">
+
+    <!-- SCREEN 3: RANKINGS -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">Draft Vault</div>
+          <div class="rt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="caps">
+            <span class="cap on">Rankings</span><span class="cap">Board</span><span class="cap">ADP</span><span class="cap">Summary</span>
+          </div>
+          <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg>Search players</div>
+          <div class="caps" style="padding-bottom:8px">
+            <span class="cap on" style="padding:5px 12px;font-size:12px">All</span><span class="cap" style="padding:5px 12px;font-size:12px">QB</span><span class="cap" style="padding:5px 12px;font-size:12px">RB</span><span class="cap" style="padding:5px 12px;font-size:12px">WR</span><span class="cap" style="padding:5px 12px;font-size:12px">TE</span>
+          </div>
+          <div class="list">
+            <div class="row">
+              <span class="mono" style="width:20px;color:var(--muted);font-size:12px">1</span>
+              <div class="av WR">JJ</div>
+              <div class="main"><div class="t">Justin Jefferson</div><div class="d">MIN · WR1 · ADP 1.02</div></div>
+              <span class="tag WR">WR</span>
+              <div class="x"><div class="mono" style="color:var(--green)">9.4</div><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">GRADE</div></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:20px;color:var(--muted);font-size:12px">2</span>
+              <div class="av RB">BR</div>
+              <div class="main"><div class="t">Bijan Robinson</div><div class="d">ATL · RB1 · ADP 1.01</div></div>
+              <span class="tag RB">RB</span>
+              <div class="x"><div class="mono" style="color:var(--green)">9.2</div><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">GRADE</div></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:20px;color:var(--muted);font-size:12px">3</span>
+              <div class="av WR">CL</div>
+              <div class="main"><div class="t">CeeDee Lamb</div><div class="d">DAL · WR2 · ADP 1.04</div></div>
+              <span class="tag WR">WR</span>
+              <div class="x"><div class="mono" style="color:var(--green)">8.9</div><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">GRADE</div></div>
+            </div>
+            <div class="row" style="opacity:.42">
+              <span class="mono" style="width:20px;color:var(--muted);font-size:12px">4</span>
+              <div class="av QB">JA</div>
+              <div class="main"><div class="t" style="text-decoration:line-through">Josh Allen</div><div class="d">BUF · QB1 · pick 1.03 · Gridlock</div></div>
+              <span class="tag QB">QB</span>
+              <div class="x"><div class="mono">8.8</div><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">GONE</div></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:20px;color:var(--muted);font-size:12px">5</span>
+              <div class="av RB">JG</div>
+              <div class="main"><div class="t">Jahmyr Gibbs</div><div class="d">DET · RB2 · ADP 1.06</div></div>
+              <span class="tag up">VALUE</span>
+              <div class="x"><div class="mono" style="color:var(--green)">8.7</div><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">GRADE</div></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:20px;color:var(--muted);font-size:12px">6</span>
+              <div class="av TE">SL</div>
+              <div class="main"><div class="t">Sam LaPorta</div><div class="d">DET · TE1 · ADP 2.03</div></div>
+              <span class="tag TE">TE</span>
+              <div class="x"><div class="mono">8.1</div><div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">GRADE</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:none;margin:0 14px 10px;border-radius:13px;background:rgba(245,200,66,.09);border:1px solid rgba(245,200,66,.35);padding:10px 13px;display:flex;align-items:center;gap:10px">
+          <div class="mono" style="font-size:17px;color:var(--te)">0:42</div>
+          <div style="flex:1">
+            <div style="font-size:12.5px;font-weight:700">On the clock · pick 3.04</div>
+            <div style="font-size:10.5px;color:var(--muted)">Best: Gibbs · LaPorta · Nacua</div>
+          </div>
+          <span class="btn sm" style="background:var(--te);color:#241d06">Queue</span>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck" style="border-color:rgba(143,180,224,.55);color:var(--accent3)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Draft Vault · Rankings</b><span><span class="adm">CapsuleTabs</span> swap Rankings / Board / ADP / Summary. Drafted players collapse to struck-through rows. The on-the-clock ticker pins above the TabBar instead of covering the list.</span></div>
+    </div>
+
+    <!-- SCREEN 4: LIVE BOARD -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">Live Board · Rd 3</div>
+          <div class="rt"><span class="tag" style="color:var(--te);background:rgba(245,200,66,.12)">3RR</span></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+            Third round reversal active. Snake flips again after round 3, your next picks are 3.04 and 4.09.
+          </div>
+          <div class="lh" style="padding-left:2px">ROUND 2</div>
+          <div class="bgrid" style="margin-bottom:12px">
+            <div class="bcell WR"><div class="bp">2.09</div><div class="bn">P. Nacua</div></div>
+            <div class="bcell RB"><div class="bp">2.10</div><div class="bn">D. Achane</div></div>
+            <div class="bcell QB"><div class="bp">2.11</div><div class="bn">J. Daniels</div></div>
+            <div class="bcell TE me"><div class="bp">2.12 · YOU</div><div class="bn">B. Bowers</div></div>
+          </div>
+          <div class="lh" style="padding-left:2px">ROUND 3 · IN PROGRESS</div>
+          <div class="bgrid">
+            <div class="bcell WR"><div class="bp">3.01</div><div class="bn">M. Nabers</div></div>
+            <div class="bcell RB"><div class="bp">3.02</div><div class="bn">B. Irving</div></div>
+            <div class="bcell WR"><div class="bp">3.03</div><div class="bn">N. Collins</div></div>
+            <div class="bcell otc"><div class="bp">3.04 · YOU</div><div class="bn" style="color:var(--te)">On the clock</div></div>
+            <div class="bcell"><div class="bp">3.05</div><div class="bn" style="color:var(--muted)">Gridlock</div></div>
+            <div class="bcell"><div class="bp">3.06</div><div class="bn" style="color:var(--muted)">Waffle Hse</div></div>
+            <div class="bcell"><div class="bp">3.07</div><div class="bn" style="color:var(--muted)">Birds R Us</div></div>
+            <div class="bcell"><div class="bp">3.08</div><div class="bn" style="color:var(--muted)">Mahomies</div></div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <div class="ch"><b>Your queue</b><a>Edit</a></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+              <div class="av sm RB">JG</div>
+              <div style="flex:1;font-size:14px;font-weight:600">Jahmyr Gibbs</div>
+              <span class="tag up">+2 VALUE</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+              <div class="av sm TE">SL</div>
+              <div style="flex:1;font-size:14px;font-weight:600">Sam LaPorta</div>
+              <span class="tag st">FITS NEED</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex:none;padding:10px 14px;display:flex;gap:10px">
+          <span class="btn ghost" style="flex:1">Pass</span>
+          <span class="btn" style="flex:2">Draft Jahmyr Gibbs</span>
+        </div>
+        </div>
+      </div></div>
+      <div class="fcap"><b>Live Draft Room</b><span>Snake grid as a 4-up board with position spine colors, 3RR badge in the NavBar, queue card, and a sticky draft action. Board cells for other teams stay quiet until picked.</span></div>
+    </div>
+
+    <!-- SCREEN 5: ADP EXPLORER -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">ADP Explorer</div>
+          <div class="rt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="caps">
+            <span class="cap">7 days</span><span class="cap on">30 days</span><span class="cap">90 days</span>
+          </div>
+          <div class="krow">
+            <div class="k"><div class="kl">Source</div><div class="kv" style="font-size:14px">Sleeper</div><div class="kd">dynasty SF</div></div>
+            <div class="k"><div class="kl">Snapshots</div><div class="kv" style="font-size:14px">daily</div><div class="kd">vault history</div></div>
+            <div class="k"><div class="kl">Movers</div><div class="kv" style="font-size:14px;color:var(--green)">18</div><div class="kd">past 30d</div></div>
+          </div>
+          <div class="list">
+            <div class="lh">Risers · 30 day</div>
+            <div class="row">
+              <div class="av WR">BT</div>
+              <div class="main"><div class="t">Brian Thomas Jr.</div><div class="d">JAX · WR · 18.4 to 11.2</div></div>
+              <div class="x"><span class="tag up">+7.2</span></div>
+            </div>
+            <div class="row">
+              <div class="av RB">BI</div>
+              <div class="main"><div class="t">Bucky Irving</div><div class="d">TB · RB · 44.1 to 38.6</div></div>
+              <div class="x"><span class="tag up">+5.5</span></div>
+            </div>
+            <div class="row">
+              <div class="av QB">JD</div>
+              <div class="main"><div class="t">Jayden Daniels</div><div class="d">WAS · QB · 24.8 to 19.9</div></div>
+              <div class="x"><span class="tag up">+4.9</span></div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="lh">Fallers · 30 day</div>
+            <div class="row">
+              <div class="av RB">NH</div>
+              <div class="main"><div class="t">Najee Harris</div><div class="d">LAC · RB · 61.3 to 74.0</div></div>
+              <div class="x"><span class="tag dn">-12.7</span></div>
+            </div>
+            <div class="row">
+              <div class="av WR">DA</div>
+              <div class="main"><div class="t">Davante Adams</div><div class="d">LAR · WR · 49.5 to 58.8</div></div>
+              <div class="x"><span class="tag dn">-9.3</span></div>
+            </div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>ADP Explorer</b><span>Window toggle as <span class="adm">CapsuleTabs</span> (7 / 30 / 90 day, matching the snapshot history), riser and faller <span class="adm">List</span> groups with signed movement tags.</span></div>
+    </div>
+
+    <!-- SCREEN 6: PLAYER SHEET -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav"><div class="ttl">Draft Vault</div></div>
+        <div class="body">
+          <div class="scroll" style="filter:blur(1px);opacity:.5">
+            <div class="list" style="height:420px"></div>
+          </div>
+          <div class="dimmer"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <div class="av RB" style="width:50px;height:50px;border-radius:15px;font-size:16px">JG</div>
+              <div style="flex:1">
+                <div style="font-size:18px;font-weight:800;letter-spacing:-.01em">Jahmyr Gibbs</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">DET · RB · 23.4 yrs · ADP 5.8</div>
+              </div>
+              <div class="ring" style="--p:87;color:var(--green)">8.7</div>
+            </div>
+            <div class="bars" style="margin-bottom:14px">
+              <div class="bar"><label>Upside</label><div class="prog g"><i style="width:92%"></i></div><b>9.2</b></div>
+              <div class="bar"><label>Floor</label><div class="prog"><i style="width:84%"></i></div><b>8.4</b></div>
+              <div class="bar"><label>Risk</label><div class="prog r"><i style="width:26%"></i></div><b>2.6</b></div>
+              <div class="bar"><label>Situation</label><div class="prog g"><i style="width:88%"></i></div><b>8.8</b></div>
+            </div>
+            <div class="krow" style="margin-bottom:14px">
+              <div class="k"><div class="kl">PPG 2025</div><div class="kv">17.8</div></div>
+              <div class="k"><div class="kl">Boom %</div><div class="kv" style="color:var(--green)">38</div></div>
+              <div class="k"><div class="kl">Bust %</div><div class="kv">9</div></div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <span class="btn ghost" style="flex:1">Full profile</span>
+              <span class="btn" style="flex:1">Add to queue</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="fcap"><b>Player grade sheet</b><span>antd <span class="adm">FloatingPanel</span> replaces the desktop tooltip: 4-factor Grade Keys (Upside / Floor / Risk / Situational) as quiet bars, grade ring, and the two actions that matter mid-draft.</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 3 · RESEARCH ═══════════ -->
+<div class="sec">
+  <h2>3 · Research Hub</h2>
+  <p>Advanced Stats, Game Logs and Player Comparison merge into one searchable hub with underline Tabs. Dense tables become stat cards; compare becomes a two-column duel.</p>
+  <div class="frames">
+
+    <!-- SCREEN 7: RESEARCH HUB -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav lft"><div class="ttl">Research</div>
+          <div class="rt"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg>Search 1,100+ players</div>
+          <div class="utabs">
+            <div class="ut on">Adv Stats</div><div class="ut">Game Logs</div><div class="ut">Compare</div>
+          </div>
+          <div class="caps" style="padding-bottom:10px">
+            <span class="cap on" style="padding:5px 12px;font-size:12px">WR</span><span class="cap" style="padding:5px 12px;font-size:12px">2025</span><span class="cap" style="padding:5px 12px;font-size:12px">Per game</span><span class="cap" style="padding:5px 12px;font-size:12px">Sort: TPRR</span>
+          </div>
+          <div class="list">
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">1</span>
+              <div class="av WR sm">JJ</div>
+              <div class="main"><div class="t">Justin Jefferson</div><div class="d">MIN · 17 games</div></div>
+              <div class="x" style="display:flex;gap:9px">
+                <div><div class="mono" style="font-size:13px">.312</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TPRR</div></div>
+                <div><div class="mono" style="font-size:13px">2.71</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">YPRR</div></div>
+                <div><div class="mono" style="font-size:13px;color:var(--green)">31%</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TGT SH</div></div>
+              </div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">2</span>
+              <div class="av WR sm">PN</div>
+              <div class="main"><div class="t">Puka Nacua</div><div class="d">LAR · 15 games</div></div>
+              <div class="x" style="display:flex;gap:9px">
+                <div><div class="mono" style="font-size:13px">.298</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TPRR</div></div>
+                <div><div class="mono" style="font-size:13px">2.64</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">YPRR</div></div>
+                <div><div class="mono" style="font-size:13px;color:var(--green)">29%</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TGT SH</div></div>
+              </div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">3</span>
+              <div class="av WR sm">MN</div>
+              <div class="main"><div class="t">Malik Nabers</div><div class="d">NYG · 16 games</div></div>
+              <div class="x" style="display:flex;gap:9px">
+                <div><div class="mono" style="font-size:13px">.287</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TPRR</div></div>
+                <div><div class="mono" style="font-size:13px">2.41</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">YPRR</div></div>
+                <div><div class="mono" style="font-size:13px">28%</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TGT SH</div></div>
+              </div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">4</span>
+              <div class="av WR sm">BT</div>
+              <div class="main"><div class="t">Brian Thomas Jr.</div><div class="d">JAX · 17 games</div></div>
+              <div class="x" style="display:flex;gap:9px">
+                <div><div class="mono" style="font-size:13px">.271</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TPRR</div></div>
+                <div><div class="mono" style="font-size:13px">2.38</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">YPRR</div></div>
+                <div><div class="mono" style="font-size:13px">26%</div><div style="font-size:8px;color:var(--muted);font-family:var(--font-mono)">TGT SH</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="note" style="margin-top:2px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+            nflverse + Next Gen Stats, refreshed hourly. Swipe a row left to pin players to Compare.
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Research Hub · Advanced Stats</b><span><span class="adm">SearchBar</span> + underline <span class="adm">Tabs</span> for Adv Stats / Game Logs / Compare. Wide desktop tables become three headline metrics per row; filter chips set season, rate and sort.</span></div>
+    </div>
+
+    <!-- SCREEN 8: COMPARE -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">Compare</div>
+          <div class="rt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.56"/><path d="M21 3v6h-6"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div style="display:flex;gap:10px;margin-bottom:14px;margin-top:4px">
+            <div class="card" style="flex:1;margin:0;text-align:center;padding:14px 10px">
+              <div class="av WR" style="margin:0 auto 8px;width:44px;height:44px;border-radius:14px">PN</div>
+              <div style="font-size:14px;font-weight:800">Puka Nacua</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">LAR · WR · 24.1 yrs</div>
+            </div>
+            <div style="flex:none;display:flex;align-items:center;font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--muted)">VS</div>
+            <div class="card" style="flex:1;margin:0;text-align:center;padding:14px 10px">
+              <div class="av WR" style="margin:0 auto 8px;width:44px;height:44px;border-radius:14px">MN</div>
+              <div style="font-size:14px;font-weight:800">Malik Nabers</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">NYG · WR · 22.9 yrs</div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="lh">2026 projections · by source</div>
+            <div class="row"><div class="main"><div class="t" style="font-size:13px">Sleeper</div></div>
+              <div style="display:flex;gap:18px" class="x"><span class="mono" style="color:var(--green)">278.4</span><span class="mono" style="color:var(--muted)">266.1</span></div></div>
+            <div class="row"><div class="main"><div class="t" style="font-size:13px">ESPN</div></div>
+              <div style="display:flex;gap:18px" class="x"><span class="mono" style="color:var(--green)">271.9</span><span class="mono" style="color:var(--muted)">259.4</span></div></div>
+            <div class="row"><div class="main"><div class="t" style="font-size:13px">CBS</div></div>
+              <div style="display:flex;gap:18px" class="x"><span class="mono" style="color:var(--muted)">252.0</span><span class="mono" style="color:var(--green)">263.8</span></div></div>
+          </div>
+          <div class="list">
+            <div class="lh">Rate stats · 2025</div>
+            <div class="row"><div class="main"><div class="t" style="font-size:13px">YPRR</div></div>
+              <div style="display:flex;gap:18px" class="x"><span class="mono" style="color:var(--green)">2.64</span><span class="mono" style="color:var(--muted)">2.41</span></div></div>
+            <div class="row"><div class="main"><div class="t" style="font-size:13px">Target share</div></div>
+              <div style="display:flex;gap:18px" class="x"><span class="mono" style="color:var(--green)">29%</span><span class="mono" style="color:var(--muted)">28%</span></div></div>
+            <div class="row"><div class="main"><div class="t" style="font-size:13px">End zone tgts</div></div>
+              <div style="display:flex;gap:18px" class="x"><span class="mono" style="color:var(--muted)">11</span><span class="mono" style="color:var(--green)">16</span></div></div>
+          </div>
+          <div class="gcard steel" style="padding:13px 14px">
+            <div style="font-size:12px;font-weight:700;color:var(--accent3);letter-spacing:.02em;font-family:var(--font-mono);font-size:10px;text-transform:uppercase">Vault verdict</div>
+            <div style="font-size:13.5px;line-height:1.5;margin-top:5px;color:var(--text2)">Nacua wins now on efficiency. Nabers is 15 months younger with the deeper target tree, closer than the market thinks.</div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Player Comparison</b><span>Two anchored player cards, then grouped <span class="adm">List</span> sections: multi-source projections (Sleeper / ESPN / CBS feed) and rate stats, green marking the winner per row. Verdict card closes it.</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 4 · LEAGUE & TRADE ═══════════ -->
+<div class="sec">
+  <h2>4 · League and Trade</h2>
+  <p>League HQ folds standings, power ranking and rosters into one screen with underline Tabs. The Trade Calc becomes a three-step antd Steps flow ending in a Result verdict.</p>
+  <div class="frames">
+
+    <!-- SCREEN 9: LEAGUE -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav lft"><div class="ttl">League</div>
+          <div class="rt"><span class="tag st">EARLY BIRDS</span></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="utabs">
+            <div class="ut on">Standings</div><div class="ut">Power</div><div class="ut">Rosters</div><div class="ut">Trades</div>
+          </div>
+          <div class="list">
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--te);font-size:12px">1</span>
+              <div class="av team sm">BR</div>
+              <div class="main"><div class="t">Birds R Us</div><div class="d">PF 1,922 · streak W4</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">10-4</span></div>
+            </div>
+            <div class="row" style="background:rgba(143,180,224,.06)">
+              <span class="mono" style="width:18px;color:var(--accent2);font-size:12px">2</span>
+              <div class="av team sm" style="border-color:rgba(143,180,224,.5)">PP</div>
+              <div class="main"><div class="t" style="color:var(--accent2)">Putput</div><div class="d">PF 1,847 · streak W2</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">9-5</span></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">3</span>
+              <div class="av team sm">WH</div>
+              <div class="main"><div class="t">Waffle House</div><div class="d">PF 1,801 · streak L1</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">9-5</span></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">4</span>
+              <div class="av team sm">GL</div>
+              <div class="main"><div class="t">Gridlock</div><div class="d">PF 1,764 · streak W1</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">8-6</span></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">5</span>
+              <div class="av team sm">MH</div>
+              <div class="main"><div class="t">Mahomies</div><div class="d">PF 1,702 · streak L2</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">7-7</span></div>
+            </div>
+            <div class="row">
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">6</span>
+              <div class="av team sm">TD</div>
+              <div class="main"><div class="t">TD Vaccines</div><div class="d">PF 1,688 · streak W1</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">7-7</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><b>Playoff picture</b><a>Season Sim</a></div>
+            <div style="font-size:12.5px;color:var(--text2);line-height:1.5">Top 6 make it. You clinch with a win over Waffle House plus a Gridlock loss, 74% to make it, 18% first-round bye.</div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>League HQ</b><span>Standings / Power / Rosters / Trades as underline <span class="adm">Tabs</span>. Your row gets the steel tint, leader gets gold rank. Playoff picture card deep-links to Season Sim.</span></div>
+    </div>
+
+    <!-- SCREEN 10: TRADE CALC -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">Trade Calc</div>
+          <div class="rt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18M3 12h18" transform="rotate(45 12 12)"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="steps">
+            <div class="step done"><div class="dot">✓</div><small>You send</small></div>
+            <div class="step done"><div class="dot">✓</div><small>You get</small></div>
+            <div class="step on"><div class="dot">3</div><small>Verdict</small></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:14px">
+            <div class="card" style="flex:1;margin:0;padding:12px">
+              <div class="lh" style="padding:0 0 8px">You send</div>
+              <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <div class="av sm WR">DA</div>
+                <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">D. Adams</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <div class="av sm RB">NH</div>
+                <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">N. Harris</div></div>
+              </div>
+              <div class="hr" style="margin:8px 0"></div>
+              <div class="mono" style="font-size:15px">4,180</div>
+              <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em">VALUE</div>
+            </div>
+            <div class="card" style="flex:1;margin:0;padding:12px;border-color:rgba(95,224,154,.3)">
+              <div class="lh" style="padding:0 0 8px;color:var(--green)">You get</div>
+              <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <div class="av sm WR">BT</div>
+                <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">B. Thomas Jr.</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <div class="av sm" style="background:var(--s3);color:var(--text2);font-size:9px">2027</div>
+                <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">2027 1st</div></div>
+              </div>
+              <div class="hr" style="margin:8px 0"></div>
+              <div class="mono" style="font-size:15px;color:var(--green)">4,610</div>
+              <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono);letter-spacing:.06em">VALUE</div>
+            </div>
+          </div>
+          <div class="gcard win" style="text-align:center;padding:20px 16px;margin-bottom:14px">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-6"/></svg>
+            <div style="font-size:17px;font-weight:800;letter-spacing:-.01em">Accept this trade</div>
+            <div style="font-size:12.5px;color:var(--text2);margin-top:6px;line-height:1.5">You gain 430 value and get 15 months younger at WR. Your starting lineup survives at every position after the deal.</div>
+            <div class="mono" style="margin-top:10px;font-size:12px;color:var(--green)">+430 · WIN NOW +2% · DYNASTY +6%</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <span class="btn ghost" style="flex:1">Edit deal</span>
+            <span class="btn" style="flex:1">Share verdict</span>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Trade Calc verdict</b><span>antd <span class="adm">Steps</span> walk send / get / verdict; the verdict is a <span class="adm">Result</span>-style card with the lineup-guard check and win-now vs dynasty deltas spelled out.</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ SECTION 5 · TOOLS ═══════════ -->
+<div class="sec">
+  <h2>5 · Rankings, Sim, Portfolio, Sync</h2>
+  <p>The remaining tools: tier-based My Rankings with drag handles, Season Sim odds, cross-league Portfolio exposure, and the Sleeper Sync manager.</p>
+  <div class="frames">
+
+    <!-- SCREEN 11: MY RANKINGS -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">My Rankings</div>
+          <div class="rt"><span style="font-size:13px;font-weight:700;color:var(--accent2)">Save</span></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="caps">
+            <span class="cap on">Overall</span><span class="cap">QB</span><span class="cap">RB</span><span class="cap">WR</span><span class="cap">TE</span>
+          </div>
+          <div class="lh" style="padding-left:2px;color:var(--accent2)">TIER 1 · UNTOUCHABLE</div>
+          <div class="list">
+            <div class="row">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">1</span>
+              <div class="av WR sm">JJ</div>
+              <div class="main"><div class="t">Justin Jefferson</div></div>
+              <span class="tag dn" style="background:none;color:var(--muted)">MKT 2</span>
+            </div>
+            <div class="row">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">2</span>
+              <div class="av RB sm">BR</div>
+              <div class="main"><div class="t">Bijan Robinson</div></div>
+              <span class="tag dn" style="background:none;color:var(--muted)">MKT 1</span>
+            </div>
+          </div>
+          <div class="lh" style="padding-left:2px">TIER 2 · CORNERSTONES</div>
+          <div class="list">
+            <div class="row" style="border:1px dashed rgba(143,180,224,.5);border-radius:12px;background:rgba(143,180,224,.07);margin:6px;padding:10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+              <span class="mono" style="width:18px;color:var(--accent2);font-size:12px">3</span>
+              <div class="av QB sm">JD</div>
+              <div class="main"><div class="t" style="color:var(--accent2)">Jayden Daniels</div><div class="d">dragging · was 6</div></div>
+              <span class="tag up">+3</span>
+            </div>
+            <div class="row">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">4</span>
+              <div class="av WR sm">CL</div>
+              <div class="main"><div class="t">CeeDee Lamb</div></div>
+              <span class="tag" style="background:none;color:var(--muted)">MKT 4</span>
+            </div>
+            <div class="row">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+              <span class="mono" style="width:18px;color:var(--muted);font-size:12px">5</span>
+              <div class="av RB sm">JG</div>
+              <div class="main"><div class="t">Jahmyr Gibbs</div></div>
+              <span class="tag" style="background:none;color:var(--muted)">MKT 5</span>
+            </div>
+          </div>
+          <div class="note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+            Long-press to drag. Your order drives the Mine sort across Draft Vault, ADP and Calc.
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>My Rankings · tiers</b><span>Drag-sort list with handles and tier headers; the lifted row shows antd drag affordance. Market-rank delta rides each row so your edge is always visible.</span></div>
+    </div>
+
+    <!-- SCREEN 12: SEASON SIM -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">Season Sim</div>
+          <div class="rt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.56"/><path d="M21 3v6h-6"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="krow" style="margin-top:4px">
+            <div class="k"><div class="kl">Playoffs</div><div class="kv" style="color:var(--green)">74%</div><div class="kd">+6 this wk</div></div>
+            <div class="k"><div class="kl">Bye</div><div class="kv">18%</div><div class="kd">need 2 seed</div></div>
+            <div class="k"><div class="kl">Title</div><div class="kv" style="color:var(--accent2)">11%</div><div class="kd">3rd best</div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><b>Final record distribution</b><a>10k sims</a></div>
+            <div class="sim">
+              <i style="height:8%"></i><i style="height:16%"></i><i style="height:30%"></i><i style="height:52%"></i><i class="me" style="height:86%"></i><i class="hot" style="height:68%"></i><i style="height:34%"></i><i style="height:12%"></i>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--muted);padding-top:6px">
+              <span>7-7</span><span>8-6</span><span>9-5</span><span>10-4</span><span style="color:var(--green)">11-3</span><span style="color:var(--accent2)">12-2</span><span>13-1</span><span>14-0</span>
+            </div>
+          </div>
+          <div class="list">
+            <div class="lh">Remaining schedule · win odds</div>
+            <div class="row">
+              <div class="av team sm">WH</div>
+              <div class="main"><div class="t">Wk 15 · Waffle House</div><div class="d">their PF cooled 3 straight weeks</div></div>
+              <div class="x"><span class="mono" style="color:var(--green)">62%</span></div>
+            </div>
+            <div class="row">
+              <div class="av team sm">BR</div>
+              <div class="main"><div class="t">Wk 16 · Birds R Us</div><div class="d">league's best PF, coin flip at home</div></div>
+              <div class="x"><span class="mono" style="color:var(--te)">48%</span></div>
+            </div>
+            <div class="row">
+              <div class="av team sm">MH</div>
+              <div class="main"><div class="t">Wk 17 · Mahomies</div><div class="d">likely resting starters</div></div>
+              <div class="x"><span class="mono" style="color:var(--green)">71%</span></div>
+            </div>
+          </div>
+          <div class="gcard steel" style="padding:13px 14px">
+            <div class="mono" style="font-size:10px;color:var(--accent3);letter-spacing:.08em;text-transform:uppercase">Sim insight</div>
+            <div style="font-size:13px;line-height:1.5;margin-top:5px;color:var(--text2)">A trade for a startable TE raises your title odds from 11% to 14%. Two candidate deals are waiting in Trade Calc.</div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Season Sim</b><span>Odds tiles, a record-distribution histogram (your modal record in green), remaining schedule with per-game win odds, and a sim insight that links into Trade Calc.</span></div>
+    </div>
+
+    <!-- SCREEN 13: PORTFOLIO -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav lft"><div class="ttl">Portfolio</div>
+          <div class="rt"><span class="tag st">3 LEAGUES</span></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="gcard steel" style="margin-bottom:14px;margin-top:4px">
+            <div class="mono" style="font-size:10px;color:var(--accent3);letter-spacing:.08em;text-transform:uppercase">Total roster value</div>
+            <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px">
+              <div class="mono" style="font-size:30px;letter-spacing:-.02em">48,240</div>
+              <span class="tag up">+1,180 · 30D</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:4px">FantasyCalc market value across Early Birds, Dynasty Degens, The Gauntlet</div>
+          </div>
+          <div class="list">
+            <div class="lh">Highest exposure</div>
+            <div class="row">
+              <div class="av RB">JG</div>
+              <div class="main"><div class="t">Jahmyr Gibbs</div><div class="d">3 of 3 leagues</div></div>
+              <div class="x" style="width:86px"><div class="prog g"><i style="width:100%"></i></div><div class="mono" style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right">100%</div></div>
+            </div>
+            <div class="row">
+              <div class="av WR">BT</div>
+              <div class="main"><div class="t">Brian Thomas Jr.</div><div class="d">2 of 3 leagues</div></div>
+              <div class="x" style="width:86px"><div class="prog"><i style="width:67%"></i></div><div class="mono" style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right">67%</div></div>
+            </div>
+            <div class="row">
+              <div class="av TE">BB</div>
+              <div class="main"><div class="t">Brock Bowers</div><div class="d">2 of 3 leagues</div></div>
+              <div class="x" style="width:86px"><div class="prog"><i style="width:67%"></i></div><div class="mono" style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right">67%</div></div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="lh">By league</div>
+            <div class="row">
+              <div class="av team sm">EB</div>
+              <div class="main"><div class="t">Early Birds</div><div class="d">9-5 · 2nd · SF TEP</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">18,420</span></div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            </div>
+            <div class="row">
+              <div class="av team sm">DD</div>
+              <div class="main"><div class="t">Dynasty Degens</div><div class="d">8-6 · 4th · SF</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">16,110</span></div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            </div>
+            <div class="row">
+              <div class="av team sm">TG</div>
+              <div class="main"><div class="t">The Gauntlet</div><div class="d">6-8 · 8th · 1QB rebuild</div></div>
+              <div class="x"><span class="mono" style="font-size:13px">13,710</span></div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Portfolio</b><span>Total market value hero with a 30-day delta tag, exposure bars across leagues, and a per-league value <span class="adm">List</span> that drills into each roster.</span></div>
+    </div>
+
+    <!-- SCREEN 14: SLEEPER SYNC -->
+    <div class="fwrap">
+      <div class="phone"><div class="notch"></div><div class="scr">
+        <div class="sb"><span class="tm">9:41</span><span class="ic">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+          <svg width="22" height="12" viewBox="0 0 24 12"><rect x="0" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="3" width="13" height="6" rx="1.5" fill="currentColor"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span></div>
+        <div class="nav">
+          <div class="back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></div>
+          <div class="ttl">Sleeper Sync</div>
+          <div class="rt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.56"/><path d="M21 3v6h-6"/></svg></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="card" style="margin-top:4px;display:flex;align-items:center;gap:12px">
+            <div class="av team" style="width:44px;height:44px;border-radius:99px">P</div>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:800">@Putput</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px">Connected · 3 leagues · synced 2m ago</div>
+            </div>
+            <span class="tag up">LIVE</span>
+          </div>
+          <div class="list">
+            <div class="lh">Synced leagues</div>
+            <div class="row">
+              <div class="av team sm">EB</div>
+              <div class="main"><div class="t">Early Birds</div><div class="d">12-team · SF · TEP · in season</div></div>
+              <span class="tag st">PRIMARY</span>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            </div>
+            <div class="row">
+              <div class="av team sm">DD</div>
+              <div class="main"><div class="t">Dynasty Degens</div><div class="d">10-team · SF · in season</div></div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            </div>
+            <div class="row">
+              <div class="av team sm">TG</div>
+              <div class="main"><div class="t">The Gauntlet</div><div class="d">14-team · 1QB · drafting Aug 24</div></div>
+              <span class="tag" style="color:var(--te);background:rgba(245,200,66,.12)">DRAFT SOON</span>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><b>What syncs</b></div>
+            <div style="display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:var(--text2)">
+              <div style="display:flex;gap:9px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>Rosters, records and standings, hourly</div>
+              <div style="display:flex;gap:9px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>Live drafts, picks and 3RR order in real time</div>
+              <div style="display:flex;gap:9px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>League scoring and lineup slots into every grade</div>
+            </div>
+          </div>
+          <span class="btn ghost">Add another league</span>
+        </div>
+        <nav class="tabbar">
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg><small>Home</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></svg><small>Research</small></div>
+          <div class="tb-fab"><div class="puck"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><small>League</small></div>
+          <div class="tb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><small>Portfolio</small></div>
+        </nav>
+      </div></div></div>
+      <div class="fcap"><b>Sleeper Sync</b><span>Account card with live status, synced-league <span class="adm">List</span> with state tags (primary, draft soon), and a plain-language card of what syncing feeds into the rest of the app.</span></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="sec" style="max-width:900px">
+  <h2>Design notes</h2>
+  <p style="max-width:none">
+    <b style="color:var(--text)">Shell.</b> Four dock anchors (Home, Research, League, Portfolio) plus the Vault Command puck; every secondary tool is exactly two taps away, so nothing needs a desktop-only nav anymore.
+    <b style="color:var(--text)">antd-mobile mapping.</b> NavBar for every screen top, CapsuleTabs for in-page mode switches, underline Tabs for peer views, List for all data rows, FloatingPanel for the player sheet and Command grid, Steps + Result for the Calc flow, Badge on the League tab for pending trades.
+    <b style="color:var(--text)">Motion.</b> Sheets use the iOS curve (0.32, 0.72, 0, 1) at 350 to 450ms; tab swaps are instant or a 150ms fade; list sorts never animate.
+    <b style="color:var(--text)">Type.</b> Archivo for UI, JetBrains Mono strictly for numbers, grades and kickers, exactly as on desktop.
+  </p>
+</div>
+
+</div>
+</body>
+</html>

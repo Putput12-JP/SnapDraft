@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gold Copy Cockpit</title>
+<!-- Build: 2026-07-02 -->
+<!--
+  Gold Copy Cockpit — a single, self-contained page.
+  • Everything runs in YOUR browser. Files you load are parsed locally and never uploaded.
+  • Nothing is saved. Close the tab and all data is gone.
+  • The only thing fetched from the internet is the Excel parsing library (SheetJS).
+    If your environment blocks it, use "Export each tab to CSV" mode instead — that needs no library.
+-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fb; --panel:#ffffff; --ink:#151a2e; --muted:#5b657f; --line:#e4e8f2;
+    --brand:#3b5bdb; --brand-2:#5f3dc4;
+    --on-track:#2f9e44; --at-risk:#f08c00; --off-track:#e03131; --complete:#1c7ed6; --not-started:#adb5bd;
+    --shadow:0 1px 2px rgba(20,26,46,.05), 0 8px 24px rgba(20,26,46,.06);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1400px; margin:0 auto; padding:22px 26px 80px}
+  header.top{display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:18px}
+  .brand h1{font-size:22px; margin:0; letter-spacing:-.4px; display:flex; align-items:center; gap:10px}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--brand),var(--brand-2));display:inline-block}
+  .brand p{margin:4px 0 0; color:var(--muted); font-size:12.5px}
+  .privacy{
+    background:#eef4ff; border:1px solid #dbe6ff; color:#274690; border-radius:10px;
+    padding:8px 12px; font-size:11.5px; max-width:360px; line-height:1.4;
+  }
+  .privacy b{color:#1b3a80}
+
+  .tabs{display:flex; gap:6px; margin:6px 0 20px; border-bottom:1px solid var(--line)}
+  .tab{
+    appearance:none; border:0; background:none; padding:10px 16px; font-size:13.5px; font-weight:600;
+    color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; border-radius:8px 8px 0 0;
+  }
+  .tab:hover{color:var(--ink); background:#eef1f8}
+  .tab.active{color:var(--brand); border-bottom-color:var(--brand)}
+
+  .view{display:none}
+  .view.active{display:block}
+
+  /* ---------- Load bar ---------- */
+  .loadbar{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:16px 18px; margin-bottom:18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .loadbar h3{margin:0 12px 0 0; font-size:14px}
+  .btn{
+    appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink); font-weight:600;
+    padding:9px 14px; border-radius:10px; cursor:pointer; font-size:13px; transition:.12s;
+  }
+  .btn:hover{border-color:#c9d2e6; background:#f7f9ff}
+  .btn.primary{background:var(--brand); color:#fff; border-color:var(--brand)}
+  .btn.primary:hover{background:#324bc0}
+  .btn.ghost{background:none;border-color:transparent;color:var(--brand)}
+  input[type=file]{display:none}
+  .filelabel{font-size:12px; color:var(--muted)}
+  .pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; background:#eef1f8; color:var(--muted)}
+
+  /* ---------- Filters ---------- */
+  .filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center}
+  .filters select,.filters input[type=search]{
+    padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; font-size:12.5px; color:var(--ink); min-width:150px;
+  }
+  .filters label{font-size:11px; color:var(--muted); font-weight:600; margin-right:-4px}
+
+  /* ---------- Cards ---------- */
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:22px}
+  .card{border-radius:var(--radius); padding:14px 16px; color:#fff; box-shadow:var(--shadow); position:relative; overflow:hidden}
+  .card .k{font-size:11px; text-transform:uppercase; letter-spacing:.6px; opacity:.85; font-weight:700}
+  .card .v{font-size:28px; font-weight:800; margin-top:6px; letter-spacing:-1px}
+  .card .s{font-size:11px; opacity:.9; margin-top:2px}
+  .c-total{background:linear-gradient(135deg,#3b5bdb,#5f3dc4)}
+  .c-complete{background:linear-gradient(135deg,#1c7ed6,#1098ad)}
+  .c-risk{background:linear-gradient(135deg,#f08c00,#e8590c)}
+  .c-late{background:linear-gradient(135deg,#e03131,#c2255c)}
+  .c-raid{background:linear-gradient(135deg,#495057,#212529)}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:20px}
+  .panel > .head{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--line)}
+  .panel > .head h2{margin:0; font-size:15px; letter-spacing:-.2px}
+  .panel > .head .sub{font-size:11.5px; color:var(--muted)}
+  .panel > .body{padding:6px 8px 14px}
+
+  /* ---------- Gantt ---------- */
+  .gantt{overflow-x:auto; padding:6px 12px 14px}
+  .g-months{display:flex; margin-left:var(--labelw); border-bottom:1px solid var(--line); position:sticky; top:0}
+  .g-month{flex:0 0 auto; font-size:10.5px; color:var(--muted); font-weight:600; padding:4px 6px; border-left:1px solid var(--line); text-transform:uppercase; letter-spacing:.4px}
+  .g-lane{margin-top:12px}
+  .g-lane-title{font-size:12px; font-weight:800; color:var(--ink); padding:4px 0 4px 2px; text-transform:uppercase; letter-spacing:.5px; display:flex; gap:8px; align-items:center}
+  .g-lane-title .cnt{font-weight:600; color:var(--muted); font-size:10.5px}
+  .g-row{display:flex; align-items:center; height:30px; position:relative}
+  .g-row:hover{background:#f7f9ff}
+  .g-label{width:var(--labelw); flex:0 0 var(--labelw); padding-right:10px; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .g-label .own{color:var(--muted); font-size:10.5px}
+  .g-track{position:relative; flex:1 1 auto; height:100%; min-width:400px}
+  .g-grid{position:absolute; inset:0; pointer-events:none}
+  .g-grid span{position:absolute; top:0; bottom:0; border-left:1px solid #eef1f8}
+  .g-today{position:absolute; top:-2px; bottom:-2px; width:2px; background:#e03131; z-index:3}
+  .g-today::after{content:"TODAY"; position:absolute; top:-14px; left:-16px; font-size:8px; font-weight:800; color:#e03131}
+  .g-bar{position:absolute; top:6px; height:18px; border-radius:6px; display:flex; align-items:center; padding:0 7px; font-size:10.5px; color:#fff; font-weight:700; white-space:nowrap; overflow:hidden; cursor:default; z-index:2}
+  .g-bar.on-track{background:var(--on-track)}
+  .g-bar.at-risk{background:var(--at-risk)}
+  .g-bar.off-track{background:var(--off-track)}
+  .g-bar.complete{background:var(--complete)}
+  .g-bar.not-started{background:var(--not-started)}
+  .g-mile{position:absolute; top:6px; width:16px; height:16px; background:var(--brand-2); transform:rotate(45deg); border-radius:3px; z-index:2; border:2px solid #fff; box-shadow:0 0 0 1px var(--brand-2)}
+  .g-pct{position:absolute; left:0; top:0; bottom:0; background:rgba(255,255,255,.28); border-radius:6px 0 0 6px}
+
+  /* ---------- RAID ---------- */
+  .raidnav{display:flex; gap:6px; flex-wrap:wrap; padding:12px 18px 0}
+  .raidnav .rtab{border:1px solid var(--line); background:#fff; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:600; cursor:pointer; color:var(--muted)}
+  .raidnav .rtab .b{display:inline-block; margin-left:6px; background:#eef1f8; border-radius:999px; padding:0 7px; font-size:11px}
+  .raidnav .rtab.active{background:var(--brand); border-color:var(--brand); color:#fff}
+  .raidnav .rtab.active .b{background:rgba(255,255,255,.25); color:#fff}
+  table{width:100%; border-collapse:collapse; font-size:12.5px}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:700; position:sticky; top:0; background:#fff}
+  tbody tr:hover{background:#f7f9ff}
+  .tag{display:inline-block; padding:2px 9px; border-radius:999px; font-size:10.5px; font-weight:700}
+  .sev-high{background:#ffe3e3; color:#c92a2a}
+  .sev-med{background:#fff3bf; color:#b08900}
+  .sev-low{background:#e6fcf5; color:#0b7285}
+  .sev-none{background:#eef1f8; color:#5b657f}
+  .st-open{background:#fff3bf; color:#b08900}
+  .st-closed{background:#d3f9d8; color:#2b8a3e}
+  .st-prog{background:#e7f5ff; color:#1971c2}
+  .aging{color:#e03131; font-weight:700}
+  .empty{padding:30px; text-align:center; color:var(--muted); font-size:13px}
+
+  /* ---------- Digest ---------- */
+  .digest-narrative{background:#fff; border:1px solid var(--line); border-left:4px solid var(--brand); border-radius:10px; padding:14px 18px; margin-bottom:18px; box-shadow:var(--shadow)}
+  .digest-narrative h2{margin:0 0 8px; font-size:15px}
+  .digest-narrative ul{margin:6px 0 0; padding-left:18px}
+  .digest-narrative li{margin:3px 0}
+  .chg-slip{color:#e03131; font-weight:700}
+  .chg-pull{color:#2f9e44; font-weight:700}
+  .diffgrid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media(max-width:900px){.diffgrid{grid-template-columns:1fr}}
+  .mini{font-size:11px; color:var(--muted)}
+  .arrow{color:var(--muted)}
+  .help p{color:var(--muted); max-width:820px}
+  .help code{background:#eef1f8; padding:1px 6px; border-radius:5px; font-size:12px}
+  .schema{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-top:14px}
+  .schema .box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .schema .box h4{margin:0 0 8px}
+  .schema .box .syn{font-size:11.5px;color:var(--muted)}
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#212529; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; box-shadow:var(--shadow); opacity:0; transition:.25s; pointer-events:none; z-index:50}
+  .toast.show{opacity:1}
+
+  /* ---------- Excel Diff ---------- */
+  .gd-keys{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+  .gd-keys .kc{display:inline-flex; align-items:center; gap:6px; font-size:12px; background:#fff; border:1px solid var(--line); padding:5px 10px; border-radius:8px; cursor:pointer}
+  .gd-keys .kc:hover{border-color:#c9d2e6; background:#f7f9ff}
+  .gd-keys .kc input{margin:0}
+  .gd-hint{font-size:11.5px; color:var(--muted); margin-right:4px}
+  .gridwrap{overflow-x:auto}
+  table.difftable td .old{color:#c92a2a; text-decoration:line-through; opacity:.85}
+  table.difftable td .new{color:#2b8a3e; font-weight:700}
+  table.difftable td .arrow{color:var(--muted); margin:0 8px}
+  table.grid td, table.grid th{white-space:nowrap; max-width:280px; overflow:hidden; text-overflow:ellipsis}
+  tr.row-added td{background:#ebfbee}
+  tr.row-removed td{background:#fff0f0; color:#868e96}
+  tr.row-removed td{text-decoration:line-through}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1><span class="dot"></span> Gold Copy Cockpit</h1>
+      <p>Load your Gold Copy → live roadmap &amp; RAID dashboard · week-over-week change digest</p>
+    </div>
+    <div class="privacy">
+      <b>Runs entirely in your browser.</b> Files you load are parsed locally and never uploaded. Nothing is saved — close the tab and it's gone.
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="diff">Change Digest</button>
+    <button class="tab" data-view="help">Help &amp; Format</button>
+  </nav>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="view active" id="view-dashboard">
+    <div class="loadbar">
+      <h3>Gold Copy</h3>
+      <label class="btn primary" for="file-dash">Load file (.xlsx / .csv)</label>
+      <input type="file" id="file-dash" accept=".xlsx,.xls,.csv" />
+      <button class="btn" id="sample-dash">Load sample data</button>
+      <span class="filelabel" id="dash-status">No file loaded · try the sample to see it in action</span>
+    </div>
+
+    <div id="dash-content" style="display:none">
+      <div class="filters">
+        <label>Workstream</label><select id="f-ws"></select>
+        <label>Owner</label><select id="f-owner"></select>
+        <label>Status</label><select id="f-status"></select>
+        <input type="search" id="f-search" placeholder="Search deliverables…" />
+        <button class="btn ghost" id="f-reset">Reset</button>
+      </div>
+
+      <div class="cards" id="cards"></div>
+
+      <div class="panel">
+        <div class="head"><h2>Roadmap</h2><span class="sub" id="roadmap-range"></span></div>
+        <div class="body"><div class="gantt" id="gantt"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="head"><h2>RAID Log</h2><span class="sub" id="raid-sub"></span></div>
+        <div class="raidnav" id="raidnav"></div>
+        <div class="body" id="raidbody"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHANGE DIGEST (generic diff + smart insights) ============ -->
+  <section class="view" id="view-diff">
+    <div class="loadbar">
+      <h3>Compare two versions</h3>
+      <label class="btn" for="gd-before">Before / older</label>
+      <input type="file" id="gd-before" accept=".xlsx,.xls,.csv" />
+      <span class="filelabel" id="gd-before-status">— none —</span>
+      <span style="color:var(--muted)">→</span>
+      <label class="btn" for="gd-after">After / newer</label>
+      <input type="file" id="gd-after" accept=".xlsx,.xls,.csv" />
+      <span class="filelabel" id="gd-after-status">— none —</span>
+      <button class="btn" id="gd-sample">Load sample pair</button>
+    </div>
+
+    <div id="gd-setup" class="panel" style="display:none"><div class="body" style="padding:14px 18px">
+      <div class="filters" style="margin-bottom:6px">
+        <label>Sheet</label><select id="gd-sheet"></select>
+        <label style="margin-left:8px">Match rows by</label>
+        <select id="gd-mode"><option value="key">Identity column(s)</option><option value="pos">Row position</option></select>
+        <button class="btn primary" id="gd-run" style="margin-left:auto">Compare</button>
+      </div>
+      <div id="gd-keys" class="gd-keys"></div>
+    </div></div>
+
+    <div id="gd-result"></div>
+    <div id="gd-empty" class="empty">Load a Before and After version of any spreadsheet (or the sample), pick the column that identifies each row, and Compare. Works on any tracker — and if it recognizes a Gold Copy (dates + status, RAID tabs), it adds an executive summary of slips, status changes, and RAID movement on top. Nothing is uploaded — both files are read in your browser.</div>
+  </section>
+
+  <!-- ============ HELP ============ -->
+  <section class="view help" id="view-help">
+    <div class="panel"><div class="body" style="padding:18px 22px">
+      <h2 style="margin-top:0">How it works</h2>
+      <p>This is one HTML file. Open it by double-clicking, or drop it on any static host (SharePoint, an internal file share, GitHub Pages). When you load your Gold Copy, the browser reads it <b>on your machine</b> — no server, no upload, no storage.</p>
+      <p><b>Excel (.xlsx):</b> the tool reads your deliverables sheet plus any tabs named Dependencies, Assumptions, Issues, Decisions, or Risks. <b>CSV:</b> export a single tab; load it the same way (RAID diffing still works if you load the RAID tab as the file).</p>
+      <p>Column names don't have to be exact — the tool fuzzy-matches common header variations. Here's what it looks for:</p>
+      <div class="schema">
+        <div class="box"><h4>Deliverables tab</h4>
+          <div class="syn">
+            <b>ID</b> — id, ref, line #<br>
+            <b>Workstream</b> — workstream, initiative, program, track, epic<br>
+            <b>Deliverable</b> — deliverable, task, name, title, activity<br>
+            <b>Owner</b> — owner, lead, DRI, assignee<br>
+            <b>Start</b> — start, start date, baseline start<br>
+            <b>End</b> — end, finish, due, target date<br>
+            <b>Status</b> — status, health, RAG<br>
+            <b>% Complete</b> — %, progress, complete<br>
+            <b>Milestone</b> — milestone / type = milestone
+          </div>
+        </div>
+        <div class="box"><h4>RAID tabs</h4>
+          <div class="syn">
+            Sheets named <code>Dependencies</code>, <code>Assumptions</code>, <code>Issues</code>, <code>Decisions</code>, <code>Risks</code>.<br><br>
+            <b>Description</b> — description, title, summary, item<br>
+            <b>Owner</b> — owner, lead, DRI<br>
+            <b>Status</b> — status (open/in progress/closed)<br>
+            <b>Severity</b> — severity, priority, impact, RAG<br>
+            <b>Date</b> — date raised, due, target<br>
+            <b>Notes</b> — mitigation, response, action, notes
+          </div>
+        </div>
+        <div class="box"><h4>Status colors</h4>
+          <div class="syn">
+            <span class="tag" style="background:var(--complete);color:#fff">Complete</span> done / closed<br><br>
+            <span class="tag" style="background:var(--on-track);color:#fff">On Track</span> on track / green<br><br>
+            <span class="tag" style="background:var(--at-risk);color:#fff">At Risk</span> at risk / amber<br><br>
+            <span class="tag" style="background:var(--off-track);color:#fff">Off Track</span> delayed / red / blocked<br><br>
+            <span class="tag" style="background:var(--not-started);color:#fff">Not Started</span> planned / new
+          </div>
+        </div>
+      </div>
+      <h2 style="margin-top:22px">Change Digest — compare two versions of any spreadsheet</h2>
+      <p>Works on <b>any</b> tracking file, not just the Gold Copy. Load an older and newer version; the tool matches rows by an <b>identity column</b> you pick (ID, Ticket #, Name…) and shows exactly which rows were added, removed, and which individual cells changed — old value struck through, new value in green. No macros, no change tracking, and it never modifies or uploads your file.</p>
+      <p>If it recognizes a <b>Gold Copy</b> (date + status columns, and/or RAID tabs), it adds an <b>Executive summary</b> on top: completions, date slips (with day counts), status changes, and new/closed RAID items — the readout-ready narrative — while still giving you the full cell-level diff underneath.</p>
+      <p style="color:var(--muted)"><b>Tips:</b> if your sheet has no ID column, switch “Match rows by” to <b>Row position</b>. You can pick multiple identity columns to form a composite key. Only columns present in both files are compared for cell edits; added/removed columns are called out separately. Use <b>Download change report (.csv)</b> to save the list of changes.</p>
+    </div></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Gold Copy Cockpit — all client-side. No network calls except SheetJS.
+   ===================================================================== */
+
+const RAID_TABS = ["Dependencies","Assumptions","Issues","Decisions","Risks"];
+let DASH = null;        // {deliverables:[], raid:{Dependencies:[],...}}
+let RAID_ACTIVE = "Dependencies";
+
+/* ---------- small helpers ---------- */
+const $ = s => document.querySelector(s);
+const norm = s => String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]/g,"");
+function toast(m){const t=$("#toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2600);}
+
+function toDate(v){
+  if(v==null||v==="") return null;
+  if(v instanceof Date && !isNaN(v)) return v;
+  if(typeof v==="number"){ // Excel serial (days since 1899-12-30)
+    const d=new Date(Math.round((v-25569)*86400*1000)); return isNaN(d)?null:d;
+  }
+  const s=String(v).trim();
+  let d=new Date(s); if(!isNaN(d)) return d;
+  const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){ let[_,a,b,y]=m; y=+y<100?2000+ +y:+y; d=new Date(y,a-1,b); if(!isNaN(d)) return d; }
+  return null;
+}
+const fmtDate = d => d? d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"2-digit"}) : "—";
+const daysBetween = (a,b)=> Math.round((b-a)/86400000);
+
+/* map a row's headers to a canonical field using synonyms */
+function pick(row, keys){
+  const map={}; for(const k in row) map[norm(k)]=row[k];
+  for(const key of keys){ if(map[key]!==undefined && map[key]!=="") return map[key]; }
+  // loose contains match
+  for(const key of keys){ for(const nk in map){ if(nk.includes(key) && map[nk]!=="") return map[nk]; } }
+  return "";
+}
+
+function classifyStatus(raw, endDate, pct){
+  const s=norm(raw);
+  if(/complete|done|closed|delivered|finished/.test(s) || pct>=100) return {cls:"complete",label:"Complete"};
+  if(/offtrack|off|delay|late|red|block|slip|critical/.test(s)) return {cls:"off-track",label:"Off Track"};
+  if(/risk|amber|yellow|watch|concern/.test(s)) return {cls:"at-risk",label:"At Risk"};
+  if(/notstart|planned|backlog|new|pending|nutstart/.test(s) || (pct===0 && s==="")) return {cls:"not-started",label:"Not Started"};
+  if(/ontrack|track|green|progress|active|inprogress/.test(s)) return {cls:"on-track",label:"On Track"};
+  // fall back on dates: overdue & not complete -> off track
+  if(endDate && endDate < new Date()) return {cls:"off-track",label:"Off Track"};
+  return {cls:"on-track",label:"On Track"};
+}
+
+/* ---------- parsing ---------- */
+function parseDeliverables(rows){
+  return rows.map((r,i)=>{
+    const start=toDate(pick(r,["start","startdate","begin","plannedstart","baselinestart"]));
+    const end=toDate(pick(r,["end","enddate","finish","due","duedate","target","targetdate","completiondate","plannedend"]));
+    let pct=pick(r,["percentcomplete","complete","progress","pctcomplete","percent","done"]);
+    pct=String(pct).replace("%","").trim(); pct=pct===""?null:Math.max(0,Math.min(100,+pct||0));
+    const rawStatus=pick(r,["status","health","rag","state"]);
+    const st=classifyStatus(rawStatus,end,pct==null?-1:pct);
+    const type=norm(pick(r,["type","milestone","ismilestone"]));
+    const name=pick(r,["deliverable","task","name","title","activity","item","workpackage"])||pick(r,["description","summary"]);
+    return {
+      id: String(pick(r,["id","itemid","ref","refno","lineitem","line","no","number","wbs"])||("R"+(i+1))),
+      ws: String(pick(r,["workstream","initiative","program","programme","project","epic","track","swimlane","category","area","theme"])||"Unassigned"),
+      name: String(name||"(untitled)"),
+      owner: String(pick(r,["owner","lead","responsible","dri","assignee","poc","accountable"])||""),
+      start, end,
+      pct: pct==null?(st.cls==="complete"?100:0):pct,
+      status: st, rawStatus:String(rawStatus||""),
+      milestone: /milestone/.test(type) || (start && end && Math.abs(daysBetween(start,end))<=1)
+    };
+  }).filter(d=> d.name!=="(untitled)" || d.start || d.end);
+}
+
+function parseRaid(rows){
+  return rows.map((r,i)=>{
+    const status=pick(r,["status","state"]);
+    const sev=pick(r,["severity","priority","impact","rag","level","rating"]);
+    return {
+      id:String(pick(r,["id","ref","no","number","itemid"])||("#"+(i+1))),
+      desc:String(pick(r,["description","title","summary","item","detail","dependency","assumption","issue","decision","risk","name"])||"—"),
+      owner:String(pick(r,["owner","lead","dri","responsible","assignee"])||""),
+      status:String(status||""),
+      sev:String(sev||""),
+      date:toDate(pick(r,["date","dateraised","raised","logged","identified","created","due","duedate","targetdate","targetdate"])),
+      notes:String(pick(r,["mitigation","response","action","plan","resolution","notes","comment","nextstep"])||"")
+    };
+  }).filter(x=> x.desc!=="—" || x.owner);
+}
+
+/* Given a SheetJS workbook (or CSV as one sheet), build the model */
+function buildModel(wb){
+  const model={deliverables:[], raid:{}};
+  RAID_TABS.forEach(t=>model.raid[t]=[]);
+  const names=wb.SheetNames;
+  // find RAID sheets by fuzzy name
+  const used=new Set();
+  names.forEach(nm=>{
+    const n=norm(nm);
+    for(const t of RAID_TABS){
+      if(n.includes(norm(t)) || n.includes(norm(t).slice(0,-1))){ // singular too
+        model.raid[t]=parseRaid(XLSX.utils.sheet_to_json(wb.Sheets[nm],{defval:""}));
+        used.add(nm); return;
+      }
+    }
+  });
+  // deliverables = a sheet named goldcopy/deliverables/roadmap/plan, else first non-RAID sheet
+  let delivName = names.find(nm=>/goldcopy|deliverable|roadmap|plan|schedule|timeline|master/.test(norm(nm)) && !used.has(nm))
+               || names.find(nm=>!used.has(nm)) || names[0];
+  model.deliverables=parseDeliverables(XLSX.utils.sheet_to_json(wb.Sheets[delivName],{defval:""}));
+  model.delivSheet=delivName;
+  return model;
+}
+
+function readFile(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=e=>{
+      try{
+        const data=new Uint8Array(e.target.result);
+        const wb=XLSX.read(data,{type:"array",cellDates:true});
+        res(buildModel(wb));
+      }catch(err){ rej(err); }
+    };
+    fr.onerror=rej;
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+/* ==================== DASHBOARD RENDER ==================== */
+function currentFilters(){
+  return {ws:$("#f-ws").value, owner:$("#f-owner").value, status:$("#f-status").value, q:norm($("#f-search").value)};
+}
+function filteredDeliverables(){
+  const f=currentFilters();
+  return DASH.deliverables.filter(d=>{
+    if(f.ws && d.ws!==f.ws) return false;
+    if(f.owner && d.owner!==f.owner) return false;
+    if(f.status && d.status.cls!==f.status) return false;
+    if(f.q && !(norm(d.name).includes(f.q)||norm(d.owner).includes(f.q)||norm(d.ws).includes(f.q))) return false;
+    return true;
+  });
+}
+function fillSelect(sel, items, label){
+  sel.innerHTML=`<option value="">${label}</option>`+items.map(v=>`<option>${v}</option>`).join("");
+}
+function renderFilters(){
+  const ws=[...new Set(DASH.deliverables.map(d=>d.ws))].sort();
+  const own=[...new Set(DASH.deliverables.map(d=>d.owner).filter(Boolean))].sort();
+  fillSelect($("#f-ws"),ws,"All workstreams");
+  fillSelect($("#f-owner"),own,"All owners");
+  $("#f-status").innerHTML=`<option value="">All statuses</option>`+
+    [["on-track","On Track"],["at-risk","At Risk"],["off-track","Off Track"],["complete","Complete"],["not-started","Not Started"]]
+    .map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+}
+function renderCards(){
+  const ds=filteredDeliverables();
+  const total=ds.length;
+  const complete=ds.filter(d=>d.status.cls==="complete").length;
+  const risk=ds.filter(d=>d.status.cls==="at-risk"||d.status.cls==="off-track").length;
+  const now=new Date();
+  const overdue=ds.filter(d=>d.status.cls!=="complete" && d.end && d.end<now).length;
+  const raidOpen=RAID_TABS.reduce((n,t)=>n+DASH.raid[t].filter(x=>!/closed|done|resolved|complete|accepted/.test(norm(x.status))).length,0);
+  const raidTotal=RAID_TABS.reduce((n,t)=>n+DASH.raid[t].length,0);
+  const pctc= total? Math.round(complete/total*100):0;
+  $("#cards").innerHTML=`
+    <div class="card c-total"><div class="k">Deliverables</div><div class="v">${total}</div><div class="s">across ${new Set(ds.map(d=>d.ws)).size} workstreams</div></div>
+    <div class="card c-complete"><div class="k">Complete</div><div class="v">${pctc}%</div><div class="s">${complete} of ${total} done</div></div>
+    <div class="card c-risk"><div class="k">At Risk / Off Track</div><div class="v">${risk}</div><div class="s">need attention</div></div>
+    <div class="card c-late"><div class="k">Overdue</div><div class="v">${overdue}</div><div class="s">past end date, not complete</div></div>
+    <div class="card c-raid"><div class="k">Open RAID</div><div class="v">${raidOpen}</div><div class="s">of ${raidTotal} total items</div></div>`;
+}
+
+function renderGantt(){
+  const ds=filteredDeliverables().filter(d=>d.start&&d.end);
+  const el=$("#gantt");
+  if(!ds.length){ el.innerHTML=`<div class="empty">No dated deliverables match the current filters.</div>`; $("#roadmap-range").textContent=""; return; }
+  let min=ds[0].start, max=ds[0].end;
+  ds.forEach(d=>{ if(d.start<min)min=d.start; if(d.end>max)max=d.end; });
+  // pad to month bounds
+  min=new Date(min.getFullYear(),min.getMonth(),1);
+  max=new Date(max.getFullYear(),max.getMonth()+1,0);
+  const span=Math.max(1,daysBetween(min,max));
+  const labelw=230, pxPerDay=Math.max(2.2, Math.min(9, 900/span));
+  const totalW=span*pxPerDay;
+  const pos=d=> ((daysBetween(min,d))/span)*100;
+  $("#roadmap-range").textContent=`${fmtDate(min)} – ${fmtDate(max)} · ${ds.length} dated items`;
+
+  // month header
+  const months=[]; let cur=new Date(min);
+  while(cur<=max){ const next=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    const w=(daysBetween(cur, next>max?max:next)/span)*totalW;
+    months.push(`<div class="g-month" style="width:${w}px">${cur.toLocaleDateString(undefined,{month:"short",year:"2-digit"})}</div>`);
+    cur=next;
+  }
+  // grid lines (per month)
+  let gridSpans=""; cur=new Date(min);
+  while(cur<=max){ gridSpans+=`<span style="left:${pos(cur)}%"></span>`; cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
+  const today=new Date();
+  const todayLine=(today>=min&&today<=max)?`<div class="g-today" style="left:${pos(today)}%"></div>`:"";
+
+  // group by workstream
+  const groups={}; ds.forEach(d=>{ (groups[d.ws]=groups[d.ws]||[]).push(d); });
+  let html=`<div style="min-width:${labelw+totalW}px">`;
+  html+=`<div class="g-months" style="--labelw:${labelw}px">${months.join("")}</div>`;
+  Object.keys(groups).sort().forEach(ws=>{
+    const rows=groups[ws].sort((a,b)=>a.start-b.start);
+    html+=`<div class="g-lane"><div class="g-lane-title">${ws}<span class="cnt">${rows.length}</span></div>`;
+    rows.forEach(d=>{
+      const left=pos(d.start), width=Math.max(0.8,pos(d.end)-pos(d.start));
+      const tip=`${d.name}${d.owner?" · "+d.owner:""}\n${fmtDate(d.start)} → ${fmtDate(d.end)} · ${d.status.label} · ${d.pct}%`;
+      const bar=d.milestone
+        ? `<div class="g-mile" style="left:${left}%" title="${tip}"></div>`
+        : `<div class="g-bar ${d.status.cls}" style="left:${left}%; width:${width}%" title="${tip}">
+             ${d.status.cls!=="complete"&&d.pct>0?`<div class="g-pct" style="width:${d.pct}%"></div>`:""}
+             <span style="position:relative">${d.pct}%</span></div>`;
+      html+=`<div class="g-row" style="--labelw:${labelw}px">
+        <div class="g-label" style="width:${labelw}px;flex:0 0 ${labelw}px">${d.name}${d.owner?` <span class="own">· ${d.owner}</span>`:""}</div>
+        <div class="g-track"><div class="g-grid">${gridSpans}</div>${todayLine}${bar}</div></div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+function sevTag(sev){
+  const s=norm(sev);
+  if(/high|critical|1|red|sev1|major/.test(s)) return `<span class="tag sev-high">${sev||"High"}</span>`;
+  if(/med|moderate|2|amber|orange/.test(s)) return `<span class="tag sev-med">${sev||"Med"}</span>`;
+  if(/low|minor|3|green|4/.test(s)) return `<span class="tag sev-low">${sev||"Low"}</span>`;
+  return sev?`<span class="tag sev-none">${sev}</span>`:`<span class="mini">—</span>`;
+}
+function statusTag(st){
+  const s=norm(st);
+  if(/closed|resolved|done|complete|accepted|approved/.test(s)) return `<span class="tag st-closed">${st}</span>`;
+  if(/progress|active|mitigat|working|open/.test(s) && /progress|active|mitigat|working/.test(s)) return `<span class="tag st-prog">${st}</span>`;
+  if(/open|new|raised|pending|identified/.test(s)) return `<span class="tag st-open">${st}</span>`;
+  return st?`<span class="tag sev-none">${st}</span>`:`<span class="mini">—</span>`;
+}
+function renderRaidNav(){
+  $("#raidnav").innerHTML=RAID_TABS.map(t=>{
+    const n=DASH.raid[t].length;
+    return `<button class="rtab ${t===RAID_ACTIVE?"active":""}" data-raid="${t}">${t}<span class="b">${n}</span></button>`;
+  }).join("");
+  $("#raid-sub").textContent=RAID_TABS.reduce((n,t)=>n+DASH.raid[t].length,0)+" items";
+}
+function renderRaidBody(){
+  const items=DASH.raid[RAID_ACTIVE];
+  const now=new Date();
+  if(!items.length){ $("#raidbody").innerHTML=`<div class="empty">No ${RAID_ACTIVE} found. If your tab has a different name, rename it or check Help.</div>`; return; }
+  const rows=items.map(x=>{
+    const open=!/closed|resolved|done|complete|accepted|approved/.test(norm(x.status));
+    const age=x.date? daysBetween(x.date,now):null;
+    const stale= open && age!=null && age>30;
+    return `<tr>
+      <td class="mini">${x.id}</td>
+      <td>${x.desc}${x.notes?`<div class="mini" style="margin-top:3px">${x.notes}</div>`:""}</td>
+      <td>${x.owner||'<span class="mini">unassigned</span>'}</td>
+      <td>${statusTag(x.status)}</td>
+      <td>${sevTag(x.sev)}</td>
+      <td>${x.date?fmtDate(x.date):'<span class="mini">—</span>'}${stale?` <span class="aging" title="Open ${age} days">⚠ ${age}d</span>`:""}</td>
+    </tr>`;
+  }).join("");
+  const descHead={Dependencies:"Dependency",Assumptions:"Assumption",Issues:"Issue",Decisions:"Decision",Risks:"Risk"}[RAID_ACTIVE];
+  $("#raidbody").innerHTML=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>ID</th><th>${descHead}</th><th>Owner</th><th>Status</th><th>Sev/Pri</th><th>Date</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function renderDashboard(){
+  $("#dash-content").style.display="block";
+  renderFilters(); renderCards(); renderGantt(); renderRaidNav(); renderRaidBody();
+}
+function refreshDashboard(){ renderCards(); renderGantt(); }
+
+/* ==================== CHANGE DIGEST ==================== */
+function keyOf(d){ return norm(d.id).length>1 ? "id:"+norm(d.id) : "nm:"+norm(d.name); }
+
+function diffDeliverables(prev, curr){
+  const pm=new Map(prev.map(d=>[keyOf(d),d]));
+  const cm=new Map(curr.map(d=>[keyOf(d),d]));
+  const added=[], removed=[], slips=[], pulls=[], statusChg=[], done=[];
+  for(const [k,c] of cm){
+    if(!pm.has(k)){ added.push(c); continue; }
+    const p=pm.get(k);
+    if(p.end&&c.end){ const dd=daysBetween(p.end,c.end);
+      if(dd>0) slips.push({d:c,from:p.end,to:c.end,days:dd});
+      else if(dd<0) pulls.push({d:c,from:p.end,to:c.end,days:dd});
+    }
+    if(p.status.cls!==c.status.cls){
+      if(c.status.cls==="complete") done.push({d:c,from:p.status.label});
+      else statusChg.push({d:c,from:p.status.label,to:c.status.label});
+    }
+  }
+  for(const [k,p] of pm){ if(!cm.has(k)) removed.push(p); }
+  return {added,removed,slips,pulls,statusChg,done};
+}
+function diffRaid(prev, curr){
+  const out={};
+  RAID_TABS.forEach(t=>{
+    const pm=new Map(prev[t].map(x=>[norm(x.id)+norm(x.desc).slice(0,40),x]));
+    const cm=new Map(curr[t].map(x=>[norm(x.id)+norm(x.desc).slice(0,40),x]));
+    const isClosed=x=>/closed|resolved|done|complete|accepted|approved/.test(norm(x.status));
+    const added=[],closed=[];
+    for(const[k,c] of cm){ if(!pm.has(k)) added.push(c);
+      else if(!isClosed(pm.get(k))&&isClosed(c)) closed.push(c); }
+    out[t]={added,closed};
+  });
+  return out;
+}
+function digestList(title, items, render, cls){
+  if(!items.length) return "";
+  return `<div class="panel"><div class="head"><h2>${title}</h2><span class="pill">${items.length}</span></div>
+    <div class="body" style="padding:2px 6px"><table><tbody>${items.map(render).join("")}</tbody></table></div></div>`;
+}
+/* Smart executive-summary layer, shown only when the files look like a Gold Copy.
+   Added/removed rows are intentionally omitted here — the cell diff below covers them. */
+function computeInsights(prevModel, currModel){
+  const dd=diffDeliverables(prevModel.deliverables, currModel.deliverables);
+  const rd=diffRaid(prevModel.raid, currModel.raid);
+  const newRaid=RAID_TABS.reduce((n,t)=>n+rd[t].added.length,0);
+  const closedRaid=RAID_TABS.reduce((n,t)=>n+rd[t].closed.length,0);
+  const hasAny = dd.done.length+dd.slips.length+dd.pulls.length+dd.statusChg.length+newRaid+closedRaid > 0;
+  if(!hasAny) return {html:"", hasAny:false};
+
+  const bullets=[];
+  if(dd.done.length) bullets.push(`<b>${dd.done.length}</b> deliverable${dd.done.length>1?"s":""} completed.`);
+  if(dd.slips.length) bullets.push(`<span class="chg-slip">${dd.slips.length} date slip${dd.slips.length>1?"s":""}</span> — total ${dd.slips.reduce((s,x)=>s+x.days,0)} days pushed right.`);
+  if(dd.pulls.length) bullets.push(`<span class="chg-pull">${dd.pulls.length} pulled in</span> to earlier dates.`);
+  if(dd.statusChg.length) bullets.push(`<b>${dd.statusChg.length}</b> status change${dd.statusChg.length>1?"s":""} (excluding completions).`);
+  if(newRaid) bullets.push(`<b>${newRaid}</b> new RAID item${newRaid>1?"s":""} logged.`);
+  if(closedRaid) bullets.push(`<b>${closedRaid}</b> RAID item${closedRaid>1?"s":""} closed.`);
+
+  const dline=(from,to)=>`<span class="arrow">${fmtDate(from)}</span> → <b>${fmtDate(to)}</b>`;
+  let html=`<div class="digest-narrative"><h2>Executive summary <span class="pill" style="font-size:10px;vertical-align:middle">roadmap / RAID detected</span></h2><ul>${bullets.map(b=>`<li>${b}</li>`).join("")}</ul></div>`;
+  html+=`<div class="diffgrid"><div>`;
+  html+=digestList("✅ Completed", dd.done, x=>`<tr><td>${esc(x.d.name)}<div class="mini">${esc(x.d.ws)} · was ${x.from}</div></td></tr>`);
+  html+=digestList("🔴 Date slips", dd.slips, x=>`<tr><td>${esc(x.d.name)}<div class="mini">${esc(x.d.ws)}</div></td><td style="text-align:right"><span class="chg-slip">+${x.days}d</span><div class="mini">${dline(x.from,x.to)}</div></td></tr>`);
+  html+=digestList("🟢 Pulled in", dd.pulls, x=>`<tr><td>${esc(x.d.name)}<div class="mini">${esc(x.d.ws)}</div></td><td style="text-align:right"><span class="chg-pull">${x.days}d</span><div class="mini">${dline(x.from,x.to)}</div></td></tr>`);
+  html+=`</div><div>`;
+  html+=digestList("🔀 Status changes", dd.statusChg, x=>`<tr><td>${esc(x.d.name)}<div class="mini">${esc(x.d.ws)}</div></td><td style="text-align:right">${x.from} <span class="arrow">→</span> <b>${x.to}</b></td></tr>`);
+  let raidHtml="";
+  RAID_TABS.forEach(t=>{
+    raidHtml+=digestList(`🆕 New ${t}`, rd[t].added, x=>`<tr><td>${esc(x.desc)}<div class="mini">${esc(x.owner)||"unassigned"} ${x.sev?"· "+esc(x.sev):""}</div></td></tr>`);
+    raidHtml+=digestList(`✔️ Closed ${t}`, rd[t].closed, x=>`<tr><td>${esc(x.desc)}<div class="mini">${esc(x.owner)}</div></td></tr>`);
+  });
+  html+=raidHtml;
+  html+=`</div></div>`;
+  return {html, hasAny:true};
+}
+
+/* ==================== SAMPLE DATA ==================== */
+function sampleWorkbook(shiftDays=0, variant=0){
+  const d=(y,m,day)=>new Date(y,m-1,day+shiftDays);
+  const base=[
+    // ws, name, owner, start, end, status, pct, milestone
+    ["Platform","Core API v2 build","A. Rivera",d(2026,3,1),d(2026,7,15),"On Track",55,0],
+    ["Platform","Auth service migration","A. Rivera",d(2026,4,10),d(2026,6,30),variant?"At Risk":"On Track",variant?60:70,0],
+    ["Platform","Prod cutover","A. Rivera",d(2026,7,20),d(2026,7,20),"Not Started",0,1],
+    ["Data","Warehouse consolidation","J. Okafor",d(2026,2,15),d(2026,6,1),"Complete",100,0],
+    ["Data","Realtime pipeline","J. Okafor",d(2026,5,1),variant?d(2026,9,20):d(2026,8,20),variant?"Off Track":"At Risk",30,0],
+    ["Data","Governance sign-off","J. Okafor",d(2026,8,25),d(2026,8,25),"Not Started",0,1],
+    ["Customer","Onboarding redesign","M. Chen",d(2026,3,20),d(2026,6,10),variant?"Complete":"On Track",variant?100:80,0],
+    ["Customer","Self-serve portal","M. Chen",d(2026,6,15),d(2026,9,1),"Not Started",0,0],
+    ["Compliance","SOC2 remediation","L. Park",d(2026,4,1),d(2026,7,1),"At Risk",45,0],
+    ["Compliance","Audit readiness","L. Park",d(2026,7,5),d(2026,7,5),"Not Started",0,1],
+  ];
+  // "after" version adds a brand-new deliverable (demonstrates an added row)
+  if(variant) base.push(["Platform","Perf hardening & load test","A. Rivera",d(2026,7,1),d(2026,8,15),"Not Started",0,0]);
+  const deliv=base.map((r,i)=>({ID:"D"+(i+1),Workstream:r[0],Deliverable:r[1],Owner:r[2],
+    "Start Date":r[3],"End Date":r[4],Status:r[5],"% Complete":r[6],Type:r[7]?"Milestone":"Task"}));
+
+  const risks=[
+    {ID:"R1",Risk:"Vendor API rate limits may throttle realtime pipeline",Owner:"J. Okafor",Status:"Open",Severity:"High",Date:d(2026,5,12),Mitigation:"Negotiate higher tier; add caching"},
+    {ID:"R2",Risk:"Key auth engineer on leave in July",Owner:"A. Rivera",Status:variant?"Closed":"Open",Severity:"Medium",Date:d(2026,4,2),Mitigation:"Cross-train backup"},
+  ];
+  if(variant) risks.push({ID:"R3",Risk:"SOC2 evidence collection behind schedule",Owner:"L. Park",Status:"Open",Severity:"High",Date:d(2026,6,20),Mitigation:"Weekly evidence standup"});
+  const issues=[
+    {ID:"I1",Issue:"Staging environment unstable, blocking QA",Owner:"A. Rivera",Status:variant?"Closed":"Open",Severity:"High",Date:d(2026,5,3),Notes:"Infra ticket raised"},
+  ];
+  const deps=[
+    {ID:"DP1",Dependency:"Warehouse consolidation must finish before pipeline go-live",Owner:"J. Okafor",Status:"Closed",Date:d(2026,6,1)},
+    {ID:"DP2",Dependency:"Legal sign-off needed for self-serve portal",Owner:"L. Park",Status:"Open",Date:d(2026,6,15)},
+  ];
+  const assumptions=[
+    {ID:"A1",Assumption:"Budget approved for Q3 hires",Owner:"PMO",Status:"Open",Date:d(2026,4,1)},
+  ];
+  const decisions=[
+    {ID:"DE1",Decision:"Adopt event-driven architecture for pipeline",Owner:"J. Okafor",Status:"Approved",Date:d(2026,4,20)},
+  ];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(deliv),"Gold Copy");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(deps),"Dependencies");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(assumptions),"Assumptions");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(issues),"Issues");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(decisions),"Decisions");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(risks),"Risks");
+  return wb;
+}
+
+/* ==================== WIRING ==================== */
+function libReady(){ if(typeof XLSX==="undefined"){ toast("Excel library blocked — sample & .xlsx need it. See Help."); return false;} return true; }
+
+// tabs
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active"); $("#view-"+t.dataset.view).classList.add("active");
+});
+
+// dashboard load
+$("#file-dash").onchange=async e=>{
+  const f=e.target.files[0]; if(!f||!libReady()) return;
+  try{ DASH=await readFile(f); $("#dash-status").innerHTML=`<b>${f.name}</b> · ${DASH.deliverables.length} deliverables · sheet "${DASH.delivSheet}"`;
+    renderDashboard(); toast("Loaded "+f.name); }
+  catch(err){ toast("Could not read file: "+err.message); }
+};
+$("#sample-dash").onclick=()=>{ if(!libReady())return; DASH=buildModel(sampleWorkbook(0,0));
+  $("#dash-status").innerHTML=`<b>Sample data</b> · ${DASH.deliverables.length} deliverables (demo)`;
+  renderDashboard(); toast("Sample loaded"); };
+
+// filters
+["#f-ws","#f-owner","#f-status"].forEach(s=>$(s).addEventListener("change",refreshDashboard));
+$("#f-search").addEventListener("input",refreshDashboard);
+$("#f-reset").onclick=()=>{ ["#f-ws","#f-owner","#f-status"].forEach(s=>$(s).value=""); $("#f-search").value=""; refreshDashboard(); };
+$("#raidnav").addEventListener("click",e=>{ const b=e.target.closest(".rtab"); if(!b)return; RAID_ACTIVE=b.dataset.raid; renderRaidNav(); renderRaidBody(); });
+
+/* ==================== CHANGE DIGEST (generic cell diff + smart insights) ==================== */
+const cv = v => String(v==null?"":v).trim();
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let GEN_BEFORE=null, GEN_AFTER=null;
+
+function sheetToTable(ws){
+  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,blankrows:false,defval:""});
+  let hi=0; while(hi<aoa.length && (aoa[hi]||[]).every(c=>cv(c)==="")) hi++;
+  const headers=(aoa[hi]||[]).map((h,i)=> cv(h)||("Column "+(i+1)));
+  // de-dupe header names so column keys stay distinct
+  const seen={}; headers.forEach((h,i)=>{ if(seen[h]!=null){ headers[i]=h+" ("+(++seen[h])+")"; } else seen[h]=0; });
+  const rows=[];
+  for(let r=hi+1;r<aoa.length;r++){
+    const arr=aoa[r]||[]; if(arr.every(c=>cv(c)==="")) continue;
+    const o={}; headers.forEach((h,i)=> o[h]= arr[i]==null?"":arr[i]); rows.push(o);
+  }
+  return {headers,rows};
+}
+/* One loaded file = raw tables (for cell diff) + Gold Copy model (for smart insights) */
+function wbToLoaded(wb){
+  const tables={}; wb.SheetNames.forEach(n=> tables[n]=sheetToTable(wb.Sheets[n]));
+  return {sheetNames:wb.SheetNames, tables, model:buildModel(wb)};
+}
+function readWorkbookRaw(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=e=>{ try{
+      res(wbToLoaded(XLSX.read(new Uint8Array(e.target.result),{type:"array",cellDates:true})));
+    }catch(err){ rej(err); } };
+    fr.onerror=rej; fr.readAsArrayBuffer(file);
+  });
+}
+function suggestKey(t){
+  const {headers,rows}=t;
+  const pref=headers.find(h=>/^(id|key|ref|reference|ticket|item|no|number|name|task|wbs)\b/i.test(h.trim()));
+  if(pref) return [pref];
+  let best=headers[0]||"", score=-1;
+  headers.forEach(h=>{
+    const vals=rows.map(r=>cv(r[h])).filter(Boolean);
+    const s= rows.length? new Set(vals).size/rows.length : 0;
+    if(s>score){ score=s; best=h; }
+  });
+  return best?[best]:[];
+}
+function currentTable(src, sheet){ return (src.tables[sheet]) || src.tables[src.sheetNames[0]] || {headers:[],rows:[]}; }
+function maybeSetup(){ if(GEN_BEFORE && GEN_AFTER) populateSetup(); }
+function populateSetup(){
+  const common=GEN_AFTER.sheetNames.filter(n=>GEN_BEFORE.sheetNames.includes(n));
+  const list=common.length?common:GEN_AFTER.sheetNames;
+  $("#gd-sheet").innerHTML=list.map(n=>`<option>${esc(n)}</option>`).join("");
+  // default to the main deliverables sheet if we recognized one
+  const prefer=(GEN_AFTER.model&&GEN_AFTER.model.delivSheet)||(GEN_BEFORE.model&&GEN_BEFORE.model.delivSheet);
+  if(prefer && list.includes(prefer)) $("#gd-sheet").value=prefer;
+  $("#gd-setup").style.display="block";
+  refreshKeyOptions();
+}
+function refreshKeyOptions(){
+  const sheet=$("#gd-sheet").value;
+  const at=currentTable(GEN_AFTER,sheet), bt=currentTable(GEN_BEFORE,sheet);
+  const headers = at.headers.length?at.headers:bt.headers;
+  const byPos=$("#gd-mode").value==="pos";
+  if(byPos){
+    $("#gd-keys").innerHTML=`<span class="gd-hint">Rows are matched by position (row 1 ↔ row 1). Use this when the sheet has no ID column and rows keep their order.</span>`;
+    return;
+  }
+  const suggested=suggestKey(at.rows.length?at:bt);
+  $("#gd-keys").innerHTML=`<span class="gd-hint">Identity column(s) — used to match a row across both files:</span>`+
+    headers.map(h=>`<label class="kc"><input type="checkbox" value="${esc(h)}" ${suggested.includes(h)?"checked":""}> ${esc(h)}</label>`).join("");
+}
+function diffTables(before, after, keyCols, byPos){
+  const compareCols = after.headers.filter(h=>before.headers.includes(h));
+  const addedCols   = after.headers.filter(h=>!before.headers.includes(h));
+  const removedCols = before.headers.filter(h=>!after.headers.includes(h));
+  const keyFn = r => (keyCols.map(k=>cv(r[k])).join(" · ") || "(blank)");
+  let pairs=[];
+  if(byPos){
+    const n=Math.max(before.rows.length, after.rows.length);
+    for(let i=0;i<n;i++) pairs.push({key:"Row "+(i+1), b:before.rows[i]||null, a:after.rows[i]||null});
+  } else {
+    const bm=new Map(), am=new Map();
+    before.rows.forEach((r,i)=>{ let k=keyFn(r); while(bm.has(k)) k+=" ("+i+")"; bm.set(k,r); });
+    after.rows.forEach((r,i)=>{ let k=keyFn(r); while(am.has(k)) k+=" ("+i+")"; am.set(k,r); });
+    [...new Set([...bm.keys(),...am.keys()])].forEach(k=> pairs.push({key:k, b:bm.get(k)||null, a:am.get(k)||null}));
+  }
+  const added=[],removed=[],changed=[]; let unchanged=0;
+  pairs.forEach(p=>{
+    if(!p.b && p.a){ added.push(p); return; }
+    if(p.b && !p.a){ removed.push(p); return; }
+    if(!p.b && !p.a) return;
+    const cells=[];
+    compareCols.forEach(h=>{ if(cv(p.b[h])!==cv(p.a[h])) cells.push({col:h, old:p.b[h], new:p.a[h]}); });
+    if(cells.length) changed.push({...p, cells}); else unchanged++;
+  });
+  const cellEdits=changed.reduce((n,c)=>n+c.cells.length,0);
+  return {added,removed,changed,unchanged,cellEdits,addedCols,removedCols,
+          headers:(after.headers.length?after.headers:before.headers), keyCols, byPos};
+}
+function genericDiffHTML(d){
+  const cards=`<div class="cards">
+    <div class="card c-total"><div class="k">Changed rows</div><div class="v">${d.changed.length}</div><div class="s">${d.cellEdits} cell edit${d.cellEdits!==1?"s":""}</div></div>
+    <div class="card" style="background:linear-gradient(135deg,#2f9e44,#37b24d)"><div class="k">Added rows</div><div class="v">${d.added.length}</div><div class="s">new in After</div></div>
+    <div class="card c-late"><div class="k">Removed rows</div><div class="v">${d.removed.length}</div><div class="s">gone from After</div></div>
+    <div class="card c-raid"><div class="k">Unchanged</div><div class="v">${d.unchanged}</div><div class="s">identical rows</div></div>
+  </div>`;
+  let colnote="";
+  if(d.addedCols.length||d.removedCols.length){
+    colnote=`<div class="digest-narrative" style="border-left-color:#f08c00"><b>Columns changed:</b> `+
+      (d.addedCols.length?`added ${d.addedCols.map(esc).join(", ")}. `:"")+
+      (d.removedCols.length?`removed ${d.removedCols.map(esc).join(", ")}.`:"")+
+      ` (Only columns present in both files are compared for cell edits.)</div>`;
+  }
+  let cellRows="";
+  d.changed.forEach(c=> c.cells.forEach(ch=>{
+    cellRows+=`<tr><td class="mini">${esc(c.key)}</td><td>${esc(ch.col)}</td>`+
+      `<td><span class="old">${esc(ch.old)||"—"}</span><span class="arrow">→</span><span class="new">${esc(ch.new)||"—"}</span></td></tr>`;
+  }));
+  const cellPanel = d.cellEdits ? `<div class="panel"><div class="head"><h2>Cell changes</h2><span class="pill">${d.cellEdits}</span></div>
+    <div class="body" style="padding:2px 6px"><div class="gridwrap"><table class="difftable">
+    <thead><tr><th>Row</th><th>Column</th><th>Before → After</th></tr></thead><tbody>${cellRows}</tbody></table></div></div></div>` : "";
+  const grid=(rows, cls, label)=>{
+    if(!rows.length) return "";
+    const hs=d.headers;
+    const body=rows.map(p=>{ const r=(cls==="row-added"?p.a:p.b)||{};
+      return `<tr class="${cls}">`+hs.map(h=>`<td title="${esc(r[h])}">${esc(r[h])}</td>`).join("")+`</tr>`; }).join("");
+    return `<div class="panel"><div class="head"><h2>${label}</h2><span class="pill">${rows.length}</span></div>
+      <div class="body"><div class="gridwrap"><table class="grid"><thead><tr>${hs.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></div></div>`;
+  };
+  const dl = `<div style="margin:4px 2px 16px"><button class="btn" id="gd-download">⬇ Download change report (.csv)</button></div>`;
+  return cards+colnote+dl+cellPanel+grid(d.added,"row-added","Added rows")+grid(d.removed,"row-removed","Removed rows");
+}
+function renderMerged(insights, d){
+  const genericEmpty = !(d.cellEdits||d.added.length||d.removed.length);
+  let html="";
+  if(insights.hasAny){
+    html += insights.html;
+    html += `<h2 style="margin:24px 0 8px;font-size:16px">All row &amp; cell changes</h2>`;
+    html += genericEmpty ? `<div class="empty" style="padding:16px">No further row or cell differences on the compared sheet.</div>` : genericDiffHTML(d);
+  } else {
+    html = genericEmpty ? `<div class="empty">No differences on the compared columns — the two files match. 🎉</div>` : genericDiffHTML(d);
+  }
+  $("#gd-result").innerHTML=html;
+  $("#gd-empty").style.display="none";
+  const dl=$("#gd-download"); if(dl) dl.onclick=()=>downloadReport(d);
+}
+function csvCell(v){ v=String(v==null?"":v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function rowStr(r,hs){ return hs.map(h=>`${h}=${r[h]}`).filter(s=>!s.endsWith("=")).join(" | "); }
+function downloadReport(d){
+  const lines=[["Change","Row","Column","Before","After"].map(csvCell).join(",")];
+  d.changed.forEach(c=>c.cells.forEach(ch=> lines.push(["Changed",c.key,ch.col,ch.old,ch.new].map(csvCell).join(","))));
+  d.added.forEach(p=> lines.push(["Added",p.key,"","",rowStr(p.a||{},d.headers)].map(csvCell).join(",")));
+  d.removed.forEach(p=> lines.push(["Removed",p.key,"",rowStr(p.b||{},d.headers),""].map(csvCell).join(",")));
+  const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a");
+  a.href=url; a.download="change-report.csv"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+$("#gd-before").onchange=async e=>{ const f=e.target.files[0]; if(!f||!libReady())return;
+  try{ GEN_BEFORE=await readWorkbookRaw(f); $("#gd-before-status").innerHTML=`<b>${esc(f.name)}</b>`; maybeSetup(); }catch(err){ toast(err.message); } };
+$("#gd-after").onchange=async e=>{ const f=e.target.files[0]; if(!f||!libReady())return;
+  try{ GEN_AFTER=await readWorkbookRaw(f); $("#gd-after-status").innerHTML=`<b>${esc(f.name)}</b>`; maybeSetup(); }catch(err){ toast(err.message); } };
+$("#gd-sample").onclick=()=>{ if(!libReady())return;
+  GEN_BEFORE=wbToLoaded(sampleWorkbook(0,0)); GEN_AFTER=wbToLoaded(sampleWorkbook(0,1));
+  $("#gd-before-status").innerHTML="<b>Sample · Gold Copy (last week)</b>";
+  $("#gd-after-status").innerHTML="<b>Sample · Gold Copy (this week)</b>";
+  populateSetup(); toast("Sample loaded — click Compare"); };
+$("#gd-sheet").addEventListener("change",refreshKeyOptions);
+$("#gd-mode").addEventListener("change",refreshKeyOptions);
+$("#gd-run").onclick=()=>{
+  if(!GEN_BEFORE||!GEN_AFTER){ toast("Load both a Before and After file first."); return; }
+  const sheet=$("#gd-sheet").value, byPos=$("#gd-mode").value==="pos";
+  const keyCols=[...document.querySelectorAll('#gd-keys input:checked')].map(c=>c.value);
+  if(!byPos && !keyCols.length){ toast("Pick at least one identity column, or switch to Row position."); return; }
+  const d=diffTables(currentTable(GEN_BEFORE,sheet), currentTable(GEN_AFTER,sheet), keyCols, byPos);
+  const insights=computeInsights(GEN_BEFORE.model, GEN_AFTER.model);
+  renderMerged(insights, d);
+};
+</script>
+</body>
+</html>

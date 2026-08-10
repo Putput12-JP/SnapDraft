@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft Vault — IBM Carbon concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   IBM Carbon token layer — Gray 100 (g100) dark theme
+   ============================================================ */
+:root{
+  --background:#161616;      /* $background */
+  --layer-01:#262626;        /* $layer-01 */
+  --layer-02:#393939;        /* $layer-02 */
+  --layer-hover:#333333;     /* $layer-hover-01 */
+  --layer-selected:#525252;
+  --field:#262626;           /* $field-01 */
+  --border-subtle:#393939;   /* $border-subtle-01 */
+  --border-strong:#6f6f6f;   /* $border-strong-01 */
+  --text-primary:#f4f4f4;
+  --text-secondary:#c6c6c6;
+  --text-helper:#8d8d8d;
+  --text-inverse:#161616;
+  --link:#78a9ff;            /* $link-primary */
+  --interactive:#0f62fe;     /* $button-primary / blue 60 */
+  --interactive-hover:#0353e9;
+  --support-error:#fa4d56;
+  --support-success:#42be65;
+  --support-warning:#f1c21b;
+  --support-info:#4589ff;
+  --purple-40:#a56eff;
+  --teal-30:#08bdba;
+  --cyan-40:#33b1ff;
+  --magenta-40:#ff7eb6;
+  --orange-40:#ff832b;
+
+  --pos-qb:var(--magenta-40);
+  --pos-rb:var(--teal-30);
+  --pos-wr:var(--cyan-40);
+  --pos-te:var(--orange-40);
+  --f-upside:var(--orange-40);
+  --f-floor:var(--teal-30);
+  --f-risk:var(--support-error);
+  --f-sit:var(--cyan-40);
+  --mine:var(--support-success);
+  --adp:var(--purple-40);
+  --dyn:var(--support-warning);
+  --rdr:var(--cyan-40);
+}
+*{margin:0;padding:0;box-sizing:border-box;border-radius:0}
+html,body{height:100%}
+body{
+  background:var(--background);
+  color:var(--text-primary);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,sans-serif;
+  font-size:14px;line-height:1.4;letter-spacing:.16px;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+svg.cds{width:16px;height:16px;fill:currentColor;flex-shrink:0}
+svg.cds.stroke{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============================================================
+   UI Shell — header + left nav
+   ============================================================ */
+.shell-header{
+  position:fixed;top:0;left:0;right:0;height:48px;z-index:80;
+  background:#161616;border-bottom:1px solid var(--border-subtle);
+  display:flex;align-items:center;
+}
+.hdr-menu{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--text-primary);cursor:pointer}
+.hdr-menu:hover{background:var(--layer-hover)}
+.hdr-name{font-size:14px;font-weight:600;letter-spacing:.1px;padding:0 16px 0 4px;white-space:nowrap}
+.hdr-name .prefix{font-weight:400}
+.hdr-nav{display:flex;height:100%}
+.hdr-nav a{
+  display:flex;align-items:center;padding:0 16px;font-size:14px;color:var(--text-secondary);
+  text-decoration:none;border-bottom:3px solid transparent;border-top:3px solid transparent;
+}
+.hdr-nav a:hover{background:var(--layer-hover);color:var(--text-primary)}
+.hdr-nav a.active{color:var(--text-primary);border-bottom-color:var(--interactive)}
+.hdr-global{margin-left:auto;display:flex;height:100%}
+.hdr-action{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--text-primary);cursor:pointer}
+.hdr-action:hover{background:var(--layer-hover)}
+.hdr-avatar{width:24px;height:24px;background:var(--interactive);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;border-radius:50%}
+
+.sidenav{
+  position:fixed;top:48px;left:0;bottom:0;width:256px;z-index:70;
+  background:#161616;border-right:1px solid var(--border-subtle);
+  padding:16px 0;overflow-y:auto;
+}
+.sn-label{font-size:12px;color:var(--text-helper);padding:8px 16px;letter-spacing:.32px}
+.sn-item{
+  display:flex;align-items:center;gap:12px;height:32px;padding:0 16px;
+  font-size:14px;color:var(--text-secondary);cursor:pointer;position:relative;
+}
+.sn-item:hover{background:var(--layer-hover);color:var(--text-primary)}
+.sn-item.active{background:var(--layer-01);color:var(--text-primary);font-weight:600}
+.sn-item.active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--interactive)}
+.sn-item svg.cds{width:15px;height:15px}
+.sn-divider{height:1px;background:var(--border-subtle);margin:12px 16px}
+
+.content{margin:48px 0 0 256px;padding:0 32px 64px;max-width:1440px}
+
+/* ============================================================
+   Type + primitives
+   ============================================================ */
+.breadcrumb{display:flex;gap:8px;font-size:14px;padding:16px 0 8px;color:var(--text-secondary)}
+.breadcrumb a{color:var(--link);text-decoration:none}
+.breadcrumb a:hover{text-decoration:underline}
+h1.page-title{font-size:28px;font-weight:400;letter-spacing:0;line-height:36px}
+.title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.page-sub{font-size:14px;color:var(--text-secondary);margin-top:6px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.page-sub .live-dot{width:8px;height:8px;border-radius:50%;background:var(--support-success);display:inline-block;margin-right:6px}
+
+.tag{
+  display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:24px;
+  font-size:12px;font-weight:400;letter-spacing:.32px;white-space:nowrap;
+}
+.tag.blue{background:#0043ce;color:#d0e2ff}
+.tag.gray{background:#525252;color:#f4f4f4}
+.tag.green{background:#044317;color:#6fdc8c}
+.tag.teal{background:#004144;color:#3ddbd9}
+.tag.purple{background:#491d8b;color:#d4bbff}
+.tag.magenta{background:#740937;color:#ffafd2}
+.tag.cyan{background:#003a6d;color:#82cfff}
+.tag.orange{background:#5e2900;color:#ffb784}
+.tag.red{background:#750e13;color:#ffb3b8}
+.tag.outline{background:transparent;border:1px solid var(--border-strong);color:var(--text-primary)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:space-between;gap:32px;
+  height:40px;padding:0 16px;font-size:14px;letter-spacing:.16px;cursor:pointer;
+  border:1px solid transparent;font-family:inherit;white-space:nowrap;
+}
+.btn svg.cds,.btn svg.stroke{width:16px;height:16px}
+.btn-primary{background:var(--interactive);color:#fff}
+.btn-primary:hover{background:var(--interactive-hover)}
+.btn-tertiary{background:transparent;border-color:#fff;color:#fff}
+.btn-tertiary:hover{background:#f4f4f4;color:var(--text-inverse)}
+.btn-ghost{background:transparent;color:var(--link);gap:8px;justify-content:center}
+.btn-ghost:hover{background:var(--layer-hover);color:#a6c8ff}
+.btn .badge-n{
+  min-width:18px;height:18px;padding:0 5px;background:var(--layer-02);font-size:11px;
+  display:inline-flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;
+}
+
+/* content switcher — selected goes inverse in dark themes */
+.switcher{display:inline-flex;background:var(--layer-01);border:1px solid transparent}
+.switch-item{
+  height:40px;padding:0 16px;display:inline-flex;align-items:center;font-size:14px;
+  color:var(--text-secondary);background:transparent;border:none;cursor:pointer;font-family:inherit;
+  border-left:1px solid var(--border-subtle);
+}
+.switch-item:first-child{border-left:none}
+.switch-item:hover{background:var(--layer-hover);color:var(--text-primary)}
+.switch-item.selected{background:#f4f4f4;color:var(--text-inverse);font-weight:450}
+
+/* dropdown + search: Carbon fields, bottom border only */
+.dropdown{
+  height:40px;background:var(--field);border:none;border-bottom:1px solid var(--border-strong);
+  color:var(--text-primary);font-size:14px;font-family:inherit;padding:0 40px 0 16px;
+  appearance:none;cursor:pointer;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='%23f4f4f4'%3E%3Cpath d='M8 11L3 6l.7-.7L8 9.6l4.3-4.3.7.7z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+}
+.dropdown:focus{outline:2px solid #fff;outline-offset:-2px}
+.search-wrap{position:relative;display:flex;align-items:center;flex:1;max-width:320px}
+.search-wrap svg.cds{position:absolute;left:14px;width:16px;height:16px;color:var(--text-secondary)}
+.search-input{
+  height:40px;width:100%;background:var(--field);border:none;border-bottom:1px solid var(--border-strong);
+  color:var(--text-primary);font-size:14px;font-family:inherit;padding:0 16px 0 44px;outline:none;
+}
+.search-input::placeholder{color:var(--text-helper)}
+.search-input:focus{outline:2px solid #fff;outline-offset:-2px}
+
+/* ============================================================
+   Notification + stat tiles
+   ============================================================ */
+.inline-notif{
+  display:flex;align-items:center;gap:14px;background:var(--layer-01);
+  border-left:3px solid var(--support-info);padding:14px 16px;margin-top:20px;
+}
+.inline-notif svg.cds{color:var(--support-info);width:18px;height:18px}
+.notif-txt{flex:1;font-size:14px}
+.notif-txt b{font-weight:600}
+.notif-txt .sub{color:var(--text-secondary);font-size:13px;margin-top:1px}
+.notif-action{color:var(--link);font-size:14px;cursor:pointer;white-space:nowrap;padding:0 8px}
+.notif-action:hover{text-decoration:underline}
+
+.tiles{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1.5fr;gap:1px;background:var(--border-subtle);border:1px solid var(--border-subtle);margin-top:16px}
+.tile{background:var(--layer-01);padding:16px;display:flex;flex-direction:column;gap:4px;min-height:112px}
+.tile-label{font-size:12px;color:var(--text-secondary);letter-spacing:.32px}
+.tile-value{font-size:32px;font-weight:300;line-height:40px;letter-spacing:0}
+.tile-value small{font-size:13px;color:var(--text-helper);font-weight:400;margin-left:8px}
+.tile-detail{font-size:12px;color:var(--text-helper);margin-top:auto}
+.tile-grade .tile-value{color:var(--support-success);font-weight:400}
+.progress-track{height:4px;background:var(--layer-02)}
+.progress-fill{height:100%;background:var(--interactive)}
+.progress-row{display:flex;align-items:center;gap:16px;background:var(--layer-01);border:1px solid var(--border-subtle);border-top:none;padding:12px 16px}
+.progress-row .progress-track{flex:1}
+.progress-row span{font-size:12px;color:var(--text-secondary);white-space:nowrap}
+
+/* suggested tiles */
+.section-heading{font-size:16px;font-weight:600;letter-spacing:0;margin:32px 0 12px}
+.sug-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--border-subtle);border:1px solid var(--border-subtle)}
+.sug-tile{background:var(--layer-01);padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:8px}
+.sug-tile:hover{background:var(--layer-hover)}
+.sug-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sug-name{font-size:15px;font-weight:600}
+.sug-grade{font-family:"IBM Plex Mono",monospace;font-size:18px;font-weight:600}
+.sug-why{font-size:13px;color:var(--text-secondary);line-height:1.45}
+.sug-tags{display:flex;gap:6px;margin-top:auto}
+
+/* grade key */
+.gkey{
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;background:var(--layer-01);
+  border-left:3px solid var(--border-strong);padding:10px 16px;margin-top:16px;
+  font-size:12px;color:var(--text-secondary);letter-spacing:.16px;
+}
+.gkey b{color:var(--text-primary);font-weight:600}
+.gkey-item{display:inline-flex;align-items:center;gap:6px;cursor:help}
+.gkey-item svg{width:13px;height:13px}
+.gkey a{margin-left:auto;color:var(--link);text-decoration:none;cursor:pointer}
+.gkey a:hover{text-decoration:underline}
+
+/* ============================================================
+   Data table — Carbon style
+   ============================================================ */
+.dt-container{margin-top:24px;border:1px solid var(--border-subtle)}
+.dt-header{background:var(--layer-01);padding:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.dt-title{font-size:18px;font-weight:400}
+.dt-desc{font-size:13px;color:var(--text-secondary);margin-top:2px}
+.dt-toolbar{display:flex;align-items:center;background:var(--layer-01);border-top:1px solid var(--border-subtle)}
+.dt-toolbar .search-wrap{max-width:none;flex:1}
+.dt-toolbar .search-input{border-bottom:none;background:transparent;height:48px}
+.dt-toolbar .switcher{margin:4px 8px}
+.dt-toolbar .switch-item{height:40px}
+.dt-toolbar .dropdown{border-bottom:none;background:transparent;height:48px}
+.pos-filter{display:flex;align-items:center;gap:4px;padding:0 12px}
+.pos-chk{
+  height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;
+  border:1px solid var(--border-strong);color:var(--text-secondary);cursor:pointer;background:transparent;font-family:inherit;
+}
+.pos-chk:hover{color:var(--text-primary);border-color:#f4f4f4}
+.pos-chk.on{background:#f4f4f4;color:var(--text-inverse);border-color:#f4f4f4;font-weight:500}
+.pos-chk .pdot{width:6px;height:6px;border-radius:50%}
+.dt-toolbar .btn-primary{height:48px}
+
+table.dt{width:100%;border-collapse:collapse;font-size:14px}
+.dt thead th{
+  height:48px;background:var(--layer-02);color:var(--text-primary);font-weight:600;
+  text-align:right;padding:0 16px;font-size:14px;letter-spacing:.16px;white-space:nowrap;
+}
+.dt thead th.l{text-align:left}
+.dt thead th.c{text-align:center}
+.dt thead th .src{font-size:10px;color:var(--text-helper);font-family:"IBM Plex Mono",monospace;margin-left:6px;vertical-align:1px}
+.dt thead th .arr{font-size:11px;margin-left:4px;color:var(--text-helper)}
+.dt thead th.sorted .arr{color:var(--text-primary)}
+.dt thead th svg{width:14px;height:14px;vertical-align:-2px}
+.dt tbody td{
+  height:48px;padding:6px 16px;background:var(--layer-01);border-top:1px solid var(--border-subtle);
+  text-align:right;white-space:nowrap;color:var(--text-secondary);font-variant-numeric:tabular-nums;
+}
+.dt tbody tr:hover td{background:var(--layer-hover)}
+.dt td.l{text-align:left}
+.dt td.c{text-align:center}
+.dt .rk{color:var(--text-helper);font-family:"IBM Plex Mono",monospace;font-size:13px}
+.pcell{display:flex;align-items:center;gap:12px;min-width:220px}
+.pav{
+  width:32px;height:32px;background:var(--layer-02);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;color:var(--text-secondary);flex-shrink:0;
+}
+.pname{font-size:14px;font-weight:600;color:var(--text-primary);line-height:1.25}
+.psub{font-size:12px;color:var(--text-helper);margin-top:1px;display:flex;align-items:center;gap:8px}
+.pos-lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.pos-lbl .pdot{width:6px;height:6px;border-radius:50%}
+.val{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500}
+.fnum{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600}
+.pg-tag{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600}
+.sub-delta{display:block;font-size:11px;color:var(--text-helper)}
+.up{color:var(--support-success)}.dn{color:var(--support-error)}
+tr.gone td{color:#6f6f6f}
+tr.gone .pname{color:#6f6f6f;text-decoration:line-through}
+tr.gone .val,tr.gone .fnum{opacity:.45}
+tr.mypick td:first-child{box-shadow:inset 3px 0 0 var(--interactive)}
+tr.tier-row td{
+  height:32px;background:#202020;color:var(--text-helper);font-size:11px;font-weight:600;
+  letter-spacing:.6px;text-align:left;font-family:"IBM Plex Mono",monospace;
+}
+.star{cursor:pointer;font-size:15px;color:var(--text-helper)}
+.star.on{color:var(--support-warning)}
+.dt-pagination{
+  display:flex;align-items:center;justify-content:space-between;background:var(--layer-01);
+  border-top:1px solid var(--border-subtle);padding:0 0 0 16px;height:48px;font-size:13px;color:var(--text-secondary);
+}
+.dt-pagination .pages{display:flex;height:100%}
+.dt-pagination button{
+  width:48px;height:48px;background:transparent;border:none;border-left:1px solid var(--border-subtle);
+  color:var(--text-primary);cursor:pointer;font-size:16px;
+}
+.dt-pagination button:hover{background:var(--layer-hover)}
+
+/* ============================================================
+   Draft board
+   ============================================================ */
+.board-wrap{border:1px solid var(--border-subtle);margin-top:24px}
+.board-head{background:var(--layer-01);padding:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.board-scroll{overflow-x:auto;background:var(--background);padding:16px}
+.board{display:grid;grid-template-columns:repeat(12,minmax(80px,1fr));gap:2px;min-width:1000px}
+.bteam{font-size:11px;font-weight:600;color:var(--text-helper);text-align:center;padding:4px 0 8px;font-family:"IBM Plex Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bteam.me{color:var(--link)}
+.bcell{background:var(--layer-01);border-left:3px solid var(--pc,var(--layer-02));padding:8px;min-height:56px;overflow:hidden}
+.bcell .bp{font-size:10px;color:var(--text-helper);font-family:"IBM Plex Mono",monospace;display:flex;justify-content:space-between}
+.bcell .bn{font-size:12px;font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcell.empty{background:#1c1c1c;border-left-color:#2a2a2a}
+.bcell.empty .bn{color:var(--text-helper);font-weight:400}
+.bcell.otc{outline:1px solid var(--support-info);outline-offset:-1px}
+.bcell.mine{outline:1px solid var(--interactive);outline-offset:-1px;background:#001141}
+
+@media (max-width:1100px){
+  .sidenav{display:none}
+  .content{margin-left:0}
+  .tiles{grid-template-columns:1fr 1fr}
+  .sug-tiles{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= UI SHELL HEADER ================= -->
+<header class="shell-header">
+  <div class="hdr-menu"><svg class="cds" viewBox="0 0 32 32"><path d="M4 8h24v2H4zM4 15h24v2H4zM4 22h24v2H4z"/></svg></div>
+  <div class="hdr-name"><span class="prefix">Vault&nbsp;</span>Fantasy</div>
+  <nav class="hdr-nav">
+    <a class="active" href="#">Draft Vault</a>
+    <a href="#">ADP Explorer</a>
+    <a href="#">My Rankings</a>
+    <a href="#">League</a>
+  </nav>
+  <div class="hdr-global">
+    <div class="hdr-action"><svg class="cds" viewBox="0 0 32 32"><path d="M29 27.6l-7.4-7.4a11 11 0 1 0-1.4 1.4L27.6 29zM4 13a9 9 0 1 1 9 9 9 9 0 0 1-9-9z"/></svg></div>
+    <div class="hdr-action"><svg class="cds" viewBox="0 0 32 32"><path d="M28.7 20.3 26 17.6V13a10 10 0 0 0-9-9.9V1h-2v2.1A10 10 0 0 0 6 13v4.6l-2.7 2.7a1 1 0 0 0-.3.7v3a1 1 0 0 0 1 1h7a5 5 0 0 0 10 0h7a1 1 0 0 0 1-1v-3a1 1 0 0 0-.3-.7zM16 28a3 3 0 0 1-3-3h6a3 3 0 0 1-3 3z"/></svg></div>
+    <div class="hdr-action"><span class="hdr-avatar">PP</span></div>
+  </div>
+</header>
+
+<!-- ================= SIDE NAV ================= -->
+<nav class="sidenav">
+  <div class="sn-label">Draft tools</div>
+  <div class="sn-item active"><svg class="cds stroke" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Draft Vault</div>
+  <div class="sn-item"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 14 4-4 4 4 5-6"/></svg>ADP Explorer</div>
+  <div class="sn-item"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>My Rankings</div>
+  <div class="sn-divider"></div>
+  <div class="sn-label">Analyze</div>
+  <div class="sn-item"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>League Analyzer</div>
+  <div class="sn-item"><svg class="cds stroke" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Players</div>
+  <div class="sn-item"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="m21 3-7 7"/><path d="M8 21H3v-5"/><path d="m3 21 7-7"/></svg>Trade Intel</div>
+  <div class="sn-item"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>Advanced Stats</div>
+</nav>
+
+<!-- ================= CONTENT ================= -->
+<main class="content">
+
+  <nav class="breadcrumb"><a href="#">Draft tools</a> / <span>Draft Vault</span></nav>
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+    <div>
+      <div class="title-row">
+        <h1 class="page-title">Draft Vault</h1>
+        <span class="tag blue">Dynasty · Superflex</span>
+        <span class="tag gray">12-team</span>
+      </div>
+      <div class="page-sub">
+        <span><span class="live-dot"></span>Live values</span>
+        <span>Synced with My Rankings</span>
+        <span class="mono" style="font-size:12px">412 players</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:1px">
+      <button class="btn btn-ghost"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6L12 17.1 6.6 20l1.2-6L3.4 9.8l6-.7Z"/></svg>Watchlist</button>
+      <button class="btn btn-ghost"><svg class="cds stroke" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>Drafted<span class="badge-n">13</span></button>
+      <button class="btn btn-tertiary">Watch queue<svg class="cds" viewBox="0 0 32 32"><path d="M16 4v20.6l-7.3-7.3-1.4 1.4 9.7 9.7 9.7-9.7-1.4-1.4-7.3 7.3V4z" transform="rotate(-90 16 16)"/></svg></button>
+      <button class="btn btn-primary">Import CSV<svg class="cds" viewBox="0 0 32 32"><path d="M26 24v4H6v-4H4v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4zM16 4l-9.7 9.7 1.4 1.4 7.3-7.3V22h2V7.8l7.3 7.3 1.4-1.4z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- on-the-clock notification -->
+  <div class="inline-notif">
+    <svg class="cds" viewBox="0 0 32 32"><path d="M16 2a14 14 0 1 0 14 14A14 14 0 0 0 16 2zm0 26a12 12 0 1 1 12-12 12 12 0 0 1-12 12z"/><path d="M20.6 21.9 15 16.3V7h2v8.4l5 5.1-1.4 1.4z"/></svg>
+    <div class="notif-txt">
+      <div><b>GridironGuru</b> is on the clock — pick 2.02 · 0:42 remaining</div>
+      <div class="sub">You're up in 3 picks at 2.05</div>
+    </div>
+    <span class="notif-action">Re-sync draft</span>
+  </div>
+
+  <!-- stat tiles -->
+  <div class="tiles">
+    <div class="tile">
+      <span class="tile-label">Your next pick · Early Birds</span>
+      <span class="tile-value mono">2.05<small>3 picks away</small></span>
+      <span class="tile-detail">Pick 14 of 144 · Snake · PPR</span>
+    </div>
+    <div class="tile">
+      <span class="tile-label">Players left</span>
+      <span class="tile-value mono">399</span>
+      <span class="tile-detail">of 412 draftable</span>
+    </div>
+    <div class="tile">
+      <span class="tile-label">Drafted</span>
+      <span class="tile-value mono">13</span>
+      <span class="tile-detail">Round 1 complete + 2.01</span>
+    </div>
+    <div class="tile tile-grade">
+      <span class="tile-label">Draft grade</span>
+      <span class="tile-value">B+<small>78 / 100</small></span>
+      <span class="tile-detail">Upside · Floor · Risk · Situational</span>
+    </div>
+    <div class="tile">
+      <span class="tile-label">Best value available</span>
+      <span class="tile-value" style="font-size:20px;font-weight:600;line-height:28px">De'Von Achane</span>
+      <span class="tile-detail">ADP 1.09 — still on the board at 2.05</span>
+    </div>
+  </div>
+  <div class="progress-row">
+    <div class="progress-track"><div class="progress-fill" style="width:9%"></div></div>
+    <span>9% complete · Round 2 of 12</span>
+  </div>
+
+  <!-- suggested -->
+  <h2 class="section-heading">Suggested at 2.05</h2>
+  <div class="sug-tiles">
+    <div class="sug-tile">
+      <div class="sug-head"><span class="sug-name">De'Von Achane</span><span class="sug-grade" style="color:var(--support-success)">A</span></div>
+      <div class="sug-why">Best value on board — ADP 1.09, still here at 2.05.</div>
+      <div class="sug-tags"><span class="tag teal">RB4 · MIA</span><span class="tag green">Value</span></div>
+    </div>
+    <div class="sug-tile">
+      <div class="sug-head"><span class="sug-name">Drake Maye</span><span class="sug-grade" style="color:var(--support-success)">A−</span></div>
+      <div class="sug-why">Superflex need — 6 QBs already gone in round 1.</div>
+      <div class="sug-tags"><span class="tag magenta">QB5 · NE</span><span class="tag blue">Roster need</span></div>
+    </div>
+    <div class="sug-tile">
+      <div class="sug-head"><span class="sug-name">Brock Bowers</span><span class="sug-grade" style="color:#a7f0ba">B+</span></div>
+      <div class="sug-why">Positional cliff — next TE off the board ~3 rounds later.</div>
+      <div class="sug-tags"><span class="tag orange">TE1 · LV</span><span class="tag purple">Scarcity</span></div>
+    </div>
+  </div>
+
+  <!-- grade key -->
+  <div class="gkey">
+    <b>Grade keys</b>
+    <span class="gkey-item"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-upside)"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg><b>Upside</b> ceiling / boom weeks</span>
+    <span class="gkey-item"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-floor)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg><b>Floor</b> weekly safety</span>
+    <span class="gkey-item"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-risk)"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg><b>Risk</b> lower is safer</span>
+    <span class="gkey-item"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-sit)"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg><b>Situational</b> fit to your roster</span>
+    <a>How the grade adds up</a>
+  </div>
+
+  <!-- ===== data table ===== -->
+  <div class="dt-container">
+    <div class="dt-header">
+      <div>
+        <div class="dt-title">Player rankings</div>
+        <div class="dt-desc">FantasyCalc dynasty values · 4-factor grades recalculate every pick</div>
+      </div>
+    </div>
+    <div class="dt-toolbar">
+      <div class="search-wrap">
+        <svg class="cds" viewBox="0 0 32 32"><path d="M29 27.6l-7.4-7.4a11 11 0 1 0-1.4 1.4L27.6 29zM4 13a9 9 0 1 1 9 9 9 9 0 0 1-9-9z"/></svg>
+        <input class="search-input" placeholder="Filter players">
+      </div>
+      <div class="pos-filter">
+        <button class="pos-chk on">All</button>
+        <button class="pos-chk"><span class="pdot" style="background:var(--pos-qb)"></span>QB</button>
+        <button class="pos-chk"><span class="pdot" style="background:var(--pos-rb)"></span>RB</button>
+        <button class="pos-chk"><span class="pdot" style="background:var(--pos-wr)"></span>WR</button>
+        <button class="pos-chk"><span class="pdot" style="background:var(--pos-te)"></span>TE</button>
+      </div>
+      <div class="switcher">
+        <button class="switch-item selected">Dynasty</button>
+        <button class="switch-item">Redraft</button>
+      </div>
+      <select class="dropdown">
+        <option>Source: FantasyCalc</option>
+        <option>Source: RosterAudit</option>
+        <option>Source: My Rankings</option>
+      </select>
+      <button class="btn btn-primary">Connect draft<svg class="cds" viewBox="0 0 32 32"><path d="M13 21l-4.6-4.6L7 17.8l6 6 12-12-1.4-1.4z"/></svg></button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="dt">
+        <thead>
+          <tr>
+            <th style="width:48px">#</th>
+            <th class="l">Player</th>
+            <th class="sorted">Dynasty<span class="src">FC</span><span class="arr">▼</span></th>
+            <th>Redraft<span class="arr">▲▼</span></th>
+            <th>ADP<span class="src" style="color:var(--dyn)">SF</span><span class="arr">▲▼</span></th>
+            <th>Mine<span class="src" style="color:var(--mine)">YOU</span><span class="arr">▲▼</span></th>
+            <th class="c" title="Upside"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-upside)"><path d="M12 2c1 4-2 5-2 8a2 2 0 0 0 4 0c0-1 0-2-.5-3 2 1 4.5 3.5 4.5 7a6 6 0 0 1-12 0c0-4 3-6 6-9Z"/></svg></th>
+            <th class="c" title="Floor"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-floor)"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/></svg></th>
+            <th class="c" title="Risk"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-risk)"><path d="M12 3.5 22 20H2L12 3.5Z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg></th>
+            <th class="c" title="Situational"><svg class="cds stroke" viewBox="0 0 24 24" style="color:var(--f-sit)"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg></th>
+            <th class="c">Pick grade</th>
+            <th style="width:48px"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="dt-pagination">
+      <span>1–15 of 412 items · 13 drafted shown dimmed</span>
+      <div class="pages">
+        <button title="Previous page">‹</button>
+        <button title="Next page">›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== draft board ===== -->
+  <div class="board-wrap">
+    <div class="board-head">
+      <div>
+        <div class="dt-title">Draft board</div>
+        <div class="dt-desc">Live snake board · Early Birds · Round 2 of 12</div>
+      </div>
+      <button class="btn btn-tertiary">Change draft<svg class="cds" viewBox="0 0 32 32"><path d="M26 18v8H6V6h8V4H6a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-8zM26 2h-8l3.3 3.3-8.6 8.6 1.4 1.4 8.6-8.6L26 10V2z"/></svg></button>
+    </div>
+    <div class="board-scroll"><div class="board" id="board"></div></div>
+  </div>
+
+</main>
+
+<script>
+const POS_COLOR = {QB:'var(--pos-qb)',RB:'var(--pos-rb)',WR:'var(--pos-wr)',TE:'var(--pos-te)'};
+const players = [
+  {rk:1, name:"Ja'Marr Chase",     pos:'WR', pr:1, team:'CIN', dyn:10874, rdr:9931, adp:'1.01', mine:1,  d:0,  up:9.6, fl:8.9, rs:2.1, si:7.4, pg:null, gone:'Sharks',  star:true},
+  {rk:2, name:'Justin Jefferson',  pos:'WR', pr:2, team:'MIN', dyn:10102, rdr:9445, adp:'1.03', mine:3,  d:-1, up:9.1, fl:9.2, rs:2.4, si:7.1, pg:null, gone:'BigCats', star:false},
+  {rk:3, name:'Jayden Daniels',    pos:'QB', pr:1, team:'WAS', dyn:9987,  rdr:8210, adp:'1.02', mine:2,  d:1,  up:9.3, fl:8.4, rs:2.6, si:8.8, pg:null, gone:'Putput',  star:false, me:true},
+  {rk:4, name:'Josh Allen',        pos:'QB', pr:2, team:'BUF', dyn:9412,  rdr:8804, adp:'1.04', mine:4,  d:0,  up:9.0, fl:9.4, rs:2.2, si:8.6, pg:null, gone:'Wolves',  star:false},
+  {rk:5, name:'Bijan Robinson',    pos:'RB', pr:1, team:'ATL', dyn:9247,  rdr:9612, adp:'1.05', mine:5,  d:0,  up:8.8, fl:9.0, rs:2.5, si:8.1, pg:null, gone:'Hammers', star:false},
+  {tier:2},
+  {rk:6, name:'Jahmyr Gibbs',      pos:'RB', pr:2, team:'DET', dyn:8934,  rdr:9354, adp:'1.07', mine:7,  d:-1, up:9.0, fl:8.3, rs:2.9, si:8.0, pg:'A',  star:true},
+  {rk:7, name:'Malik Nabers',      pos:'WR', pr:3, team:'NYG', dyn:8617,  rdr:8322, adp:'1.08', mine:6,  d:1,  up:8.7, fl:7.9, rs:3.4, si:7.2, pg:'A−', star:false},
+  {rk:8, name:"De'Von Achane",     pos:'RB', pr:3, team:'MIA', dyn:8244,  rdr:8871, adp:'1.09', mine:8,  d:0,  up:9.2, fl:7.4, rs:4.6, si:8.3, pg:'A',  star:true},
+  {rk:9, name:'Puka Nacua',        pos:'WR', pr:4, team:'LAR', dyn:8102,  rdr:8547, adp:'1.11', mine:11, d:-2, up:8.4, fl:8.6, rs:3.8, si:6.9, pg:'B+', star:false},
+  {rk:10,name:'CeeDee Lamb',       pos:'WR', pr:5, team:'DAL', dyn:7965,  rdr:8433, adp:'1.12', mine:9,  d:1,  up:8.2, fl:8.8, rs:2.8, si:6.8, pg:'B+', star:false},
+  {rk:11,name:'Brock Bowers',      pos:'TE', pr:1, team:'LV',  dyn:7742,  rdr:7688, adp:'2.02', mine:10, d:1,  up:8.5, fl:8.4, rs:2.7, si:9.1, pg:'B+', star:true},
+  {rk:12,name:'Drake Maye',        pos:'QB', pr:5, team:'NE',  dyn:7517,  rdr:6402, adp:'2.04', mine:12, d:0,  up:8.6, fl:7.2, rs:3.2, si:8.9, pg:'A−', star:false},
+  {tier:3},
+  {rk:13,name:'Amon-Ra St. Brown', pos:'WR', pr:6, team:'DET', dyn:7301,  rdr:8109, adp:'2.05', mine:14, d:-1, up:7.8, fl:9.1, rs:2.6, si:6.7, pg:'B',  star:false},
+  {rk:14,name:'Breece Hall',       pos:'RB', pr:4, team:'NYJ', dyn:7042,  rdr:7526, adp:'2.07', mine:13, d:1,  up:8.1, fl:7.6, rs:4.9, si:7.8, pg:'B',  star:false},
+  {rk:15,name:'Nico Collins',      pos:'WR', pr:7, team:'HOU', dyn:6874,  rdr:7348, adp:'2.09', mine:15, d:0,  up:8.3, fl:7.7, rs:4.1, si:6.6, pg:'B',  star:false},
+];
+
+// Carbon keeps numbers as plain colored text — quality shown by hue, not chips
+const fCol = (v, invert) => {
+  const good = invert ? 10 - v : v;
+  if (good >= 8.5) return '#3ddbd9';
+  if (good >= 7)   return '#6fdc8c';
+  if (good >= 5.5) return '#f1c21b';
+  return '#ff8389';
+};
+const pgTag = g => {
+  if (!g) return '<span style="color:#6f6f6f">–</span>';
+  const cls = g.startsWith('A') ? 'green' : g.startsWith('B') ? 'teal' : 'gray';
+  return `<span class="tag ${cls} pg-tag">${g}</span>`;
+};
+const initials = n => n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+document.getElementById('tbody').innerHTML = players.map(p => {
+  if (p.tier) return `<tr class="tier-row"><td colspan="12">TIER ${p.tier}</td></tr>`;
+  const gone = !p.pg;
+  const delta = p.d > 0 ? `<span class="up">▲${p.d}</span>` : p.d < 0 ? `<span class="dn">▼${-p.d}</span>` : '·';
+  const f = (k, inv) => `<td class="c"><span class="fnum" style="color:${fCol(p[k], inv)}">${p[k].toFixed(1)}</span></td>`;
+  return `<tr class="${gone?'gone':''} ${p.me?'mypick':''}">
+    <td class="rk">${p.rk}</td>
+    <td class="l"><div class="pcell">
+      <div class="pav">${initials(p.name)}</div>
+      <div>
+        <div class="pname">${p.name}</div>
+        <div class="psub"><span class="pos-lbl" style="color:${POS_COLOR[p.pos]}"><span class="pdot" style="background:${POS_COLOR[p.pos]}"></span>${p.pos}${p.pr}</span><span>${p.team}</span></div>
+      </div>
+    </div></td>
+    <td><span class="val" style="color:${gone?'#6f6f6f':'var(--dyn)'}">${p.dyn.toLocaleString()}</span></td>
+    <td><span class="val" style="color:${gone?'#6f6f6f':'var(--rdr)'}">${p.rdr.toLocaleString()}</span></td>
+    <td><span class="val" style="color:${gone?'#6f6f6f':'var(--adp)'}">${p.adp}</span></td>
+    <td><span class="val" style="color:${gone?'#6f6f6f':'var(--mine)'}">#${p.mine}</span><span class="sub-delta">${delta}</span></td>
+    ${f('up')}${f('fl')}${f('rs',true)}${f('si')}
+    <td class="c">${gone
+      ? `<span class="tag outline" style="font-size:11px">${p.gone==='Putput' ? '✦ You' : p.gone}</span>`
+      : pgTag(p.pg)}</td>
+    <td class="c"><span class="star ${p.star?'on':''}">${p.star?'★':'☆'}</span></td>
+  </tr>`;
+}).join('');
+
+/* snake board — same story as the shadcn mock:
+   Putput slot 8 · 13 picks in · GGuru OTC at 2.02 · your pick 2.05 */
+const teams = ['Sharks','BigCats','Wolves','Hammers','Vipers','Goons','Blitz','Putput','Iceman','Duke','GGuru','Mavs'];
+const r1 = [
+  ['Ja’Marr Chase','WR'],['Justin Jefferson','WR'],['Josh Allen','QB'],['Bijan Robinson','RB'],
+  ['Saquon Barkley','RB'],['Lamar Jackson','QB'],['Joe Burrow','QB'],['Jayden Daniels','QB'],
+  ['Jalen Hurts','QB'],['Patrick Mahomes','QB'],['Ashton Jeanty','RB'],['A.J. Brown','WR'],
+];
+const bc = {QB:'var(--pos-qb)',RB:'var(--pos-rb)',WR:'var(--pos-wr)',TE:'var(--pos-te)'};
+let html = teams.map(t=>`<div class="bteam ${t==='Putput'?'me':''}">${t==='Putput'?'✦ '+t:t}</div>`).join('');
+r1.forEach((p,i)=>{ html += `<div class="bcell ${i===7?'mine':''}" style="--pc:${bc[p[1]]}"><div class="bp"><span>1.${String(i+1).padStart(2,'0')}</span><span>${p[1]}</span></div><div class="bn">${p[0]}</div></div>`; });
+for (let col = 0; col < 12; col++) {
+  const pickNo = 12 - col;
+  const pick = '2.' + String(pickNo).padStart(2,'0');
+  if (pickNo === 1)      html += `<div class="bcell" style="--pc:${bc.WR}"><div class="bp"><span>2.01</span><span>WR</span></div><div class="bn">Brian Thomas Jr.</div></div>`;
+  else if (pickNo === 2) html += `<div class="bcell empty otc"><div class="bp"><span>2.02</span></div><div class="bn">On the clock…</div></div>`;
+  else if (pickNo === 5) html += `<div class="bcell empty mine"><div class="bp"><span>2.05</span></div><div class="bn">✦ Your pick</div></div>`;
+  else                   html += `<div class="bcell empty"><div class="bp"><span>${pick}</span></div></div>`;
+}
+document.getElementById('board').innerHTML = html;
+</script>
+</body>
+</html>

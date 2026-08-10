@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="vapor">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Draft Vault — Live Draft Plan · Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Vault tokens (inlined from vault-ds.css — mocks open via file://) ── */
+:root{
+  --bg:#070d18;--surface:#0e1626;
+  --s1:#0e1626;--s2:#131d30;--s3:#1b2740;--s4:#243352;--s-bright:#2c3f60;
+  --border:rgba(123,170,240,0.10);--border2:rgba(123,170,240,0.17);--border3:rgba(123,170,240,0.30);
+  --text:#eaf2fc;--text2:#bdcce2;--muted:#808fa6;
+  --primary:#bec6e0;--on-primary:#0a1424;
+  --accent:#2f63c4;--accent2:#7bd0ff;--accent3:#b3e0ff;
+  --red:#e23a4e;--red2:#ff5a6e;--sky:#4d86f0;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --value:#3DCC7A;--reach:#e23a4e;--gold:#f5c842;
+  --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-pill:999px;
+  --shadow-card:0 24px 60px -20px rgba(4,9,20,0.62),0 1px 0 rgba(255,255,255,0.06) inset;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ease-rail:cubic-bezier(0.65,0,0.35,1);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+  --dur-press:80ms;--dur-release:500ms;--dur-rail:400ms;
+  --press-btn:.94;--press-card:.975;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:
+    radial-gradient(1100px 600px at 78% -10%, rgba(47,99,196,0.16), transparent 60%),
+    radial-gradient(900px 500px at 8% 108%, rgba(123,208,255,0.07), transparent 55%),
+    var(--bg);
+  color:var(--text);font-family:var(--font-sans);
+  min-height:100vh;padding:26px 22px 80px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto}
+
+/* ── prototype chrome ── */
+.proto-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.proto-title{font-weight:900;letter-spacing:-.03em;font-size:23px;line-height:1.05}
+.proto-title .thin{color:var(--muted);font-weight:700}
+.proto-sub{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:7px;max-width:640px;line-height:1.7}
+.proto-sub b{color:var(--accent2)}
+
+.picker{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 22px}
+.pk{
+  position:relative;text-align:left;cursor:pointer;border:1px solid var(--border2);
+  background:var(--s1);border-radius:var(--radius-md);padding:11px 14px 12px;min-width:214px;
+  transition:transform var(--dur-release) var(--ease-spring),border-color .18s ease,background .18s ease;
+  color:var(--text);
+}
+.pk:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
+.pk .pk-k{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.pk .pk-name{font-weight:800;letter-spacing:-.01em;font-size:15px;margin:3px 0 2px}
+.pk .pk-axis{font-size:11px;color:var(--muted);line-height:1.35}
+.pk.on{border-color:var(--accent);background:linear-gradient(180deg,rgba(47,99,196,0.18),rgba(47,99,196,0.05))}
+.pk.on .pk-k{color:var(--accent2)}
+.pk.on::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;background:var(--accent2)}
+
+/* ── shared stage: faint board behind + the plan panel ── */
+.stage{display:grid;grid-template-columns:1fr 400px;gap:22px;align-items:start}
+@media(max-width:860px){.stage{grid-template-columns:1fr}.board-hint{display:none}}
+
+.board-hint{border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(180deg,var(--s1),rgba(14,22,38,0.4));padding:14px 16px;opacity:.9}
+.bh-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.bh-title{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.bh-clock{font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--accent2);background:rgba(123,208,255,0.1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:4px 10px}
+.bh-clock .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rb);margin-right:6px;vertical-align:middle;box-shadow:0 0 8px var(--rb)}
+.brow{display:flex;align-items:center;gap:11px;padding:9px 8px;border-bottom:1px solid var(--border);opacity:.55}
+.brow:last-child{border-bottom:0}
+.brow.dim{opacity:.28}
+.brow .brk{font-family:var(--font-mono);font-size:11px;color:var(--muted);width:26px;text-align:right;font-weight:700}
+.brow .bdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.brow .bnm{font-weight:600;font-size:13.5px}
+.brow .bpos{font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-left:auto;letter-spacing:.06em}
+.brow .btag{font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:.05em;padding:2px 6px;border-radius:5px;background:rgba(61,204,122,0.16);color:var(--value);margin-left:8px}
+
+/* ── the panel (shared shell) ── */
+.panel{border:1px solid var(--border2);border-radius:var(--radius-lg);background:linear-gradient(180deg,var(--s2),var(--s1));box-shadow:var(--shadow-card);overflow:hidden;position:relative}
+.panel-in{padding:16px 16px 15px}
+.variant{display:none}
+.variant.show{display:block;animation:vin .28s var(--ease-out) both}
+@keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.p-kicker{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.p-name{font-weight:900;letter-spacing:-.02em;font-size:19px;line-height:1.05;margin-top:4px;display:flex;align-items:center;gap:8px}
+.p-badge{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--accent2);background:rgba(123,208,255,0.1);border:1px solid var(--border2);border-radius:5px;padding:3px 7px;text-transform:uppercase}
+.p-prov{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.05em;color:var(--muted);margin-top:6px}
+.p-prov b{color:var(--text2);font-weight:700}
+
+/* phase banner */
+.phase{margin-top:13px;border-radius:var(--radius-md);border:1px solid var(--border2);
+  background:linear-gradient(120deg,rgba(47,99,196,0.2),rgba(123,208,255,0.06));padding:11px 12px;position:relative;overflow:hidden}
+.phase::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2)}
+.phase-k{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2)}
+.phase-pulse{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 0 rgba(123,208,255,.5);animation:pp 2.4s ease-out infinite}
+@keyframes pp{0%{box-shadow:0 0 0 0 rgba(123,208,255,.45)}70%{box-shadow:0 0 0 9px rgba(123,208,255,0)}100%{box-shadow:0 0 0 0 rgba(123,208,255,0)}}
+.phase-txt{font-size:13.5px;line-height:1.4;color:var(--text);margin-top:7px;font-weight:500}
+.phase-txt b{color:var(--accent3);font-weight:800}
+.scarce{display:flex;align-items:center;gap:9px;margin-top:10px}
+.scarce-lbl{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pips{display:flex;gap:3px}
+.pip{width:16px;height:5px;border-radius:3px;background:var(--rb);box-shadow:0 0 6px rgba(61,204,122,.4);transition:background .3s var(--ease-out),box-shadow .3s}
+.pip.off{background:var(--s4);box-shadow:none}
+.scarce-n{font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--text2);margin-left:2px}
+
+/* ── VARIANT A: Coach's Card (checklist) ── */
+.steps{margin-top:14px;display:flex;flex-direction:column;gap:2px}
+.step{display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:var(--radius-md);position:relative;transition:background .2s}
+.step.active{background:rgba(123,208,255,0.06)}
+.step .box{width:22px;height:22px;border-radius:7px;flex-shrink:0;display:grid;place-items:center;border:1.5px solid var(--border3);transition:all .3s var(--ease-spring)}
+.step.done .box{background:var(--rb);border-color:var(--rb);box-shadow:0 0 12px rgba(61,204,122,.35)}
+.step.done .box svg{stroke:#08130c;stroke-width:3.4;width:12px;height:12px;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:0;animation:draw .4s var(--ease-out) both}
+@keyframes draw{from{stroke-dashoffset:20}to{stroke-dashoffset:0}}
+.step.active .box{border-color:var(--accent2);animation:ring 2.2s ease-out infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(123,208,255,.45)}70%{box-shadow:0 0 0 7px rgba(123,208,255,0)}100%{box-shadow:0 0 0 0 rgba(123,208,255,0)}}
+.step .body{flex:1;min-width:0}
+.step .s-lbl{font-weight:700;font-size:13.5px;letter-spacing:-.01em;display:flex;align-items:center;gap:7px}
+.step .s-lbl .pdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.step .s-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.step.done .s-lbl{color:var(--text2)}
+.step .s-fill{font-family:var(--font-mono);font-size:10.5px;font-weight:700;text-align:right;white-space:nowrap;color:var(--value)}
+.step .s-fill.pending{color:var(--muted);font-weight:500}
+.p-foot{display:flex;align-items:center;gap:11px;margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
+.p-foot .pf-n{font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--text)}
+.p-foot .pf-n span{color:var(--muted);font-weight:500}
+.pbar{flex:1;height:6px;border-radius:3px;background:var(--s4);overflow:hidden}
+.pbar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s var(--ease-out)}
+
+/* ── VARIANT B: The Path (timeline rail) ── */
+.path{margin-top:16px;position:relative;padding-left:6px}
+.track{position:absolute;left:16px;top:8px;bottom:8px;width:2px;background:var(--s4);border-radius:2px}
+.track-fill{position:absolute;left:16px;top:8px;width:2px;border-radius:2px;background:linear-gradient(180deg,var(--rb),var(--accent2));transition:height .5s var(--ease-rail);box-shadow:0 0 10px rgba(123,208,255,.4)}
+.station{display:flex;align-items:flex-start;gap:14px;padding:7px 0;position:relative}
+.node{width:22px;height:22px;border-radius:50%;flex-shrink:0;background:var(--s3);border:2px solid var(--s4);display:grid;place-items:center;z-index:2;transition:all .35s var(--ease-spring);margin-left:5px}
+.station.done .node{background:var(--rb);border-color:var(--rb)}
+.station.done .node::after{content:"";width:7px;height:7px;border-radius:50%;background:#08130c}
+.station.active .node{background:var(--bg);border-color:var(--accent2);box-shadow:0 0 0 4px rgba(123,208,255,.14),0 0 14px rgba(123,208,255,.5)}
+.station.active .node::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent2);animation:npu 1.8s ease-in-out infinite}
+@keyframes npu{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.6);opacity:.6}}
+.st-body{flex:1;min-width:0;padding-top:1px}
+.st-round{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.st-lbl{font-weight:700;font-size:13.5px;letter-spacing:-.01em;margin-top:1px}
+.station.active .st-lbl{color:var(--accent3)}
+.station.pending .st-lbl,.station.pending .st-round{opacity:.55}
+.st-fill{font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--value);margin-top:2px}
+.station.active .st-callout{margin-top:8px;font-size:12.5px;line-height:1.4;color:var(--text2);background:rgba(123,208,255,0.06);border-left:2px solid var(--accent2);padding:7px 10px;border-radius:0 8px 8px 0}
+.st-callout{display:none}
+.station.active .st-callout{display:block}
+
+/* ── VARIANT C: The Call (directive HUD) ── */
+.call{margin-top:6px;text-align:center;padding:12px 6px 4px}
+.call-eyebrow{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.call-verb{font-weight:900;letter-spacing:-.035em;font-size:38px;line-height:.98;margin:8px 0 4px;background:linear-gradient(180deg,var(--text),var(--accent3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.call-why{font-size:13px;line-height:1.45;color:var(--text2);max-width:300px;margin:6px auto 0}
+.call-why b{color:var(--accent3);font-weight:800}
+.call-dots{display:flex;justify-content:center;gap:7px;margin:16px 0 4px}
+.cdot{width:26px;height:6px;border-radius:3px;background:var(--s4);transition:all .35s var(--ease-spring)}
+.cdot.done{background:var(--rb);box-shadow:0 0 8px rgba(61,204,122,.4)}
+.cdot.active{background:var(--accent2);box-shadow:0 0 10px rgba(123,208,255,.5);animation:cpu 1.8s ease-in-out infinite}
+@keyframes cpu{0%,100%{opacity:1}50%{opacity:.55}}
+.call-meta{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:16px}
+.cchip{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text2);background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-pill);padding:6px 12px}
+.cchip b{color:var(--accent2)}
+.cchip.scarce-chip b{color:var(--rb)}
+.call-expand{margin-top:15px;width:100%;text-align:center;background:transparent;border:1px dashed var(--border2);border-radius:var(--radius-md);color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:9px;cursor:pointer;transition:border-color .2s,color .2s}
+.call-expand:hover{border-color:var(--border3);color:var(--text2)}
+
+/* ── demo control bar ── */
+.demo{display:flex;align-items:center;gap:12px;margin-top:22px;padding:13px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--s1);flex-wrap:wrap}
+.demo-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.demo-lbl b{color:var(--text2)}
+.dbtn{cursor:pointer;border:1px solid var(--border2);background:linear-gradient(180deg,var(--s3),var(--s2));color:var(--text);font-family:var(--font-sans);font-weight:800;font-size:12.5px;letter-spacing:-.01em;border-radius:var(--radius-md);padding:9px 15px;transition:transform var(--dur-release) var(--ease-spring),border-color .2s}
+.dbtn:hover{border-color:var(--accent)}
+.dbtn:active{transform:scale(var(--press-btn));transition:transform var(--dur-press) ease-out}
+.dbtn.ghost{background:transparent;font-weight:600;color:var(--muted)}
+.demo-note{font-size:11.5px;color:var(--muted);margin-left:auto}
+
+@media(prefers-reduced-motion:reduce){
+  .variant.show,.step.done .box svg,.track-fill{animation:none!important;transition:none!important}
+  .phase-pulse,.step.active .box,.station.active .node::after,.cdot.active{animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="proto-head">
+    <div>
+      <div class="proto-title">Live Draft Plan <span class="thin">· Draft Vault</span></div>
+      <div class="proto-sub">Combining the <b>adaptive checklist plan</b> + <b>phase directive</b>. Three variants diverge on one axis — <b>information hierarchy</b> — not on colour. Flip between them, then hit <b>Simulate next pick</b> to watch all three adapt off the same shared draft state.</div>
+    </div>
+  </div>
+
+  <!-- PICKER -->
+  <div class="picker" id="picker">
+    <button class="pk on" data-v="a">
+      <div class="pk-k">Variant A</div>
+      <div class="pk-name">Coach's Card</div>
+      <div class="pk-axis">Full checklist. Most information, most scanning.</div>
+    </button>
+    <button class="pk" data-v="b">
+      <div class="pk-k">Variant B</div>
+      <div class="pk-name">The Path</div>
+      <div class="pk-axis">Timeline rail. Best sense of progress, needs height.</div>
+    </button>
+    <button class="pk" data-v="c">
+      <div class="pk-k">Variant C</div>
+      <div class="pk-name">The Call</div>
+      <div class="pk-axis">Directive-first HUD. Fastest glance, least detail.</div>
+    </button>
+  </div>
+
+  <!-- STAGE -->
+  <div class="stage">
+
+    <!-- faint board context -->
+    <div class="board-hint">
+      <div class="bh-head">
+        <div class="bh-title">Draft Vault · Turf Wars</div>
+        <div class="bh-clock"><span class="dot"></span>YOUR PICK · <span id="clock">3.05</span></div>
+      </div>
+      <div id="board-rows"></div>
+    </div>
+
+    <!-- the plan panel -->
+    <div class="panel">
+      <div class="panel-in">
+
+        <!-- VARIANT A -->
+        <section class="variant show" id="va">
+          <div class="p-kicker">Your draft plan</div>
+          <div class="p-name">Robust RB <span class="p-badge">PPR · 10-TM</span></div>
+          <div class="p-prov">fit from <b>14,318</b> winning Sleeper builds</div>
+          <div class="phase" id="a-phase"></div>
+          <div class="steps" id="a-steps"></div>
+          <div class="p-foot">
+            <div class="pf-n" id="a-count"></div>
+            <div class="pbar"><span id="a-bar"></span></div>
+          </div>
+        </section>
+
+        <!-- VARIANT B -->
+        <section class="variant" id="vb">
+          <div class="p-kicker">Your draft plan · the path</div>
+          <div class="p-name">Robust RB <span class="p-badge">PPR · 10-TM</span></div>
+          <div class="p-prov">fit from <b>14,318</b> winning Sleeper builds</div>
+          <div class="path" id="b-path">
+            <div class="track"></div>
+            <div class="track-fill" id="b-fill"></div>
+            <div id="b-stations"></div>
+          </div>
+        </section>
+
+        <!-- VARIANT C -->
+        <section class="variant" id="vc">
+          <div class="p-kicker" style="text-align:center">Robust RB · your plan</div>
+          <div class="call">
+            <div class="call-eyebrow" id="c-phase">Phase 2 · Secure the backfield</div>
+            <div class="call-verb" id="c-verb">GET RB2</div>
+            <div class="call-why" id="c-why"></div>
+            <div class="call-dots" id="c-dots"></div>
+            <div class="call-meta" id="c-meta"></div>
+            <button class="call-expand">▾ Show full plan</button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- DEMO CONTROL -->
+  <div class="demo">
+    <span class="demo-lbl">Live draft: <b id="d-state">2 picks in</b></span>
+    <button class="dbtn" id="advance">▶ Simulate next pick</button>
+    <button class="dbtn ghost" id="reset">Reset</button>
+    <span class="demo-note">The plan re-reads Sleeper on every pick — checklist, phase &amp; scarcity all update.</span>
+  </div>
+
+</div>
+
+<script>
+/* ── shared draft state (Putput · Turf Wars · Full PPR 10-tm) ── */
+const POS={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+const STEPS=[
+  {key:'anchor',pos:'WR',lbl:'R1 anchor',sub:'best player, any position',round:'RD 1',fill:'Jaxon Smith-Njigba'},
+  {key:'rb1',pos:'RB',lbl:'Early RB1',sub:'RB1/2-caliber back',round:'RD 2',fill:'Kenneth Walker'},
+  {key:'rb2',pos:'RB',lbl:'Early RB2',sub:'two backs by end of R3',round:'RD 3',fill:'Breece Hall'},
+  {key:'rb3',pos:'RB',lbl:'RB3 window',sub:'depth swing',round:'RD 5–7',fill:'Tony Pollard'},
+  {key:'qb',pos:'QB',lbl:'One QB',sub:'value faller, don’t reach',round:'RD 10+',fill:'Jared Goff'},
+  {key:'te',pos:'TE',lbl:'TE path',sub:'elite or wait',round:'value',fill:'Colston Loveland'},
+];
+const PHASES=[
+  {k:'Phase 1 · Take the best board',verb:'BEST AVAIL',why:'Board is open. Take the <b>highest-value</b> player and let the plan form around him.'},
+  {k:'Phase 1 · Take the best board',verb:'BEST AVAIL',why:'Board is open. Take the <b>highest-value</b> player and let the plan form around him.'},
+  {k:'Phase 2 · Secure the backfield',verb:'GET RB2',why:'WR anchor locked. Land your <b>second RB1/2 back by the end of Round 3</b> — only while the tier holds.'},
+  {k:'Phase 3 · Depth + WR value',verb:'HUNT VALUE',why:'Core is set. <b>RB3 window is R5–7</b>; take WR value that falls in between.'},
+  {k:'Phase 4 · Round out',verb:'ONE QB',why:'Skill core done. <b>One QB from R10</b>, and only an elite TE at a discount.'},
+  {k:'Phase 4 · Round out',verb:'FILL TE',why:'Last need. Grab your <b>TE at value</b>, then depth and upside darts.'},
+  {k:'Draft complete',verb:'GRADE IT',why:'Every plan step is locked. <b>Run the report card</b> to see your grade + steals.'},
+];
+const SCARCE=[6,5,4,3,2,2,1]; // RB1/2 pool remaining by stepIndex
+const CLOCKS=['1.05','2.08','3.05','5.05','10.03','12.08','—'];
+
+let idx=2; // steps 0 & 1 done at start
+let cur='a';
+
+/* faint board rows */
+const BOARD=[
+  {rk:'RB4',nm:'Jonathan Taylor',pos:'RB',tag:'VALUE'},
+  {rk:'RB7',nm:'Breece Hall',pos:'RB',tag:'PLAN FIT'},
+  {rk:'WR8',nm:'Brian Thomas Jr.',pos:'WR',tag:''},
+  {rk:'RB19',nm:'Tony Pollard',pos:'RB',tag:''},
+  {rk:'WR30',nm:'Jauan Jennings',pos:'WR',tag:''},
+];
+function renderBoard(){
+  document.getElementById('board-rows').innerHTML=BOARD.map((r,i)=>`
+    <div class="brow ${i>2?'dim':''}">
+      <span class="brk">${r.rk}</span>
+      <span class="bdot" style="background:${POS[r.pos]}"></span>
+      <span class="bnm">${r.nm}</span>
+      ${r.tag?`<span class="btag">${r.tag}</span>`:''}
+      <span class="bpos">${r.pos}</span>
+    </div>`).join('');
+}
+
+function scarcePips(n){
+  let s='';for(let i=0;i<6;i++)s+=`<span class="pip ${i<n?'':'off'}"></span>`;return s;
+}
+function phaseHTML(){
+  const p=PHASES[idx],sc=SCARCE[idx];
+  return `<div class="phase-k"><span class="phase-pulse"></span>${p.k}</div>
+    <div class="phase-txt">${p.why}</div>
+    <div class="scarce"><span class="scarce-lbl">RB1/2 pool</span><div class="pips">${scarcePips(sc)}</div><span class="scarce-n">${sc} left</span></div>`;
+}
+
+/* VARIANT A */
+function renderA(){
+  document.getElementById('a-phase').innerHTML=phaseHTML();
+  document.getElementById('a-steps').innerHTML=STEPS.map((s,i)=>{
+    const done=i<idx,active=i===idx;
+    return `<div class="step ${done?'done':''} ${active?'active':''}">
+      <div class="box">${done?'<svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 5"/></svg>':''}</div>
+      <div class="body">
+        <div class="s-lbl"><span class="pdot" style="background:${POS[s.pos]}"></span>${s.lbl}</div>
+        <div class="s-sub">${s.sub}</div>
+      </div>
+      <div class="s-fill ${done?'':'pending'}">${done?s.fill:s.round}</div>
+    </div>`;
+  }).join('');
+  const bar=Math.round(idx/STEPS.length*100);
+  document.getElementById('a-count').innerHTML=`${Math.min(idx,STEPS.length)} <span>/ ${STEPS.length} locked</span>`;
+  document.getElementById('a-bar').style.width=bar+'%';
+}
+
+/* VARIANT B */
+function renderB(){
+  document.getElementById('b-stations').innerHTML=STEPS.map((s,i)=>{
+    const done=i<idx,active=i===idx;
+    return `<div class="station ${done?'done':active?'active':'pending'}">
+      <div class="node"></div>
+      <div class="st-body">
+        <div class="st-round">${s.round}</div>
+        <div class="st-lbl">${s.lbl}</div>
+        ${done?`<div class="st-fill">✓ ${s.fill}</div>`:''}
+        <div class="st-callout">${PHASES[idx].why}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const pct=(Math.min(idx,STEPS.length-1))/(STEPS.length-1)*100;
+  requestAnimationFrame(()=>{document.getElementById('b-fill').style.height='calc((100% - 16px) * '+pct/100+')';});
+}
+
+/* VARIANT C */
+function renderC(){
+  const p=PHASES[idx],sc=SCARCE[idx];
+  document.getElementById('c-phase').textContent=p.k;
+  document.getElementById('c-verb').textContent=p.verb;
+  document.getElementById('c-why').innerHTML=p.why;
+  document.getElementById('c-dots').innerHTML=STEPS.map((s,i)=>
+    `<span class="cdot ${i<idx?'done':i===idx?'active':''}"></span>`).join('');
+  const next=STEPS[Math.min(idx,STEPS.length-1)];
+  document.getElementById('c-meta').innerHTML=
+    `<span class="cchip scarce-chip">RB1/2 pool <b>${sc} left</b></span>
+     <span class="cchip">next need <b>${next.pos}</b></span>
+     <span class="cchip">${Math.min(idx,STEPS.length)}/${STEPS.length} locked</span>`;
+}
+
+function renderAll(){renderA();renderB();renderC();
+  document.getElementById('clock').textContent=CLOCKS[Math.min(idx,CLOCKS.length-1)];
+  document.getElementById('d-state').textContent=idx>=STEPS.length?'draft complete':idx+' picks in';
+}
+
+/* picker */
+document.getElementById('picker').addEventListener('click',e=>{
+  const b=e.target.closest('.pk');if(!b)return;
+  document.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');cur=b.dataset.v;
+  document.querySelectorAll('.variant').forEach(v=>v.classList.remove('show'));
+  const el=document.getElementById('v'+cur);el.classList.add('show');
+  if(cur==='b')renderB();
+});
+
+document.getElementById('advance').addEventListener('click',()=>{
+  if(idx<STEPS.length)idx++;
+  renderAll();
+});
+document.getElementById('reset').addEventListener('click',()=>{idx=2;renderAll();});
+
+renderBoard();renderAll();
+</script>
+</body>
+</html>

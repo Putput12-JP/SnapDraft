@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="onyx">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lineup Command — blocked-row taxi CTA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── vault-ds.css tokens, inlined (onyx theme) so this opens standalone ── */
+:root{
+  --bg:#0e0f13;--surface:#16171c;
+  --s1:#16171c;--s2:#1c1e24;--s3:#23252c;--s4:#2c2f38;--s-bright:#343844;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
+  --text:#f3f4f7;--text2:#c9cdd6;--muted:#7e8493;--dim:#23252c;
+  --accent:#5e7c9c;--accent2:#8fb4e0;--accent3:#b9d2ec;
+  --sky:#5e7c9c;--sky-dim:#43607d;
+  --qb:#ff6680;--rb:#3DCC7A;--wr:#7bd0ff;--te:#f5c842;
+  --font-sans:'Archivo','Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Space Mono',monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:38px 26px 90px}
+.pagetitle{font-size:27px;font-weight:800;letter-spacing:-.025em;margin:0 0 6px}
+.pagesub{font-size:13.5px;color:var(--muted);margin:0 0 34px;line-height:1.6;max-width:74ch}
+.sect{margin:0 0 14px;padding-top:30px;border-top:1px solid var(--border);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.sect h2{font-size:16px;font-weight:800;letter-spacing:-.01em;margin:0}
+.sect .tag{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:5px}
+.tag.now{background:rgba(255,90,110,.13);color:#ff5a6e}
+.tag.rec{background:rgba(61,204,122,.14);color:#3DCC7A}
+.tag.alt{background:rgba(143,180,224,.14);color:var(--accent2)}
+.sect .note{font-size:12px;color:var(--muted);line-height:1.55;flex:1 1 340px;min-width:0}
+.frame{margin-bottom:8px}
+
+/* ── .cx system, lifted verbatim from index.html (subset) ── */
+.cx{display:flex;flex-direction:column;gap:16px}
+.cx svg.cx-ic{stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:-2px}
+.cx-card{background:var(--s1);border:1px solid var(--border);border-radius:14px}
+.cx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.cx-title{font-size:14px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.cx-title svg.cx-ic{width:15px;height:15px;color:var(--accent2)}
+.cx-desc{font-size:11.5px;color:var(--muted);margin-top:2px}
+.cx-lbl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cx-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 14px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .16s,border-color .16s,color .16s,transform .1s;border:1px solid transparent;background:transparent;color:var(--text)}
+.cx-btn:active{transform:translateY(1px)}
+.cx-btn.sm{height:29px;padding:0 12px;font-size:12px;border-radius:8px}
+.cx-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.cx-btn.outline{border-color:var(--border2);background:var(--s1)}
+.cx-btn.outline:hover{background:var(--s2)}
+.cx-btn.green{background:rgba(61,204,122,.14);border-color:rgba(61,204,122,.35);color:#3DCC7A}
+.cx-btn.steel{background:rgba(143,180,224,.13);border-color:rgba(143,180,224,.34);color:var(--accent2)}
+.cx-btn:disabled{opacity:.5;cursor:default}
+.cx-btn svg.cx-ic{width:14px;height:14px}
+.cx-badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:6px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.cx-badge .d{width:6px;height:6px;border-radius:50%}
+.cx-b-red{background:rgba(255,102,128,.13);color:#ff5a6e}
+.cx-b-green{background:rgba(61,204,122,.13);color:#3DCC7A}
+.cx-b-steel{background:rgba(143,180,224,.13);color:var(--accent2)}
+.cx-b-muted{background:var(--s3);color:var(--muted)}
+.cx-twrap{overflow-x:auto}
+table.cx-tbl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+.cx-tbl thead th{height:38px;padding:0 14px;text-align:right;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+.cx-tbl thead th.l{text-align:left}
+.cx-tbl tbody td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cx-tbl tbody tr:last-child td{border-bottom:none}
+.cx-tbl tbody tr.cx-main:hover{background:rgba(255,255,255,.025)}
+.cx-tbl tbody tr.cx-exp{cursor:pointer} .cx-tbl td.l{text-align:left}
+.cx-lg{display:flex;align-items:center;gap:11px}
+.cx-chev{width:12px;color:var(--muted);transition:transform .16s ease;display:inline-block;text-align:center}
+.cx-chev.open{transform:rotate(90deg);color:var(--accent2)}
+.cx-lgb{width:30px;height:30px;border-radius:9px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--accent2);font-family:var(--font-mono);flex-shrink:0}
+.cx-lgn{font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+.cx-lgm{font-size:11px;color:var(--muted);margin-top:1px}
+.cx-num{font-family:var(--font-mono);font-weight:600} .cx-num.pos{color:#3DCC7A} .cx-num.big{font-weight:700}
+.cx-mut{color:var(--muted)}
+.cx-pos{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:5px;font-size:9px;font-weight:700;font-family:var(--font-mono);letter-spacing:.04em}
+.cx-pos.QB{background:rgba(255,102,128,.15);color:#ff6680} .cx-pos.RB{background:rgba(61,204,122,.15);color:#3DCC7A}
+.cx-pos.WR{background:rgba(123,208,255,.15);color:#7bd0ff} .cx-pos.TE{background:rgba(245,200,66,.15);color:#f5c842}
+.cx-detail td{padding:4px 18px 18px!important;background:rgba(255,255,255,.014)}
+.cx-txr{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:13px}
+.cx-txr .pav{width:28px;height:28px;border-radius:8px;background:var(--s3);border:1px solid var(--border);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:var(--muted);font-family:var(--font-mono)}
+.cx-txr .nm{flex:1;min-width:0;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cx-txr .vv{font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+.cx-txr .yr{font-size:10.5px;color:var(--muted);font-family:var(--font-mono)}
+
+/* ── issue panel (current shape) ── */
+.iss-box{border:1px solid rgba(255,102,128,0.25);border-radius:10px;overflow:hidden;margin-top:6px}
+.iss-hd{padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ff6680}
+.iss-body{padding:4px 12px 8px}
+.iss-row{display:flex;gap:9px;padding:5px 0;font-size:12.5px;line-height:1.45}
+.iss-row .w{color:#ff6680;flex-shrink:0}
+.iss-dead{margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5}
+.iss-fix{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:9px;background:rgba(61,204,122,0.06);border:1px solid rgba(61,204,122,0.2);flex-wrap:wrap}
+.iss-fix .t{font-size:11.5px;color:var(--muted);line-height:1.5}
+
+/* ── option B: inline stash picker ── */
+.stash{margin-top:10px;border:1px solid rgba(61,204,122,0.2);border-radius:10px;overflow:hidden;background:rgba(61,204,122,0.035)}
+.stash-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 13px;border-bottom:1px solid rgba(61,204,122,0.16);flex-wrap:wrap}
+.stash-hd .t{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#3DCC7A}
+.stash-hd .c{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.stash-body{padding:3px 13px 5px}
+.stash-row{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13px;border-top:1px solid rgba(255,255,255,.05)}
+.stash-row:first-child{border-top:none}
+.stash-row.off{opacity:.45}
+.stash-row .bx{width:16px;height:16px;border-radius:5px;border:1px solid var(--border3);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0e0f13}
+.stash-row .bx.on{background:#3DCC7A;border-color:#3DCC7A}
+.stash-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 13px;border-top:1px solid rgba(61,204,122,0.16);flex-wrap:wrap}
+.stash-foot .t{font-size:11.5px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="pagetitle">Lineup Command — blocked row, over-roster case</h1>
+  <p class="pagesub">Real state: <b>StatChasers D109</b>, 30 rostered against 26 spots, 4 open taxi slots, 6 taxi-eligible players. Today the row tells you to drop four players and points at the Sleeper app — when the fix is one screen away in Vault, costs nothing, and drops nobody.</p>
+
+  <!-- ══════════════ CURRENT ══════════════ -->
+  <div class="sect">
+    <h2>Today</h2><span class="tag now">Shipping now</span>
+    <span class="note">"Drop 4" is bad advice — you have four empty taxi slots. The action cell is inert text and the footer sends you out of the product.</span>
+  </div>
+  <div class="frame"><div class="cx"><div class="cx-card">
+    <div class="cx-twrap"><table class="cx-tbl">
+      <thead><tr><th class="l">League</th><th>Current</th><th>Optimal</th><th>Gain</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr class="cx-main cx-exp">
+          <td class="l"><div class="cx-lg"><span class="cx-chev open">›</span><span class="cx-lgb">SD</span><div><div class="cx-lgn">🐐 StatChasers D109 [DYNASTY] $50</div><div class="cx-lgm"><span style="color:#ff5a6e">1 roster issue</span></div></div></div></td>
+          <td><span class="cx-num cx-mut">162.55</span></td>
+          <td><span class="cx-num big">175.49</span></td>
+          <td><span class="cx-mut">—</span></td>
+          <td><span class="cx-badge cx-b-red"><span class="d" style="background:#ff5a6e"></span>Blocked</span></td>
+          <td><span class="cx-mut" style="font-size:12px">Fix in Sleeper</span></td>
+        </tr>
+        <tr class="cx-detail"><td colspan="6">
+          <div class="iss-box">
+            <div class="iss-hd">Roster issues — fix in the Sleeper app</div>
+            <div class="iss-body"><div class="iss-row"><span class="w">⚠</span><span>30 active players for 26 roster spots — drop 4</span></div></div>
+          </div>
+          <div class="iss-dead">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the Sleeper app, then hit Refresh.</div>
+        </td></tr>
+      </tbody>
+    </table></div>
+  </div></div></div>
+
+  <!-- ══════════════ OPTION A ══════════════ -->
+  <div class="sect">
+    <h2>Option A — mirror the Fix IR pattern</h2><span class="tag rec">Recommended</span>
+    <span class="note">Identical shape to the "Fix from Vault" strip that already ships for IR blocks: diagnosis stays factual, a green resolution strip prescribes the fix, row button deep-links into Taxi Manager pre-filtered to this league. Smallest change, zero new write paths.</span>
+  </div>
+  <div class="frame"><div class="cx"><div class="cx-card">
+    <div class="cx-twrap"><table class="cx-tbl">
+      <thead><tr><th class="l">League</th><th>Current</th><th>Optimal</th><th>Gain</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr class="cx-main cx-exp">
+          <td class="l"><div class="cx-lg"><span class="cx-chev open">›</span><span class="cx-lgb">SD</span><div><div class="cx-lgn">🐐 StatChasers D109 [DYNASTY] $50</div><div class="cx-lgm"><span style="color:#ff5a6e">1 roster issue</span> · <span style="color:#3DCC7A">fixable in Vault</span></div></div></div></td>
+          <td><span class="cx-num cx-mut">162.55</span></td>
+          <td><span class="cx-num big">175.49</span></td>
+          <td><span class="cx-mut">—</span></td>
+          <td><span class="cx-badge cx-b-red"><span class="d" style="background:#ff5a6e"></span>Blocked</span></td>
+          <td><button class="cx-btn green sm"><svg class="cx-ic" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>Stash 4</button></td>
+        </tr>
+        <tr class="cx-detail"><td colspan="6">
+          <div class="iss-box">
+            <div class="iss-hd">Roster issues</div>
+            <div class="iss-body"><div class="iss-row"><span class="w">⚠</span><span>30 active players for 26 roster spots — 4 over the limit</span></div></div>
+          </div>
+          <div class="iss-fix">
+            <span class="t">You have <b style="color:var(--text2)">4 open taxi slots</b> and <b style="color:var(--text2)">6 eligible players</b> — stash 4 and this clears without dropping anyone.</span>
+            <button class="cx-btn green">⚡ Open Taxi Manager</button>
+          </div>
+        </td></tr>
+      </tbody>
+    </table></div>
+  </div></div></div>
+
+  <!-- ══════════════ OPTION B ══════════════ -->
+  <div class="sect">
+    <h2>Option B — resolve it inline</h2><span class="tag alt">Most work</span>
+    <span class="note">Never leave Lineup Command. Vault preselects the 4 lowest-value eligible players, you can toggle any of the 6, and one button writes the taxi squad then pushes the optimized lineup. Reuses <code>txAdd</code>'s write path with a multi-player list.</span>
+  </div>
+  <div class="frame"><div class="cx"><div class="cx-card">
+    <div class="cx-twrap"><table class="cx-tbl">
+      <thead><tr><th class="l">League</th><th>Current</th><th>Optimal</th><th>Gain</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr class="cx-main cx-exp">
+          <td class="l"><div class="cx-lg"><span class="cx-chev open">›</span><span class="cx-lgb">SD</span><div><div class="cx-lgn">🐐 StatChasers D109 [DYNASTY] $50</div><div class="cx-lgm"><span style="color:#ff5a6e">1 roster issue</span> · <span style="color:#3DCC7A">fixable in Vault</span></div></div></div></td>
+          <td><span class="cx-num cx-mut">162.55</span></td>
+          <td><span class="cx-num big">175.49</span></td>
+          <td><span class="cx-mut">—</span></td>
+          <td><span class="cx-badge cx-b-red"><span class="d" style="background:#ff5a6e"></span>Blocked</span></td>
+          <td><button class="cx-btn green sm"><svg class="cx-ic" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>Stash &amp; optimize</button></td>
+        </tr>
+        <tr class="cx-detail"><td colspan="6">
+          <div class="iss-box">
+            <div class="iss-hd">Roster issues</div>
+            <div class="iss-body"><div class="iss-row"><span class="w">⚠</span><span>30 active players for 26 roster spots — 4 over the limit</span></div></div>
+          </div>
+          <div class="stash">
+            <div class="stash-hd">
+              <span class="t">Stash on taxi to clear it</span>
+              <span class="c">4 of 4 slots · 4 selected</span>
+            </div>
+            <div class="stash-body">
+              <div class="stash-row"><span class="bx on">✓</span><span class="pav">WK</span><span class="nm">Will Kacmarek <span class="cx-pos TE">TE</span> <span class="yr">rookie</span></span><span class="vv">412</span></div>
+              <div class="stash-row"><span class="bx on">✓</span><span class="pav">TG</span><span class="nm">Taylen Green <span class="cx-pos QB">QB</span> <span class="yr">rookie</span></span><span class="vv">640</span></div>
+              <div class="stash-row"><span class="bx on">✓</span><span class="pav">SR</span><span class="nm">Spencer Rattler <span class="cx-pos QB">QB</span> <span class="yr">2y</span></span><span class="vv">705</span></div>
+              <div class="stash-row"><span class="bx on">✓</span><span class="pav">JS</span><span class="nm">Ja'Tavion Sanders <span class="cx-pos TE">TE</span> <span class="yr">2y</span></span><span class="vv">890</span></div>
+              <div class="stash-row off"><span class="bx"></span><span class="pav">TF</span><span class="nm">Troy Franklin <span class="cx-pos WR">WR</span> <span class="yr">2y</span></span><span class="vv">1,340</span></div>
+              <div class="stash-row off"><span class="bx"></span><span class="pav">DA</span><span class="nm">Drew Allar <span class="cx-pos QB">QB</span> <span class="yr">rookie</span></span><span class="vv">1,980</span></div>
+            </div>
+            <div class="stash-foot">
+              <span class="t">Lowest-value eligible players preselected. Taxi players keep their roster spot but can't be started — reversible any time.</span>
+              <button class="cx-btn green">⚡ Stash 4 &amp; optimize <span style="color:#3DCC7A;font-family:var(--font-mono)">+12.94</span></button>
+            </div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table></div>
+  </div></div></div>
+
+  <!-- ══════════════ OPTION C ══════════════ -->
+  <div class="sect">
+    <h2>Option C — copy-only</h2><span class="tag alt">Smallest</span>
+    <span class="note">No new buttons or write paths — just stop giving wrong advice. The issue string itself names the taxi route. One-line change to <code>pfRosterIssues</code>.</span>
+  </div>
+  <div class="frame"><div class="cx"><div class="cx-card">
+    <div class="cx-twrap"><table class="cx-tbl">
+      <thead><tr><th class="l">League</th><th>Current</th><th>Optimal</th><th>Gain</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr class="cx-main cx-exp">
+          <td class="l"><div class="cx-lg"><span class="cx-chev open">›</span><span class="cx-lgb">SD</span><div><div class="cx-lgn">🐐 StatChasers D109 [DYNASTY] $50</div><div class="cx-lgm"><span style="color:#ff5a6e">1 roster issue</span></div></div></div></td>
+          <td><span class="cx-num cx-mut">162.55</span></td>
+          <td><span class="cx-num big">175.49</span></td>
+          <td><span class="cx-mut">—</span></td>
+          <td><span class="cx-badge cx-b-red"><span class="d" style="background:#ff5a6e"></span>Blocked</span></td>
+          <td><button class="cx-btn outline sm">Taxi Manager</button></td>
+        </tr>
+        <tr class="cx-detail"><td colspan="6">
+          <div class="iss-box">
+            <div class="iss-hd">Roster issues</div>
+            <div class="iss-body"><div class="iss-row"><span class="w">⚠</span><span>30 active players for 26 roster spots — 4 over. Stash 4 on taxi (4 slots open) or drop 4.</span></div></div>
+          </div>
+          <div class="iss-dead">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Clear it in Taxi Manager or the Sleeper app, then hit Refresh.</div>
+        </td></tr>
+      </tbody>
+    </table></div>
+  </div></div></div>
+
+  <!-- ══════════════ EDGE CASES ══════════════ -->
+  <div class="sect">
+    <h2>Edge cases the copy has to survive</h2>
+    <span class="note">Whichever option you pick, the string is generated — these are the branches it has to cover without lying.</span>
+  </div>
+  <div class="frame"><div class="cx"><div class="cx-card">
+    <div class="cx-head"><div><div class="cx-title">Generated variants</div><div class="cx-desc">Same league shape, different slot/eligibility math</div></div></div>
+    <div style="padding:6px 18px 16px">
+      <div class="iss-row"><span class="w">⚠</span><span><b>Taxi covers it —</b> 30 active for 26 spots — 4 over. Stash 4 on taxi (4 slots open) or drop 4.</span></div>
+      <div class="iss-row"><span class="w">⚠</span><span><b>Taxi covers part —</b> 30 active for 26 spots — 4 over. Stash 2 on taxi (2 slots open), then drop 2.</span></div>
+      <div class="iss-row"><span class="w">⚠</span><span><b>Slots open, nobody eligible —</b> 30 active for 26 spots — drop 4. Your 2 open taxi slots need players with ≤2 years experience.</span></div>
+      <div class="iss-row"><span class="w">⚠</span><span><b>No taxi in the league —</b> 30 active for 26 spots — drop 4.</span></div>
+      <div class="iss-row"><span class="w">⚠</span><span><b>IR is the cheaper route —</b> 30 active for 26 spots — 4 over. 2 injured players qualify for your open IR slots.</span></div>
+    </div>
+  </div></div></div>
+
+</div>
+</body>
+</html>
