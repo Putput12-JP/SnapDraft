@@ -25116,6 +25116,34 @@ function pickYear(year) {
     setMode(m){ this.mode=m; this.render(); },
     setVmode(v){ this.vmode=v; this._vmodeUserSet=true; try{localStorage.setItem('vault-tc-vmode',v);}catch(e){} if(v==='re') this._stripPicks(); if(!this._showPicks() && this._mobPos==='PICK') this._mobPos='RB'; this.render(); },
     setVsrc(v){ this.vsrc=v; try{localStorage.setItem('vault-tc-vsrc',v);}catch(e){} this.render(); },
+    // Dropdown value: 'market' or 'my:<profileId>'. Picking a profile re-points the
+    // active My Rankings set (same as the Draft Vault source dropdown) then values
+    // the trade off it.
+    setVsrcSel(v){
+      if(v && v.slice(0,3)==='my:'){
+        const id=v.slice(3);
+        try{ if(window.MyRankings && MyRankings.setActive) MyRankings.setActive(id); }catch(e){}
+        this.setVsrc('mine');
+      } else {
+        this.setVsrc('market');
+      }
+    },
+    // Market + one entry per available My Rankings profile.
+    _vsrcSelect(){
+      const mine = this.vsrc==='mine';
+      const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+      const actId = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
+      const cur = mine ? ('my:'+(actId||(profs[0]&&profs[0].id)||'')) : 'market';
+      const escv = (typeof _dvEscAttr==='function') ? _dvEscAttr : (s=>String(s==null?'':s));
+      let opts = `<option value="market"${!mine?' selected':''}>Market · FantasyCalc</option>`;
+      if(profs.length){
+        opts += `<optgroup label="My Rankings">`+profs.map(p=>{
+          const val='my:'+p.id;
+          return `<option value="${escv(val)}"${cur===val?' selected':''}>${escv(p.name)}</option>`;
+        }).join('')+`</optgroup>`;
+      }
+      return `<select class="adp-sel tc-vsrc-sel" onchange="TC.setVsrcSel(this.value)" title="Which rankings value this trade — Market consensus or one of your My Rankings boards">${opts}</select>`;
+    },
     clearAll(){ tradeAssets.a=[]; tradeAssets.b=[]; this.render(); },
     setTeam(slot,id){ this[slot]=id; this._closeMenus(); this.render(); },
     setMobSide(s){ this._mobSide=s; this.render(); },
@@ -25160,8 +25188,11 @@ function pickYear(year) {
       const mine = this.vsrc==='mine';
       const dot = mine ? 'var(--sky,#7bd0ff)' : 'var(--rb)';
       const dotGlow = mine ? 'rgba(123,208,255,.15)' : 'rgba(61,204,122,.15)';
+      const _actName = (mine && window.MyRankings && MyRankings.list)
+        ? ((MyRankings.list().find(p=>p.id===(MyRankings.activeId&&MyRankings.activeId()))||{}).name || 'your My Rankings board')
+        : '';
       const srcTxt = mine
-        ? `Values from <b style="color:var(--text)">your My&nbsp;Rankings board</b> · ${fmtName}`
+        ? `Values from <b style="color:var(--text)">${esc(_actName)}</b> · ${fmtName}`
         : `Values powered by <b style="color:var(--text)">FantasyCalc</b> · ${fmtName} · updated daily`;
       return `<div class="tc-srcbar" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 13px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:14px">
         <span style="width:7px;height:7px;border-radius:50%;background:${dot};box-shadow:0 0 0 3px ${dotGlow};flex-shrink:0"></span>
@@ -25169,7 +25200,7 @@ function pickYear(year) {
         ${this.mode==='league'&&this.isLive()?`<span style="display:inline-flex;gap:5px;align-items:center">${this._lgFmtPills()}</span>`:''}
         <div class="tc-seg sm" style="margin-left:auto"><button class="${this.vmode==='dyn'?'on':''}" onclick="TC.setVmode('dyn')">Dynasty</button><button class="${this.vmode==='re'?'on':''}" onclick="TC.setVmode('re')">Redraft</button></div>
         ${(!this._vmodeUserSet&&this.leagueType()===this.vmode&&this.mode==='league')?'<span class="tc-fmt-pill" style="color:var(--rb);border-color:rgba(61,204,122,.35)" title="Value set auto-detected from your Sleeper league settings">auto</span>':''}
-        <div class="tc-seg sm"><button class="${!mine?'on':''}" onclick="TC.setVsrc('market')">Market</button><button class="${mine?'on':''}" onclick="TC.setVsrc('mine')">Mine</button></div>
+        ${this._vsrcSelect()}
         <button class="tc-clear-all" onclick="TC.clearAll()" ${((tradeAssets.a||[]).length+(tradeAssets.b||[]).length)?'':'disabled'} title="Remove all players & picks from both sides">✕ Clear all</button>
         <button onclick="TC.explainValues(event)" style="display:flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:7px;padding:4px 9px;color:var(--muted);font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;white-space:nowrap">ⓘ How values work</button>
       </div>`; },
