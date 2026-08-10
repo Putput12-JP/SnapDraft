@@ -1386,6 +1386,8 @@ header{
 .pf-cards > .pf-card-grouphdr:first-child{padding-top:2px}
 .pf-card-grouphdr.dyn .pf-v2-grouphdr-lbl{color:var(--rb)}
 .pf-card-grouphdr.rd  .pf-v2-grouphdr-lbl{color:var(--wr)}
+/* Most Rostered position filter — full-width strip atop the card body */
+.pf-ownposseg{margin-bottom:16px}
 /* Format filter — top-right of the hero row */
 .pf-fmtseg{flex-shrink:0;align-self:center;width:max-content}
 @media (max-width:700px){
@@ -19772,6 +19774,13 @@ function pfV2SetFmt(fmt){
   renderPortfolioV2();
 }
 
+// Position filter for Most Rostered ('all' | 'QB' | 'RB' | 'WR' | 'TE').
+function pfV2SetOwnedPos(pos){
+  if (window._pfOwnedPos === pos) return;
+  window._pfOwnedPos = pos;
+  renderPortfolioV2();
+}
+
 // Collapse / expand a format group in the League Breakdown ('dyn' | 'rd').
 function pfV2ToggleGroup(which, event){
   if (event) event.stopPropagation();
@@ -22275,11 +22284,21 @@ function renderPortfolioV2(){
     // something within one format (same board, same strategy). Counting a
     // dynasty stash and a redraft flier as "2×" the same conviction is
     // misleading, so each format is tallied against only its own leagues.
+    // Position filter (All / QB / RB / WR / TE) — narrows Most Rostered to one
+    // position before the top-10 cut, so you see the top 10 OF that position.
+    const ownPos = window._pfOwnedPos || 'all';
+    const _posOf = (name) => (typeof getFCValue==='function' && getFCValue(name)?.pos) || '';
     const countIn = (lgs) => {
       const pc = {};
       lgs.forEach(d => (d.myNames||[]).forEach(n => { pc[n] = (pc[n]||0) + 1; }));
-      return Object.entries(pc).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,10);
+      let ents = Object.entries(pc).filter(([,c])=>c>1);
+      if (ownPos !== 'all') ents = ents.filter(([n]) => _posOf(n) === ownPos);
+      return ents.sort((a,b)=>b[1]-a[1]).slice(0,10);
     };
+    const _pfPosSeg = `<div class="vseg sm fluid pf-ownposseg" role="tablist" aria-label="Filter by position">
+        ${['all','QB','RB','WR','TE'].map(p =>
+          `<button class="${ownPos===p?'on':''}" onclick="pfV2SetOwnedPos('${p}')">${p==='all'?'All':p}</button>`).join('')}
+      </div>`;
     // Respect the active format filter: 'all' splits into both groups,
     // Dynasty/Redraft shows just that format's list (flat, no header).
     const dynData = scoped.filter(d => d.isDynasty);
@@ -22288,7 +22307,7 @@ function renderPortfolioV2(){
     const ownedEl = document.getElementById('pf-v2-owned');
     if (ownedEl && typeof _buildPortfolioOwnedHtml === 'function') {
       if (bothFmt) {
-        ownedEl.innerHTML =
+        ownedEl.innerHTML = _pfPosSeg +
           `<div class="pf-own-group">
              <div class="pf-own-grouphdr dyn"><span class="pf-v2-grouphdr-lbl">Dynasty</span><span class="pf-v2-grouphdr-count">${dynData.length} leagues</span></div>
              ${_buildPortfolioOwnedHtml(countIn(dynData), dynData.length)}
@@ -22298,7 +22317,7 @@ function renderPortfolioV2(){
              ${_buildPortfolioOwnedHtml(countIn(rdData), rdData.length)}
            </div>`;
       } else {
-        ownedEl.innerHTML = _buildPortfolioOwnedHtml(countIn(scoped), scoped.length);
+        ownedEl.innerHTML = _pfPosSeg + _buildPortfolioOwnedHtml(countIn(scoped), scoped.length);
       }
     }
     const ownedHint = document.getElementById('pf-owned-hint');
@@ -42063,7 +42082,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     //     left/width, so it cannot track a vertical strip
     { sel:'.rh-seg, .rh-modeseg, .res-seg, .dvc-seg, .adp-seg, .bt-seg,'
        + ' .tc-seg, .tc-eng-tabs, .lc-fmt, .lc-subnav, .pp-seg, .rdv-seg,'
-       + ' #vp-chips, .mr-profseg, .pf-fmtseg',
+       + ' #vp-chips, .mr-profseg, .pf-fmtseg, .pf-ownposseg',
       skin:'fill', inset:'3px', radius:'7px' },
     { sel:'.bottom-tab-bar',  skin:'soft', on:'.tab-btn.on', inset:'6px', radius:'14px' },
   ];
