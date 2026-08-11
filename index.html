@@ -9441,6 +9441,11 @@ async function vpEspnIdConnect(isPrivate){
       const yr = String(raw.seasonId || season || new Date().getFullYear());
       const lg = vpMapEspnLeague(raw, yr, id);
       lg._espnPrivate = true;   // routes future reads through the proxy
+      // The server tagged which team is ours (matched our SWID) — auto-select it
+      // so the league lands in the Command pages without a manual "pick my team".
+      if (raw.__vaultMyTeamId != null){
+        try { localStorage.setItem(SK+'-espn-team-'+lg.league_id, String(raw.__vaultMyTeamId)); } catch(e){}
+      }
       vpEspnError('');
       vpFinishEspn(lg);
     } catch(e){
@@ -14524,6 +14529,12 @@ async function loadEspnLeagueRaw(leagueId, views){
     // Private league — cookies live server-side; pull the raw v3 payload through
     // the proxy. Same shape as the direct fetch below, so callers don't branch.
     data = await window.VaultEspn.league(lg._espnId, lg.season, views).catch(()=>null);
+    // On a fresh device the persisted league carries no team pick; the server
+    // tagged ours, so adopt it (only if nothing's chosen — never override the
+    // user's own selection).
+    if (data && data.__vaultMyTeamId != null){
+      try { const k = SK+'-espn-team-'+leagueId; if (!localStorage.getItem(k)) localStorage.setItem(k, String(data.__vaultMyTeamId)); } catch(e){}
+    }
   } else {
     const q = views.map(v=>'view='+v).join('&');
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${lg.season}/segments/0/leagues/${lg._espnId}?${q}`;

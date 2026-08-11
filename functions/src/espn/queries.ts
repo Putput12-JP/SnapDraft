@@ -51,6 +51,14 @@ export async function runEspnQuery(
           ? q.views.filter((v) => VIEW_ALLOWLIST.has(v))
           : ESPN_LEAGUE_VIEWS;
       const data = await fetchEspnLeague(cookies, season, leagueId, views);
+      // Only the server knows the connected SWID, so only the server can say
+      // which team is the user's. Tag it into the payload (double-underscore so
+      // the frontend's ESPN mappers ignore it) → the client auto-selects it and
+      // the league lands in the Command pages with no manual "pick your team".
+      if (data && typeof data === "object") {
+        const teamId = resolveMyTeamId(data, cookies.swid);
+        if (teamId != null) (data as Record<string, unknown>).__vaultMyTeamId = teamId;
+      }
       return { data };
     }
     case "fan_leagues": {
@@ -66,4 +74,29 @@ export async function runEspnQuery(
 export function currentSeason(): number {
   const now = new Date();
   return now.getUTCMonth() >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+}
+
+/**
+ * Find which team the connected SWID owns. ESPN lists each team's owner SWIDs
+ * on `owners[]` (and `primaryOwner`), so we match the stored cookie's SWID
+ * against them. Case-insensitive because ESPN's owner ids and the pasted SWID
+ * don't always agree on hex casing. Returns the numeric teamId or null (user
+ * is a league viewer / co-manager not listed as an owner → fall back to a
+ * manual pick).
+ */
+export function resolveMyTeamId(raw: unknown, swid: string): number | null {
+  if (!raw || typeof raw !== "object") return null;
+  const want = String(swid || "").toLowerCase();
+  if (!want) return null;
+  const teams = (raw as { teams?: unknown }).teams;
+  if (!Array.isArray(teams)) return null;
+  for (const t of teams) {
+    const team = t as { id?: number; owners?: unknown; primaryOwner?: unknown };
+    const owners = Array.isArray(team.owners) ? team.owners : [];
+    if (owners.some((o) => String(o).toLowerCase() === want)) return team.id ?? null;
+    if (team.primaryOwner && String(team.primaryOwner).toLowerCase() === want) {
+      return team.id ?? null;
+    }
+  }
+  return null;
 }
