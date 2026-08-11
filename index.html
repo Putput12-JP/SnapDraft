@@ -14579,6 +14579,12 @@ async function buildEspnContext(leagueId){
     const ownerId = 'espn_owner_'+t.id;
     const entries = (t.roster && t.roster.entries) || [];
     const players = [], starters = [];
+    // Native-ID bridge (Phase 0 writes prerequisite). Every value/grade in Vault
+    // keys on the name-mapped Sleeper pid, but a WRITE back to ESPN must send
+    // ESPN's own ids — which buildEspnContext otherwise discards. Carry them
+    // per player so a future lineup/add-drop write can round-trip by native id
+    // and never by a fuzzy name match. Purely additive: reads ignore it.
+    const platformIds = {};
     entries.forEach(e => {
       const pl = (e.playerPoolEntry && e.playerPoolEntry.player) || {};
       const nm = pl.fullName; if (!nm) return;
@@ -14587,6 +14593,7 @@ async function buildEspnContext(leagueId){
       if (!sid) globalPidToName[pid] = nm;     // so globalPidToName[pid] resolves
       players.push(pid);
       if (!ESPN_BENCH.has(e.lineupSlotId)) starters.push(pid);
+      if (pl.id != null) platformIds[pid] = { espnPlayerId: pl.id, slotId: e.lineupSlotId, proTeamId: pl.proTeamId ?? null };
     });
     const rec = (t.record && t.record.overall) || {};
     const pf = rec.pointsFor || 0;
@@ -14594,7 +14601,9 @@ async function buildEspnContext(leagueId){
       roster_id: t.id, owner_id: ownerId, players, starters, reserve: [],
       settings: { wins: rec.wins||0, losses: rec.losses||0, ties: rec.ties||0,
         fpts: Math.floor(pf), fpts_decimal: Math.round((pf%1)*100),
-        fpts_against: Math.floor(rec.pointsAgainst||0) }
+        fpts_against: Math.floor(rec.pointsAgainst||0) },
+      // native ESPN ids for the write layer; ignored by every read path
+      platform: 'espn', espnTeamId: t.id, platformIds
     });
     users.push({ user_id: ownerId, display_name: tname, username: tname, avatar: t.logo || null, metadata: { team_name: tname } });
   });
