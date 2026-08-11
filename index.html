@@ -22378,8 +22378,9 @@ function renderPortfolioV2(){
       // many leagues each is in. Long lists scroll inside .pf-own-list.
       let ents = Object.entries(pc);
       if (ownPos !== 'all') ents = ents.filter(([n]) => _posOf(n) === ownPos);
-      // Highest value first; league count breaks ties.
-      return ents.sort((a,b)=> (_valOf(b[0],fmt) - _valOf(a[0],fmt)) || (b[1]-a[1]));
+      // Most-rostered first (highest league count); within the same count,
+      // highest value first.
+      return ents.sort((a,b)=> (b[1]-a[1]) || (_valOf(b[0],fmt) - _valOf(a[0],fmt)));
     };
     const _ownSearch = window._pfOwnedSearch || '';
     const _searchIc = (typeof reIcon==='function') ? reIcon('search',{size:14}) : '';
