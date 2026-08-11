@@ -47,3 +47,21 @@ export {
   yahooRead,
   executeYahooAction,
 } from "./yahoo/callables";
+
+// ── ESPN ──
+// No official API, no OAuth — auth is the SWID + espn_s2 cookie pair, pasted
+// once and verified against a real league read, then stored encrypted. This
+// path exists only to attach those cookies server-side so a PRIVATE league
+// becomes readable (public leagues read direct from the browser). Read-only:
+// ESPN writes are a separate build gated on the discovery protocol in
+// docs/multi-platform-plan.md.
+//
+//   connectEspn({ swid, s2, leagueId, season }) -> Connection
+//   disconnectEspn() / espnStatus()
+//   espnRead({ query })                         -> { ok, data }  (raw v3 JSON)
+export {
+  connectEspn,
+  disconnectEspn,
+  espnStatus,
+  espnRead,
+} from "./espn/callables";

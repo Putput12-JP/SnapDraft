@@ -17,6 +17,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── ESPN cookies ────────────────────────────────────────────
+    // The SWID + espn_s2 pair, both encrypted. Together they are read+write
+    // access to the user's ESPN account, so — like Sleeper and Yahoo — the
+    // client never touches this doc; only Cloud Functions (Admin SDK) do.
+    match /espnTokens/{uid} {
+      allow read, write: if false;
+    }
+
     // ── Rate-limit counters ─────────────────────────────────────
     // Written/read ONLY by Cloud Functions via the Admin SDK. Client
     // access would let a caller reset their own budget, which defeats

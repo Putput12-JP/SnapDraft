@@ -39,6 +39,33 @@ export const YAHOO_PLAYER_PAGE_SIZE = 25;
 /** Max pages one free-agent scan will walk (25 * 12 = 300 players deep). */
 export const YAHOO_MAX_PLAYER_PAGES = 12;
 
+// ── ESPN ──────────────────────────────────────────────────────
+// ESPN has no official API and no OAuth. Auth is two browser cookies,
+// SWID + espn_s2, which the ESPN web app itself uses. PUBLIC leagues read
+// straight from the browser (the v3 host sends permissive CORS), so those
+// never touch these functions. This server path exists for ONE reason: a
+// PRIVATE league 401s from the browser because the cookies can't be attached
+// cross-site — so we store them encrypted and attach them here, server-side.
+// That is the whole mechanism, mirrored on scripts/fetch-espn-league.mjs.
+
+/** Reads host. ESPN moved v3 reads here off fantasy.espn.com. */
+export const ESPN_READS_HOST = "https://lm-api-reads.fantasy.espn.com";
+/** Original host — fall back to it if the reads host 4xx's for a non-auth reason. */
+export const ESPN_FANTASY_HOST = "https://fantasy.espn.com";
+/** Fan API — enumerates every league a SWID belongs to. Undocumented, best-effort. */
+export const ESPN_FAN_HOST = "https://fan.api.espn.com";
+/** Fantasy football game slug in the v3 path. */
+export const ESPN_GAME = "ffl";
+/** Views pulled for a league read — settings, teams, rosters, schedule, status. */
+export const ESPN_LEAGUE_VIEWS = [
+  "mSettings",
+  "mTeam",
+  "mRoster",
+  "mMatchup",
+  "mStatus",
+  "mDraftDetail",
+] as const;
+
 // ── Throttling ────────────────────────────────────────────────
 // Sleeper's private API will rate-limit / flag accounts that fire
 // bursts of writes. We deliberately space writes out. These govern
@@ -61,6 +88,8 @@ export const TOKENS_COLLECTION = "sleeperTokens"; // sleeperTokens/{uid}
 export const YAHOO_TOKENS_COLLECTION = "yahooTokens"; // yahooTokens/{uid}
 /** Cached Yahoo API responses, keyed by uid + resource. Server-only. */
 export const YAHOO_CACHE_SUBCOLLECTION = "yahooCache"; // users/{uid}/yahooCache/{key}
+/** Admin-only doc holding the encrypted ESPN cookie pair. Clients CANNOT read this. */
+export const ESPN_TOKENS_COLLECTION = "espnTokens"; // espnTokens/{uid}
 /** Per-user job queue. Clients may READ their own jobs (status UI) but not write them. */
 export const JOBS_SUBCOLLECTION = "sleeperJobs"; // users/{uid}/sleeperJobs/{jobId}
 /** Admin-only rate-limit counters. Clients CANNOT read or write these. */
@@ -130,4 +159,12 @@ export const LIMITS = {
   yahooReadPerUser: { max: 300, windowMs: 60 * 1000 },
   /** Yahoo OAuth exchanges (connect / reconnect). */
   yahooConnectPerUser: { max: 10, windowMs: 60 * 60 * 1000 },
+  /** ESPN cookie pastes / reconnects. Same shape as Sleeper's connect budget. */
+  espnConnectPerUser: { max: 10, windowMs: 60 * 60 * 1000 },
+  /**
+   * ESPN private-league reads proxied with the user's cookies. Only PRIVATE
+   * leagues come through here (public ones read direct from the browser), so
+   * this carries on-demand roster/matchup pulls, not every page paint.
+   */
+  espnReadPerUser: { max: 120, windowMs: 60 * 1000 },
 } as const;

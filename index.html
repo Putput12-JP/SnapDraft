@@ -104,6 +104,7 @@ window.VAULT_SHOT_DRAFT="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBM
 <script src="auth/vault-auth.js"></script>
 <script src="auth/vault-sleeper.js"></script>
 <script src="auth/vault-yahoo.js"></script>
+<script src="auth/vault-espn.js"></script>
 <script>try{ if(window.VaultAuth) VaultAuth.guard(); }catch(e){}</script>
 
 <!-- ANALYTICS: Firebase + Google Analytics (GA4 measurement id G-E2XHWWQDEQ) -->
@@ -4111,11 +4112,11 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
           <div id="vp-panel-espn" style="display:none">
             <div class="vp-espn-note">
               <span class="ic"><span data-reicon="link" data-rsize="16"></span></span>
-              <p><b>Connect with your ESPN League ID.</b> Find it in your league's web URL, <code>…/league?leagueId=<b>XXXXXX</b></code>. Paste it below and we'll pull that league in.</p>
+              <p><b>Connect with your ESPN League ID.</b> Find it in your league's web URL, <code>…/league?leagueId=<b>XXXXXX</b></code> — or just paste the whole URL and we'll pull the ID out.</p>
             </div>
             <!-- League ID input row -->
             <div style="display:flex;gap:8px">
-              <input id="vp-espn-id" placeholder="ESPN League ID…" inputmode="numeric" autocomplete="off" spellcheck="false"
+              <input id="vp-espn-id" placeholder="ESPN League ID or league URL…" autocomplete="off" spellcheck="false"
                 style="flex:1;padding:13px 16px;font-size:15px;border-radius:10px" onkeydown="if(event.key==='Enter')vpEspnIdConnect()">
               <button id="vp-espn-go" onclick="vpEspnIdConnect()" style="padding:15px 26px;border-radius:13px;border:none;background:linear-gradient(150deg,#8fb4e0,#4d6a89);color:#0b1420;font-family:var(--vf-sans);font-size:15px;font-weight:800;letter-spacing:-.01em;cursor:pointer;box-shadow:0 14px 30px -14px rgba(143,180,224,.6);white-space:nowrap">Connect</button>
             </div>
@@ -4124,15 +4125,15 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
             <details class="vp-ckhelp" style="text-align:center;margin-top:12px">
               <summary style="color:var(--wr);text-align:center">Where do I find my League ID?</summary>
               <ul class="vp-cksteps" style="margin-top:10px">
-                <li><span class="n">1</span><span>Open your league on <code>fantasy.espn.com</code> in a desktop browser.</span></li>
-                <li><span class="n">2</span><span>The address bar URL contains <code>leagueId=XXXXXX</code>.</span></li>
-                <li><span class="n">3</span><span>Copy that number and paste it above.</span></li>
+                <li><span class="n">1</span><span>Open your league on <code>fantasy.espn.com</code> (desktop, or a phone browser — not the app).</span></li>
+                <li><span class="n">2</span><span>Copy the whole address-bar URL — it contains <code>leagueId=XXXXXX</code>.</span></li>
+                <li><span class="n">3</span><span>Paste the URL (or just the number) above — we'll find the ID.</span></li>
               </ul>
             </details>
             <div class="vp-or"><span>private league?</span></div>
             <button class="vp-adv" id="vp-adv-toggle" onclick="vpToggleCookies()">Add connection codes (SWID + espn_s2) <span class="car">▾</span></button>
             <div class="vp-cookie" id="vp-cookie-panel">
-              <p style="font-size:11.5px;color:var(--muted);line-height:1.5;margin:10px 0 2px">Private leagues can't be read from the browser, ESPN requires these cookies sent <b>server-side</b>. This needs the backend sync; entering them here won't pull a private league yet.</p>
+              <p style="font-size:11.5px;color:var(--muted);line-height:1.5;margin:10px 0 2px">Private leagues need two read-only codes from your ESPN cookies — they let us <b>read</b> your league, never change it. Grab them fast with the free <a href="https://chromewebstore.google.com/detail/espn-cookie-finder/oapfffhnckhffnpiophbcmjnpomjkfcj" target="_blank" rel="noopener" style="color:var(--wr);text-decoration:underline">ESPN Cookie Finder</a> extension, or by hand (steps below).</p>
               <div class="vp-cklabel">SWID <span class="req">*</span></div>
               <input class="vp-ckinput" id="vp-swid" placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}">
               <div class="vp-cklabel">espn_s2 <span class="req">*</span></div>
@@ -9393,10 +9394,65 @@ function vpSetPlatform(p){
 // Public leagues return data with no auth. Private leagues 401 (need server-side
 // SWID/espn_s2, not possible from the browser), and we surface that clearly.
 const VP_ESPN_SLOT = {0:'QB',2:'RB',4:'WR',6:'TE',7:'SUPER_FLEX',16:'DEF',17:'K',23:'FLEX'};
+// Accepts a bare League ID *or* a pasted ESPN URL / share link and pulls the
+// leagueId (+ seasonId when present) out of it. Pasting the whole address-bar
+// URL is the natural move on a phone — bare-stripping digits would mangle it
+// (e.g. "…leagueId=123&seasonId=2026" → "1232026"), so parse the query first.
+function vpParseEspnLeagueId(raw){
+  const s = String(raw || '').trim();
+  if (!s) return { id:'', season:'' };
+  let id = '', season = '';
+  const lm = s.match(/leagueId[=/](\d+)/i);
+  if (lm) id = lm[1];
+  const sm = s.match(/seasonId[=/](\d{4})/i);
+  if (sm) season = sm[1];
+  if (!id){
+    // No query param — treat as a bare ID (tolerate stray spaces/commas).
+    const digits = s.replace(/[^0-9]/g,'');
+    // A 4-digit-only paste is almost certainly a season, not a league.
+    if (digits && !(digits.length===4 && /^20\d\d$/.test(digits))) id = digits;
+  }
+  return { id, season };
+}
 async function vpEspnIdConnect(isPrivate){
   const inp = document.getElementById('vp-espn-id');
-  const id = (inp?.value || '').trim().replace(/[^0-9]/g,'');
+  const { id, season } = vpParseEspnLeagueId(inp?.value);
+  // Private path: cookies are attached SERVER-SIDE (they never touch this
+  // page beyond the one connect call). We verify the pair against the league,
+  // store it encrypted, then pull the league back through the same proxy.
+  if (isPrivate){
+    const swid = (document.getElementById('vp-swid')?.value || '').trim();
+    const s2 = (document.getElementById('vp-s2')?.value || '').trim();
+    if (!id) return vpEspnError('Add your League ID up top too, so we know which private league to pull.');
+    if (!swid || !s2) return vpEspnError('Paste both SWID and espn_s2 to connect a private league.');
+    if (!(window.VaultEspn && window.VaultEspn.backendAvailable())){
+      return vpEspnError('Private-league sync needs the Vault backend, which isn\'t configured in this build yet.');
+    }
+    const btn = document.querySelector('#vp-cookie-panel .vp-espn-cta');
+    const orig = btn ? btn.textContent : '';
+    if (btn){ btn.textContent='Verifying…'; btn.disabled=true; }
+    try {
+      await window.VaultEspn.connect(swid, s2, id, season || undefined);
+      // Clear the pasted secrets from the DOM the moment they're stored.
+      const sw=document.getElementById('vp-swid'), s2i=document.getElementById('vp-s2');
+      if (sw) sw.value=''; if (s2i) s2i.value='';
+      const raw = await window.VaultEspn.league(id, season || undefined);
+      if (!raw) throw new Error('Connected, but ESPN returned no league data. Double-check the League ID.');
+      const yr = String(raw.seasonId || season || new Date().getFullYear());
+      const lg = vpMapEspnLeague(raw, yr, id);
+      lg._espnPrivate = true;   // routes future reads through the proxy
+      vpEspnError('');
+      vpFinishEspn(lg);
+    } catch(e){
+      const msg = (e && e.message) || 'Could not connect that private league.';
+      vpEspnError(/sign in/i.test(msg) ? 'Sign in to Vault first, then connect your private league.' : msg);
+    } finally {
+      if (btn){ btn.textContent=orig; btn.disabled=false; }
+    }
+    return;
+  }
   if (!id){
+    vpEspnError("Paste your ESPN League ID — or the whole league URL and we'll find it.");
     if (inp){ inp.style.borderColor='#d50a0a'; inp.style.boxShadow='0 0 0 3px rgba(213,10,10,0.25)'; inp.focus();
       setTimeout(()=>{ inp.style.borderColor=''; inp.style.boxShadow=''; }, 1600); }
     return;
@@ -9405,17 +9461,20 @@ async function vpEspnIdConnect(isPrivate){
   const go = document.getElementById('vp-espn-go');
   if (go){ go.textContent='…'; go.disabled=true; }
   try {
-    const lg = await vpFetchEspnLeague(id);
+    const lg = await vpFetchEspnLeague(id, season);
     if (inp) inp.value='';
     vpFinishEspn(lg);
   } catch(e){
-    vpEspnError(e.message || 'Could not load that league.');
+    if (e && e.espnPrivate) vpEspnPrivateHelp(id);
+    else vpEspnError(e.message || 'Could not load that league.');
   } finally {
     if (go){ go.textContent='Connect'; go.disabled=false; }
   }
 }
-async function vpFetchEspnLeague(id){
-  const years = ['2026','2025','2024'];
+async function vpFetchEspnLeague(id, preferSeason){
+  // Try the season the user's URL named first, then fall back newest→oldest.
+  const base = ['2026','2025','2024'];
+  const years = preferSeason ? [preferSeason, ...base.filter(y=>y!==preferSeason)] : base;
   let lastErr = null;
   for (const y of years){
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${y}/segments/0/leagues/${id}`
@@ -9423,7 +9482,7 @@ async function vpFetchEspnLeague(id){
     let res;
     try { res = await fetch(url, { headers:{ 'accept':'application/json' } }); }
     catch(netErr){ lastErr = new Error("Couldn't reach ESPN (network/CORS). Try again, or this may need the server proxy."); continue; }
-    if (res.status === 401){ throw new Error('League '+id+' is private. Private leagues need SWID + espn_s2 read server-side, make the league public, or use the backend sync.'); }
+    if (res.status === 401){ const pe = new Error('private'); pe.espnPrivate = true; throw pe; }
     if (res.status === 404){ lastErr = new Error('No ESPN league found with ID '+id+' for '+years.join('/')+'. Double-check the ID.'); continue; }
     if (!res.ok){ lastErr = new Error('ESPN returned '+res.status+' for league '+id+'.'); continue; }
     let data; try { data = await res.json(); } catch(_){ lastErr = new Error('ESPN sent an unexpected response.'); continue; }
@@ -9461,12 +9520,34 @@ function vpMapEspnLeague(data, year, id){
     roster_positions:positions,
   };
 }
-function vpEspnError(msg){
+function vpEspnError(msg, html){
   const el = document.getElementById('vp-espn-err');
   if (!el) return;
-  if (!msg){ el.style.display='none'; el.textContent=''; return; }
-  el.textContent = '⚠ ' + msg;
+  if (!msg){ el.style.display='none'; el.textContent=''; el.innerHTML=''; return; }
+  if (html) el.innerHTML = '⚠ ' + msg;
+  else el.textContent = '⚠ ' + msg;
   el.style.display = '';
+}
+// Private-league 401 → don't dead-end with a scary error. Explain plainly and
+// open the cookie path (SWID + espn_s2), pointing at the one-click grabber.
+function vpEspnPrivateHelp(id){
+  vpEspnError(
+    "<b>League "+id+" is private.</b> Public leagues connect with just the ID; private ones "
+    + "need two read-only codes from your ESPN cookies (<code>SWID</code> + <code>espn_s2</code>). "
+    + "Fastest way to grab them: the free "
+    + "<a href=\"https://chromewebstore.google.com/detail/espn-cookie-finder/oapfffhnckhffnpiophbcmjnpomjkfcj\" "
+    + "target=\"_blank\" rel=\"noopener\" style=\"color:#8fb4e0;text-decoration:underline\">ESPN Cookie Finder</a> "
+    + "extension, then paste them below. (Needs a desktop browser once — after that your phone stays synced.)",
+    true
+  );
+  // Reveal the cookie panel if it's collapsed, and bring it into view.
+  const panel = document.getElementById('vp-cookie-panel');
+  const toggle = document.getElementById('vp-adv-toggle');
+  if (panel && !panel.classList.contains('on')){
+    panel.classList.add('on');
+    toggle?.classList.add('open');
+  }
+  document.getElementById('vp-swid')?.scrollIntoView({ behavior:'smooth', block:'center' });
 }
 // ── ESPN: cookie-paste reveal (private leagues) ──
 function vpToggleCookies(){
@@ -9489,9 +9570,53 @@ function vpFinishEspn(lg){
   if (vpSelected.size===0 && !vpPrimary) vpInitSelection();
   vpSelected.add(lg.league_id);
   if (!vpPrimary) vpPrimary = lg.league_id;
+  vpSaveEspnLeagues();
   vpRenderLeagueGrid();
   vpShowView('leagues');
 }
+
+// ── ESPN league persistence ─────────────────────────────────────────────
+// loadMyTeams() rebuilds myTeamsData wholesale from Sleeper, so a connected
+// ESPN league would vanish on every reload. We stash the mapped league objects
+// under a `dcmd-` key, which auth/vault-auth.js already mirrors to Firestore
+// (users/{uid}/kv) — so a private league connected on desktop reappears on the
+// phone. The server-side cookies persist independently in espnTokens/{uid}, so
+// a restored private league's reads keep working through the proxy.
+const VP_ESPN_STORE = SK + '-espn-leagues';
+// Only the fields vpMapEspnLeague produces — enough to rebuild the league and
+// route its reads. No secrets: cookies never live here, only server-side.
+const VP_ESPN_KEEP = ['league_id','platform','_espn','_espnId','_espnPrivate','name','season','status','total_rosters','settings','roster_positions'];
+function vpSaveEspnLeagues(){
+  try {
+    const espn = myTeamsData.filter(l => l && l._espn).map(l => {
+      const o = {}; VP_ESPN_KEEP.forEach(k => { if (l[k] !== undefined) o[k] = l[k]; }); return o;
+    });
+    if (espn.length) localStorage.setItem(VP_ESPN_STORE, JSON.stringify(espn));
+    else localStorage.removeItem(VP_ESPN_STORE);
+  } catch(e){}
+}
+// Idempotent — merges any saved ESPN league not already present. Safe to call
+// from multiple hooks (load, render, post-sync); returns how many it added.
+function vpRestoreEspnLeagues(){
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(VP_ESPN_STORE) || '[]'); } catch(e){ return 0; }
+  if (!Array.isArray(saved) || !saved.length) return 0;
+  let added = 0;
+  saved.forEach(lg => {
+    if (!lg || !lg.league_id) return;
+    if (!myTeamsData.some(l => l.league_id === lg.league_id)){ myTeamsData.push(lg); added++; }
+  });
+  return added;
+}
+// Fresh device: VaultAuth pulls the synced key from Firestore async, then fires
+// this. Re-hydrate and repaint the league surfaces so a league connected on
+// another device shows up without a manual reload.
+window.addEventListener('vault-sync-ready', () => {
+  if (vpRestoreEspnLeagues() > 0){
+    try { vpRenderLeagueGrid(); } catch(e){}
+    try { if (typeof populateHeaderLeague==='function') populateHeaderLeague(); } catch(e){}
+  }
+});
 
 let vpSelected = new Set();
 let vpPrimary = null;
@@ -9596,6 +9721,7 @@ function vpCardHTML(l, i){
 function vpRenderLeagueGrid(){
   const wrap = document.getElementById('vp-leagues-wrap');
   if (!wrap) return;
+  vpRestoreEspnLeagues();  // safety net: ensure saved ESPN leagues are present before we paint
   const pool = myTeamsData.filter(l => l.season==='2026' || l.season==='2025' || l.platform==='espn');
   const cAll = document.getElementById('vp-c-all'); if (cAll) cAll.textContent = '(' + pool.length + ')';
   const q = (document.getElementById('vp-search')?.value || '').toLowerCase();
@@ -14393,9 +14519,16 @@ async function loadEspnLeagueRaw(leagueId, views){
   const key = leagueId+'|'+views.join(',');
   const c = _espnRawCache[key];
   if (c && Date.now()-c.t < 60000) return c.data;
-  const q = views.map(v=>'view='+v).join('&');
-  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${lg.season}/segments/0/leagues/${lg._espnId}?${q}`;
-  const data = await fetch(url,{headers:{accept:'application/json'}}).then(r=>r.ok?r.json():null).catch(()=>null);
+  let data = null;
+  if (lg._espnPrivate && window.VaultEspn){
+    // Private league — cookies live server-side; pull the raw v3 payload through
+    // the proxy. Same shape as the direct fetch below, so callers don't branch.
+    data = await window.VaultEspn.league(lg._espnId, lg.season, views).catch(()=>null);
+  } else {
+    const q = views.map(v=>'view='+v).join('&');
+    const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${lg.season}/segments/0/leagues/${lg._espnId}?${q}`;
+    data = await fetch(url,{headers:{accept:'application/json'}}).then(r=>r.ok?r.json():null).catch(()=>null);
+  }
   if (data) _espnRawCache[key] = {data, t:Date.now()};
   return data;
 }
@@ -18306,6 +18439,8 @@ async function loadMyTeams() {
       ...(l2025||[]).map(l=>({...l,season:'2025'})),
       ...(l2024||[]).map(l=>({...l,season:'2024'})),
     ];
+    // Sleeper rebuild just wiped any connected ESPN league — put them back.
+    vpRestoreEspnLeagues();
 
     renderMyTeamsResults();
     populateAnalyzerDropdown();

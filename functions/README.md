@@ -88,6 +88,37 @@ firebase deploy --only functions
 the Firebase console. It preserves the existing auth-sync rule (`users/{uid}/kv/**`)
 and adds token/queue lockdown — but review it against your console before deploying.
 
+## ESPN (private leagues)
+
+ESPN has no official API and no OAuth. Auth is the browser cookie pair
+`SWID` + `espn_s2`. A **public** league reads straight from the browser; this
+backend exists only to attach those cookies **server-side** so a **private**
+league becomes readable (the browser can't send them cross-site).
+
+Callables (read-only — ESPN writes are gated on the discovery protocol in
+`docs/multi-platform-plan.md`, not built here):
+
+```js
+const connect = fns.httpsCallable('connectEspn');
+// Verifies the pair against the league, then stores it AES-encrypted.
+await connect({ swid: '{…}', s2: 'AEB…', leagueId: '31581238', season: '2026' });
+
+const read = fns.httpsCallable('espnRead');
+const { data } = (await read({ query: {
+  type: 'league', leagueId: '31581238', season: '2026'
+}})).data;                       // raw ESPN v3 JSON — mapped client-side
+
+// espnStatus() -> { connected, verified, swidHint };  disconnectEspn()
+```
+
+**No new secret.** ESPN cookies are wrapped with the same `SLEEPER_ENC_KEY`
+and stored at `espnTokens/{uid}` (locked down in `firestore.rules`). So
+shipping ESPN is just a redeploy of functions + rules — no `secrets:set` step:
+
+```bash
+firebase deploy --only functions,firestore:rules
+```
+
 ## Frontend wiring (later)
 
 ```js
