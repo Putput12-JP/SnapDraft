@@ -1386,15 +1386,27 @@ header{
 .pf-cards > .pf-card-grouphdr:first-child{padding-top:2px}
 .pf-card-grouphdr.dyn .pf-v2-grouphdr-lbl{color:var(--rb)}
 .pf-card-grouphdr.rd  .pf-v2-grouphdr-lbl{color:var(--wr)}
-/* Most Rostered controls row — position filter + name search */
-.pf-own-controls{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+/* My Players controls — position filter + name search, on the title row */
+.pf-own-head{flex-wrap:wrap;gap:10px 14px}
+.pf-own-head .pf-v2-section-title{flex-shrink:0}
+.pf-own-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex:1 1 auto;min-width:0}
 .pf-ownposseg{flex-shrink:0}
-.pf-own-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 150px;min-width:130px}
-.pf-own-search-ic{position:absolute;left:10px;display:flex;align-items:center;color:var(--muted);pointer-events:none}
-.pf-own-search{width:100%;height:34px;padding:0 12px 0 30px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--t-label);transition:border-color .15s}
-.pf-own-search:focus{outline:none;border-color:var(--accent)}
-.pf-own-search::placeholder{color:var(--muted)}
+.pf-own-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 130px;min-width:120px;max-width:230px}
+.pf-own-search-ic{position:absolute;left:10px;display:flex;align-items:center;color:var(--muted);pointer-events:none;z-index:1}
+/* A GLOBAL `input[type="search"]{background:rgba(1,15,31,.7)!important}` (§ input
+   fields, ~L2009) hardcodes a Vapor navy on every field and ignores the theme,
+   so the search box needs both higher specificity AND !important to hold the
+   theme tokens (same trap the .rs-decform inputs hit). */
+.pf-own-search-wrap input.pf-own-search{width:100%;height:34px;padding:0 12px 0 30px;font-family:var(--font-sans)!important;font-size:var(--t-label);border-radius:8px!important;border:1px solid var(--border2)!important;background:var(--s2)!important;color:var(--text)!important;transition:border-color .15s}
+.pf-own-search-wrap input.pf-own-search:focus{outline:none!important;border-color:var(--accent)!important;box-shadow:none!important}
+.pf-own-search-wrap input.pf-own-search::placeholder{color:var(--muted)!important}
 .pf-own-search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+/* Full roster can be long — keep each format list scrollable so the card and
+   the Signals panel beside it stay balanced. */
+.pf-own-list{max-height:390px;overflow-y:auto;overflow-x:hidden}
+.pf-own-list::-webkit-scrollbar{width:8px}
+.pf-own-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.pf-own-list::-webkit-scrollbar-track{background:transparent}
 /* Format filter — top-right of the hero row */
 .pf-fmtseg{flex-shrink:0;align-self:center;width:max-content}
 @media (max-width:700px){
@@ -5482,7 +5494,7 @@ function pgsOpen(name, pos, team){
       <!-- Rostered Players + Signals row -->
       <div class="pf-v2-bottom-grid">
         <div class="pf-v2-section">
-          <div class="pf-v2-section-head"><span class="pf-v2-section-title">Most Rostered</span><span class="pf-v2-section-hint" id="pf-owned-hint"></span></div>
+          <div class="pf-v2-section-head pf-own-head"><span class="pf-v2-section-title">My Players</span><div class="pf-own-controls" id="pf-owned-controls"></div></div>
           <div id="pf-v2-owned" class="pf-v2-section-body"></div>
         </div>
         <div class="pf-v2-section">
@@ -22361,23 +22373,29 @@ function renderPortfolioV2(){
     const countIn = (lgs, fmt) => {
       const pc = {};
       lgs.forEach(d => (d.myNames||[]).forEach(n => { pc[n] = (pc[n]||0) + 1; }));
-      let ents = Object.entries(pc).filter(([,c])=>c>1);
+      // Show EVERY player rostered in these leagues (no 2+ gate, no top-N cut)
+      // so the search covers your whole roster; the dot strip still shows how
+      // many leagues each is in. Long lists scroll inside .pf-own-list.
+      let ents = Object.entries(pc);
       if (ownPos !== 'all') ents = ents.filter(([n]) => _posOf(n) === ownPos);
       // Highest value first; league count breaks ties.
-      return ents.sort((a,b)=> (_valOf(b[0],fmt) - _valOf(a[0],fmt)) || (b[1]-a[1])).slice(0,10);
+      return ents.sort((a,b)=> (_valOf(b[0],fmt) - _valOf(a[0],fmt)) || (b[1]-a[1]));
     };
     const _ownSearch = window._pfOwnedSearch || '';
     const _searchIc = (typeof reIcon==='function') ? reIcon('search',{size:14}) : '';
-    const _pfOwnedControls = `<div class="pf-own-controls">
-        <div class="vseg sm pf-ownposseg" role="tablist" aria-label="Filter by position">
+    // Controls (position filter + search) render into the section HEAD, on the
+    // "My Players" title row — see #pf-owned-controls in the markup.
+    const _pfOwnedControls =
+       `<div class="vseg sm pf-ownposseg" role="tablist" aria-label="Filter by position">
           ${['all','QB','RB','WR','TE'].map(p =>
             `<button class="${ownPos===p?'on':''}" onclick="pfV2SetOwnedPos('${p}')">${p==='all'?'All':p}</button>`).join('')}
         </div>
         <div class="pf-own-search-wrap">
           <span class="pf-own-search-ic">${_searchIc}</span>
           <input class="pf-own-search" type="search" placeholder="Search player" value="${_ownSearch.replace(/"/g,'&quot;')}" oninput="pfOwnedSearch(this.value)" aria-label="Search rostered players">
-        </div>
-      </div>`;
+        </div>`;
+    const controlsEl = document.getElementById('pf-owned-controls');
+    if (controlsEl) controlsEl.innerHTML = _pfOwnedControls;
     // Respect the active format filter AND the active-league rule above.
     const dynData = scoped.filter(d => d.isDynasty && _isActiveLg(d));
     const rdData  = scoped.filter(d => !d.isDynasty && _isActiveLg(d));
@@ -22385,25 +22403,22 @@ function renderPortfolioV2(){
     const ownedEl = document.getElementById('pf-v2-owned');
     if (ownedEl && typeof _buildPortfolioOwnedHtml === 'function') {
       if (bothFmt) {
-        ownedEl.innerHTML = _pfOwnedControls +
+        ownedEl.innerHTML =
           `<div class="pf-own-group">
              <div class="pf-own-grouphdr dyn"><span class="pf-v2-grouphdr-lbl">Dynasty</span><span class="pf-v2-grouphdr-count">${dynData.length} leagues</span></div>
-             ${_buildPortfolioOwnedHtml(countIn(dynData,'dynasty'), dynData.length)}
+             <div class="pf-own-list">${_buildPortfolioOwnedHtml(countIn(dynData,'dynasty'), dynData.length)}</div>
            </div>
            <div class="pf-own-group">
              <div class="pf-own-grouphdr rd"><span class="pf-v2-grouphdr-lbl">Redraft</span><span class="pf-v2-grouphdr-count">${rdData.length} leagues</span></div>
-             ${_buildPortfolioOwnedHtml(countIn(rdData,'redraft'), rdData.length)}
+             <div class="pf-own-list">${_buildPortfolioOwnedHtml(countIn(rdData,'redraft'), rdData.length)}</div>
            </div>`;
       } else {
         const only = dynData.length ? dynData : rdData;
         const fmt  = dynData.length ? 'dynasty' : 'redraft';
-        ownedEl.innerHTML = _pfOwnedControls + _buildPortfolioOwnedHtml(countIn(only, fmt), only.length);
+        ownedEl.innerHTML = `<div class="pf-own-list">${_buildPortfolioOwnedHtml(countIn(only, fmt), only.length)}</div>`;
       }
       if (typeof pfOwnedApplySearch === 'function') pfOwnedApplySearch();
     }
-    const ownedHint = document.getElementById('pf-owned-hint');
-    const _activeN = dynData.length + rdData.length;
-    if (ownedHint) ownedHint.textContent = bothFmt ? 'active leagues, by format' : `across ${_activeN} active league${_activeN!==1?'s':''}`;
     const signalsEl = document.getElementById('pf-v2-signals');
     if (signalsEl && typeof _renderPortfolioSignals === 'function') {
       _renderPortfolioSignals(scoped, signalsEl);
@@ -22664,8 +22679,7 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
   // Mirror to v2 signals card (portfolio-specific renderer, mock design + fallback)
   const signalsElV2 = document.getElementById('pf-v2-signals');
   if (signalsElV2) _renderPortfolioSignals(leagueData, signalsElV2);
-  // #pf-owned-hint is set by renderPortfolioV2() ("by format" when both formats
-  // are present); don't overwrite it here with the flat "across N leagues".
+  // The My Players card (controls, list) is owned entirely by renderPortfolioV2().
 }
 
 // Reusable helper: build the "Most Rostered Across Leagues" innerHTML.
@@ -22681,7 +22695,7 @@ function _isDynastyLeague(lg){
 }
 
 function _buildPortfolioOwnedHtml(topOwned, leagueCount){
-  if(!topOwned || !topOwned.length) return '<div style="color:var(--muted);font-size:13px;padding:14px 0;font-family:var(--font-sans)">No players rostered in 2+ leagues yet.</div>';
+  if(!topOwned || !topOwned.length) return '<div style="color:var(--muted);font-size:13px;padding:14px 0;font-family:var(--font-sans)">No players to show.</div>';
   const posColor = {QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
   return topOwned.map(([name, count]) => {
     const pos = (typeof getFCValue === 'function' && getFCValue(name)?.pos) || '';
