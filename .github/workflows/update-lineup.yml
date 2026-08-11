@@ -49,7 +49,8 @@ jobs:
         with:
           node-version: '20'
       - name: Build projection feed
-        run: node scripts/build-lineup-feed.mjs
+        run: |
+          node scripts/build-lineup-feed.mjs
         env:
           # Optional: live Vegas team totals via The Odds API (markets=spreads,totals).
           # Add repo secret ODDS_API_KEY to enable. Without it, Vegas falls back to

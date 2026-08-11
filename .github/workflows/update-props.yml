@@ -29,7 +29,8 @@ jobs:
           node-version: 20
 
       - name: Fetch PrizePicks props → merge feed
-        run: node scripts/fetch-pickem-props.mjs --feed=data/lineup-feed.json
+        run: |
+          node scripts/fetch-pickem-props.mjs --feed=data/lineup-feed.json
 
       - name: Commit if changed
         run: |

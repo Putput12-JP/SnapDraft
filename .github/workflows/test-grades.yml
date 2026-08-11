@@ -47,4 +47,5 @@ jobs:
           node-version: '20'
 
       - name: Run grade-math regression
-        run: node scripts/test-grades.mjs
+        run: |
+          node scripts/test-grades.mjs

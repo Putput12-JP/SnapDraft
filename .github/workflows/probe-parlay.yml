@@ -15,7 +15,8 @@ jobs:
         with:
           node-version: 20
       - name: Probe ParlayAPI
-        run: node scripts/probe-parlay.mjs
+        run: |
+          node scripts/probe-parlay.mjs
         env:
           # add repo secret PARLAY_API_KEY (or reuse PROPS_API_KEY)
           PARLAY_API_KEY: ${{ secrets.PARLAY_API_KEY }}
