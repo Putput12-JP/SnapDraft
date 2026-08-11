@@ -3207,7 +3207,9 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-pod-1{ background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 12%,var(--s2)),var(--s1)); border-color:color-mix(in srgb,var(--gold) 36%,transparent); box-shadow:0 18px 50px -22px color-mix(in srgb,var(--gold) 50%,transparent); }
 .lh-pod.me{ border-color:color-mix(in srgb,var(--accent2) 45%,transparent); }
 .lh-pod-place{ font-size:16px; margin-bottom:2px; }
-.lh-pod.gold .lh-pod-place{ color:var(--gold); } .lh-pod.silver .lh-pod-place{ color:#cdd6e4; } .lh-pod.bronze .lh-pod-place{ color:#d8a06a; }
+/* Medal colours are semantic (real gold/silver/bronze), so they're pinned hex —
+   var(--gold) is repurposed as the accent in vapor/onyx and would render blue. */
+.lh-pod.gold .lh-pod-place{ color:#f5c842; } .lh-pod.silver .lh-pod-place{ color:#cdd6e4; } .lh-pod.bronze .lh-pod-place{ color:#d8a06a; }
 .lh-pod-name{ font-size:var(--t-body); font-weight:800; letter-spacing:-0.02em; margin-top:11px; color:var(--text); }
 .lh-pod-1 .lh-pod-name{ font-size:var(--t-h2); }
 .lh-pod-owner{ font-family:var(--font-mono); font-size:var(--t-micro); color:var(--muted); margin-top:3px; }
@@ -3219,7 +3221,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-pr-colhead{ display:flex; align-items:center; gap:13px; padding:4px 16px 2px; font-family:var(--font-mono); font-size:var(--t-nano); font-weight:700; letter-spacing:.1em; color:var(--faint); }
 .lh-pr-row{ display:flex; align-items:center; gap:13px; padding:11px 16px; cursor:pointer; transition:.14s; }
 .lh-pr-row:hover{ border-color:var(--border3); background:var(--s2); }
-.lh-pr-row.me{ border-color:color-mix(in srgb,var(--accent2) 40%,transparent); background:color-mix(in srgb,var(--accent2) 6%,transparent); }
+.lh-pr-row.me{ border-color:color-mix(in srgb,var(--accent2) 40%,transparent); }
 .lh-pr-rk{ font-family:var(--font-mono); font-size:var(--t-h1); font-weight:800; width:24px; text-align:center; flex-shrink:0; }
 .lh-pr-cbar{ width:3px; height:34px; border-radius:2px; flex-shrink:0; }
 .lh-pr-id{ flex:1; min-width:0; }
@@ -3235,12 +3237,23 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-pr-bn{ font-size:var(--t-secondary); font-weight:600; margin-top:3px; display:flex; align-items:center; gap:5px; justify-content:flex-end; color:var(--text); }
 .lh-pr-bv{ font-family:var(--font-mono); font-size:var(--t-micro); margin-top:2px; }
 .lh-pr-mcard{ padding:12px 13px; cursor:pointer; }
-.lh-pr-mcard.me{ border-color:color-mix(in srgb,var(--accent2) 40%,transparent); background:color-mix(in srgb,var(--accent2) 6%,transparent); }
+.lh-pr-mcard.me{ border-color:color-mix(in srgb,var(--accent2) 40%,transparent); }
 .lh-pr-mtop{ display:flex; align-items:center; gap:11px; }
 .lh-pr-mid{ flex:1; min-width:0; }
 .lh-pr-mval{ text-align:right; }
 .lh-pr-mbot{ display:flex; align-items:center; gap:12px; margin-top:11px; }
 .lh-pr-mtop2{ font-family:var(--font-mono); font-size:var(--t-label); display:flex; align-items:center; gap:5px; color:var(--text2); white-space:nowrap; }
+
+/* Power Rankings → inline roster accordion */
+.lh-pr-caret{ width:12px; flex-shrink:0; text-align:center; font-size:11px; color:var(--faint); transition:transform var(--dur-rail) var(--ease-rail), color var(--dur-rail) var(--ease-rail); }
+.lh-pr-row.expanded .lh-pr-caret, .lh-pr-mcard.expanded .lh-pr-caret{ transform:rotate(90deg); color:var(--text2); }
+.lh-pr-row.expanded, .lh-pr-mcard.expanded{ border-color:var(--border3); }
+.lh-pr-row:focus-visible, .lh-pr-mcard:focus-visible{ outline:2px solid var(--accent2); outline-offset:2px; }
+.lh-pr-detail{ animation:lhDetailIn var(--dur-release) var(--ease-out); }
+.lh-pr-detail-in{ border-left:3px solid var(--tc); padding:14px 16px 14px 13px; margin:2px 0 4px 10px; }
+.lh-pr-detail-in .roster-grid{ margin-top:0; }
+@keyframes lhDetailIn{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+@media(prefers-reduced-motion:reduce){ .lh-pr-caret{ transition:none; } .lh-pr-detail{ animation:none; } }
 
 /* tier band */
 .lh-tierband{ display:flex; align-items:center; gap:10px; margin:22px 2px 11px; }
@@ -35520,7 +35533,7 @@ body .page,body .page.on{background:transparent!important}
         const place = t._pr, medal = place===1?'gold':place===2?'silver':'bronze';
         const recTxt = t._rec ? ` · ${t._rec.w}–${t._rec.l}${t._rec.t?'–'+t._rec.t:''}` : '';
         return `<div class="lh-pod ${medal} ${place===1?'lh-pod-1':''} ${t.isMe?'me':''}">
-          <div class="lh-pod-place">${place===1?'①':place===2?'②':'③'}</div>
+          <div class="lh-pod-place" title="#${place}"><span data-reicon="trophy" data-rsize="${place===1?20:16}"></span></div>
           ${avatar(t.name, t._color, place===1?54:46)}
           <div class="lh-pod-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div>
           <div class="lh-pod-owner">#${place} power${recTxt}</div>
@@ -35543,12 +35556,13 @@ body .page,body .page.on{background:transparent!important}
       const ageTxt = t.avgAge ? `age ${t.avgAge.toFixed(1)}` : '';
       const meta = [recTxt, (t.roster?t.roster.length+' players':''), ageTxt].filter(Boolean).join(' · ');
       if (mob){
-        rows += `<div class="lh-pr-mcard lh-card ${t.isMe?'me':''}">
+        rows += `<div class="lh-pr-mcard lh-card ${t.isMe?'me':''}" data-tid="${t.idx}" onclick="lhToggleRoster(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();lhToggleRoster(this);}" role="button" tabindex="0" aria-expanded="false">
           <div class="lh-pr-mtop">
             <span class="lh-pr-rk" style="color:${t._color}">${t._pr}</span>
             ${avatar(t.name,t._color,34)}
             <div class="lh-pr-mid"><div class="lh-pr-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-pr-owner">${esc(meta)}</div></div>
             <div class="lh-pr-mval"><div class="lh-pr-val" style="color:${t._color}">${fmt(t.fcTotal)}</div>${deltaHtml(t._trend)}</div>
+            <span class="lh-pr-caret" aria-hidden="true">▸</span>
           </div>
           <div class="lh-pr-mbot">
             ${bar(t._strPct, t._color)}
@@ -35557,7 +35571,7 @@ body .page,body .page.on{background:transparent!important}
           </div>
         </div>`;
       } else {
-        rows += `<div class="lh-pr-row lh-card ${t.isMe?'me':''}">
+        rows += `<div class="lh-pr-row lh-card ${t.isMe?'me':''}" data-tid="${t.idx}" onclick="lhToggleRoster(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();lhToggleRoster(this);}" role="button" tabindex="0" aria-expanded="false" title="View full roster">
           <span class="lh-pr-rk" style="color:${t._color}">${t._pr}</span>
           <span class="lh-pr-cbar" style="background:${t._color}"></span>
           ${avatar(t.name,t._color,38)}
@@ -35566,6 +35580,7 @@ body .page,body .page.on{background:transparent!important}
           <div class="lh-pr-strength">${bar(t._strPct,t._color)}<span class="lh-pr-strpct">${t._strPct}% of #1</span></div>
           <div class="lh-pr-valcol"><div class="lh-pr-val" style="color:${t._color}">${fmt(t.fcTotal)}</div><div style="font-size:11px;margin-top:2px">${deltaHtml(t._trend)} <span class="lh-muted">30d</span></div></div>
           <div class="lh-pr-best">${t.best?`<div class="lh-pr-bl">TOP ASSET</div><div class="lh-pr-bn">${posPill(t.best.pos)} ${esc(lastName(t.best.name))}</div><div class="lh-pr-bv" style="color:${t._color}">${fmt(t._bestVal)}</div>`:''}</div>
+          <span class="lh-pr-caret" aria-hidden="true">▸</span>
         </div>`;
       }
     });
@@ -35577,10 +35592,81 @@ body .page,body .page.on{background:transparent!important}
       <span style="width:120px">ROSTER STRENGTH</span>
       <span style="width:120px;text-align:right">VALUE / 30d</span>
       <span style="width:160px;text-align:right">TOP ASSET</span>
+      <span style="width:12px"></span>
     </div>` : '';
 
     E.innerHTML = `<div class="lh-wrap">${podium}<div class="lh-pr-list">${head}${rows}</div></div>`;
   }
+
+  /* ---------- inline roster panel (Power Rankings accordion) ---------- */
+  // Full roster for one team, grouped into QB/RB/WR/TE columns and priced with
+  // the same league-aware value the rest of the tab uses (val → _lgValOf).
+  function rosterPanel(team){
+    const posColors = { QB:'var(--qb)', RB:'var(--rb)', WR:'var(--wr)', TE:'var(--te)' };
+    const byPos = { QB:[], RB:[], WR:[], TE:[] };
+    (team.roster||[]).forEach(p => { if (byPos[p.pos]) byPos[p.pos].push(p); });
+    Object.values(byPos).forEach(a => a.sort((x,y)=>val(y.name)-val(x.name)));
+    // League room rank per position: 1 = most valuable room in the league.
+    const league = (typeof _lastTeamData!=='undefined' && _lastTeamData) || [];
+    const total = league.length || 1;
+    const roomVal = (t,pos)=>(t.roster||[]).reduce((s,p)=>s+(p.pos===pos?val(p.name):0),0);
+    return `<div class="roster-grid">${['QB','RB','WR','TE'].map(pos=>{
+      const players = byPos[pos];
+      const posTotal = players.reduce((s,p)=>s+val(p.name),0);
+      let rank = 1; league.forEach(t=>{ if (roomVal(t,pos) > posTotal) rank++; });
+      const c = posColors[pos];
+      return `<div class="roster-pos-group">
+        <div class="roster-pos-title" title="${pos} room ranks #${rank} of ${total} in the league by value">
+          <span><span style="color:${c}">${pos}</span> <span style="color:${c};font-weight:800">#${rank}</span><span class="lh-muted" style="font-weight:500"> of ${total}</span></span>
+          ${posTotal ? `<span style="color:${c};font-size:10px">${fmt(posTotal)}</span>` : ''}
+        </div>
+        ${players.length ? players.map(p=>{
+          const fc = fcOf(p.name); const pVal = val(p.name);
+          const tr = fc && fc.trend ? fc.trend : 0;
+          const trendC = tr>0?'var(--rb)':tr<0?'var(--qb)':'var(--muted)';
+          const trendStr = tr ? (tr>0?'▲'+tr:'▼'+Math.abs(tr)) : '';
+          return `<div class="roster-player">
+            <div class="rp-left">
+              ${rpAvatarHtml(p.name, p.sleeperId, pos)}
+              <div style="min-width:0">
+                <div class="rp-name">${esc(p.name)}</div>
+                <div class="rp-meta">${esc(p.team||'')}${fc&&fc.age?` · Age ${fc.age}`:''}</div>
+              </div>
+            </div>
+            <div style="text-align:right">
+              <div class="rp-val" style="color:${posColors[pos]}">${pVal?fmt(pVal):'—'}</div>
+              ${trendStr?`<div class="rp-trend" style="color:${trendC}">${trendStr}</div>`:''}
+            </div>
+          </div>`;
+        }).join('') : `<div style="font-size:12px;color:var(--muted);padding:8px">No ${pos}s</div>`}
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // Row click → unfold that team's roster inline (accordion, one open at a time).
+  function lhToggleRoster(rowEl){
+    if (!rowEl) return;
+    const idx = rowEl.getAttribute('data-tid');
+    const next = rowEl.nextElementSibling;
+    const wasOpen = next && next.classList && next.classList.contains('lh-pr-detail') && next.getAttribute('data-for')===String(idx);
+    // Accordion — collapse whatever is open first.
+    const E = el();
+    (E||document).querySelectorAll('.lh-pr-detail').forEach(d=>d.remove());
+    (E||document).querySelectorAll('.lh-pr-row.expanded, .lh-pr-mcard.expanded').forEach(r=>{ r.classList.remove('expanded'); r.setAttribute('aria-expanded','false'); });
+    if (wasOpen) return; // second click on an open row just collapses it
+    const team = (typeof _lastTeamData!=='undefined' && _lastTeamData || []).find(t => String(t.idx)===String(idx));
+    if (!team) return;
+    const c = teamColor(team.idx||0);
+    const d = document.createElement('div');
+    d.className = 'lh-pr-detail';
+    d.setAttribute('data-for', String(idx));
+    d.style.setProperty('--tc', c);
+    d.innerHTML = `<div class="lh-pr-detail-in">${rosterPanel(team)}</div>`;
+    rowEl.after(d);
+    rowEl.classList.add('expanded');
+    rowEl.setAttribute('aria-expanded','true');
+  }
+  window.lhToggleRoster = lhToggleRoster;
 
   /* ════════════════ OVERVIEW ════════════════ */
   function renderOverviewView(teamData){
@@ -41252,6 +41338,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   background:var(--rail-c, var(--accent2));
   box-shadow:0 0 12px -1px color-mix(in srgb, var(--rail-c, var(--accent2)) 70%, transparent);
 }
+/* League Analyzer sub-tabs — thin underline. The .v-pill base adds 5px padding +
+   1px border on border-box, which fattens the painted bar to ~12px; zero them so
+   `height` is the real thickness. */
+#lr-tabs-row .v-pill--bar{ height:2px; padding:0; border:0; border-radius:2px 2px 0 0; }
 .la-tab.on::after            { display:none !important; }
 .la-tab.on                   { border-bottom-color:transparent !important; }
 #page-teams .lr-tab.on       { border-bottom-color:transparent; }
