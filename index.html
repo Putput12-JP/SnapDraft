@@ -42606,9 +42606,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .vbud-hd{display:flex;align-items:center;gap:11px;padding:14px 15px 12px;position:relative}
 .vbud-mini{width:40px;height:40px;flex-shrink:0}.vbud-mini img{width:100%;height:100%;display:block}
 .vbud-speech{flex:1;min-width:0}
-.vbud-speech .k{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);font-weight:800;display:flex;align-items:center;gap:7px}
+.vbud-speech .k{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);font-weight:800;display:flex;align-items:center;gap:7px;padding-right:66px}
+.vbud-ktxt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:0 1 auto}
 .vbud-speech .t{font-weight:800;letter-spacing:-.01em;font-size:15px;margin-top:2px;line-height:1.15;color:var(--text)}
-.vbud-hgrade{font-family:var(--font-mono);font-weight:800;font-size:10px;padding:2px 6px;border-radius:5px;border:1.5px solid}
+.vbud-hgrade{flex:none;font-family:var(--font-mono);font-weight:800;font-size:11px;padding:3px 7px;border-radius:5px;border:1.5px solid;letter-spacing:.02em}
 .vbud-x{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:8px;border:1px solid var(--border2);background:var(--s1);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px;line-height:1;transition:color .15s,border-color .15s}
 .vbud-x:hover{color:var(--text);border-color:var(--border3)}
 .vbud-min{right:44px;font-size:15px}
@@ -42779,6 +42780,15 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   var POS={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
   function shield(px){return '<img src="'+SHIELD+'" alt="Vault" draggable="false" style="display:block;width:100%;height:100%;pointer-events:none">';}
   var STRATS={
+   perfect:{name:'The Perfect Draft',ic:'💎',c:'var(--gold)',desc:'Two backs early, WRs through the middle, handcuffs &amp; darts late',steps:[
+     {pos:'RB',lbl:'R1 · Running back',ss:'open with a back',round:'RD 1',dir:'Open with a <b>running back</b> — the whole plan is built on two early backs.'},
+     {pos:'RB',lbl:'R2 · Second back',ss:'2 RB by R2',round:'RD 2',dir:'<b>Second RB by end of R2.</b> Two backs early is the spine of this build — don’t leave R2 without one.'},
+     {pos:'WR',lbl:'R3 · First WR',ss:'WR (or 3rd RB)',round:'RD 3',dir:'<b>First receiver</b> now — unless an RB1/2-caliber back falls, then grab the value.'},
+     {pos:'WR',lbl:'R4 · Second WR',ss:'2 WR by R6',round:'RD 4',dir:'<b>Second WR.</b> Lock two receivers by R6 — this is where the WRs pay off.'},
+     {pos:'WR',lbl:'R5–6 · Third WR / elite TE',ss:'or your one TE',round:'R5–6',dir:'<b>Third WR</b>, or spend here on your one <b>elite TE</b>. Do <b>not</b> draft RB in R6.'},
+     {pos:'QB',lbl:'R7–9 · Quarterback',ss:'max 1 QB+TE by R6',round:'R7–9',dir:'<b>Your QB</b> — you kept QB+TE to one pick through R6, so it lands here. RB/WR/QB are all live now.'},
+     {pos:'RB',lbl:'R7–9 · Third back',ss:'3 RB by R9',round:'R7–9',dir:'<b>Third back by R9.</b> Add RB body in the middle rounds while the value is thick.'},
+     {pos:'TE',lbl:'R10+ · TE + darts',ss:'handcuffs & double-dips',round:'R10+',dir:'Your <b>TE</b> lands late. From R10 on: <b>handcuff and dart-throw RBs</b> — late WRs are wasted picks. Double-dip QB if you went late QB; double-dip TE if you went late TE.'}]},
    robust:{name:'Robust RB',ic:'🏈',c:'var(--rb)',desc:'Two early backs, then hammer value',steps:[
      {pos:'WR',lbl:'R1 anchor',ss:'best player, any pos',round:'RD 1',dir:'Take the <b>highest-value</b> player — the plan forms around him.'},
      {pos:'RB',lbl:'Early RB1',ss:'RB1/2-caliber back',round:'RD 2',dir:'Lock your <b>first anchor back</b>. Don’t leave R2 without one.'},
@@ -42881,7 +42891,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 
   function panelHeader(complete){ var g=liveGrade();
     return '<div class="vbud-hd"><div class="vbud-mini">'+shield(40)+'</div>'+
-      '<div class="vbud-speech"><div class="k">'+STRATS[strat].name+' · '+(inferred?'the plan you ran':'your plan')+' <span class="vbud-hgrade" style="color:'+gradeColor(g)+';border-color:'+gradeColor(g)+'">'+g+'</span></div>'+
+      '<div class="vbud-speech"><div class="k"><span class="vbud-ktxt">'+STRATS[strat].name+' · '+(inferred?'the plan you ran':'your plan')+'</span><span class="vbud-hgrade" style="color:'+gradeColor(g)+';border-color:'+gradeColor(g)+'">'+g+'</span></div>'+
       '<div class="t" style="font-size:13px">'+(complete?(inferred?'This is the plan your picks add up to.':'Draft complete — nice work.'):'Following the plan…')+'</div></div>'+
       '<button class="vbud-x vbud-min" id="vbud-pmin" title="Minimize"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>'+
       '<button class="vbud-x" id="vbud-pclose2" title="Close">✕</button></div>';
