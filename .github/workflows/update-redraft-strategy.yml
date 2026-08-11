@@ -62,7 +62,8 @@ jobs:
         # whether draft-time tape beats ADP at predicting realized value (walk-forward)
         # and writes data/pick_value_calibration.json. Pure stdlib; a position publishes
         # only on OOS lift, else dvPickScore keeps its hand-set budget (null-fallback).
-        run: python3 scripts/build_pick_value.py || echo "(pick-value: skipped — no ADP yet)"
+        run: |
+          python3 scripts/build_pick_value.py || echo "(pick-value: skipped — no ADP yet)"
 
       - name: Show corpus growth
         run: |
