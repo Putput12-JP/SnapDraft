@@ -3769,7 +3769,14 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     .vp-esplit,.vp-esplit *{font-family:var(--vf-sans)}
     #setup-step1{overflow-x:hidden}
     .vp-esplit{position:fixed;inset:0;width:100%;height:100%;z-index:6;overflow:hidden;background:#0e0f13}
-    .vp-ebg{position:absolute;inset:0;z-index:0;overflow:hidden}
+    /* Static, GPU-free backdrop. Replaces a live Spline WebGL iframe that ran a
+       continuous render loop and pinned the GPU/compositor the whole time the
+       connect + league-picker screens were open. Same dark, blue-aura look. */
+    .vp-ebg,.vp-espbg-static{position:absolute;inset:0;z-index:0;overflow:hidden;
+      background:
+        radial-gradient(120% 85% at 50% -15%,rgba(143,180,224,.20),transparent 55%),
+        radial-gradient(80% 60% at 85% 115%,rgba(77,106,137,.15),transparent 60%),
+        linear-gradient(180deg,#12141a,#0b0c10)}
     .vp-espline{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;z-index:0}
     .vp-escrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(14,15,19,.5),rgba(14,15,19,.12) 42%,rgba(14,15,19,.72) 100%)}
     .vp-escrim2{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(90% 60% at 50% 0%,rgba(143,180,224,.12),transparent 58%)}
@@ -3989,7 +3996,8 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       <!-- ══════════ VIEW 1: CONNECT (Option E split) ══════════ -->
       <div id="vp-view-connect">
       <div class="vp-esplit">
-      <div class="vp-ebg"><iframe class="vp-espline" src="https://my.spline.design/untitled-f680ea749fc30deeb5eff5a8b15b2f63" frameborder="0" title="Vault background animation" tabindex="-1"></iframe></div>
+      <div class="vp-ebg"></div>
+
       <div class="vp-escrim"></div>
       <div class="vp-escrim2"></div>
 
@@ -4271,9 +4279,7 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   <!-- ── LEAGUE PICKER (mock 2a step 2) ── -->
   <div id="setup-leagues" class="setup-screen" style="display:none">
     <div class="vp-esplit vp-lp">
-      <div class="spline-container" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0"><iframe
-        src="https://my.spline.design/untitled-f680ea749fc30deeb5eff5a8b15b2f63" frameborder="0" width="100%"
-        height="100%" id="aura-spline-lp" style="display:block;border:0"></iframe></div>
+      <div class="spline-container vp-espbg-static" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0"></div>
       <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(14,15,19,.5),rgba(14,15,19,.12) 42%,rgba(14,15,19,.72) 100%)"></div>
 
       <div class="vp-estage" style="position:absolute;inset:0;z-index:3">
