@@ -42722,7 +42722,7 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .vbud-rcfoot button:hover{border-color:var(--accent)}
 .vbud-rcfoot .primary{background:linear-gradient(180deg,var(--accent),var(--sky));border-color:transparent;color:#fff}
 .vbud-rcfoot .ghost{background:transparent;color:var(--muted);font-weight:600}
-@media(max-width:700px){.vbud-root{right:14px;bottom:82px}.vbud-panel{width:300px}.vbud-fab{width:50px;height:50px}.vbud-dot{width:13px;height:13px;top:-1px;right:1px}.vbud-grade{min-width:20px;height:19px;font-size:11px}}
+@media(max-width:700px){.vbud-root{right:14px;bottom:148px}.vbud-panel{width:300px}.vbud-fab{width:50px;height:50px}.vbud-dot{width:13px;height:13px;top:-1px;right:1px}.vbud-grade{min-width:20px;height:19px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.vbud-root *{animation:none!important}}
 </style>
 
@@ -42992,10 +42992,16 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   var pageDraft=document.getElementById('page-draft');
   // sit just above whatever bottom-fixed footer is showing (roster bar / mobile tab bar)
   function placeAboveFooter(){
-    var h=0;['global-rbar','bottom-tab-bar'].forEach(function(id){var el=document.getElementById(id);if(!el)return;var r=el.getBoundingClientRect(),s=getComputedStyle(el);
-      if(s.display==='none'||s.visibility==='hidden'||r.height===0)return; if(r.bottom<window.innerHeight-6)return; if(r.height>h)h=r.height;});
-    var mob=window.innerWidth<=700, gap=mob?18:14;
-    root.style.bottom=(h?Math.round(h)+gap:(mob?96:26))+'px';
+    // Sit above the TOP of the highest bottom-docked footer (roster bar / mobile tab bar),
+    // not the sum of their heights. On mobile these float a few px off the very bottom
+    // (safe-area / margins), so qualify a footer by "docked in the lower viewport" rather
+    // than flush to the bottom edge — the old flush check skipped both and left the buddy
+    // parked on top of the roster bar.
+    var vh=window.innerHeight, topMost=vh;
+    ['global-rbar','bottom-tab-bar'].forEach(function(id){var el=document.getElementById(id);if(!el)return;var r=el.getBoundingClientRect(),s=getComputedStyle(el);
+      if(s.display==='none'||s.visibility==='hidden'||r.height===0)return; if(r.bottom<vh*0.6)return; if(r.top<topMost)topMost=r.top;});
+    var mob=window.innerWidth<=700, gap=mob?18:14, above=vh-topMost;
+    root.style.bottom=(above>0?Math.round(above)+gap:(mob?150:26))+'px';
   }
   function syncVis(){var on=pageDraft&&pageDraft.classList.contains('on');
     root.style.display=on?'flex':'none'; if(on){placeAboveFooter();} else {scrim.classList.remove('show');}}
