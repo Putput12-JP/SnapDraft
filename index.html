@@ -1386,8 +1386,15 @@ header{
 .pf-cards > .pf-card-grouphdr:first-child{padding-top:2px}
 .pf-card-grouphdr.dyn .pf-v2-grouphdr-lbl{color:var(--rb)}
 .pf-card-grouphdr.rd  .pf-v2-grouphdr-lbl{color:var(--wr)}
-/* Most Rostered position filter — full-width strip atop the card body */
-.pf-ownposseg{margin-bottom:16px}
+/* Most Rostered controls row — position filter + name search */
+.pf-own-controls{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.pf-ownposseg{flex-shrink:0}
+.pf-own-search-wrap{position:relative;display:flex;align-items:center;flex:1 1 150px;min-width:130px}
+.pf-own-search-ic{position:absolute;left:10px;display:flex;align-items:center;color:var(--muted);pointer-events:none}
+.pf-own-search{width:100%;height:34px;padding:0 12px 0 30px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:var(--t-label);transition:border-color .15s}
+.pf-own-search:focus{outline:none;border-color:var(--accent)}
+.pf-own-search::placeholder{color:var(--muted)}
+.pf-own-search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
 /* Format filter — top-right of the hero row */
 .pf-fmtseg{flex-shrink:0;align-self:center;width:max-content}
 @media (max-width:700px){
@@ -19815,6 +19822,20 @@ function pfV2SetOwnedPos(pos){
   renderPortfolioV2();
 }
 
+// Name search for Most Rostered. Filters rows in place (no re-render) so the
+// input keeps focus while typing; re-applied after any renderPortfolioV2().
+function pfOwnedApplySearch(){
+  const q = (window._pfOwnedSearch || '').trim().toLowerCase();
+  document.querySelectorAll('#pf-v2-owned .pf-own-row').forEach(r => {
+    const nm = (r.querySelector('.pf-own-name')?.textContent || '').toLowerCase();
+    r.style.display = (!q || nm.includes(q)) ? '' : 'none';
+  });
+}
+function pfOwnedSearch(q){
+  window._pfOwnedSearch = q;
+  pfOwnedApplySearch();
+}
+
 // Collapse / expand a format group in the League Breakdown ('dyn' | 'rd').
 function pfV2ToggleGroup(which, event){
   if (event) event.stopPropagation();
@@ -22322,40 +22343,67 @@ function renderPortfolioV2(){
     // position before the top-10 cut, so you see the top 10 OF that position.
     const ownPos = window._pfOwnedPos || 'all';
     const _posOf = (name) => (typeof getFCValue==='function' && getFCValue(name)?.pos) || '';
-    const countIn = (lgs) => {
+    // Ordering value — format-aware (dynasty board vs redraft board), My
+    // Rankings first then market. Used to sort highest value → lowest.
+    const _valOf = (name, fmt) => {
+      if (window.MyRankings){ const mv = MyRankings.getValue(name, fmt); if (mv) return mv; }
+      if (fmt === 'redraft'){
+        const r1 = window._redraft1QB && (window._redraft1QB[name] || window._redraft1QB[normName(name)]);
+        return (r1 && r1.value) || getFCValue(name)?.redraftValue || getFCValue(name)?.value || 0;
+      }
+      return getFCValue(name)?.value || 0;
+    };
+    // "Most Rostered" only counts the leagues you're actively playing. A
+    // finished past-season league or an undrafted (empty) league isn't a place
+    // you currently roster anyone — pooling them inflated the "of N leagues"
+    // denominator far past the leagues the user actually has in mind.
+    const _isActiveLg = (d) => (d.myNames||[]).length > 0 && (d.lg?.status !== 'complete');
+    const countIn = (lgs, fmt) => {
       const pc = {};
       lgs.forEach(d => (d.myNames||[]).forEach(n => { pc[n] = (pc[n]||0) + 1; }));
       let ents = Object.entries(pc).filter(([,c])=>c>1);
       if (ownPos !== 'all') ents = ents.filter(([n]) => _posOf(n) === ownPos);
-      return ents.sort((a,b)=>b[1]-a[1]).slice(0,10);
+      // Highest value first; league count breaks ties.
+      return ents.sort((a,b)=> (_valOf(b[0],fmt) - _valOf(a[0],fmt)) || (b[1]-a[1])).slice(0,10);
     };
-    const _pfPosSeg = `<div class="vseg sm fluid pf-ownposseg" role="tablist" aria-label="Filter by position">
-        ${['all','QB','RB','WR','TE'].map(p =>
-          `<button class="${ownPos===p?'on':''}" onclick="pfV2SetOwnedPos('${p}')">${p==='all'?'All':p}</button>`).join('')}
+    const _ownSearch = window._pfOwnedSearch || '';
+    const _searchIc = (typeof reIcon==='function') ? reIcon('search',{size:14}) : '';
+    const _pfOwnedControls = `<div class="pf-own-controls">
+        <div class="vseg sm pf-ownposseg" role="tablist" aria-label="Filter by position">
+          ${['all','QB','RB','WR','TE'].map(p =>
+            `<button class="${ownPos===p?'on':''}" onclick="pfV2SetOwnedPos('${p}')">${p==='all'?'All':p}</button>`).join('')}
+        </div>
+        <div class="pf-own-search-wrap">
+          <span class="pf-own-search-ic">${_searchIc}</span>
+          <input class="pf-own-search" type="search" placeholder="Search player" value="${_ownSearch.replace(/"/g,'&quot;')}" oninput="pfOwnedSearch(this.value)" aria-label="Search rostered players">
+        </div>
       </div>`;
-    // Respect the active format filter: 'all' splits into both groups,
-    // Dynasty/Redraft shows just that format's list (flat, no header).
-    const dynData = scoped.filter(d => d.isDynasty);
-    const rdData  = scoped.filter(d => !d.isDynasty);
+    // Respect the active format filter AND the active-league rule above.
+    const dynData = scoped.filter(d => d.isDynasty && _isActiveLg(d));
+    const rdData  = scoped.filter(d => !d.isDynasty && _isActiveLg(d));
     const bothFmt = dynData.length > 0 && rdData.length > 0;
     const ownedEl = document.getElementById('pf-v2-owned');
     if (ownedEl && typeof _buildPortfolioOwnedHtml === 'function') {
       if (bothFmt) {
-        ownedEl.innerHTML = _pfPosSeg +
+        ownedEl.innerHTML = _pfOwnedControls +
           `<div class="pf-own-group">
              <div class="pf-own-grouphdr dyn"><span class="pf-v2-grouphdr-lbl">Dynasty</span><span class="pf-v2-grouphdr-count">${dynData.length} leagues</span></div>
-             ${_buildPortfolioOwnedHtml(countIn(dynData), dynData.length)}
+             ${_buildPortfolioOwnedHtml(countIn(dynData,'dynasty'), dynData.length)}
            </div>
            <div class="pf-own-group">
              <div class="pf-own-grouphdr rd"><span class="pf-v2-grouphdr-lbl">Redraft</span><span class="pf-v2-grouphdr-count">${rdData.length} leagues</span></div>
-             ${_buildPortfolioOwnedHtml(countIn(rdData), rdData.length)}
+             ${_buildPortfolioOwnedHtml(countIn(rdData,'redraft'), rdData.length)}
            </div>`;
       } else {
-        ownedEl.innerHTML = _pfPosSeg + _buildPortfolioOwnedHtml(countIn(scoped), scoped.length);
+        const only = dynData.length ? dynData : rdData;
+        const fmt  = dynData.length ? 'dynasty' : 'redraft';
+        ownedEl.innerHTML = _pfOwnedControls + _buildPortfolioOwnedHtml(countIn(only, fmt), only.length);
       }
+      if (typeof pfOwnedApplySearch === 'function') pfOwnedApplySearch();
     }
     const ownedHint = document.getElementById('pf-owned-hint');
-    if (ownedHint) ownedHint.textContent = bothFmt ? 'by format' : `across ${scoped.length} league${scoped.length!==1?'s':''}`;
+    const _activeN = dynData.length + rdData.length;
+    if (ownedHint) ownedHint.textContent = bothFmt ? 'active leagues, by format' : `across ${_activeN} active league${_activeN!==1?'s':''}`;
     const signalsEl = document.getElementById('pf-v2-signals');
     if (signalsEl && typeof _renderPortfolioSignals === 'function') {
       _renderPortfolioSignals(scoped, signalsEl);
