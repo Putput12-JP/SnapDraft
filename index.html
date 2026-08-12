@@ -41611,6 +41611,14 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   box-shadow:0 3px 14px -5px var(--rail-c, var(--accent)),
              inset 0 1px 0 rgba(255,255,255,0.16);
 }
+/* The desktop nav is the one fill strip with inset:0 — its pill fills the full
+   28px height inside a strip that computes overflow:hidden (overflow-x:auto for
+   tab scroll forces overflow-y). The outer drop-glow then has no padding to
+   render into and gets hard-clipped at the nav's bottom edge, reading as a
+   colored bleed under the active tab. Keep only the inset highlight here. */
+.nav.desktop-nav > .v-pill--fill{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.16);
+}
 
 /* — soft — */
 .v-pill--soft{
