@@ -15574,44 +15574,71 @@ async function ldRescan() {
     if (!myTeamsUserId) {
       const saved = localStorage.getItem(SK+'-username');
       if (saved) await loadMyTeams();
-      if (!myTeamsUserId) {
-        msg.textContent = 'Connect Sleeper to detect active drafts.';
-        if (btn) btn.textContent = '↻ Re-scan';
-        return _res;
-      }
+    }
+    // ESPN leagues live in localStorage independent of any Sleeper login, so an
+    // ESPN-only user must still get a scan. Bail only when there's neither a
+    // Sleeper user nor a connected ESPN league.
+    try { vpRestoreEspnLeagues(); } catch(e){}
+    const hasEspn = (myTeamsData||[]).some(l => l && vpPlat(l) === 'espn');
+    if (!myTeamsUserId && !hasEspn) {
+      msg.textContent = 'Connect Sleeper to detect active drafts.';
+      if (btn) btn.textContent = '↻ Re-scan';
+      return _res;
     }
 
-    
-    const year = new Date().getFullYear();
-    // 1) User-drafts endpoint across adjacent years (covers most active drafts).
-    const userDraftLists = await Promise.all([year, year-1, year+1].map(y =>
-      fetch(`https://api.sleeper.app/v1/user/${myTeamsUserId}/drafts/nfl/${y}`).then(r=>r.ok?r.json():[]).catch(()=>[])
-    ));
-    let drafts = [].concat(...userDraftLists).filter(Boolean);
-
-    // 2) Per-league sweep, guarantees EVERY connected league's draft is caught,
-    //    especially brand-new pre_draft leagues the user-drafts endpoint misses.
-    //    Make sure the league list is loaded first, then pull each league's draft
-    //    object by its draft_id so we can see its real status.
-    if (!myTeamsData.length) { try { await loadMyTeams(); } catch(e){} }
-    const seen = new Set(drafts.map(d => d && d.draft_id).filter(Boolean));
-    const leagueByDraft = {};
-    (myTeamsData||[]).forEach(l => { if (l && l.draft_id && l.draft_id !== '0') leagueByDraft[l.draft_id] = l; });
-    const missingIds = Object.keys(leagueByDraft).filter(id => !seen.has(id));
-    if (missingIds.length) {
-      const extra = await Promise.all(missingIds.map(id =>
-        fetch(`https://api.sleeper.app/v1/draft/${id}`).then(r=>r.ok?r.json():null).catch(()=>null)
+    let drafts = [];
+    if (myTeamsUserId) {
+      const year = new Date().getFullYear();
+      // 1) User-drafts endpoint across adjacent years (covers most active drafts).
+      const userDraftLists = await Promise.all([year, year-1, year+1].map(y =>
+        fetch(`https://api.sleeper.app/v1/user/${myTeamsUserId}/drafts/nfl/${y}`).then(r=>r.ok?r.json():[]).catch(()=>[])
       ));
-      extra.forEach(d => { if (d && d.draft_id && !seen.has(d.draft_id)) { seen.add(d.draft_id); drafts.push(d); } });
+      drafts = [].concat(...userDraftLists).filter(Boolean);
+
+      // 2) Per-league sweep, guarantees EVERY connected league's draft is caught,
+      //    especially brand-new pre_draft leagues the user-drafts endpoint misses.
+      //    Make sure the league list is loaded first, then pull each league's draft
+      //    object by its draft_id so we can see its real status.
+      if (!myTeamsData.length) { try { await loadMyTeams(); } catch(e){} }
+      const seen = new Set(drafts.map(d => d && d.draft_id).filter(Boolean));
+      const leagueByDraft = {};
+      (myTeamsData||[]).forEach(l => { if (l && l.draft_id && l.draft_id !== '0') leagueByDraft[l.draft_id] = l; });
+      const missingIds = Object.keys(leagueByDraft).filter(id => !seen.has(id));
+      if (missingIds.length) {
+        const extra = await Promise.all(missingIds.map(id =>
+          fetch(`https://api.sleeper.app/v1/draft/${id}`).then(r=>r.ok?r.json():null).catch(()=>null)
+        ));
+        extra.forEach(d => { if (d && d.draft_id && !seen.has(d.draft_id)) { seen.add(d.draft_id); drafts.push(d); } });
+      }
+      // Nicer labels: borrow the league name when the draft has none.
+      drafts.forEach(d => {
+        if (!d) return;
+        if (!d.metadata) d.metadata = {};
+        if (!d.metadata.name && leagueByDraft[d.draft_id]) d.metadata.name = leagueByDraft[d.draft_id].name;
+      });
+      // Dedupe by draft_id.
+      drafts = drafts.filter((d,i,arr) => d && arr.findIndex(x => x && x.draft_id === d.draft_id) === i);
     }
-    // Nicer labels: borrow the league name when the draft has none.
-    drafts.forEach(d => {
-      if (!d) return;
-      if (!d.metadata) d.metadata = {};
-      if (!d.metadata.name && leagueByDraft[d.draft_id]) d.metadata.name = leagueByDraft[d.draft_id].name;
+
+    // 3) ESPN leagues live in myTeamsData, not the Sleeper endpoints — fold each one
+    //    in as its own entry so a connected ESPN league shows up in YOUR DRAFTS too.
+    //    They carry a status computed at connect time (pre_draft / drafting / complete
+    //    / in_season); map in_season → complete since that draft is already done.
+    (myTeamsData||[]).forEach(l => {
+      if (!l || vpPlat(l) !== 'espn') return;
+      const teams = l.total_rosters || l.settings?.num_teams || '?';
+      const rounds = (l.roster_positions && l.roster_positions.length) || '?';
+      const st = l.status === 'in_season' ? 'complete' : (l.status || 'pre_draft');
+      drafts.push({
+        _espn: true,
+        espnLeagueId: l.league_id,
+        draft_id: l.league_id,   // stable key/label only; never sent to Sleeper
+        metadata: { name: l.name || ('ESPN League ' + (l._espnId||'')) },
+        status: st,
+        type: 'snake',
+        settings: { teams, rounds },
+      });
     });
-    // Dedupe by draft_id.
-    drafts = drafts.filter((d,i,arr) => d && arr.findIndex(x => x && x.draft_id === d.draft_id) === i);
 
     const active = drafts.filter(d => ['drafting','in_progress','paused'].includes(d.status));
     const upcoming = drafts.filter(d => d.status === 'pre_draft');
@@ -15636,10 +15663,14 @@ async function ldRescan() {
       const rounds = d.settings?.rounds || '?';
       const teams = d.settings?.teams || '?';
       const type = d.type === 'snake' ? 'Snake' : d.type === 'linear' ? 'Linear' : d.type || '';
-      return `<div class="ld-draft-item" onclick="ldSelectDraft('${d.draft_id}','${(d.metadata?.name||'Draft '+d.draft_id).replace(/'/g,"\\'")}')">
+      const plat = d._espn ? ' · ESPN' : '';
+      const onClick = d._espn
+        ? `connectEspnDraft('${d.espnLeagueId}')`
+        : `ldSelectDraft('${d.draft_id}','${(d.metadata?.name||'Draft '+d.draft_id).replace(/'/g,"\\'")}')`;
+      return `<div class="ld-draft-item" onclick="${onClick}">
         <div>
           <div class="ld-draft-item-name">${d.metadata?.name || 'Draft ' + d.draft_id.slice(-6)}</div>
-          <div class="ld-draft-item-meta">${teams} teams · ${rounds} rounds · ${type}</div>
+          <div class="ld-draft-item-meta">${teams} teams · ${rounds} rounds · ${type}${plat}</div>
         </div>
         <span class="ld-draft-item-status ${statusCls}">${statusLabel}</span>
       </div>`;
