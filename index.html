@@ -32900,7 +32900,10 @@ window.VaultGradeCal = (function () {
 .rdv-faab{font-family:var(--font-mono);font-size:10.5px;font-weight:700;padding:5px 11px;border-radius:99px;background:rgba(61,204,122,.14);color:var(--rwin)}
 /* two-up + cards */
 .rdv-two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.rdv-three{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:18px}
 .rdv-card{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:20px}
+/* Next Up + Season Outlook are relocated into the matchup rail; match the coaching modules' padding there. */
+.vtr-rail .rdv-card{padding:16px}
 .rdv-nw{display:flex;align-items:center;gap:14px;margin:14px 0 4px}
 .rdv-nwt{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;min-width:0}
 .rdv-nwt .av{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:800;font-size:13px;border:1px solid var(--border2);overflow:hidden;background:radial-gradient(120% 120% at 30% 20%,#2a3a57,#141d2b);color:#cfe}
@@ -32917,7 +32920,7 @@ window.VaultGradeCal = (function () {
 .rdv-odds .tr i{display:block;height:100%;border-radius:4px}
 .rdv-odds .v{font-family:var(--font-mono);font-size:12px;font-weight:700;width:36px;text-align:right}
 .rdv-pg{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:4px}
-.rdv-pg .c{background:rgba(255,255,255,.022);border:1px solid var(--border);border-radius:11px;padding:13px 12px}
+.rdv-pg .c{background:rgba(255,255,255,.022);border:1px solid var(--border);border-radius:11px;padding:13px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .rdv-pg .c .p{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em}
 .rdv-pg .c .g{font-size:22px;font-weight:800;margin-top:5px;line-height:1}
 .rdv-pg .c .r{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);margin-top:3px}
@@ -32933,6 +32936,7 @@ window.VaultGradeCal = (function () {
   .rdv-stats{margin-left:0;width:100%;justify-content:space-between}
   .rdv-st{padding:0;flex:1}.rdv-seg{margin-left:0}
   .rdv-two{grid-template-columns:1fr}
+  .rdv-three{grid-template-columns:1fr}
   .rdv-row{grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr)}
   .rdv-wt thead th.opt-h,.rdv-wt td.opt-c{display:none}
 }
@@ -33216,10 +33220,10 @@ window.VaultGradeCal = (function () {
 .vtr-wpbar{display:flex;height:5px;gap:0;margin:0}
 .vtr-wpbar .a{background:var(--you2)}
 .vtr-wpbar .b{background:var(--them)}
-.vtr-head-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:20px 22px 10px}
+.vtr-head-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:14px 20px 8px}
 .vtr-team{display:flex;align-items:center;gap:14px;min-width:0}
 .vtr-team.opp{flex-direction:row-reverse;text-align:right}
-.vtr-avt{width:54px;height:54px;border-radius:14px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--text2)}
+.vtr-avt{width:46px;height:46px;border-radius:13px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--text2)}
 .vtr-avt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .vtr-team.me .vtr-avt{box-shadow:0 0 0 1px var(--you2),0 0 26px -8px var(--you2)}
 .vtr-team.opp .vtr-avt{box-shadow:0 0 0 1px var(--them),0 0 26px -8px var(--them)}
@@ -33228,53 +33232,53 @@ window.VaultGradeCal = (function () {
 .vtr-scol .wpct{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;font-weight:800;text-transform:uppercase}
 .vtr-scol .wpct.me{color:var(--you2)}
 .vtr-scol .wpct.opp{color:var(--them)}
-.vtr-scol .score{font-family:var(--font-mono);font-size:32px;font-weight:800;color:var(--text);letter-spacing:-.01em;line-height:1;font-feature-settings:"tnum"}
+.vtr-scol .score{font-family:var(--font-mono);font-size:27px;font-weight:800;color:var(--text);letter-spacing:-.01em;line-height:1;font-feature-settings:"tnum"}
 .vtr-scol .score.is-live{color:var(--accent2)}
 .vtr-vs .vs-badge{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,var(--s2),var(--surface));border:1px solid var(--border2);box-shadow:0 8px 22px -10px rgba(0,0,0,.6)}
 .vtr-vs .vs-badge span{font-family:var(--font-mono);font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--text2)}
 .vtr-tnames{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 22px;align-items:end}
-.vtr-tnm{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.vtr-tnm{font-size:15px;font-weight:800;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .vtr-tnm.opp{text-align:right}
-.vtr-usrs{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:3px 22px 16px}
+.vtr-usrs{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:2px 20px 10px}
 .vtr-usr{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vtr-usr.opp{text-align:right}
 /* yet-to-play row, outside the card, mirroring the Sleeper-style sub-meta */
-.vtr-ytp-out{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;padding:12px 22px 4px;align-items:center}
+.vtr-ytp-out{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;padding:8px 20px 2px;align-items:center}
 .vtr-ytp-out .ytp-side .t{font-family:var(--font-mono);font-size:10.5px;color:var(--text2);text-transform:lowercase;letter-spacing:.04em}
 .vtr-ytp-out .ytp-side .d{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.04em}
 .vtr-ytp-out .ytp-side.opp{text-align:right}
 .vtr-ytp-out .ytp-mid{color:var(--muted);display:flex;align-items:center;justify-content:center}
-.vtr-secbar{display:flex;align-items:center;justify-content:space-between;padding:13px 20px 11px;border-bottom:1px solid var(--border)}
+.vtr-secbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 9px;border-bottom:1px solid var(--border)}
 .vtr-secbar .t{font-size:15px;font-weight:800;letter-spacing:-.01em}
 .vtr-secbar .wk{font-family:var(--font-mono);font-size:10px;color:var(--muted);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;letter-spacing:.06em;text-transform:uppercase}
 /* Sleeper-style 5-col row: [info | score | badge | score | info], badges sized to match scores */
-.vtr-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);align-items:center;column-gap:12px;padding:16px 16px;border-bottom:1px solid var(--border)}
+.vtr-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);align-items:center;column-gap:12px;padding:9px 16px;border-bottom:1px solid var(--border)}
 .vtr-row:last-child{border-bottom:none}
 .vtr-row.lean-me{box-shadow:inset 3px 0 0 var(--you2)}
 .vtr-row.lean-opp{box-shadow:inset -3px 0 0 var(--them)}
 .vtr-cell{min-width:0}
 .vtr-cell.info.opp{text-align:right}
-.vtr-cell.info .nm{font-size:18px;font-weight:800;letter-spacing:-.015em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.vtr-cell.info .pm{font-family:var(--font-mono);font-size:11px;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px;letter-spacing:.02em}
+.vtr-cell.info .nm{font-size:15.5px;font-weight:800;letter-spacing:-.015em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.vtr-cell.info .pm{font-family:var(--font-mono);font-size:11px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px;letter-spacing:.02em}
 .vtr-cell.info.opp .pm{justify-content:flex-end}
 .vtr-cell.info .vtr-pchip{font-family:var(--font-mono);font-weight:800;font-size:11px;letter-spacing:.06em;line-height:1}
 .vtr-cell.info .vtr-pteam{color:var(--text2);font-weight:700;letter-spacing:.04em;font-size:11px}
 .vtr-cell.info .vtr-dot{color:var(--muted);opacity:.7}
-.vtr-cell.info .gl{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);opacity:.85;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
+.vtr-cell.info .gl{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);opacity:.85;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
 .vtr-cell.info .gl .live{color:var(--you2);opacity:1;font-weight:700}
 .vtr-cell.info .vtr-pwrap{display:flex;align-items:center;gap:11px;min-width:0}
 .vtr-cell.info.opp .vtr-pwrap{flex-direction:row-reverse}
 .vtr-cell.info .vtr-ptxt{min-width:0;flex:1}
-.vtr-pav{width:46px;height:46px;border-radius:50%;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--ring,#7d8aa0) 45%,transparent)}
+.vtr-pav{width:38px;height:38px;border-radius:50%;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--s3);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--ring,#7d8aa0) 45%,transparent)}
 .vtr-pav .ini{font-family:var(--font-mono);font-weight:800;font-size:12px;color:var(--text2)}
 .vtr-pav img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
 .rbp .pav{width:26px;height:26px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;background:var(--s3);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ring,#7d8aa0) 50%,transparent)}
 .rbp .pav img{width:100%;height:100%;object-fit:cover;object-position:top center}
 .vtr-cell.sc{display:flex;flex-direction:column;align-items:center;min-width:54px}
-.vtr-cell.sc .act{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--text2);line-height:1;font-feature-settings:"tnum";letter-spacing:-.01em}
+.vtr-cell.sc .act{font-family:var(--font-mono);font-size:19px;font-weight:800;color:var(--text2);line-height:1;font-feature-settings:"tnum";letter-spacing:-.01em}
 .vtr-cell.sc .act.is-live{color:var(--accent2)}
 /* Big square color-coded center badge — Sleeper-style */
-.vtr-badge{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;text-align:center;font-family:var(--font-mono);font-size:13px;font-weight:800;letter-spacing:.04em;color:#0c0f15}
+.vtr-badge{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:11px;text-align:center;font-family:var(--font-mono);font-size:12px;font-weight:800;letter-spacing:.04em;color:#0c0f15}
 @media(max-width:760px){
   .vtr-head-top{padding:16px 14px 8px;gap:10px}
   .vtr-avt{width:44px;height:44px;border-radius:12px}
@@ -33343,7 +33347,24 @@ window.VaultGradeCal = (function () {
 .vtr-layout .vtr{max-width:none;margin:0}
 /* Gamecast supplies its own card chrome (.vtr + rail), so let the matchup
    wrapper be a transparent full-width container instead of a nested card. */
-.rdv-mu:has(.vtr-layout){background:none!important;border:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
+.rdv-mu:has(.vtr-layout),
+[data-theme="onyx"] .rdv-mu:has(.vtr-layout),
+[data-theme="light"] .rdv-mu:has(.vtr-layout){background:none!important;border:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
+/* Left column = matchup card + the 3-up below it; rail spans both rows so the
+   3-up rises up beside the (taller) rail instead of waiting below it. These only
+   apply in the two-column desktop layout — below 980px everything stacks and the
+   3-up returns to its normal full-width responsive behaviour. */
+@media(min-width:981px){
+  .vtr-layout>.vtr{grid-column:1;grid-row:1}
+  .vtr-layout>.vtr-rail{grid-column:2;grid-row:1 / span 2;align-self:start}
+  .vtr-layout>.rdv-three{grid-column:1;grid-row:2;margin:0;grid-template-columns:1fr 1fr 1fr}
+  /* In the narrower left column the 3-up cards must shrink below their content
+     min-width or they overflow the rail; their inner grids fold too. */
+  .vtr-layout>.rdv-three>*{min-width:0}
+  .vtr-layout>.rdv-three .rdv-pg{grid-template-columns:repeat(2,1fr)}
+  .vtr-layout>.rdv-three .rdv-two{grid-template-columns:1fr;gap:10px 0}
+  .vtr-layout>.rdv-three .rdv-secnote{display:none}
+}
 @media(max-width:980px){.vtr-layout{grid-template-columns:1fr}}
 .vtr-rail{display:flex;flex-direction:column;gap:14px}
 /* ── Team Review rail controls (Values dropdown + Sync) ── */
@@ -33428,7 +33449,8 @@ window.VaultGradeCal = (function () {
 .rbp .pr{margin-left:auto;font-family:var(--font-mono);font-weight:700;color:var(--text2)}
 .rbench-note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
 @media(max-width:980px){.vtr-rail .rmod{max-width:none;margin:0;width:100%}}
-@media(max-width:640px){.vtr-rail{display:none}}
+/* On phones the coaching modules fold away, but keep the relocated Next Up + Season Outlook cards. */
+@media(max-width:640px){.vtr-rail{gap:12px}.vtr-rail>.rmod,.vtr-rail>.ovc-row,.vtr-rail>.ovc-row-mob{display:none}}
 </style>
 <script>
 /* ── Redraft value (1QB FC), consistent with the rest of the app ── */
@@ -33536,7 +33558,7 @@ function _buildRedraftView(d){
   var matchup = '<div class="rdv-section"><div class="rdv-sechd"><div class="rdv-sectitle"><span class="tick"></span>This Week · Matchup</div><div class="rdv-secnote">'+(d.platform==='espn'?'PROJECTIONS · ESPN':'PROJECTIONS · SLEEPER')+'</div></div>'
     + '<div class="rdv-mu" id="rdv-matchup"><div class="rdv-empty"><span class="spinner sm"></span> Loading this week\'s matchup…</div></div>'
     + '<div id="rdv-optimizer"></div></div>';
-  var waiver = '<div class="rdv-section"><div class="rdv-sechd"><div class="rdv-sectitle"><span class="tick"></span>Waiver Wire Targets</div><div class="rdv-secnote">RANKED FOR YOUR ROSTER</div></div>'
+  var wcard = '<div class="rdv-card"><div class="rdv-sechd" style="margin-bottom:10px"><div class="rdv-sectitle"><span class="tick"></span>Waiver Wire Targets</div><div class="rdv-secnote">RANKED FOR YOU</div></div>'
     + '<div class="rdv-wt-wrap" id="rdv-waiver"><div class="rdv-empty"><span class="spinner sm"></span> Scanning free agents…</div></div></div>';
   var oddsP = d.playoffOdds!=null?d.playoffOdds:50;
   var oddsBye = Math.max(2,Math.min(92,Math.round(oddsP*0.55-((d.powerRank||6)-1)*4)));
@@ -33552,7 +33574,9 @@ function _buildRedraftView(d){
     + '<div><div class="rdv-st"><div class="k">Diff</div></div><div class="mono" style="font-size:16px;font-weight:700;margin-top:3px;color:'+((d.pf-d.pa)>=0?'var(--rr)':'var(--rlose)')+'">'+(gp?((d.pf-d.pa>=0?'+':'')+(d.pf-d.pa).toFixed(0)):'—')+'</div></div>'
     + '</div></div>';
   var nextweek = '<div class="rdv-card" id="rdv-nextweek"><div class="rdv-sechd" style="margin-bottom:2px"><div class="rdv-sectitle"><span class="tick" style="background:var(--rw)"></span>Next Up</div></div><div class="rdv-empty" style="padding:18px"><span class="spinner sm"></span> Projecting…</div></div>';
-  var row1 = '<div class="rdv-section rdv-two">'+nextweek+outlook+'</div>';
+  // Next Up + Season Outlook live here as a fallback; when the gamecast rail renders,
+  // _ovRenderRedraftMatchup relocates these two cards into it and hides this row.
+  var railpair = '<div class="rdv-section rdv-two" id="rdv-railpair">'+nextweek+outlook+'</div>';
   var pgCards = ['QB','RB','WR','TE'].map(function(p){
     var info=(d.posRankInfo&&d.posRankInfo[p])||{};
     var lab=info.label||'—'; var col=info.color||'var(--muted)';
@@ -33570,8 +33594,8 @@ function _buildRedraftView(d){
     ? '<div class="rdv-two" style="gap:0 22px"><div><div class="rdv-st" style="margin-bottom:5px"><div class="k" style="color:var(--rr)">▲ Trending up</div></div>'+(up.map(mvRow).join('')||'<div class="rdv-pmeta">—</div>')+'</div><div><div class="rdv-st" style="margin-bottom:5px"><div class="k" style="color:var(--rlose)">▼ Trending down</div></div>'+(dn.map(mvRow).join('')||'<div class="rdv-pmeta">—</div>')+'</div></div>'
     : '<div class="rdv-pmeta" style="padding:6px 0">Trend data populates from the value feed.</div>';
   var mv = '<div class="rdv-card"><div class="rdv-sechd" style="margin-bottom:10px"><div class="rdv-sectitle"><span class="tick" style="background:var(--red2)"></span>Risers &amp; Fallers</div><span class="rdv-secnote">REDRAFT · 7D</span></div>'+moversHtml+'</div>';
-  var row2='<div class="rdv-section rdv-two" style="margin-bottom:0">'+pg+mv+'</div>';
-  return '<div class="rdv">'+ident+matchup+waiver+row1+row2+'</div>';
+  var below='<div class="rdv-section rdv-three" style="margin-bottom:0">'+wcard+pg+mv+'</div>';
+  return '<div class="rdv">'+ident+matchup+railpair+below+'</div>';
 }
 window._buildRedraftView=_buildRedraftView;
 function _rrpEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -33919,6 +33943,20 @@ async function _ovRenderRedraftMatchup(){
       }catch(e){}
       if(window._gcMatchupHTML){
         mEl.innerHTML = window._gcMatchupHTML({ myT:{name:myT.team,user:myT.mgr,avatar:myT.avatar,rec:myT.rec,seed:(myT.rank?('#'+myT.rank):'')}, opT:{name:opT.team,user:opT.mgr,avatar:opT.avatar,rec:opT.rec}, myTot:myTot, opTot:opTot, wpMe:wpMe, edge:edge, week:week, rows:gcRows, src:'SLEEPER', hasOpp:!!opp, live:isLive, rail:{move:_railMove, bench:_railBench, optimal:_railOptimal} });
+        // Fill the rail's dead space: move Next Up + Season Outlook out of the fallback
+        // row and into the coaching rail. #rdv-nextweek keeps its id, so the async
+        // next-week fill below still targets it wherever it now lives.
+        try{
+          var _layout=mEl.querySelector('.vtr-layout'), _rail=mEl.querySelector('.vtr-rail'), _pair=document.getElementById('rdv-railpair');
+          if(_rail && _pair){
+            Array.prototype.forEach.call(_pair.querySelectorAll('.rdv-card'), function(c){ _rail.appendChild(c); });
+            _pair.style.display='none';
+          }
+          // Pull the 3-up (Waiver / Grades / Risers) into the left column so it rises
+          // up beside the rail rather than sitting below the full matchup+rail height.
+          var _three=document.querySelector('.rdv-three');
+          if(_layout && _three) _layout.appendChild(_three);
+        }catch(e){}
       } else {
       mEl.innerHTML=
         '<div class="rdv-mu-top">'
