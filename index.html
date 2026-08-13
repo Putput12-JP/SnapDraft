@@ -2359,9 +2359,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
   margin:0 auto;
   min-height:100%;
 }
-/* Ultra-wide: let main content + rail breathe instead of pinning to a 1280 band */
-@media(min-width:1600px){ .proto-page{ max-width:1480px } }
-@media(min-width:1900px){ .proto-page{ max-width:1640px } .vtr-layout{ max-width:none; grid-template-columns:minmax(0,1fr) 360px } }
+/* Ultra-wide: let main content + rail breathe, but never wider than the nav pill
+   (.glassnav is capped at 1460px), so the content lines up with the header. */
+@media(min-width:1600px){ .proto-page{ max-width:1460px } }
+@media(min-width:1900px){ .proto-page{ max-width:1460px } .vtr-layout{ max-width:none; grid-template-columns:minmax(0,1fr) 360px } }
 .proto-page-hdr {
   display:flex;
   flex-direction:row;
