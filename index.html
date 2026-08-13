@@ -13389,7 +13389,7 @@ function showPage(p, opts){
     try { _dvAutoMode(); } catch(e) {}     // apply Dynasty/Redraft mode + collapse to one value column
     // Connect-first: if no live draft is connected, surface the connect modal
     // once per session so the user can either link a draft or browse rankings.
-    if (!sleeperDraftId && !window._draftPromptDismissed) {
+    if (!sleeperDraftId && !espnDraftLid && !window._draftPromptDismissed) {
       setTimeout(() => {
         // ADP Explorer and Redraft Strategy are research sub-views that need no
         // draft connection, so don't ambush them with the connect modal. Checked
@@ -15966,9 +15966,26 @@ function chooseConnectDifferent(){
 // to the selected league's live/upcoming draft; otherwise drops the stale one.
 function syncDraftToLeague(leagueObj){
   if (!leagueObj){ return; }
-  const did = (leagueObj.draft_id && leagueObj.draft_id !== '0') ? leagueObj.draft_id : null;
   const status = leagueObj.status;
   const isLiveOrUpcoming = (status==='pre_draft' || status==='drafting' || status==='in_progress' || status==='paused');
+  // ESPN leagues carry no Sleeper draft_id — their draft is mirrored by
+  // league_id via connectEspnDraft/syncEspnDraft. Route them there instead of
+  // the Sleeper did-logic below, which would otherwise read did=null, fall into
+  // the else branch and disconnectDraft() the ESPN board we just connected
+  // (the "click league → modal re-pops" bug).
+  if (vpPlat(leagueObj) === 'espn'){
+    window._completedDraftChoice = null;
+    if (isLiveOrUpcoming){
+      if (espnDraftLid === leagueObj.league_id) return;   // already mirroring this league
+      window._draftPromptDismissed = true;                // connecting, don't re-prompt
+      try { connectEspnDraft(leagueObj.league_id); } catch(e){}
+    } else if (espnDraftLid === leagueObj.league_id){
+      window._draftPromptDismissed = false;
+      disconnectDraft();                                  // in-season/complete → drop the stale board
+    }
+    return;
+  }
+  const did = (leagueObj.draft_id && leagueObj.draft_id !== '0') ? leagueObj.draft_id : null;
   // New league → re-evaluate prompts from scratch.
   window._completedDraftChoice = null;
   window._draftPromptDismissed = false;
