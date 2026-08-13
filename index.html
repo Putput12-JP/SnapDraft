@@ -10569,7 +10569,7 @@ function setSyncStatus(s){
 }
 
 async function manualResync(){
-  if(!sleeperDraftId){ toast('No draft connected'); return; }
+  if(!sleeperDraftId && !espnDraftLid){ toast('No draft connected'); return; }
   const btn=document.getElementById('resync-btn');
   const dsBtn=document.getElementById('ds-resync-btn');
   if(btn) btn.innerHTML='<span class="spinner xs"></span>';
@@ -18192,8 +18192,10 @@ function renderDraftSummary(){
     }
     // choice === 'view' → fall through and render the finished board normally
   }
-  if(!d || !sleeperDraftId){
+  if(!d || (!sleeperDraftId && !espnDraftLid)){
     // Not connected → fresh rankings view: hide hero + board, show connect bar.
+    // Check BOTH ids: an ESPN draft populates _activeDraft with an empty
+    // sleeperDraftId, so gating on sleeperDraftId alone hid a live ESPN board.
     wrap.style.display = 'none';
     if (connectBar){
       connectBar.style.display = 'flex';
