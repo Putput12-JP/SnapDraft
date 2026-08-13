@@ -24,6 +24,8 @@ export interface EspnQuery {
   season?: string;
   /** Subset of ESPN_LEAGUE_VIEWS; anything outside the allowlist is dropped. */
   views?: string[];
+  /** Bust ESPN's CDN so a live draft poll never lands a stale board. */
+  fresh?: boolean;
 }
 
 const VIEW_ALLOWLIST = new Set<string>(ESPN_LEAGUE_VIEWS);
@@ -50,7 +52,7 @@ export async function runEspnQuery(
         Array.isArray(q.views) && q.views.length
           ? q.views.filter((v) => VIEW_ALLOWLIST.has(v))
           : ESPN_LEAGUE_VIEWS;
-      const data = await fetchEspnLeague(cookies, season, leagueId, views);
+      const data = await fetchEspnLeague(cookies, season, leagueId, views, q.fresh === true);
       // Only the server knows the connected SWID, so only the server can say
       // which team is the user's. Tag it into the payload (double-underscore so
       // the frontend's ESPN mappers ignore it) → the client auto-selects it and

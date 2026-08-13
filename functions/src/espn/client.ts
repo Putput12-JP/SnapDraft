@@ -33,6 +33,7 @@ async function espnFetch(url: string, cookies: EspnCookies): Promise<unknown> {
         cookie: cookieHeader(cookies),
         accept: "application/json",
         "user-agent": "vault-fantasy-sync",
+        "cache-control": "no-cache",
       },
     });
   } catch (e) {
@@ -54,11 +55,21 @@ async function espnFetch(url: string, cookies: EspnCookies): Promise<unknown> {
   }
 }
 
-function leagueUrl(host: string, season: string, leagueId: string, views: readonly string[]): string {
+function leagueUrl(
+  host: string,
+  season: string,
+  leagueId: string,
+  views: readonly string[],
+  fresh = false
+): string {
   const u = new URL(
     `${host}/apis/v3/games/${ESPN_GAME}/seasons/${season}/segments/0/leagues/${leagueId}`
   );
   for (const v of views) u.searchParams.append("view", v);
+  // ESPN's read host is CDN-fronted; a live draft poll must defeat that or the
+  // board lags real picks. The cache-control header alone isn't enough on a
+  // shared cache — a unique query key is what actually forces a fresh hit.
+  if (fresh) u.searchParams.set("_", String(Date.now()));
   return u.toString();
 }
 
@@ -72,13 +83,14 @@ export async function fetchEspnLeague(
   cookies: EspnCookies,
   season: string,
   leagueId: string,
-  views: readonly string[] = ESPN_LEAGUE_VIEWS
+  views: readonly string[] = ESPN_LEAGUE_VIEWS,
+  fresh = false
 ): Promise<unknown> {
   try {
-    return await espnFetch(leagueUrl(ESPN_READS_HOST, season, leagueId, views), cookies);
+    return await espnFetch(leagueUrl(ESPN_READS_HOST, season, leagueId, views, fresh), cookies);
   } catch (e) {
     if (e instanceof EspnAuthError) throw e;
-    return await espnFetch(leagueUrl(ESPN_FANTASY_HOST, season, leagueId, views), cookies);
+    return await espnFetch(leagueUrl(ESPN_FANTASY_HOST, season, leagueId, views, fresh), cookies);
   }
 }
 

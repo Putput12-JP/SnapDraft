@@ -105,10 +105,11 @@
 
     disconnect: function () { return call('disconnectEspn'); },
 
-    /** Raw v3 league JSON, pulled server-side with the stored cookies. */
-    league: function (leagueId, season, views) {
+    /** Raw v3 league JSON, pulled server-side with the stored cookies. Pass
+     *  fresh=true to CDN-bust — the live draft poll needs it, cached reads don't. */
+    league: function (leagueId, season, views, fresh) {
       return call('espnRead', {
-        query: { type: 'league', leagueId: leagueId, season: season, views: views || null }
+        query: { type: 'league', leagueId: leagueId, season: season, views: views || null, fresh: fresh === true }
       }).then(function (r) { return r && r.data; });
     },
 
