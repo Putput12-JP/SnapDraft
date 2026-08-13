@@ -13537,10 +13537,21 @@ function rememberLastLeague(leagueId) {
 
 function restoreLeagueSelection() {
   if (ovLeagueId && teamsLeagueId) return;
-  // Highest signal: the league you were last looking at. Only trust it if that
-  // league still exists in the account (a dropped/expired season falls through).
+  // Nothing to validate against yet — the pre-fetch render calls this with an
+  // empty account. Committing a saved id here (the primary-league fallback did)
+  // pins that league before loadMyTeams lands, and the second call early-returns,
+  // so a pinned default could never win. Wait for the account, then select once.
+  if (!myTeamsData.length) return;
   let cand = null;
+  // Highest signal: a league the user explicitly pinned as their login default
+  // (set from the header switcher's ★). Only honour it if it still exists.
   try {
+    const def = localStorage.getItem(SK+'-default-league');
+    if (def && myTeamsData.some(l => l.league_id === def)) cand = def;
+  } catch(e){}
+  // Next: the league you were last looking at. Only trust it if that league
+  // still exists in the account (a dropped/expired season falls through).
+  if (!cand) try {
     const last = localStorage.getItem(SK+'-last-league');
     if (last && myTeamsData.some(l => l.league_id === last)) cand = last;
   } catch(e){}
@@ -24244,6 +24255,10 @@ function pickYear(year) {
   .vlg-imeta{ font-family:var(--font-mono); font-size:10px; color:var(--muted); }
   .vlg-check{ color:var(--accent); display:flex; }
   .vlg-check svg{ width:16px; height:16px; }
+  .vlg-star{ flex-shrink:0; display:flex; align-items:center; justify-content:center; width:28px; height:28px; margin:-4px -3px -4px 0; border-radius:50%; color:var(--muted); opacity:.5; cursor:pointer; transition:background .12s, color .12s, opacity .12s; }
+  .vlg-star:hover{ background:var(--s2); color:#f5b544; opacity:1; }
+  .vlg-star.on{ color:#f5b544; opacity:1; }
+  .vlg-hint{ font-size:10.5px; line-height:1.35; color:var(--muted); padding:6px 11px 4px; }
   .vlg-sep{ height:1px; background:var(--border); margin:5px 0; }
   .vlg-action{ display:flex; align-items:center; gap:10px; width:100%; padding:9px 11px; border:none; background:transparent; border-radius:var(--radius-md); cursor:pointer; color:var(--muted); font-weight:600; font-size:12.5px; font-family:var(--font-sans); transition:.12s; }
   .vlg-action:hover{ background:var(--s2); color:var(--text); }
@@ -24759,7 +24774,8 @@ function pickYear(year) {
     repeat:'m17 2 4 4-4 4|M21 6H8a4 4 0 0 0-4 4v1|m7 22-4-4 4-4|M3 18h13a4 4 0 0 0 4-4v-1',
     chevron:'m6 9 6 6 6-6',
     check:'m20 6-11 11-5-5',
-    sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-4M20 13V3|M2 14h4M10 8h4M18 17h4'
+    sliders:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-4M20 13V3|M2 14h4M10 8h4M18 17h4',
+    star:'M12 3.6l2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.2l-4.94 2.6.94-5.5-4-3.9 5.53-.8z'
   };
   function svg(name, size){
     var d = PATHS[name]; if(!d) return '';
@@ -24859,19 +24875,30 @@ function pickYear(year) {
     var target=Math.min(base+deficit+3, base+slack, 440);
     if(target>base) trig.style.setProperty('max-width', Math.ceil(target)+'px', 'important');
   }
+  var DEF_KEY = (function(){ try{ return (typeof SK!=='undefined'?SK:'dcmd-v5'); }catch(e){ return 'dcmd-v5'; } })() + '-default-league';
+  function getDefault(){ try{ return localStorage.getItem(DEF_KEY); }catch(e){ return null; } }
+  function setDefault(id){ try{ if(id) localStorage.setItem(DEF_KEY, id); else localStorage.removeItem(DEF_KEY); }catch(e){} }
+  function starSvg(on){
+    return '<svg viewBox="0 0 24 24" fill="'+(on?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="'+PATHS.star+'"/></svg>';
+  }
   function renderMenu(){
     var sel=document.getElementById('header-league-select'); var menu=document.getElementById('vlg-menu'); if(!sel||!menu) return;
     var opts=[].slice.call(sel.options).filter(function(o){return o.value;});
-    var cur=sel.value;
+    var cur=sel.value; var def=getDefault();
     var html='<div class="vlg-head">Your leagues</div>';
     html += opts.map(function(o){
       var active=o.value===cur; var live=/^🟢/.test(o.textContent); var nm=cleanName(o.textContent);
-      return '<button type="button" class="vlg-item'+(active?' on':'')+'" data-val="'+o.value+'">'
+      var isDef=o.value===def;
+      return '<div class="vlg-item'+(active?' on':'')+'" data-val="'+o.value+'">'
         + '<span class="vlg-idot" style="background:'+(live?'var(--rb)':'var(--muted)')+'"></span>'
         + '<span class="vlg-iname">'+nm+'</span>'
         + (active?'<span class="vlg-check">'+svg('check',16)+'</span>':'')
-        + '</button>';
+        + '<span class="vlg-star'+(isDef?' on':'')+'" data-val="'+o.value+'" role="button" tabindex="0" '
+        + 'title="'+(isDef?'Your login default — tap to unpin':'Set as login default')+'" '
+        + 'aria-label="'+(isDef?'Unset login default':'Set as login default')+'">'+starSvg(isDef)+'</span>'
+        + '</div>';
     }).join('');
+    html += '<div class="vlg-hint">★ marks the league Vault opens on at login.</div>';
     html += '<div class="vlg-sep"></div><button type="button" class="vlg-action" id="vlg-manage">'+svg('sliders',15)+'Manage leagues</button>';
     menu.innerHTML = html;
     [].slice.call(menu.querySelectorAll('.vlg-item')).forEach(function(b){
@@ -24882,8 +24909,31 @@ function pickYear(year) {
         try{ if(typeof switchGlobalLeague==='function') switchGlobalLeague(v); }catch(err){}
       });
     });
+    // Star toggles the login default without switching leagues. stopPropagation
+    // keeps the click off the parent .vlg-item (which would switch + close).
+    [].slice.call(menu.querySelectorAll('.vlg-star')).forEach(function(st){
+      function toggle(e){
+        e.stopPropagation(); e.preventDefault();
+        var v=st.getAttribute('data-val');
+        setDefault(getDefault()===v ? '' : v);
+        renderMenu();
+      }
+      st.addEventListener('click', toggle);
+      st.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' ') toggle(e); });
+    });
     var mng=menu.querySelector('#vlg-manage');
-    if(mng) mng.addEventListener('click', function(e){ e.stopPropagation(); closeMenu(); var s=document.getElementById('setup'); if(s) s.classList.remove('gone'); });
+    if(mng) mng.addEventListener('click', function(e){
+      e.stopPropagation(); closeMenu();
+      var s=document.getElementById('setup'); if(s) s.classList.remove('gone');
+      // Removing `gone` alone leaves whichever setup view was last shown — often
+      // all hidden, so the panel opened blank. Explicitly mount the leagues
+      // picker (falls back to the connect step if that path isn't available).
+      try{
+        if(typeof vpShowView==='function') vpShowView('leagues');
+        else if(typeof vpLpShow==='function') vpLpShow();
+        else if(typeof openConnect==='function') openConnect();
+      }catch(err){ try{ if(typeof openConnect==='function') openConnect(); }catch(_){} }
+    });
   }
   function refreshDD(){ if(ensureDD()){ renderTrigger(); if(ddOpen) renderMenu(); } }
 
