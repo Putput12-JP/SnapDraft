@@ -4422,13 +4422,15 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     <div class="dc-or"><span>or enter a league ID</span></div>
     <div class="ld-input-row">
       <input class="ld-input" id="ld-manual-id" placeholder="e.g. 1170877498498940928"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         onkeydown="if(event.key==='Enter')ldLoadManual()">
       <button class="ld-load-btn" onclick="ldLoadManual()">Load draft</button>
     </div>
 
     <div class="dc-or"><span>or mirror an ESPN draft</span></div>
     <div class="ld-input-row">
-      <input class="ld-input" id="ld-espn-id" placeholder="ESPN League ID (public)" inputmode="numeric"
+      <input class="ld-input" id="ld-espn-id" placeholder="ESPN League ID" inputmode="numeric"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
         onkeydown="if(event.key==='Enter')ldConnectEspn()">
       <button class="ld-load-btn" id="ld-espn-btn" onclick="ldConnectEspn()" style="background:#d50a0a">Load ESPN</button>
     </div>
@@ -9587,6 +9589,14 @@ function vpFinishEspn(lg){
   vpSaveEspnLeagues();
   vpRenderLeagueGrid();
   vpShowView('leagues');
+  // Connecting the league is what people expect to light up the draft board, so
+  // when the freshly linked league has a live or upcoming draft, jump straight
+  // in and mirror it rather than making them hunt for "Connect a draft". Only
+  // drafting/pre_draft qualify — an in-season or finished league has no draft to
+  // connect, so those stay put in the leagues view.
+  if (lg.status === 'drafting' || lg.status === 'pre_draft'){
+    setTimeout(() => { try { connectEspnDraft(lg.league_id); } catch(e){} }, 350);
+  }
 }
 
 // ── ESPN league persistence ─────────────────────────────────────────────
@@ -15750,12 +15760,10 @@ async function openDraftConnect(auto){
     try { res = await ldRescan(); } catch(e){ res = null; }
     if (!res || (!res.active && !res.upcoming)) { skipDraftConnect(); return; }
     m.classList.remove('gone');
-    setTimeout(() => { try { document.getElementById('ld-manual-id')?.focus(); } catch(e){} }, 50);
     return;
   }
   m.classList.remove('gone');
   try { ldRescan(); } catch(e){}
-  setTimeout(() => { try { document.getElementById('ld-manual-id')?.focus(); } catch(e){} }, 50);
 }
 function closeDraftConnect(){
   window._draftPromptDismissed = true;
