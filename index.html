@@ -24247,6 +24247,8 @@ function pickYear(year) {
   .vlg.open .vlg-chev{ transform:rotate(180deg); }
   .vlg-menu{ position:absolute; top:calc(100% + 7px); right:0; left:auto; width:272px; max-width:86vw; background:var(--s1); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:0 16px 44px rgba(0,0,0,.45); padding:5px; z-index:401; max-height:64vh; overflow-y:auto; }
   .vlg-head{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); padding:9px 11px 5px; }
+  .vlg-head:not(:first-child){ margin-top:5px; padding-top:11px; border-top:1px solid var(--border); }
+  .vlg-head-n{ margin-left:6px; opacity:.55; font-weight:600; }
   .vlg-item{ display:flex; align-items:center; gap:10px; width:100%; padding:9px 11px; border:none; background:transparent; border-radius:var(--radius-md); cursor:pointer; text-align:left; transition:background .12s; }
   .vlg-item:hover{ background:var(--s2); }
   .vlg-item.on{ background:color-mix(in srgb, var(--accent) 13%, transparent); }
@@ -24885,8 +24887,18 @@ function pickYear(year) {
     var sel=document.getElementById('header-league-select'); var menu=document.getElementById('vlg-menu'); if(!sel||!menu) return;
     var opts=[].slice.call(sel.options).filter(function(o){return o.value;});
     var cur=sel.value; var def=getDefault();
-    var html='<div class="vlg-head">Your leagues</div>';
-    html += opts.map(function(o){
+    // Group by format so Dynasty and Redraft leagues sit under their own labels.
+    // Reuse the app-wide classifier; fall back to the name if the league object
+    // isn't in myTeamsData (e.g. a stale option mid-refresh).
+    function fmtOf(o){
+      var v=o.value;
+      try{
+        var lg=((typeof myTeamsData!=='undefined'&&myTeamsData)||[]).find(function(l){return l.league_id===v;});
+        if(lg && typeof _isDynastyLeague==='function') return _isDynastyLeague(lg)?'dyn':'rdr';
+      }catch(e){}
+      return /dynasty/i.test(o.textContent)?'dyn':'rdr';
+    }
+    function itemHtml(o){
       var active=o.value===cur; var live=/^🟢/.test(o.textContent); var nm=cleanName(o.textContent);
       var isDef=o.value===def;
       return '<div class="vlg-item'+(active?' on':'')+'" data-val="'+o.value+'">'
@@ -24897,7 +24909,16 @@ function pickYear(year) {
         + 'title="'+(isDef?'Your login default — tap to unpin':'Set as login default')+'" '
         + 'aria-label="'+(isDef?'Unset login default':'Set as login default')+'">'+starSvg(isDef)+'</span>'
         + '</div>';
-    }).join('');
+    }
+    var groups={dyn:[],rdr:[]};
+    opts.forEach(function(o){ (groups[fmtOf(o)]||groups.rdr).push(o); });
+    function section(key,label){
+      var arr=groups[key]; if(!arr.length) return '';
+      return '<div class="vlg-head">'+label+'<span class="vlg-head-n">'+arr.length+'</span></div>'
+        + arr.map(itemHtml).join('');
+    }
+    var html=section('dyn','Dynasty') + section('rdr','Redraft');
+    if(!html) html='<div class="vlg-head">Your leagues</div>';
     html += '<div class="vlg-hint">★ marks the league Vault opens on at login.</div>';
     html += '<div class="vlg-sep"></div><button type="button" class="vlg-action" id="vlg-manage">'+svg('sliders',15)+'Manage leagues</button>';
     menu.innerHTML = html;
