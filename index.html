@@ -13166,6 +13166,14 @@ function _dvAutoMode(){
       if (/dynasty|keeper|devy/i.test(t)) isDyn = true;
       else if (/redraft|seasonal/i.test(t)) isDyn = false;
     }
+    // ESPN drafts have no dynasty signal in the name, and the rounds>=15 heuristic
+    // below misfires on deep redraft benches (Goonies = 18 roster spots → wrongly
+    // dynasty). syncEspnDraft already set _draftIsDynasty from ESPN's real slot
+    // config, so trust that for ESPN instead of guessing.
+    if (isDyn===null && window._activeDraft && _activeDraft.platform === 'espn'
+        && typeof window._draftIsDynasty === 'boolean'){
+      isDyn = window._draftIsDynasty;
+    }
     if (isDyn===null && typeof _isDynastyLeague==='function'){
       const lid = window._currentLeagueId || teamsLeagueId;
       const lg = lid && myTeamsData && myTeamsData.find(l=>l.league_id===lid);
