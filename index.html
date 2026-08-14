@@ -42770,7 +42770,15 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       }
     }
     var key = sig(strip);
-    var tl = it.offsetLeft + 'px', tw = it.offsetWidth + 'px';
+    // offsetLeft is relative to the item's offsetParent, which is the strip only
+    // for FLAT items. Dropdown nav items (My Team / Draft Vault) sit inside a
+    // positioned .*-mt-wrap, so their offsetLeft is 0 within that wrapper and the
+    // pill would jump to the strip's left edge (the "pill bleeding" onto the wrong
+    // item). Walk the offset chain up to the strip so a nested item resolves to its
+    // true strip-relative x. offsetWidth is the item's own box, already correct.
+    var _ol = it.offsetLeft, _n = it.offsetParent;
+    while (_n && _n !== strip && strip.contains(_n)) { _ol += _n.offsetLeft; _n = _n.offsetParent; }
+    var tl = _ol + 'px', tw = it.offsetWidth + 'px';
     // Already there (or already travelling there): do nothing. One click can
     // fire this 5+ times via the class observer, the click net and the
     // re-render observer; re-running it would rewrite identical values and a
