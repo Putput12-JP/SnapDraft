@@ -142,7 +142,20 @@ Traps this code already handles — preserve them if you touch it:
    already correct and skips in-flight travels (their `style.left` already holds
    the destination), so blanket re-placing on the click/nav/resize/DOM-churn nets
    is cheap and is what makes a drifted pill self-correct. Do not re-add an
-   `opacity==='1'` gate to `catchUp`.
+   `opacity==='1'` gate to *which* strips `catchUp` re-places.
+
+5b. **`catchUp` must re-place with a per-pill `animate`, never a flat `false`.**
+   The click/nav nets schedule `catchUp` (`setTimeout 0`) *during* event dispatch,
+   so on a real nav change `catchUp` runs BEFORE the strip's own class observer
+   schedules its animated `place(…, true)` — meaning `catchUp` is the call that
+   actually moves the pill. Passing `animate:false` there snapped it to the
+   destination under `.rail-noanim`, and the later animated pass then no-op'd on
+   the guard — that is the "lost nav motion" bug. `catchUp` therefore passes
+   `p.style.opacity==='1' && p.style.left` as the `animate` flag: an
+   already-visible, already-placed pill travelling to a moved item animates; a
+   parked/unplaced one still snaps (else it flies in from `left:0` — trap 1).
+   Verify with `pill.getAnimations()` right after a real click — 2 live
+   `left,width` transitions and `.rail-noanim` never set.
 
 ### 3. Loading — `.spinner`
 

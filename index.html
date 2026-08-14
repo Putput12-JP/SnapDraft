@@ -42919,7 +42919,16 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
       // late webfont swap that widened the text after first placement. place()
       // no-ops when already correct and leaves in-flight travels alone (their
       // style.left already holds the destination), so this stays cheap and safe.
-      if (p && s.clientWidth) place(s, cfg, false);
+      //
+      // ANIMATE flag: catchUp fires on the click/nav nets BEFORE the strip's own
+      // class observer schedules its animated place() (both are setTimeout(0), and
+      // the click handlers are scheduled first, during event dispatch). So for a
+      // real nav change catchUp is the one that moves the pill — passing false here
+      // snapped it to the destination with .rail-noanim and the later animated pass
+      // then no-op'd, which is exactly the "lost nav motion" bug. An already
+      // VISIBLE + PLACED pill travelling to a moved item must animate; only a
+      // parked/unplaced pill snaps (else it flies in from left:0 — trap 1).
+      if (p && s.clientWidth) place(s, cfg, p.style.opacity === '1' && !!p.style.left);
     });
   }
 
