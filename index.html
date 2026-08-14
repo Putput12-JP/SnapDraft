@@ -10537,6 +10537,11 @@ async function syncEspnDraft(){
     window._activeDraft = { id:espnDraftLid, name:(lg.name||'ESPN')+' · Draft', type:dtype, season:String(year),
       status: dd.inProgress ? 'drafting' : (dd.drafted ? 'complete' : 'pre_draft'), pickTimer:0, pickTimerType:'',
       teams:NUM_TEAMS, rounds:NUM_ROUNDS, picksCount:madePicks.length, lastPickedAt:0, platform:'espn' };
+    // Re-derive Dynasty/Redraft now that the authoritative ESPN flags are set.
+    // connectEspnDraft runs _dvAutoMode (via showPage) BEFORE this sync populates
+    // _activeDraft/_draftIsDynasty, so without this the mode stuck on the stale
+    // default (ESPN redraft showing as DYNASTY · SF).
+    try { _dvAutoMode(); } catch(e){}
     save(); _rebuildCaches(); try { buildADPFromDraft(); } catch(e){}
     setSyncStatus('live'); lastPickTime = Date.now();
     scheduleSync();
