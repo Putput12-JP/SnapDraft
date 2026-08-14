@@ -10482,11 +10482,18 @@ async function syncEspnDraft(){
     if (!data){ setSyncStatus('err'); return; }
     const dd = data.draftDetail||{};
     const picks = (dd.picks||[]).slice().sort((a,b)=>(a.overallPickNumber||0)-(b.overallPickNumber||0));
+    // ESPN pre-lists EVERY pick slot before the draft with playerId -1, so the raw
+    // picks-array length is the board SIZE, not picks actually made. Count only
+    // filled slots (else a not-started draft reads as fully drafted). Round count
+    // comes from the slots themselves — they span the whole board even when empty —
+    // rather than rosterSize, which includes bench/IR spots ESPN doesn't draft.
+    const madePicks = picks.filter(p => p && p.playerId > 0);
     const teams = data.teams||[];
     NUM_TEAMS = teams.length || data.settings?.size || 12;
     const slotCounts = (data.settings?.rosterSettings?.lineupSlotCounts)||{};
     const rosterSize = Object.values(slotCounts).reduce((a,b)=>a+(b|0),0);
-    NUM_ROUNDS = rosterSize || Math.max(1, ...(picks.map(p=>p.roundId||1)), Math.ceil(picks.length/Math.max(NUM_TEAMS,1)));
+    const slotRounds = picks.length ? Math.max(1, ...picks.map(p=>p.roundId||1)) : 0;
+    NUM_ROUNDS = slotRounds || rosterSize || Math.ceil(picks.length/Math.max(NUM_TEAMS,1)) || 1;
     window._draftIsSuperflex = (slotCounts[7]|0)>0 || (slotCounts[0]|0)>1;
     window._draftIsDynasty = false;
     // Mirror Sleeper's roster_positions shape so the Pick Assistant can score
@@ -10514,7 +10521,7 @@ async function syncEspnDraft(){
     const pmap = await espnPlayerMap(year);
     const newState = {};
     const newDraftedIds = new Set();
-    picks.forEach(pk=>{
+    madePicks.forEach(pk=>{
       const nm = pmap[pk.playerId]; if (!nm) return;
       const teamIdx = (rosterToIdx[pk.teamId] ?? 0);
       const pickData = { teamIdx, round: pk.roundId||1, pickNo: pk.overallPickNumber||0, slot: teamIdx+1 };
@@ -10529,7 +10536,7 @@ async function syncEspnDraft(){
     Object.entries(manualOverrides).forEach(([name,o])=>{ if (o==='gone') draftState[name]={teamIdx:-1,round:0,pickNo:0}; });
     window._activeDraft = { id:espnDraftLid, name:(lg.name||'ESPN')+' · Draft', type:dtype, season:String(year),
       status: dd.inProgress ? 'drafting' : (dd.drafted ? 'complete' : 'pre_draft'), pickTimer:0, pickTimerType:'',
-      teams:NUM_TEAMS, rounds:NUM_ROUNDS, picksCount:picks.length, lastPickedAt:0, platform:'espn' };
+      teams:NUM_TEAMS, rounds:NUM_ROUNDS, picksCount:madePicks.length, lastPickedAt:0, platform:'espn' };
     save(); _rebuildCaches(); try { buildADPFromDraft(); } catch(e){}
     setSyncStatus('live'); lastPickTime = Date.now();
     scheduleSync();
