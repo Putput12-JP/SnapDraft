@@ -15053,7 +15053,13 @@ function renderList(){
   // this is a no-op on the hot path unless the selected columns changed.
   try{ dvSyncColumns(); }catch(e){}
 
-  
+  // Tier divider spans every column, and the count is dynamic (one MINE column
+  // per active ranking profile), so read it from the freshly-synced colgroup.
+  // A fixed colspan is wrong both ways: too small stops the bar short (was 7);
+  // too large invents phantom columns that blow out the fixed-layout table (99).
+  const _tierColspan = document.querySelectorAll('#plist-colgroup col').length || 13;
+
+
   if (!PLAYERS.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted);font-family:var(--font-sans);font-size:14px">
       <div class="spinner md" style="margin-bottom:8px"></div><br>
@@ -15446,7 +15452,7 @@ function renderList(){
       rowsWithTiers.push({
         html: _mobileMode
           ? `<div class="tier-break-mobile">— TIER ${tierNum} —</div>`
-          : `<tr class="tier-break-row"><td colspan="99"><div class="tier-break"><span class="tb-lbl">Tier ${tierNum}</span></div></td></tr>`,
+          : `<tr class="tier-break-row"><td colspan="${_tierColspan}"><div class="tier-break"><span class="tb-lbl">Tier ${tierNum}</span></div></td></tr>`,
         tb: true
       });
     }
