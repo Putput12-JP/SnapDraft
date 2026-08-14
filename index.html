@@ -13194,7 +13194,12 @@ function _dvAutoMode(){
     if (isDyn===null && window._activeDraft && _activeDraft.rounds) isDyn = parseInt(_activeDraft.rounds) >= 15;
   } catch(e){}
   if (isDyn===null) isDyn = true;     // default to dynasty
-  setDvMode(isDyn ? 'dynasty' : 'redraft', true);
+  // Only switch when the mode actually changes. syncEspnDraft re-derives the mode
+  // on EVERY poll (~1.5–4s), and setDvMode('redraft') force-resets the sort to the
+  // value column — so calling it on an unchanged mode stomped the user's ADP/Mine
+  // sort back to Redraft every few seconds.
+  const _target = isDyn ? 'dynasty' : 'redraft';
+  if (window._dvMode !== _target) setDvMode(_target, true);
 }
 
 // Single entry for ADP settings (replaces two separate format pickers)
@@ -15441,7 +15446,7 @@ function renderList(){
       rowsWithTiers.push({
         html: _mobileMode
           ? `<div class="tier-break-mobile">— TIER ${tierNum} —</div>`
-          : `<tr class="tier-break-row"><td colspan="7"><div class="tier-break"><span class="tb-lbl">Tier ${tierNum}</span></div></td></tr>`,
+          : `<tr class="tier-break-row"><td colspan="99"><div class="tier-break"><span class="tb-lbl">Tier ${tierNum}</span></div></td></tr>`,
         tb: true
       });
     }
