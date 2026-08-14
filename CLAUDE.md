@@ -121,6 +121,29 @@ Traps this code already handles — preserve them if you touch it:
    `overflow-x:auto` makes `overflow-y` compute to `auto`, which clips anything
    below the padding box.
 
+4. **`offsetLeft` is relative to the item's `offsetParent`, not the strip.**
+   `place()` positions the pill from the active item's offset, which only equals
+   its strip-relative x for FLAT items whose parent is the strip. A nav item
+   nested in a positioned wrapper — the dropdown groups `.lc-mt-wrap` /
+   `.rh-mt-wrap` / `.dv-dd-wrap` (My Team, Portfolio, Research, Draft Vault) —
+   reports `offsetLeft:0` inside that wrapper, so the pill jumps to the strip's
+   left edge and bleeds onto the wrong item. `place()` walks the offset chain up
+   to the strip for exactly this; **making any nav item a dropdown re-triggers
+   this** if that walk is ever removed. `offsetWidth` is the item's own box and
+   stays correct. Turning Draft Vault into a dropdown (to hold Season Sim) is
+   what reintroduced "pill bleeding" once already.
+
+5. **A placed pill can still be STALE, and only `catchUp` heals it.** The
+   per-strip observer fires on `.on` class changes, not on width/layout changes.
+   When the active item moves with no class change — a webfont swap widening the
+   text after first paint, or a sibling nav item showing/hiding (`Draft Room`) —
+   the pill is left at its early geometry. `catchUp()` therefore re-places EVERY
+   visible strip, not just parked (`opacity:0`) ones; `place()` no-ops when
+   already correct and skips in-flight travels (their `style.left` already holds
+   the destination), so blanket re-placing on the click/nav/resize/DOM-churn nets
+   is cheap and is what makes a drifted pill self-correct. Do not re-add an
+   `opacity==='1'` gate to `catchUp`.
+
 ### 3. Loading — `.spinner`
 
 **Never render a rotating text glyph.** `⟳` is a font character: it renders
