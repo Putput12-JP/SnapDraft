@@ -5554,6 +5554,7 @@ function pgsOpen(name, pos, team){
       <button class="dv-abtn" id="sb-watch" onclick="toggleWatchFilter()" title="Watchlist, show only players you've starred"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6L12 17.1 6.6 20l1.2-6L3.4 9.8l6-.7Z"/></svg><span>Watchlist</span></button>
       <button class="dv-abtn" id="sb-import" onclick="toggleImportPanel()" title="Import custom rankings (CSV)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg><span>Import CSV</span></button>
       <button class="dv-abtn hgbtn" id="hgbtn" onclick="toggleHide()" title="Show or hide drafted players"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></svg><span>Drafted</span><span class="hg-count" id="hg-count">0</span></button>
+      <button class="dv-abtn" id="dv-changedraft" onclick="openDraftConnect()" title="Connect to a different draft" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M21 6H8a4 4 0 0 0-4 4v1"/><path d="m7 22-4-4 4-4"/><path d="M3 18h13a4 4 0 0 0 4-4v-1"/></svg><span>Change Draft</span></button>
     </div>
   </div>
   <!-- Draft Control — live Sleeper drafting from your board (queue sync + pick) -->
@@ -18197,6 +18198,10 @@ function renderDraftSummary(){
   const connectBar = document.getElementById('draft-connect-bar');
   const boardSection = document.getElementById('ld-board-section');
   const d = window._activeDraft;
+  // "Change Draft" header button only makes sense while a draft is connected —
+  // it reopens the connect picker so you can switch drafts without disconnecting.
+  const _cdBtn = document.getElementById('dv-changedraft');
+  if (_cdBtn) _cdBtn.style.display = (sleeperDraftId || espnDraftLid) ? '' : 'none';
   // Completed draft: ask whether to reconnect to the finished board or browse
   // rankings, rather than silently reopening a draft that's already over.
   if (d && sleeperDraftId && isActiveDraftComplete()){
