@@ -25425,7 +25425,10 @@ function pickYear(year) {
       try{
         const lg=(typeof myTeamsData!=='undefined'&&myTeamsData)?myTeamsData.find(l=>l.league_id===lid):null;
         const isEspn = lg && typeof vpPlat==='function' && vpPlat(lg)==='espn'; // ESPN exposes no traded-pick data
-        const league = await fetch('https://api.sleeper.app/v1/league/'+lid).then(r=>r.json()).catch(()=>null);
+        // Don't send an ESPN league_id (espn_*) to the Sleeper API — it 404s. ESPN
+        // has no traded-pick feed anyway, so skip the Sleeper league lookup for it.
+        const league = isEspn ? null
+          : await fetch('https://api.sleeper.app/v1/league/'+lid).then(r=>r.json()).catch(()=>null);
         try{ if(this._live) this._live.league=league; }catch(e){}
         const rounds = (league&&league.settings&&league.settings.draft_rounds) || 4;
         const curSeason = (league&&parseInt(league.season)) || new Date().getFullYear();
