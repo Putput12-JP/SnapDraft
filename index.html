@@ -42913,7 +42913,13 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
     each(function(s, cfg){
       wire(s, cfg);
       var p = s.querySelector(':scope > .v-pill');
-      if (p && p.style.opacity !== '1' && s.clientWidth) place(s, cfg, false);
+      // Re-place every visible strip, not just parked (opacity 0) ones. A pill can
+      // be placed yet STALE when the active item moved with no class change to
+      // observe: a dropdown nav item, a sibling showing/hiding (Draft Room), or a
+      // late webfont swap that widened the text after first placement. place()
+      // no-ops when already correct and leaves in-flight travels alone (their
+      // style.left already holds the destination), so this stays cheap and safe.
+      if (p && s.clientWidth) place(s, cfg, false);
     });
   }
 
