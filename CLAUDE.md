@@ -1,5 +1,25 @@
 # Vault Fantasy — project instructions
 
+## Changelog — update it on every user-facing change
+
+Vault has an in-app changelog (Settings → What's New). **Whenever a change alters
+what a user sees or does, add an entry.** The log is the `VAULT_CHANGELOG` array
+in `index.html` (defined right after `_sdSetAdp`). Prepend a new object to the
+TOP of the array (newest first):
+
+```js
+{ ts:'YYYY-MM-DDTHH:MM', tag:'New'|'Improved'|'Fixed', title:'…',
+  items:['plain-English bullet', …] }
+```
+
+- Write for **players, not developers** — no jargon, no internal file/function
+  names. "Switch drafts faster", not "added #dv-change-draft handler".
+- The `ts` drives the "New" badge: the badge shows in Settings until the user
+  opens the changelog, which stores the newest `ts` in localStorage
+  (`vault-changelog-seen`). Keep `ts` monotonically increasing.
+- Skip purely internal work (refactors, motion-trap fixes, perf plumbing) that a
+  user would never notice — those belong in git, not the changelog.
+
 ## Motion system
 
 Vault has one motion vocabulary. **Any new page, feature, or component uses these

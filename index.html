@@ -1093,6 +1093,29 @@ header{
 .sd-adp-inline{display:flex;flex-direction:column;gap:8px}
 .sd-adp-inline select{width:100%;background:var(--s3);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:8px 10px;font-size:12px;font-family:var(--font-sans);outline:none;cursor:pointer}
 .sd-adp-inline label{font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;display:block}
+/* What's New / Changelog */
+.sd-cl-badge{display:inline-block;vertical-align:middle;margin-left:6px;padding:2px 7px;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1.3}
+.cl-overlay{display:none;position:fixed;inset:0;background:#000000bb;z-index:660;align-items:center;justify-content:center;padding:20px}
+.cl-sheet{background:var(--s1);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 80px #00000099;animation:clPop 260ms var(--ease-out)}
+@keyframes clPop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.cl-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cl-title{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-0.02em;font-family:var(--font-sans)}
+.cl-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.cl-close{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:6px 9px;border-radius:7px;transition:background 120ms ease,color 120ms ease}
+.cl-close:hover{color:var(--text);background:rgba(255,255,255,0.06)}
+.cl-body{overflow-y:auto;padding:8px 24px 26px;-webkit-overflow-scrolling:touch}
+.cl-entry{padding:18px 0;border-bottom:1px solid var(--border)}
+.cl-entry:last-child{border-bottom:none}
+.cl-entry-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.cl-tag{padding:2px 8px;border-radius:6px;font-family:var(--font-mono);font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.cl-tag.new{background:rgba(52,211,153,0.16);color:var(--rb,#34d399)}
+.cl-tag.improved{background:rgba(123,208,255,0.16);color:var(--accent2)}
+.cl-tag.fixed{background:rgba(250,204,21,0.16);color:var(--gold,#facc15)}
+.cl-entry-title{font-size:15px;font-weight:700;color:var(--text);font-family:var(--font-sans)}
+.cl-date{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.cl-items{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.cl-items li{position:relative;padding-left:18px;font-size:13px;color:var(--text2);line-height:1.5}
+.cl-items li:before{content:"";position:absolute;left:3px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--accent2)}
 @media(max-width:700px){
   .settings-drawer{width:100%;max-width:100vw;border-left:none}
 }
@@ -3472,6 +3495,18 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
       <button class="sd-close" onclick="closeSettingsDrawer()" title="Close">✕</button>
     </div>
     <div class="sd-body">
+      <!-- What's New section -->
+      <div class="sd-section">
+        <div class="sd-section-title">What's New</div>
+        <div class="sd-row">
+          <div class="sd-row-label">
+            <div class="sd-row-name">Changelog<span class="sd-cl-badge" id="sd-cl-badge" style="display:none">New</span></div>
+            <div class="sd-row-hint" id="sd-cl-latest">Recent updates to Vault, in plain English</div>
+          </div>
+          <button class="sd-control" onclick="openChangelog()">View</button>
+        </div>
+      </div>
+
       <!-- Display section -->
       <div class="sd-section">
         <div class="sd-section-title">Display</div>
@@ -3548,6 +3583,20 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- CHANGELOG MODAL -->
+<div id="changelog-overlay" class="cl-overlay" onclick="if(event.target===this)closeChangelog()">
+  <div class="cl-sheet" role="dialog" aria-label="Changelog">
+    <div class="cl-head">
+      <div>
+        <div class="cl-title">What's New</div>
+        <div class="cl-sub">Every update to Vault, newest first</div>
+      </div>
+      <button class="cl-close" onclick="closeChangelog()" title="Close">✕</button>
+    </div>
+    <div class="cl-body" id="changelog-body"><!-- populated by renderChangelog() --></div>
   </div>
 </div>
 
@@ -12954,6 +13003,7 @@ function openSettingsDrawer(){
   _sdRefreshBehaviorToggles();
   _sdRefreshAges();
   _sdRenderAdpPicker();
+  _sdRefreshChangelogBadge();
   try{ vswRefreshStatus(); }catch(e){}
 }
 function closeSettingsDrawer(){
@@ -13018,6 +13068,83 @@ function _sdSetAdp(bucket, field, value){
   const format = field==='format' ? value : cur.format;
   const teams = field==='teams' ? parseInt(value) : cur.teams;
   if (typeof setAdpFormat === 'function') setAdpFormat(bucket, format, teams);
+}
+
+/* ===== Changelog =====
+   A running, user-friendly log of what changed in Vault. Newest entry FIRST.
+   When you ship a user-facing change, add an object to the TOP of this array:
+     { ts:'YYYY-MM-DDTHH:MM', tag:'New'|'Improved'|'Fixed', title:'…',
+       items:['plain-English bullet', …] }
+   Keep language friendly and jargon-free — this is written for players, not devs.
+   The "New" badge in Settings is driven by the newest entry's ts vs. the last
+   ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
+const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-14T19:15', tag:'New', title:'Changelog added',
+    items:[
+      'You can now see everything that changes in Vault right here in Settings → What’s New.',
+      'Each update is written in plain English with the date and time it went live.',
+      'A small "New" badge appears on Settings whenever there’s an update you haven’t read yet.'
+    ]
+  },
+  {
+    ts:'2026-08-14T09:00', tag:'New', title:'Switch drafts faster',
+    items:[
+      'Added a "Change Draft" button to the top of the draft page so you can jump to a different draft room without starting over.'
+    ]
+  }
+];
+
+function _clFmtDate(ts){
+  const d = new Date(ts);
+  if (isNaN(d)) return ts || '';
+  const date = d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  const time = d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+  return `${date} · ${time}`;
+}
+function _clLatestTs(){ return (VAULT_CHANGELOG[0] && VAULT_CHANGELOG[0].ts) || ''; }
+function _clHasUnseen(){
+  try { return _clLatestTs() > (localStorage.getItem('vault-changelog-seen') || ''); }
+  catch(e){ return false; }
+}
+function renderChangelog(){
+  const body = document.getElementById('changelog-body');
+  if (!body) return;
+  body.innerHTML = VAULT_CHANGELOG.map(e => {
+    const tag = String(e.tag||'New').toLowerCase();
+    const items = (e.items||[]).map(t => `<li>${t}</li>`).join('');
+    return `<div class="cl-entry">
+      <div class="cl-entry-head">
+        <span class="cl-tag ${tag}">${e.tag||'New'}</span>
+        <span class="cl-entry-title">${e.title||''}</span>
+        <span class="cl-date">${_clFmtDate(e.ts)}</span>
+      </div>
+      <ul class="cl-items">${items}</ul>
+    </div>`;
+  }).join('');
+}
+function openChangelog(){
+  const ov = document.getElementById('changelog-overlay');
+  if (!ov) return;
+  renderChangelog();
+  ov.style.display = 'flex';
+  // Mark everything up to the newest entry as seen, clear the badge.
+  try { localStorage.setItem('vault-changelog-seen', _clLatestTs()); } catch(e){}
+  _sdRefreshChangelogBadge();
+}
+function closeChangelog(){
+  const ov = document.getElementById('changelog-overlay');
+  if (ov) ov.style.display = 'none';
+}
+function _sdRefreshChangelogBadge(){
+  const badge = document.getElementById('sd-cl-badge');
+  if (badge) badge.style.display = _clHasUnseen() ? 'inline-block' : 'none';
+  const latest = document.getElementById('sd-cl-latest');
+  if (latest && VAULT_CHANGELOG[0]) {
+    latest.textContent = _clHasUnseen()
+      ? `New: ${VAULT_CHANGELOG[0].title}`
+      : 'Recent updates to Vault, in plain English';
+  }
 }
 
 // Toggle the Data Source Info popover (ⓘ button next to sort modes)
