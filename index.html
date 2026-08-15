@@ -5720,6 +5720,13 @@ function pgsOpen(name, pos, team){
         </div>
       </div>
       <div class="adp-board-controls">
+        <div class="adp-seg-group">
+          <span class="adp-seg-label">Order</span>
+          <div class="adp-seg" role="tablist" title="ADP: lay the board out by current draft position. Movers: biggest risers first for the selected change window.">
+            <button class="on" data-bdsort="adp" onclick="adpBoardSort('adp')">ADP</button>
+            <button data-bdsort="mover" onclick="adpBoardSort('mover')">Movers</button>
+          </div>
+        </div>
         <div class="adp-poschips" id="adp-poschips">
           <button data-pos="QB" onclick="adpBoardPos('QB')">QB</button>
           <button data-pos="RB" onclick="adpBoardPos('RB')">RB</button>
@@ -5751,6 +5758,7 @@ function pgsOpen(name, pos, team){
 
     <!-- board (Box) view -->
     <div class="adp-board-outer" id="adp-board-outer">
+      <div class="adp-board-caption" id="adp-board-caption"></div>
       <div class="adp-board-note" id="adp-board-note"></div>
       <div class="adp-board-wrap"><div class="adp-board" id="adp-board"></div></div>
     </div>
@@ -13079,6 +13087,13 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-15T12:00', tag:'Improved', title:'ADP board: see the movers',
+    items:[
+      'The board always lays players out by their current draft spot — so the 7/14/30-day toggle changes each player’s ▲/▾ move, not where they sit. We made that clearer: a caption now spells it out, and the change badges pulse when you switch windows so you can see them update.',
+      'New “Movers” layout on the Box board: flip it on to re-sort the whole board with the biggest risers first for whichever window you’ve picked — 7-day and 14-day now give you visibly different boards. Each card still shows the player’s real current pick.'
+    ]
+  },
   {
     ts:'2026-08-14T19:15', tag:'New', title:'Changelog added',
     items:[
@@ -38098,6 +38113,9 @@ body .page,body .page.on{background:transparent!important}
 #dv-adp-view.board-view #adp-list-note{display:none!important}
 #dv-adp-view.board-view .adp-board-outer{display:block;animation:adp-fade .2s ease both}
 .adp-board-note{font-size:12px;color:var(--muted);padding:2px 2px 12px;display:none;line-height:1.5}
+/* board caption — sets the "board = current ADP, arrows = change" mental model */
+.adp-board-caption{font-family:var(--font-mono);font-size:10px;letter-spacing:.03em;color:var(--muted);padding:0 2px 10px;line-height:1.5}
+.adp-board-caption b{color:var(--text2);font-weight:700}
 .adp-board-note.show{display:block}
 .adp-board-note b{color:var(--text2);font-weight:700}
 .adp-board-wrap{overflow-x:auto;padding-bottom:10px}
@@ -38125,9 +38143,15 @@ body .page,body .page.on{background:transparent!important}
 .adp-bd-txt{min-width:0;flex:1}
 .adp-bd-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adp-bd-meta{font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px;white-space:nowrap}
-.adp-bd-delta{font-family:var(--font-mono);font-size:9px;font-weight:800}
-.adp-bd-delta.up{color:var(--rb)}
-.adp-bd-delta.dn{color:var(--red)}
+/* change badge — a pill so the window toggle's effect reads at a glance */
+.adp-bd-delta{display:inline-block;font-family:var(--font-mono);font-size:9px;font-weight:800;padding:1px 4px;border-radius:5px;line-height:1.4}
+.adp-bd-delta.up{color:var(--rb);background:rgba(61,204,122,.14)}
+.adp-bd-delta.dn{color:var(--red);background:color-mix(in srgb, var(--red) 14%, transparent)}
+.adp-bd-delta.big{font-size:11px;padding:1px 5px}
+/* #1 — one-shot pulse when the 7/14/30 window changes */
+@keyframes adp-delta-flash{0%{transform:scale(1)}30%{transform:scale(1.28)}100%{transform:scale(1)}}
+.adp-board.flash-deltas .adp-bd-delta{animation:adp-delta-flash .55s var(--ease-spring) both;transform-origin:center}
+@media(prefers-reduced-motion:reduce){.adp-board.flash-deltas .adp-bd-delta{animation:none}}
 .adp-bd-av{width:22px;height:22px;border-radius:50%;object-fit:cover;background:var(--s3);flex-shrink:0}
 .adp-bd-av-fb{width:22px;height:22px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;color:var(--muted);flex-shrink:0}
 .adp-bd-mine{position:absolute;top:0;right:0;width:0;height:0;border-top:12px solid var(--accent);border-left:12px solid transparent}
@@ -38248,6 +38272,8 @@ let _adpCache   = {};
 let _adpView    = 'list';  // list | board
 let _adpRange   = 14;      // 7 | 14 | 30 (board change window) — 14 is populated for every source today
 let _adpOrder   = 'adp';   // adp | my  (board ordering)
+let _adpBoardSort = 'adp'; // adp | mover — Box board layout: current ADP, or biggest movers first for the active window
+let _adpFlashDeltas = false; // transient: pulse the board's change badges on the next render (set when the window toggle changes)
 let _adpSource  = 'sl';    // fc (FantasyCalc value-rank) | ffc (real ADP) | espn (ESPN ADP) | sl (Sleeper real-draft ADP) | my (My Rankings) — unconnected default is Sleeper
 let _adpSourceUserSet = false; // true once the user clicks a source button — stops the live-draft platform default from overriding their choice
 let _adpScoringUserSet = false; // true once the user picks a format — stops the league-based Superflex default from overriding it
@@ -38846,6 +38872,32 @@ function _adpRenderBoard() {
     list = [...list].sort((a,b) => (a.adp||999) - (b.adp||999));
   }
 
+  // current-ADP value for the active source (used for pick labels in mover mode)
+  const curAdpVal = p => (useFfc ? p.adpReal : useEspn ? p.adpEspn : useSleeper ? p.adpSleeper : p.adp);
+
+  // Movers layout: re-order the board by the selected window's change, biggest
+  // riser first, then fallers, then everyone the window hasn't moved (in ADP
+  // order). Gated to the draftable range (~15 rounds) like the movers panel —
+  // deep-roster ADP swings wildly on tiny samples and would drown out the picks
+  // that matter. The grid stays put; only who fills each slot changes.
+  const moverMode = _adpBoardSort === 'mover';
+  if (moverMode) {
+    const moverLim = (teams || 12) * 15;
+    const moverKey = p => {
+      const d = _adpDeltaVal(p), cur = curAdpVal(p);
+      if (d == null || !d || cur == null) return null;      // no move / no data
+      if (Math.min(cur, cur + d) > moverLim) return null;   // out of draftable range
+      return d;
+    };
+    list = [...list].sort((a,b) => {
+      const ka = moverKey(a), kb = moverKey(b);
+      if (ka == null && kb == null) return (curAdpVal(a) ?? 9999) - (curAdpVal(b) ?? 9999);
+      if (ka == null) return 1;
+      if (kb == null) return -1;
+      return kb - ka;
+    });
+  }
+
   const mineMap = hasMy ? _adpMyRankMap() : {};
   const draftConnected = _adpDraftConnected();
   const rounds = Math.min(24, Math.max(1, Math.ceil(list.length / teams)));
@@ -38855,7 +38907,8 @@ function _adpRenderBoard() {
   // e.g. 3.01 lands on the opposite side of the board. Linear = every round T1→T12.
   const _adInfo  = window._activeDraft || {};
   const revRound = (+_adInfo.reversalRound) || 0;
-  const linear   = _adInfo.type === 'linear';
+  // Mover mode reads strictly top-left → right by rank, so force a linear fill.
+  const linear   = _adInfo.type === 'linear' || moverMode;
   // true → this round runs T(last)→T1 (pick 1 on the right side)
   const _revRow = (R) => linear ? false : (R < revRound ? (R % 2 === 0) : (R % 2 === revRound % 2));
 
@@ -38873,6 +38926,10 @@ function _adpRenderBoard() {
       const pickNo = rev ? (teams - c) : (c + 1);
       const pick = `${r+1}.${String(pickNo).padStart(2,'0')}`;
       if (!p) { html += `<div class="adp-bd-cell empty"></div>`; continue; }
+      // In mover mode the slot is a rank, not a pick — label the cell with the
+      // player's real current pick so you still see where they actually go.
+      const cur = curAdpVal(p);
+      const pickLabel = moverMode ? (cur != null ? _adpPickFmt(cur) : '—') : pick;
 
       const pc = POS_C[p.pos] || 'var(--muted)';
       const delta = _adpDeltaVal(p);
@@ -38880,7 +38937,7 @@ function _adpRenderBoard() {
       if (delta != null && delta !== 0) {
         const up = delta > 0;
         const mag = Math.abs(delta);
-        deltaHtml = `<span class="adp-bd-delta ${up?'up':'dn'}">${up?'▲':'▾'}${mag % 1 ? mag.toFixed(1) : mag}</span>`;
+        deltaHtml = `<span class="adp-bd-delta ${up?'up':'dn'}${moverMode?' big':''}">${up?'▲':'▾'}${mag % 1 ? mag.toFixed(1) : mag}</span>`;
       }
       const posrk = p.positionRank ? `${p.pos}${p.positionRank}` : (p.pos||'');
       const dim = (_adpBoardPos && p.pos !== _adpBoardPos) ? ' dim' : '';
@@ -38888,7 +38945,7 @@ function _adpRenderBoard() {
       const isMine = mineMap[norm(p.name)] != null;
       html += `<div class="adp-bd-cell${dim}${drafted}" style="--pc:${pc}" onclick="openPlayerProfile('${ppArg(p.name)}','${p.sleeperId||''}','${p.pos||''}','${p.team||''}')" title="${p.name}${drafted?' · drafted':''}${isMine?' · in your rankings':''}">
         ${isMine ? '<span class="adp-bd-mine" title="In your rankings"></span>' : ''}
-        <div class="adp-bd-top"><span class="adp-bd-posrk">${posrk}</span><span class="adp-bd-pick">${pick}</span></div>
+        <div class="adp-bd-top"><span class="adp-bd-posrk">${posrk}</span><span class="adp-bd-pick">${pickLabel}</span></div>
         <div class="adp-bd-body">
           <div class="adp-bd-txt">
             <div class="adp-bd-name">${_adpAbbrevName(p.name)}</div>
@@ -38902,6 +38959,29 @@ function _adpRenderBoard() {
 
   board.style.setProperty('--adp-teams', teams);
   board.innerHTML = html;
+
+  // #1 — pulse the change badges when the window toggle just changed, so the
+  // toggle visibly does something even though the board itself stays put. Forced
+  // reflow (not rAF) so it fires in a backgrounded/non-painting tab too.
+  if (_adpFlashDeltas) {
+    _adpFlashDeltas = false;
+    board.classList.remove('flash-deltas');
+    void board.offsetWidth;
+    board.classList.add('flash-deltas');
+    setTimeout(() => board.classList.remove('flash-deltas'), 700);
+  }
+
+  // #3 — caption sets the mental model: the board is anchored to current ADP and
+  // the arrows are the change over the selected window (or, in mover mode, the
+  // board itself is ordered by that change and the pick label is the real ADP).
+  const cap = document.getElementById('adp-board-caption');
+  if (cap) {
+    const srcName = useMy ? 'your rankings' : useFfc ? 'FFC ADP' : useEspn ? 'ESPN ADP' : useSleeper ? 'Sleeper ADP' : 'FC ADP';
+    const win = `${_adpRange}-day`;
+    cap.innerHTML = moverMode
+      ? `Ordered by <b>biggest ${win} movers</b> — pick label shows current ${srcName}`
+      : `Ordered by <b>current ${srcName}</b> — arrows show each player's ${win} change`;
+  }
 
   // note: history-availability + order state
   if (note) {
@@ -39026,6 +39106,7 @@ window.adpSetView = function(v) {
 };
 
 window.adpSetRange = function(r) {
+  if (_adpRange !== +r) _adpFlashDeltas = true;   // pulse the badges so the toggle visibly lands
   _adpRange = +r;
   document.querySelectorAll('.adp-seg button[data-range]').forEach(b => b.classList.toggle('on', +b.dataset.range === _adpRange));
   _adpUpdateChangeHeader();
@@ -39088,6 +39169,12 @@ window.adpOnDraftUpdate = function() {
   if (liveBadge) liveBadge.style.display = _adpDraftConnected() ? 'inline-flex' : 'none';
   if (_adpView === 'board') _adpRenderBoard();
   else _adpRenderTable(_adpData);
+};
+
+window.adpBoardSort = function(s) {
+  _adpBoardSort = (s === 'mover') ? 'mover' : 'adp';
+  document.querySelectorAll('.adp-seg button[data-bdsort]').forEach(b => b.classList.toggle('on', b.dataset.bdsort === _adpBoardSort));
+  if (_adpView === 'board') _adpRenderBoard();
 };
 
 window.adpBoardPos = function(pos) {
