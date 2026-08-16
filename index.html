@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T14:30', tag:'Fixed', title:'“On the clock” timer sits centered again',
+    items:[
+      'In the live draft header, the “On the clock” time was hugging the left edge of its box instead of sitting under the label. It’s now centered, with the re-sync button tucked neatly to the right.'
+    ]
+  },
+  {
     ts:'2026-08-16T12:00', tag:'Fixed', title:'Preseason lineup projections now match Sleeper',
     items:[
       'During the preseason, Lineup Command and Waiver Command were pulling the wrong week’s projections — so a star like Patrick Mahomes could show ~2 points and Vault would suggest benching him. Both now use the same upcoming Week 1 numbers you see in the Sleeper app, so the optimizer stops recommending bad swaps.'
@@ -41465,7 +41471,7 @@ else { _ssInjectPage();_ssInjectNav(); }
 }
 #page-draft .dsc .ds-pick-away{ font-family:var(--font-sans); font-size:11.5px; color:var(--muted); font-weight:500; }
 #page-draft .dsc-pickmeta{ font-size:11.5px; color:var(--muted); }
-#page-draft .dsc-clockwrap{ justify-content:center!important; }
+#page-draft .dsc-clockwrap{ justify-content:center!important; position:relative; }
 #page-draft .dsc-clock{ justify-content:center; }
 #page-draft .dsc-stat .ds-stat-val{
   font-family:var(--font-mono)!important; font-size:24px!important; font-weight:700!important;
@@ -41481,7 +41487,8 @@ else { _ssInjectPage();_ssInjectNav(); }
   color:var(--text)!important; letter-spacing:-.01em;
 }
 #page-draft .ds-clock-sub{ font-size:11px; color:var(--muted); }
-#page-draft .dsc-resync{ border:1px solid var(--border2)!important; background:transparent!important; border-radius:8px!important; }
+#page-draft .dsc-resync{ position:absolute; right:12px; top:50%; transform:translateY(-50%); margin:0!important; border:1px solid var(--border2)!important; background:transparent!important; border-radius:8px!important; }
+#page-draft .dsc-resync:active{ transform:translateY(-50%) scale(0.94); }
 #page-draft .dsc-progwrap{
   grid-column:1/-1; background:transparent!important; border:none!important;
   border-top:1px solid var(--border)!important; border-radius:0!important; padding:12px 20px!important;
