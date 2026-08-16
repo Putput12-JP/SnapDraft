@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T17:10', tag:'Fixed', title:'Trade confirmation no longer cuts off the values',
+    items:[
+      'On the Accept / Reject / Counter trade pop-up, the totals and player values on the right side could get clipped by the edge of the card. The card now sizes correctly, long names trim neatly, and every value stays readable.'
+    ]
+  },
+  {
     ts:'2026-08-16T17:05', tag:'Fixed', title:'Optimize now actually changes your Sleeper lineup in the preseason',
     items:[
       'During the preseason, pushing an optimized lineup was writing to the wrong week — so your real Week 1 starters in Sleeper didn’t change. It now sets the same upcoming week the Sleeper app is showing you, so the swap sticks.'
@@ -21118,16 +21124,19 @@ function _cxEnsureStyles(){
   .cx-ttop{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
   .cx-ttop .lft{display:flex;align-items:center;gap:10px} .cx-ttop .lg{font-size:13px;font-weight:700}
   .cx-ttop .rgt{display:flex;align-items:center;gap:10px} .cx-ttop .when{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
-  .cx-tbody{display:grid;grid-template-columns:1fr 44px 1fr;align-items:stretch}
-  .cx-tside{padding:15px 18px} .cx-tside.get{background:rgba(61,204,122,.03)}
-  .cx-tsl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between}
-  .cx-tsl .t{color:var(--text2)}
+  .cx-tbody{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);align-items:stretch}
+  .cx-tside{padding:15px 15px;min-width:0} .cx-tside.get{background:rgba(61,204,122,.03)}
+  .cx-tsl{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;gap:8px}
+  .cx-tsl>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cx-tsl .t{color:var(--text2);flex-shrink:0}
   .cx-tmid{display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border);border-right:1px solid var(--border);color:var(--muted)}
   .cx-tmid svg.cx-ic{width:18px;height:18px}
   .cx-pchip{display:flex;align-items:center;gap:9px;padding:6px 0}
   .cx-pchip img,.cx-pchip .pav{width:30px;height:30px;border-radius:8px;object-fit:cover;background:var(--s3);border:1px solid var(--border);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:var(--muted);font-family:var(--font-mono)}
-  .cx-pchip .pi{flex:1;min-width:0} .cx-pchip .pn{font-size:13px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
-  .cx-pchip .pv{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text2)}
+  .cx-pchip .pi{flex:1;min-width:0} .cx-pchip .pn{font-size:13px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px;min-width:0}
+  .cx-pchip .pn>span:not(.cx-pos){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cx-pchip .cx-pos{flex-shrink:0}
+  .cx-pchip .pv{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text2);flex-shrink:0}
   .cx-tfoot{display:flex;justify-content:flex-end;gap:9px;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg);align-items:center}
   .cx-tfoot .note{font-size:11px;color:var(--muted);margin-right:auto}
   .cx-faab{display:inline-flex;flex-direction:column;gap:5px;align-items:flex-end}
@@ -21624,10 +21633,10 @@ function _tcSide(t, rosterId, d, entry, kind){
   const rows = recvPids.map(pid => {
     const nm = _tcName(pid), v = Math.round(_tcVal(nm, lg)); total += v;
     const pos = (typeof _pfLcPos==='function' && _pfLcPos(nm)) || '';
-    return `<div class="cx-pchip"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,30):'')}" onerror="this.style.visibility='hidden'"><div class="pi"><div class="pn">${nm}${pos?` <span class="cx-pos ${pos}">${pos}</span>`:''}</div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
+    return `<div class="cx-pchip"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,30):'')}" onerror="this.style.visibility='hidden'"><div class="pi"><div class="pn"><span>${nm}</span>${pos?`<span class="cx-pos ${pos}">${pos}</span>`:''}</div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
   }).concat(recvPicks.map(pk => {
     const v = _tcPickVal[pk.round]||300; total += v;
-    return `<div class="cx-pchip"><span class="pav">${pk.round}</span><div class="pi"><div class="pn">${pk.season} Round ${pk.round} <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v.toLocaleString()}</span></div>`;
+    return `<div class="cx-pchip"><span class="pav">${pk.round}</span><div class="pi"><div class="pn"><span>${pk.season} Round ${pk.round}</span> <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v.toLocaleString()}</span></div>`;
   })).concat(faab.map(w => { total += (w.amount||0); return `<div class="cx-pchip"><span class="pav">$</span><div class="pi"><div class="pn">$${w.amount} FAAB</div></div></div>`; }));
   const label = kind==='get' ? 'You get' : 'You give';
   return { total, html: `<div class="cx-tside${kind==='get'?' get':''}">
@@ -21763,6 +21772,7 @@ function _tcActionModal(verb, lid, tid, leg, doIt){
   pfLcModal({
     title: verb + ' this trade?',
     subtitle: (d.lg.name||'') ,
+    maxWidth: 560,
     bodyHtml: _tcCardHtml(t, d, e, cls).replace(/<button[^>]*>[\s\S]*?<\/button>/g,''),
     confirmLabel: verb,
     note: 'This is a real ' + verb.toLowerCase() + ' in Sleeper — the other manager will see it immediately.',
