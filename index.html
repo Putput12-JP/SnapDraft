@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T12:00', tag:'Fixed', title:'Preseason lineup projections now match Sleeper',
+    items:[
+      'During the preseason, Lineup Command and Waiver Command were pulling the wrong week’s projections — so a star like Patrick Mahomes could show ~2 points and Vault would suggest benching him. Both now use the same upcoming Week 1 numbers you see in the Sleeper app, so the optimizer stops recommending bad swaps.'
+    ]
+  },
+  {
     ts:'2026-08-15T12:00', tag:'Improved', title:'ADP board: see the movers',
     items:[
       'The board always lays players out by their current draft spot — so the 7/14/30-day toggle changes each player’s ▲/▾ move, not where they sit. We made that clearer: a caption now spells it out, and the change badges pulse when you switch windows so you can see them update.',
@@ -20464,6 +20470,22 @@ function _pfLcProj(name, pos, pid){
   const base = {QB:18,RB:12,WR:11,TE:8,K:8,DEF:7}[pos] || 9;
   return {pts: base + Math.min(12, val/700), basis:'proj'};
 }
+// Resolve which week's projections to fetch from Sleeper's state.
+// The projection endpoint is always queried season_type=regular, but during
+// August state.week counts PRESEASON weeks (and it's 0 in the deep offseason).
+// Fetching e.g. "regular week 2" mid-preseason returns broken partials —
+// Sleeper only fully populates the upcoming game, regular week 1 — so a starter
+// like Mahomes comes back at ~2 pts and the optimizer wrongly benches him. The
+// Sleeper app shows regular week 1 in this window; match it. Once the real
+// regular season starts, season_type flips to 'regular' and state.week is used.
+function _vaultProjWeek(state){
+  state = state || {};
+  const st = String(state.season_type || '');
+  const wk = state.week || state.display_week || 0;
+  if(st==='pre' || st==='off' || !wk || wk<1) return 1;
+  return wk;
+}
+try { window._vaultProjWeek = _vaultProjWeek; } catch(e){}
 // Load Sleeper's weekly projection stats once (cached), keyed by player id.
 // These are the SAME numbers Sleeper shows; scored per-league below.
 async function _pfEnsureProjections(){
@@ -20471,7 +20493,7 @@ async function _pfEnsureProjections(){
   try{
     const state = await fetch('https://api.sleeper.app/v1/state/nfl').then(r=>r.json()).catch(()=>({}));
     const season = String(state.season || new Date().getFullYear());
-    const week = state.week || state.display_week || 1;
+    const week = _vaultProjWeek(state);
     if(typeof _rdvFetchProjections === 'function'){
       window._pfProjMap = await _rdvFetchProjections(season, week);
       window._pfProjMapKey = season + '-' + week;
@@ -21882,7 +21904,7 @@ async function _wcUpcoming(force){
   try { st = await fetch('https://api.sleeper.app/v1/state/nfl').then(r=>r.json()); } catch(e){}
   return (window._wcUpcomingMemo = {
     season: String(st.season || new Date().getFullYear()),
-    week: Math.max(1, st.week || st.display_week || 1)
+    week: (typeof _vaultProjWeek==='function') ? _vaultProjWeek(st) : Math.max(1, st.week || st.display_week || 1)
   });
 }
 async function _wcSleeperProjFeed(lg, season, week, force){
@@ -34146,7 +34168,7 @@ async function _ovRenderRedraftMatchup(){
   }
   try{
     var week=ctx.week;
-    if(!week){ try{ var stt=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); week=stt.week||stt.display_week||1; }catch(e){ week=1; } }
+    if(!week){ try{ var stt=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); week=(typeof _vaultProjWeek==='function')?_vaultProjWeek(stt):(stt.week||stt.display_week||1); }catch(e){ week=1; } }
     if(!week||week<1) week=1;
     var rmeta=(window._ovSosCtx&&window._ovSosCtx.rosterMeta)||{};
     var fetchJSON=function(u){ return fetch(u).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}); };
@@ -34680,7 +34702,7 @@ async function _ovRenderRedraftWaiver(){
   var ctx=window._rdvCtx, el=document.getElementById('rdv-waiver'); if(!el||!ctx) return;
   try{
     var lid=ctx.leagueId, scoring=ctx.scoring, season=ctx.season||(new Date().getFullYear()+'');
-    var week=ctx.week; if(!week){ try{ var stt=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); week=stt.week||1; }catch(e){ week=1; } }
+    var week=ctx.week; if(!week){ try{ var stt=await fetch('https://api.sleeper.app/v1/state/nfl').then(function(r){return r.json();}); week=(typeof _vaultProjWeek==='function')?_vaultProjWeek(stt):(stt.week||1); }catch(e){ week=1; } }
     var proj=await _rdvFetchProjections(season, Math.max(1,week));
     var _wlg=myTeamsData.find(function(l){return l.league_id===lid;});
     if(_wlg && _wlg.scoring_settings) scoring=_wlg.scoring_settings;
