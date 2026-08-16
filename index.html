@@ -13088,6 +13088,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T16:20', tag:'Fixed', title:'Lineup Command no longer calls a beatable lineup “optimal”',
+    items:[
+      'Lineup Command could show a league as already optimal while a higher-projected player sat on your bench. The optimizer wasn’t recognizing your kicker and defense, so it left those spots empty when scoring the “best” lineup — that made the best lineup look lower than your current one and quietly hid real upgrades.',
+      'It now counts every spot, so a bench player who out-projects a starter (e.g. a running back projected higher than the one you’re starting) always shows up as a suggested swap with the points you’d gain.'
+    ]
+  },
+  {
     ts:'2026-08-16T15:40', tag:'Fixed', title:'On-the-clock suggestion card lines up with the board',
     items:[
       'When you’re on the clock, the glowing “Suggested” card (Biggest Faller / Next Best / Best Grade) was hanging out past the left edge of everything else. It now sits flush with the header, the board, and the rest of the cards on the page.'
@@ -20470,7 +20477,16 @@ function _pfRenderEditor(lgId, d){
 // Portfolio-scope projection/position lookups (league-agnostic; preseason proxy
 // today, live weekly projections can be layered in-season). Feed the windowed
 // optimalStartersFor() so every league is optimized from one place.
-function _pfLcPos(name){
+function _pfLcPos(name, pid){
+  // Sleeper's own feed is the authority and — unlike PLAYERS / FantasyCalc —
+  // covers kickers and defenses. Resolve by pid FIRST so K/DEF never fall
+  // through to the name-based lookups (which carry only offensive skill
+  // players); a dropped K/DEF leaves its lineup slot empty, which silently
+  // sinks the "optimal" total below the current lineup and hides real swaps.
+  if(pid!=null){
+    const pm = (window._pfProjMap||{})[String(pid)];
+    if(pm && pm.pos) return pm.pos;
+  }
   if(!name) return null;
   const p = (window.PLAYERS||[]).find(x => x.name && x.name.toLowerCase() === String(name).toLowerCase());
   if(p && p.pos) return p.pos;
@@ -20551,7 +20567,7 @@ function pfComputeLineup(d){
   const projOf = (pid) => {
     const nm = (typeof globalPidToName!=='undefined' && globalPidToName) ? globalPidToName[pid] : null;
     if(!nm) return 0;
-    return (projFn(nm, _pfLcPos(nm), pid).pts) || 0;
+    return (projFn(nm, _pfLcPos(nm, pid), pid).pts) || 0;
   };
   const starterIds = (d.myStarters||[]).filter(s => s && s !== '0');
   const currentPts = starterIds.reduce((s,pid) => s + projOf(pid), 0);
@@ -20564,7 +20580,7 @@ function pfComputeLineup(d){
   // Proposed swaps: who moves INTO the lineup (bench→start) and OUT (start→bench)
   const pidToName = (typeof globalPidToName!=='undefined' && globalPidToName) ? globalPidToName : {};
   const curSetIds = new Set(starterIds), optSetIds = new Set(optIds);
-  const mkP = pid => { const nm = pidToName[pid] || pid; const pos = _pfLcPos(nm); return { pid, name: nm, pos, proj: Math.round((projFn(nm,pos,pid).pts||0)*100)/100 }; };
+  const mkP = pid => { const nm = pidToName[pid] || pid; const pos = _pfLcPos(nm, pid); return { pid, name: nm, pos, proj: Math.round((projFn(nm,pos,pid).pts||0)*100)/100 }; };
   const swapIn = optIds.filter(p => !curSetIds.has(p)).map(mkP).sort((a,b)=>b.proj-a.proj);
   const swapOut = starterIds.filter(p => !optSetIds.has(p)).map(mkP).sort((a,b)=>b.proj-a.proj);
   return {
@@ -40492,10 +40508,14 @@ function optimalStartersFor(rosterPlayers, rosterPositions, opts){
   const slots = (rosterPositions||[]).filter(s=>s!=='BN'&&s!=='IR'&&s!=='TAXI');
   if(!slots.length || !posFn || !projFn) return {starters:[], slots:[], total:0, basis:'proj'};
   const pool = [...(rosterPlayers||[])].map(String).map(pid=>{
-    const name = pidToName[pid]; if(!name) return null;
-    const pos = posFn(name); if(!pos) return null;
+    const name = pidToName[pid];
+    // Resolve position by pid FIRST (pass it through), then by name. Kickers and
+    // defenses only resolve by pid — dropping them here empties their slot, which
+    // pushes the "optimal" total BELOW the current lineup and masks real upgrades.
+    const pos = posFn(name, pid); if(!pos) return null;
+    if(!name && !pos) return null;
     const pr = projFn(name, pos, pid) || {};
-    return {pid, name, pos, proj:pr.pts||0, basis:pr.basis, used:false};
+    return {pid, name:name||pid, pos, proj:pr.pts||0, basis:pr.basis, used:false};
   }).filter(Boolean);
   // fill most-restrictive slots first so flex/superflex don't steal a needed specialist
   const order = slots.map((s,i)=>({s,i})).sort((a,b)=>(_SS_SLOT_ELIG[a.s]||[a.s]).length-(_SS_SLOT_ELIG[b.s]||[b.s]).length);
