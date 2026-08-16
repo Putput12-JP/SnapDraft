@@ -43342,6 +43342,14 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 @media(min-width:701px){
   #page-draft #sbar.pa-clock{
     margin-left:auto!important; margin-right:auto!important;
+    /* The rim/beam/surface all draw on the sbar's PADDING box, so aligning the
+       border box to the container (49px) still left the visible panel 24px wider
+       than the summary card above / table below, which sit at the 73px content
+       edge. A transparent side border insets the padding box by exactly 24px
+       while box-sizing:border-box (line 573) keeps the outer box on the shared
+       max-width:1760 container — so the panel is the exact width of the cards
+       above and rows below at every viewport, not just where content just fills. */
+    border-left:24px solid transparent!important; border-right:24px solid transparent!important;
     padding-left:12px!important; padding-right:12px!important;
     justify-content:center!important; align-items:center!important;
   }
