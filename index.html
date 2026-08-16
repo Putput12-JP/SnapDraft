@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T15:10', tag:'Fixed', title:'Draft buttons come back when you’re on the clock',
+    items:[
+      'When you were on the clock, the one-tap “Draft” buttons on the board (and the Draft Control button) could vanish if Vault hadn’t finished loading Sleeper’s player list — leaving “No board player resolved” and an empty column that pushed the board over to the left. Vault now makes sure that list is loaded the moment you’re up, then fills the buttons back in.'
+    ]
+  },
+  {
     ts:'2026-08-16T14:30', tag:'Fixed', title:'“On the clock” timer sits centered again',
     items:[
       'In the live draft header, the “On the clock” time was hugging the left edge of its box instead of sitting under the label. It’s now centered, with the re-sync button tucked neatly to the right.'
@@ -23918,6 +23924,22 @@ function dvRenderControlCell(){
   const clock = _dvClock();
   const who = conn.sleeperUsername || 'you';
   if(clock.onClock){
+    // The board's players carry no embedded Sleeper id, so the Draft button and
+    // the per-row Draft Now column resolve names through the Sleeper players map
+    // (fetchSleeperPlayers). That load is fire-and-forget at init with no re-render
+    // on completion, and a failed load still flips sleeperPlayersLoaded=true while
+    // leaving the map empty — either way you can reach the clock with no map, which
+    // strands every button ("No board player resolved" + an empty, indented Draft
+    // column). If the map is actually missing, force one reload and repaint the
+    // cell + list when it lands.
+    if(!window._vaultNamePid && !window._dvPlayersKick){
+      window._dvPlayersKick = true;
+      try{ sleeperPlayersLoaded = false; }catch(_){}
+      try{ fetchSleeperPlayers().then(()=>{
+        try{ dvRenderControlCell(); }catch(_){}
+        try{ if(typeof renderList==='function') renderList(); }catch(_){}
+      }).catch(()=>{}); }catch(_){}
+    }
     const best = _dvBoardAvailable(1)[0] || null;
     const last = best ? best.name.split(' ').slice(-1)[0] : '';
     const draftBtn = best
