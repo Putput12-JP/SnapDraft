@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T15:40', tag:'Fixed', title:'On-the-clock suggestion card lines up with the board',
+    items:[
+      'When you’re on the clock, the glowing “Suggested” card (Biggest Faller / Next Best / Best Grade) was hanging out past the left edge of everything else. It now sits flush with the header, the board, and the rest of the cards on the page.'
+    ]
+  },
+  {
     ts:'2026-08-16T15:10', tag:'Fixed', title:'Draft buttons come back when you’re on the clock',
     items:[
       'When you were on the clock, the one-tap “Draft” buttons on the board (and the Draft Control button) could vanish if Vault hadn’t finished loading Sleeper’s player list — leaving “No board player resolved” and an empty column that pushed the board over to the left. Vault now makes sure that list is loaded the moment you’re up, then fills the buttons back in.'
@@ -43327,12 +43333,15 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
    cascade — equal specificity, later source). The metal rim is drawn on the sbar's
    border-box edge, so the 24px *padding* above aligned the cards but let the rim bleed
    24px past the hero rail / controls. Move the gutter to *margin* so the whole box — rim
-   included — insets to the same content edge as the rows above. Title dropped; cards
+   included — insets to the same content edge as the rows above. Use auto (not a fixed
+   24px) so the box centres inside the shared max-width:1760 container exactly like
+   .controls / .draft-summary — a fixed 24px matched only at the width where the content
+   just fills, and overhung ~25px to the left on any wider screen. Title dropped; cards
    centred and filling the panel width. Desktop only; the ≤700px column layout keeps its
    own rules. */
 @media(min-width:701px){
   #page-draft #sbar.pa-clock{
-    margin-left:24px!important; margin-right:24px!important;
+    margin-left:auto!important; margin-right:auto!important;
     padding-left:12px!important; padding-right:12px!important;
     justify-content:center!important; align-items:center!important;
   }
