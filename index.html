@@ -13088,6 +13088,18 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-16T17:05', tag:'Fixed', title:'Optimize now actually changes your Sleeper lineup in the preseason',
+    items:[
+      'During the preseason, pushing an optimized lineup was writing to the wrong week — so your real Week 1 starters in Sleeper didn’t change. It now sets the same upcoming week the Sleeper app is showing you, so the swap sticks.'
+    ]
+  },
+  {
+    ts:'2026-08-16T17:00', tag:'Improved', title:'Player photos in the optimize confirmation',
+    items:[
+      'The “set your best lineup?” pop-up now shows each player’s photo, full name, position, and projection — no more cramped, cut-off names.'
+    ]
+  },
+  {
     ts:'2026-08-16T16:20', tag:'Fixed', title:'Lineup Command no longer calls a beatable lineup “optimal”',
     items:[
       'Lineup Command could show a league as already optimal while a higher-projected player sat on your bench. The optimizer wasn’t recognizing your kicker and defense, so it left those spots empty when scoring the “best” lineup — that made the best lineup look lower than your current one and quietly hid real upgrades.',
@@ -21086,9 +21098,14 @@ function _cxEnsureStyles(){
   .cx-scol{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg)}
   .cx-sh{padding:8px 13px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-family:var(--font-mono);display:flex;align-items:center;gap:6px}
   .cx-sh.in{background:rgba(61,204,122,.07);color:var(--rb)} .cx-sh.out{background:rgba(255,102,128,.06);color:var(--red2)}
-  .cx-sr{display:flex;align-items:center;gap:9px;padding:9px 13px;font-size:13px;border-top:1px solid var(--border)}
-  .cx-sr:first-child{border-top:none} .cx-sr .aw{width:15px;text-align:center;font-weight:800}
-  .cx-sr .nm{flex:1;font-weight:600;display:flex;align-items:center;gap:7px} .cx-sr .pt{font-family:var(--font-mono);color:var(--muted);font-size:11.5px}
+  .cx-sr{display:flex;align-items:center;gap:11px;padding:11px 14px;font-size:13px;border-top:1px solid var(--border)}
+  .cx-sr:first-child{border-top:none}
+  .cx-av{width:36px;height:36px;flex-shrink:0;border-radius:50%;overflow:hidden;background:var(--s3);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--font-mono);color:var(--muted)}
+  .cx-av img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+  .cx-sr .nm{flex:1;min-width:0;font-weight:600;display:flex;flex-direction:column;gap:2px}
+  .cx-sr .nmline{display:flex;align-items:center;gap:7px;min-width:0}
+  .cx-sr .nmtxt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cx-sr .pt{font-family:var(--font-mono);color:var(--muted);font-size:11px}
   .cx-smid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted)}
   .cx-smid svg.cx-ic{width:18px;height:18px;color:var(--accent2)}
   .cx-gain{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;border-radius:10px;background:rgba(61,204,122,.08);border:1px solid rgba(61,204,122,.18)}
@@ -21348,7 +21365,15 @@ try { window.pfLcToggle = pfLcToggle; } catch(e){}
 
 // Proposed-swap detail: who moves into the lineup, who sits, and the gain.
 function _lcSwapHtml(lc){
-  const row = (p, dir) => `<div class="cx-sr"><span class="aw" style="color:${dir==='in'?'var(--rb)':'var(--red2)'}">${dir==='in'?'▲':'▼'}</span><span class="nm">${p.name}${p.pos?` <span class="cx-pos ${p.pos}">${p.pos}</span>`:''}</span><span class="pt">${(p.proj||0).toFixed(2)} pts</span></div>`;
+  const posc = (typeof _RDV_POSC!=='undefined' ? _RDV_POSC : {});
+  const av = (p) => {
+    const url = (typeof vaultHeadshot==='function') ? vaultHeadshot(p.name, p.pid, 34) : '';
+    const ini = String(p.name||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const col = posc[p.pos] || 'var(--border2)';
+    const img = url ? `<img src="${url}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${ini}'">` : ini;
+    return `<span class="cx-av" style="border-color:${col}">${img}</span>`;
+  };
+  const row = (p, dir) => `<div class="cx-sr">${av(p)}<span class="nm"><span class="nmline"><span class="nmtxt">${p.name}</span>${p.pos?`<span class="cx-pos ${p.pos}">${p.pos}</span>`:''}</span><span class="pt">${(p.proj||0).toFixed(2)} pts</span></span></div>`;
   const ins = (lc.swaps.in||[]).map(p=>row(p,'in')).join('') || '<div class="cx-sr cx-mut" style="font-size:12px">—</div>';
   const outs = (lc.swaps.out||[]).map(p=>row(p,'out')).join('') || '<div class="cx-sr cx-mut" style="font-size:12px">—</div>';
   return `<div class="cx-swap">
@@ -21367,7 +21392,7 @@ function pfLcModal(opts){
   const ov = document.createElement('div');
   ov.id = 'pf-lc-modal';
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(4,7,14,0.62);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px';
-  ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--s1);border:1px solid var(--border2);border-radius:16px;max-width:460px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.55);overflow:hidden">
+  ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--s1);border:1px solid var(--border2);border-radius:16px;max-width:${opts.maxWidth||460}px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.55);overflow:hidden">
     <div style="padding:20px 22px 12px">
       <div style="font-size:17px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px">${opts.title||''}</div>
       ${opts.subtitle?`<div style="font-size:12.5px;color:var(--muted);line-height:1.5">${opts.subtitle}</div>`:''}
@@ -21426,6 +21451,7 @@ async function pfOptimizeLeague(leagueId){
     title: 'Optimize ' + (d.lg.name || 'lineup') + '?',
     subtitle: `Set your best projected starters in this league · <b style="color:var(--rb)">+${lc.gain.toFixed(2)} pts</b>`,
     bodyHtml: _lcSwapHtml(lc),
+    maxWidth: 600,
     confirmLabel: 'Push to Sleeper',
     note: 'This updates your real starting lineup in Sleeper. You can change it any time in the Sleeper app.',
     onConfirm: async () => {
@@ -22967,9 +22993,16 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
   // ── Per-league data ──────────────────────────────────────
   // Current NFL week: the real weekly lineup lives in /matchups/{week};
   // roster.starters can lag behind lineup changes made in the Sleeper app.
+  // Use _vaultProjWeek, NOT the raw state.week — during preseason state.week
+  // counts PRESEASON weeks (e.g. 2), but the Sleeper app is editing your
+  // regular Week 1 lineup. Reading and (critically) WRITING to the raw week
+  // pushed starters to a week Sleeper isn't showing, so the optimize looked
+  // like it did nothing. Match the same week the projections/optimizer use.
   if (window._pfNflWeek == null) {
     window._pfNflWeek = await fetch('https://api.sleeper.app/v1/state/nfl')
-      .then(r=>r.json()).then(s=>s.week || s.display_week || 1).catch(()=>null);
+      .then(r=>r.json())
+      .then(s=>(typeof _vaultProjWeek==='function') ? _vaultProjWeek(s) : (s.week || s.display_week || 1))
+      .catch(()=>null);
   }
   const _pfWeek = window._pfNflWeek;
   const leagueData = await Promise.all(activeLeagues.map(async lg => {
