@@ -13088,6 +13088,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-17T18:00', tag:'Fixed', title:'A flaky connection no longer logs you out',
+    items:[
+      'If Sleeper is slow or your network blips while Vault is loading, it now quietly reconnects in the background and keeps your saved leagues — instead of dropping you on the connect screen and making you re-pick everything.',
+      'When your session is still catching up, My Team shows a brief "Reconnecting…" instead of a "Could not find your roster" error, and heals itself the moment the tab refocuses or your connection comes back.'
+    ]
+  },
+  {
     ts:'2026-08-17T12:00', tag:'Fixed', title:'New leagues show up in the league switcher right away',
     items:[
       'When you add a league in Manage Leagues, it now appears in the header league switcher immediately — no more reloading the page to see it. Removing a league drops it from the switcher on the spot too.',
@@ -13811,6 +13818,17 @@ function restoreLeagueSelection() {
   if (cand) { if (!ovLeagueId) ovLeagueId = cand; if (!teamsLeagueId) teamsLeagueId = cand; }
 }
 
+// Benign "still working" states used on resume so a slow/failed Sleeper request
+// never reads as "you're logged out" — the saved session is kept either way.
+function _reconnectingHtml(){
+  return '<div class="v-loading"><div class="spinner lg"></div>'
+       + '<span>Reconnecting to Sleeper…</span></div>';
+}
+function _reconnectFailedHtml(msg){
+  return '<div class="fc-error" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+       + '<span>'+(msg||'Couldn’t reach Sleeper just now — your leagues are still saved.')+'</span>'
+       + '<button class="v-btn" style="padding:7px 14px" onclick="renderOverview()">Retry</button></div>';
+}
 let _ovRendering = false;
 async function renderOverview() {
   if (_ovRendering) return;
@@ -13832,6 +13850,20 @@ async function renderOverview() {
   const hasContext = ovLeagueId || draftRoster.length > 0;
   if (!hasContext) { _ovRendering = false; showLeaguePicker(el); return; }
 
+  // Resume-safety: a saved session whose Sleeper identity hasn't resolved yet
+  // (a transient hiccup on load) must NOT read as "connect again". Show a quiet
+  // reconnecting state, reload teams in the background, and re-render on success —
+  // a manual Retry (no auto-loop) covers a persistent outage.
+  if (ovLeagueId && !myTeamsUserId && localStorage.getItem(SK+'-username')) {
+    el.innerHTML = _reconnectingHtml();
+    _ovRendering = false;
+    loadMyTeams().then(() => {
+      if (myTeamsUserId) renderOverview();
+      else if (el.isConnected) el.innerHTML = _reconnectFailedHtml();
+    });
+    return;
+  }
+
   el.innerHTML = skelRows(5);
 
   let roster = [], teamName = '', leagueName = '', powerRank = null, totalTeams = 0;
@@ -13842,7 +13874,7 @@ async function renderOverview() {
   if (ovLeagueId) {
     try {
       const ctx = await getLeagueContext_ov();
-      if (!ctx) { el.innerHTML = '<div class="fc-error">Could not load league.</div>'; _ovRendering = false; return; }
+      if (!ctx) { el.innerHTML = _reconnectFailedHtml('Couldn’t load this league right now — it’s still saved.'); _ovRendering = false; return; }
       const { rosters, users } = ctx;
       if (!sleeperPlayersLoaded) await fetchSleeperPlayers();
       const userMap = buildUserMap(users);
@@ -13852,7 +13884,7 @@ async function renderOverview() {
       const seasonYearEl = document.getElementById('ov-season-year');
       if (seasonYearEl && league?.season) seasonYearEl.textContent = league.season;
       const myRoster_raw = rosters.find(r => r.owner_id === myTeamsUserId);
-      if (!myRoster_raw) { el.innerHTML = '<div class="fc-error">Could not find your roster.</div>'; _ovRendering = false; return; }
+      if (!myRoster_raw) { el.innerHTML = _reconnectFailedHtml('Couldn’t find your roster in this league — it’s still saved.'); _ovRendering = false; return; }
       teamName = userMap[myTeamsUserId] || 'My Team';
 
       // Fetch league roster_positions for slot labels (cached on ctx)
@@ -18801,7 +18833,50 @@ function setTeamsSeason(yr) {
   renderMyTeamsResults();
 }
 
-async function loadMyTeams() {
+// Load the user's Sleeper teams, but survive a transient network blip on resume:
+// dedupe concurrent calls so we only ever have one load in flight. A saved session
+// must never be forced back to the connect screen by a momentary hiccup.
+function loadMyTeams(){
+  if (loadMyTeams._p) return loadMyTeams._p;
+  loadMyTeams._p = _loadMyTeamsImpl().finally(()=>{ loadMyTeams._p = null; });
+  return loadMyTeams._p;
+}
+// Fetch the Sleeper user with a few retries on TRANSIENT failure. A real
+// "user not found" (404) is not retried — that's a bad username, not a blip.
+async function _sleeperUserFetch(username, tries){
+  tries = tries || 3; let lastErr;
+  for (let i=0;i<tries;i++){
+    try{
+      const r = await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`);
+      if (r.status===404){ const e=new Error('That Sleeper username wasn’t found.'); e.notFound=true; throw e; }
+      if (!r.ok) throw new Error('Sleeper returned '+r.status);
+      const u = await r.json();
+      if (!u || !u.user_id){ const e=new Error('That Sleeper username wasn’t found.'); e.notFound=true; throw e; }
+      return u;
+    }catch(e){
+      if (e.notFound) throw e;                        // bad username → don't retry
+      lastErr = e;
+      if (i < tries-1) await new Promise(res=>setTimeout(res, 400*(i+1)));
+    }
+  }
+  throw lastErr || new Error('Could not reach Sleeper');
+}
+// One-shot: when the tab refocuses or the network returns, re-attempt a failed
+// load so an offline resume heals itself without the user touching anything.
+let _sleeperRetryArmed = false;
+function _armSleeperReconnect(){
+  if (_sleeperRetryArmed) return; _sleeperRetryArmed = true;
+  const go = () => {
+    if (myTeamsData.length || !localStorage.getItem(SK+'-username')){ done(); return; }
+    loadMyTeams().then(()=>{ if (myTeamsData.length){ done();
+      try{ if(document.getElementById('page-overview')?.classList.contains('on')) renderOverview(); }catch(e){} } });
+  };
+  const onVis = () => { if (document.visibilityState==='visible') go(); };
+  function done(){ window.removeEventListener('online', go); document.removeEventListener('visibilitychange', onVis); _sleeperRetryArmed = false; }
+  window.addEventListener('online', go);
+  document.addEventListener('visibilitychange', onVis);
+}
+async function _loadMyTeamsImpl() {
   // Username from Sleeper Sync page input, header profile, or localStorage
   const input = document.getElementById('sleeper-username') || document.getElementById('myteams-username');
   const username = (input?.value || mySleeperUser?.username || localStorage.getItem(SK+'-username') || '').trim();
@@ -18812,10 +18887,8 @@ async function loadMyTeams() {
   if (res) res.innerHTML = skelCards(3);
 
   try {
-    
-    const uRes = await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`);
-    if (!uRes.ok) throw new Error('User not found');
-    const user = await uRes.json();
+
+    const user = await _sleeperUserFetch(username);
     myTeamsUserId = user.user_id;
     mySleeperUser = user; 
     updateUserHeader(user);
@@ -18850,6 +18923,9 @@ async function loadMyTeams() {
     }
   } catch(e) {
     if (res) res.innerHTML = `<div class="fc-error">⚠ ${e.message}</div>`;
+    // Transient failure but we still have a saved session → never strand the user.
+    // Reconnect automatically when the tab refocuses or the network comes back.
+    if (!e.notFound && localStorage.getItem(SK+'-username')) _armSleeperReconnect();
   } finally {
     // btn removed from this function, no-op
   }
