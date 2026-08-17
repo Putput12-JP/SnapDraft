@@ -13088,6 +13088,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-17T12:00', tag:'Fixed', title:'New leagues show up in the league switcher right away',
+    items:[
+      'When you add a league in Manage Leagues, it now appears in the header league switcher immediately — no more reloading the page to see it. Removing a league drops it from the switcher on the spot too.',
+      'Any league Sleeper newly adds to your account is now included automatically the next time you load Vault, instead of staying hidden until you visited Manage Leagues. Leagues you have deliberately unchecked stay unchecked.'
+    ]
+  },
+  {
     ts:'2026-08-16T17:10', tag:'Fixed', title:'Trade confirmation no longer cuts off the values',
     items:[
       'On the Accept / Reject / Counter trade pop-up, the totals and player values on the right side could get clipped by the edge of the card. The card now sizes correctly, long names trim neatly, and every value stays readable.'
@@ -18711,6 +18718,58 @@ function populateHeaderLeague() {
   if (teamsLeagueId) sel.value = teamsLeagueId;
 }
 
+// When Sleeper adds a brand-new league to the account, fold it into the saved
+// league selection so it opts IN by default — otherwise the strict allowlist in
+// `-selected-leagues` silently hides it from the switcher and portfolio until the
+// user re-opens Manage Leagues. We tell "new" from "deliberately deselected" with
+// a `-known-leagues` ledger: every league we've ever offered is remembered, so
+// only genuinely-first-seen leagues get auto-added; a league the user unchecked
+// stays in the ledger and is left alone. Call after myTeamsData is rebuilt and
+// before the header/portfolio render off the selection.
+function reconcileNewLeagues() {
+  const KNOWN_KEY = SK+'-known-leagues';
+  const rawKnown = localStorage.getItem(KNOWN_KEY);
+  const firstRun = rawKnown == null; // no ledger yet: nothing is "new", just seed it
+  let known;
+  try { known = new Set(JSON.parse(rawKnown || 'null') || []); } catch(e){ known = new Set(); }
+
+  // Universe the switcher/portfolio can surface: current-season, still-live, or a
+  // connected ESPN league. Mirrors populateHeaderLeague/vpInitSelection so we never
+  // auto-add an archived league nobody would want back.
+  const pool = myTeamsData.filter(l =>
+    l.season==='2026' || l.season==='2025' ||
+    l.status==='in_season' || l.status==='drafting' || l.status==='pre_draft' ||
+    l.platform==='espn'
+  );
+  const poolIds = pool.map(l => l.league_id);
+  const newIds = poolIds.filter(id => !known.has(id));
+
+  // Only touch the selection when a strict allowlist actually exists — with no
+  // saved selection everything shows by default, so there's nothing to opt in.
+  // Skip the first run so upgrading users don't get previously-deselected leagues
+  // resurrected: we snapshot today's pool as "known" and only opt in what appears
+  // AFTER this point.
+  if (!firstRun && newIds.length) {
+    const saved = localStorage.getItem(SK+'-selected-leagues');
+    if (saved) {
+      try {
+        const sel = new Set(JSON.parse(saved) || []);
+        let changed = false;
+        newIds.forEach(id => { if (!sel.has(id)) { sel.add(id); changed = true; } });
+        if (changed) localStorage.setItem(SK+'-selected-leagues', JSON.stringify([...sel]));
+      } catch(e){}
+    }
+  }
+
+  // Grow the ledger (union, never replace): a transient failed Sleeper fetch must
+  // not "forget" a league and then re-add it as new — or worse, re-add one the
+  // user had deselected — on the next successful load.
+  if (newIds.length || firstRun) {
+    newIds.forEach(id => known.add(id));
+    try { localStorage.setItem(KNOWN_KEY, JSON.stringify([...known])); } catch(e){}
+  }
+}
+
 // ════════════════════════════════════
 
 // ════════════════════════════════════
@@ -18775,6 +18834,10 @@ async function loadMyTeams() {
     ];
     // Sleeper rebuild just wiped any connected ESPN league — put them back.
     vpRestoreEspnLeagues();
+
+    // Opt genuinely-new leagues into the saved selection before anything renders
+    // off it, so a league Sleeper just added shows up without visiting the picker.
+    reconcileNewLeagues();
 
     renderMyTeamsResults();
     populateAnalyzerDropdown();
@@ -23620,6 +23683,12 @@ function savePortfolioLeagueSelection() {
   closePortfolioLeaguePicker();
   // Re-render portfolio with new selection
   renderPortfolio();
+  // Rebuild the header league switcher so newly tracked leagues appear (and
+  // dropped ones vanish) immediately. It filters by this same saved list but is
+  // otherwise only built at load, so it stays frozen without this. Rewriting the
+  // select's options trips the MutationObserver in the switcher (watchSelect),
+  // which refreshes the pill + dropdown on its own.
+  try { populateHeaderLeague(); } catch(e){}
 }
 
 // ════════════════════════════════════════════════════════════
