@@ -13088,15 +13088,6 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
-    ts:'2026-08-17T15:30', tag:'Improved', title:'My Rankings: separate Redraft and Dynasty rankings for every set',
-    items:[
-      'Each ranking set now holds a truly separate Dynasty board and Redraft board. The Dynasty/Redraft toggle shows that set\'s own rankings for each format — and whichever fits your league (dynasty or redraft) is what the rest of Vault uses.',
-      'Importing a CSV now asks which format the rankings are for, so a redraft cheat sheet lands on your Redraft board only and never bleeds into Dynasty. Import once per format to give a set both.',
-      'A small dot on the Dynasty / Redraft toggle marks which formats you\'ve actually customized. If a set has no custom rankings for the format you\'re viewing, Vault now says so instead of quietly showing market values.',
-      'Ranking sets now only appear where they fit: a redraft-only set is hidden from the Dynasty board columns, sorts, and the value pickers on dynasty leagues (and vice versa), so you never pick a set that doesn\'t match.'
-    ]
-  },
-  {
     ts:'2026-08-17T12:00', tag:'Fixed', title:'New leagues show up in the league switcher right away',
     items:[
       'When you add a league in Manage Leagues, it now appears in the header league switcher immediately — no more reloading the page to see it. Removing a league drops it from the switcher on the spot too.',
@@ -15531,7 +15522,7 @@ function renderList(){
     }
 
     // ===== MINE columns: one per selected ranking set (value + rank + Δ vs market) =====
-    const _mineCols = (typeof dvVisibleMineCols==='function') ? dvVisibleMineCols() : ((typeof dvGetMineCols==='function') ? dvGetMineCols() : []);
+    const _mineCols = (typeof dvGetMineCols==='function') ? dvGetMineCols() : [];
     const _mineFmt = _dvm === 'redraft' ? 'redraft' : 'dynasty';
     const _myCellStyle = 'font-family:var(--font-mono);font-size:12px;font-weight:500;text-align:right;padding-right:8px';
     let profCellsHtml;
@@ -16606,36 +16597,14 @@ function dvGetMineCols(){
   return ids;
 }
 function dvSetMineCols(ids){ try { localStorage.setItem('dcmd-v5-dvcols', JSON.stringify(ids)); } catch(e){} }
-// The Draft Vault board's Dynasty/Redraft mode decides which ranking sets belong
-// in its pickers: a redraft-only import has no place in a dynasty board and vice
-// versa. `MyRankings.listFor` hides only the mismatched sets (blank sets stay).
-function dvFormatSets(){
-  const fmt = (window._dvMode==='redraft')?'redraft':'dynasty';
-  if (window.MyRankings && MyRankings.listFor) return MyRankings.listFor(fmt);
-  return (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
-}
-// The persisted selection (dvGetMineCols) spans both formats; the VISIBLE set is
-// that selection intersected with the current mode's eligible sets. Kept separate
-// so toggling a column in one mode never drops your picks in the other.
-function dvVisibleMineCols(){
-  const match = new Set(dvFormatSets().map(p=>p.id));
-  let ids = dvGetMineCols().filter(id=>match.has(id));
-  if (!ids.length) {
-    const act = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
-    if (act && match.has(act)) ids = [act];
-    else if (match.size) ids = [dvFormatSets()[0].id];
-  }
-  return ids;
-}
 function dvToggleMineCol(id){
   let ids = dvGetMineCols();
-  const vis = dvVisibleMineCols();
   const i = ids.indexOf(id);
-  if (i>=0) { if (vis.length<=1 && vis.includes(id)) return; ids.splice(i,1); }   // keep at least one visible column
+  if (i>=0) { if (ids.length<=1) return; ids.splice(i,1); }   // keep at least one column
   else ids.push(id);
   dvSetMineCols(ids);
   // if the active sort was on a now-hidden column, fall back to the market column
-  if (typeof sortKey!=='undefined' && String(sortKey).indexOf('myprof:')===0 && !dvVisibleMineCols().includes(String(sortKey).slice(7))) {
+  if (typeof sortKey!=='undefined' && String(sortKey).indexOf('myprof:')===0 && !ids.includes(String(sortKey).slice(7))) {
     try { setSort('dynasty-col'); } catch(e){}
   }
   dvSyncColumns();
@@ -16645,15 +16614,15 @@ function dvColProfName(id){ const p=((window.MyRankings&&MyRankings.list)?MyRank
 function _dvEscAttr(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function dvRenderColChips(){
   const box = document.getElementById('dv-col-chips'); if(!box) return;
-  const profs = dvFormatSets();   // only sets that belong in this mode's board
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
   if (!profs.length) { box.innerHTML=''; return; }
-  const on = new Set(dvVisibleMineCols());
+  const on = new Set(dvGetMineCols());
   box.innerHTML = profs.map(p=>`<button class="dv-colchip ${on.has(p.id)?'on':''}" onclick="dvToggleMineCol('${p.id}')" title="Show/hide the ${_dvEscAttr(p.name)} column on the board">${on.has(p.id)?'✓ ':''}${_dvEscAttr(p.name)}</button>`).join('');
 }
 // Rebuild the colgroup + header cells so the table has one MINE column per set.
 let _dvColsSig = '';
 function dvRenderProfileCols(){
-  const ids = dvVisibleMineCols();
+  const ids = dvGetMineCols();
   const cg = document.getElementById('plist-colgroup');
   const tr = document.querySelector('#lhdr tr');
   if (!cg || !tr) return;
@@ -16695,8 +16664,8 @@ function dvRenderProfileCols(){
 let _dvMSortSig = '';
 function dvRenderMobileSortChips(){
   const bar = document.getElementById('pm-sortbar'); if(!bar) return;
-  const profs = dvFormatSets();   // only sets eligible for this mode
-  const sig = ((window._dvMode==='redraft')?'r|':'d|') + profs.map(p=>p.id+':'+p.name).join('|');
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
+  const sig = profs.map(p=>p.id+':'+p.name).join('|');
   if (sig === _dvMSortSig && bar.querySelectorAll('.pm-setchip').length === profs.length) return;
   _dvMSortSig = sig;
   [...bar.querySelectorAll('.pm-setchip')].forEach(c=>c.remove());
@@ -16713,15 +16682,7 @@ function dvRenderMobileSortChips(){
     if (anchor) bar.insertBefore(b, anchor); else bar.appendChild(b);
   });
 }
-function dvSyncColumns(){
-  // A mode switch can hide the set the board is sorted by (e.g. sorting on a
-  // redraft-only column, then flipping to Dynasty) — fall back to the market col.
-  try {
-    if (typeof sortKey!=='undefined' && String(sortKey).indexOf('myprof:')===0
-        && !dvVisibleMineCols().includes(String(sortKey).slice(7))) setSort('dynasty-col');
-  } catch(e){}
-  try{ dvRenderColChips(); }catch(e){} try{ dvRenderProfileCols(); }catch(e){} try{ dvRenderMobileSortChips(); }catch(e){}
-}
+function dvSyncColumns(){ try{ dvRenderColChips(); }catch(e){} try{ dvRenderProfileCols(); }catch(e){} try{ dvRenderMobileSortChips(); }catch(e){} }
 // Lightweight source apply, sets the source + button state without forcing a double re-render
 // (the page's own render runs right after in showPage and will read the new valueSource).
 function _applySrc(src){
@@ -16746,24 +16707,6 @@ function setLeagueSrc(src){
   try{ if(document.getElementById('page-overview')?.classList.contains('on')) renderOverview(); }catch(e){}
 }
 
-// The format of the league currently in view (League Analyzer / Team / Trade
-// surfaces), so their ranking-set pickers hide format-mismatched sets the same
-// way the Draft Vault board does. Falls back to the Draft Vault mode.
-function _mrLeagueFmt(){
-  try {
-    const d = (typeof myTeamsData!=='undefined') ? myTeamsData : null;
-    const lid = (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || (window._currentLeagueId) || (typeof ovLeagueId!=='undefined' && ovLeagueId) || null;
-    const lg = (lid && d) ? d.find(l=>l.league_id===lid) : null;
-    if (lg && typeof _isDynastyLeague==='function') return _isDynastyLeague(lg) ? 'dynasty' : 'redraft';
-  } catch(e){}
-  return (window._dvMode==='redraft') ? 'redraft' : 'dynasty';
-}
-function _mrListForLeague(){
-  const f = _mrLeagueFmt();
-  if (window.MyRankings && MyRankings.listFor) return MyRankings.listFor(f);
-  return (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
-}
-
 // ── League Analyzer value-source dropdown ──────────────────────────────
 // Market (FantasyCalc consensus) plus one option per My Rankings profile, each
 // shown by its own name. Selecting a profile makes it the globally-active set
@@ -16776,7 +16719,7 @@ function lrRenderSrcDD(srcOverride){
   const dd = document.getElementById('lr-srcdd');
   if(!dd) return;
   const src = srcOverride || ((typeof valueSource!=='undefined') ? valueSource : 'fc');
-  const profs = _mrListForLeague();   // hide sets that don't fit this league's format
+  const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
   const actId = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
   const mine  = (src==='my');
   const actProf = mine ? profs.find(p=>p.id===actId) : null;
@@ -16815,7 +16758,7 @@ function _ovcRow(mode){
   // Market + one option per My Rankings profile, mirroring the League Analyzer
   // dropdown. Re-emitted whole on every overview render, so no separate refresh
   // is needed; picks route through lrPickSrc (setActive + source flip).
-  var profs = _mrListForLeague();   // hide sets that don't fit this league's format
+  var profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
   var actId = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
   var actProf = mine ? profs.find(function(p){ return p.id===actId; }) : null;
   var curLabel = mine ? (actProf ? actProf.name : 'Mine') : 'Market';
@@ -25931,7 +25874,7 @@ function pickYear(year) {
     // Market + one entry per available My Rankings profile.
     _vsrcSelect(){
       const mine = this.vsrc==='mine';
-      const profs = _mrListForLeague();   // hide sets that don't fit this league's format
+      const profs = (window.MyRankings && MyRankings.list) ? MyRankings.list() : [];
       const actId = (window.MyRankings && MyRankings.activeId) ? MyRankings.activeId() : null;
       const cur = mine ? ('my:'+(actId||(profs[0]&&profs[0].id)||'')) : 'market';
       const escv = (typeof _dvEscAttr==='function') ? _dvEscAttr : (s=>String(s==null?'':s));
@@ -28046,18 +27989,6 @@ window.VaultGradeCal = (function () {
   function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function customCount(){ const p=state[format].pinned; return Object.keys(p).filter(k=>p[k]).length; }
-  // A format SIDE ({order,pinned,…}) counts as "customized" once the user has
-  // imported or dragged it — i.e. it has an explicit order OR any pin. An
-  // untouched side has order:null and simply mirrors the live market, so the
-  // Dynasty and Redraft toggles are only truly "their own rankings" when this
-  // is true for each. Used to mark the toggle + surface the empty state.
-  function sideCustomized(side){
-    return !!(side && (side.order || (side.pinned && Object.keys(side.pinned).some(k=>side.pinned[k]))));
-  }
-  function fmtCustomized(f){ const p=activeProfile(); return sideCustomized(p && p[f]); }
-  // Should a set appear in a picker for format f? Hide only the mismatched case
-  // (customized for the other format, blank here); a blank set stays visible.
-  function _showsFmt(prof, f){ f=(f==='redraft')?'redraft':'dynasty'; const o=f==='redraft'?'dynasty':'redraft'; return !!prof && (sideCustomized(prof[f]) || !sideCustomized(prof[o])); }
 
   // ════════════════════════════════════════════════════════════════
   //  PUBLIC API (Draft Vault column + global "Mine" source)
@@ -28101,9 +28032,8 @@ window.VaultGradeCal = (function () {
   // Rank/value lookup maps for every currently-selected source, this format.
   function cmpBuildData(f){
     seedCmpCols();
-    // prune any columns whose profile was deleted, or that don't fit format f
-    // (e.g. a redraft-only set while comparing Dynasty)
-    cmpCols = cmpCols.filter(k=>k==='fc' || profiles.some(p=>p.id===k && _showsFmt(p,f)));
+    // prune any columns whose profile was deleted since selection
+    cmpCols = cmpCols.filter(k=>k==='fc' || profiles.some(p=>p.id===k));
     if(!cmpCols.length) cmpCols=['fc'];
     if(!cmpCols.includes(cmpSort)) cmpSort = cmpCols[0];
     // market rank/value by name (fcRank is identical across profiles)
@@ -28224,13 +28154,6 @@ window.VaultGradeCal = (function () {
     .mr-ctl-label{font-size:var(--t-nano);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-family:var(--font-mono)}
     .mr-sync-ind{font-size:var(--t-nano);font-weight:700;color:var(--rb);font-family:var(--font-mono);letter-spacing:.04em;opacity:.8;white-space:nowrap}
     .mr-grp{display:flex;align-items:center;gap:7px}
-    /* dot on a Format toggle button = that side has custom rankings (not just market) */
-    .mr-seg .mr-fmtdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--rb);margin-left:6px;vertical-align:middle;box-shadow:0 0 5px var(--rb)}
-    /* honesty banner when the active set has no custom board for this format */
-    .mr-emptyfmt{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:space-between;background:rgba(123,208,255,0.06);border:1px solid var(--border2);border-left:2px solid var(--wr);border-radius:11px;padding:12px 16px;margin-bottom:16px}
-    .mr-emptyfmt-txt{font-size:var(--t-secondary);color:var(--text2);line-height:1.5;min-width:0}
-    .mr-emptyfmt-txt b{color:var(--text);font-weight:700}
-    .mr-emptyfmt-txt span{display:block;font-size:var(--t-label);color:var(--muted);margin-top:2px}
     .mr-spacer{flex:1}
     .mr-cmp{display:inline-flex;align-items:center;gap:7px}
     .mr-cmp select{background:var(--s2);border:1.5px solid var(--border2);color:var(--text);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;padding:7px 10px;border-radius:8px;cursor:pointer;outline:none}
@@ -28670,8 +28593,8 @@ window.VaultGradeCal = (function () {
       <div class="mr-controls">
         <div class="mr-grp"><span class="mr-ctl-label">Format</span>
           <div class="mr-seg">
-            <button class="${format==='dynasty'?'on':''}" title="${fmtCustomized('dynasty')?'Custom Dynasty rankings set':'No custom Dynasty rankings yet — tracking market'}" onclick="MyRankings._setFormat('dynasty')">Dynasty${fmtCustomized('dynasty')?'<span class="mr-fmtdot" aria-hidden="true"></span>':''}</button>
-            <button class="${format==='redraft'?'on':''}" title="${fmtCustomized('redraft')?'Custom Redraft rankings set':'No custom Redraft rankings yet — tracking market'}" onclick="MyRankings._setFormat('redraft')">Redraft${fmtCustomized('redraft')?'<span class="mr-fmtdot" aria-hidden="true"></span>':''}</button>
+            <button class="${format==='dynasty'?'on':''}" onclick="MyRankings._setFormat('dynasty')">Dynasty</button>
+            <button class="${format==='redraft'?'on':''}" onclick="MyRankings._setFormat('redraft')">Redraft</button>
           </div>
           <span class="mr-sync-ind" title="Dynasty/Redraft stays in sync with the Draft Vault">⇄ synced</span>
         </div>
@@ -28710,7 +28633,7 @@ window.VaultGradeCal = (function () {
       const bigDis = [...uni].sort((a,b)=>b.spread-a.spread)[0];
 
       // available sources to add/remove as columns
-      const allSources = [{key:'fc',name:'FantasyCalc'}].concat(profiles.filter(p=>_showsFmt(p,format)).map(p=>({key:p.id,name:p.name})));
+      const allSources = [{key:'fc',name:'FantasyCalc'}].concat(profiles.map(p=>({key:p.id,name:p.name})));
       const chips = allSources.map(s=>{
         const on = cmpCols.includes(s.key);
         return `<button class="mr-srcchip ${on?'on':''} ${s.key==='fc'?'mkt':''}" onclick="MyRankings._cmpToggleCol('${s.key}')">${on?'✓ ':''}${esc(s.name)}</button>`;
@@ -28786,19 +28709,7 @@ window.VaultGradeCal = (function () {
            + '<span>Loading rankings from FantasyCalc\u2026</span></div>';
     }
 
-    // Honesty banner: when the ACTIVE set has no custom rankings for the format
-    // you're looking at, the board is just mirroring the live market — say so,
-    // so "FF Mason · Redraft" never masquerades as a ranking that was never set.
-    const notice = (!compareSrc && rows.length && !fmtCustomized(format)) ? `
-      <div class="mr-emptyfmt">
-        <div class="mr-emptyfmt-txt">
-          <b>${esc(activeProfile().name)}</b> has no custom <b>${isRdr?'Redraft':'Dynasty'}</b> rankings yet — this board is tracking the live market.
-          <span>Import a ${isRdr?'redraft':'dynasty'} CSV or drag players to make it your own. Your ${isRdr?'Dynasty':'Redraft'} board stays separate.</span>
-        </div>
-        <button class="mr-abtn" onclick="MyRankings._import()">↑ Import ${isRdr?'Redraft':'Dynasty'} CSV</button>
-      </div>` : '';
-
-    page.innerHTML = `<div class="mr-wrap">${header}${profileBar}${controls}${notice}${body}</div>`;
+    page.innerHTML = `<div class="mr-wrap">${header}${profileBar}${controls}${body}</div>`;
     if (!compareSrc) bindDrag();
     applySearch();
   }
@@ -29012,20 +28923,6 @@ window.VaultGradeCal = (function () {
     // ── Profile library (see the named-profiles block above) ──────────
     // External consumers (the Draft Vault Source dropdown) read these.
     list(){ ensureLoaded(); return profiles.map(p=>({ id:p.id, name:p.name })); },
-    // Does a set have a real custom board for format f (order or any pin)?
-    hasFormat(id, f){ ensureLoaded(); const p=profiles.find(x=>x.id===id); return !!(p && sideCustomized(p[f==='redraft'?'redraft':'dynasty'])); },
-    // Should this set show in a picker for format f? Hide ONLY the mismatched
-    // case — customized for the OTHER format but not this one (e.g. a redraft
-    // import in a dynasty picker). A blank set (customized for neither) is
-    // format-neutral and stays visible, since it just tracks the market in both.
-    showsInFormat(id, f){
-      ensureLoaded(); const p=profiles.find(x=>x.id===id); if(!p) return false;
-      f = (f==='redraft')?'redraft':'dynasty'; const o = f==='redraft'?'dynasty':'redraft';
-      return sideCustomized(p[f]) || !sideCustomized(p[o]);
-    },
-    // list() filtered to the sets that belong in format f's pickers.
-    listFor(f){ ensureLoaded(); f=(f==='redraft')?'redraft':'dynasty'; const o=f==='redraft'?'dynasty':'redraft';
-      return profiles.filter(p=>sideCustomized(p[f]) || !sideCustomized(p[o])).map(p=>({ id:p.id, name:p.name })); },
     activeId(){ ensureLoaded(); return activeId; },
     activeName(){ ensureLoaded(); return activeProfile().name; },
     // Switch the globally-active profile. Every "Mine" surface (Draft Vault
@@ -29174,7 +29071,7 @@ window.VaultGradeCal = (function () {
   //  Matched players are placed in your CSV order and pinned so they
   //  hold their slots; everyone else flows in by live market value.
   // ════════════════════════════════════════════════════════════════
-  let _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'', dest:'active', newName:'', fmt:'dynasty' };
+  let _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'', dest:'active', newName:'' };
 
   function parseCSV(text){
     const lines = String(text||'').replace(/\r/g,'').split('\n').filter(l=>l.trim().length);
@@ -29245,10 +29142,6 @@ window.VaultGradeCal = (function () {
     if(_imp.nameCol<0){ if(typeof toast==='function') toast('Pick the player-name column'); return; }
     const { matched, unmatched } = matchPreview();
     if(!matched.length){ if(typeof toast==='function') toast('No players matched, try a different name column'); return; }
-    // A CSV is a ranking for ONE format. The chosen format's board is the only
-    // one we fill; the other side stays untouched (so a set can hold a genuinely
-    // separate Dynasty and Redraft ranking — import once per format).
-    const targetFmt = (_imp.fmt==='redraft') ? 'redraft' : 'dynasty';
     // Destination: a brand-new named profile, or the currently-active one.
     let createdNew = false;
     if(_imp.dest==='new'){
@@ -29257,24 +29150,21 @@ window.VaultGradeCal = (function () {
       profiles.push(p); activeId = p.id; syncState();
       createdNew = true;
     }
-    const base = baseline[targetFmt];
+    const base = baseline[format];
     const matchedIds = matched.map(m=>m.id);
     const mset = new Set(matchedIds);
     const rest = base.filter(p=>!mset.has(norm(p.name))).sort((a,b)=>(a.blendRank??a.fcRank)-(b.blendRank??b.fcRank)).map(p=>norm(p.name));
     // Fill from market: matched players hold the creator's order (pinned), the
     // rest flow in by live value — so the board is complete and draftable.
-    state[targetFmt].order = matchedIds.concat(rest);
+    state[format].order = matchedIds.concat(rest);
     const pinned = {}; matchedIds.forEach(id=>{ pinned[id]=true; });
-    state[targetFmt].pinned = pinned;     // imported players hold their slots
-    state[targetFmt].breaks = null;       // recompute tiers from the new order
-    // Show the format we just built (and keep the Draft Vault mode in lockstep).
-    if(format!==targetFmt){ format=targetFmt; try{ if(typeof setDvMode==='function' && window._dvMode!==targetFmt) setDvMode(targetFmt); }catch(e){} }
+    state[format].pinned = pinned;     // imported players hold their slots
+    state[format].breaks = null;       // recompute tiers from the new order
     save();
     if(createdNew) _profExternalRefresh();   // surface the new profile in the DV Source dropdown
     closeImport();
     render();
-    const fmtWord = targetFmt==='redraft'?'Redraft':'Dynasty';
-    const where = createdNew ? `new set "${activeProfile().name}" (${fmtWord})` : `${activeProfile().name}'s ${fmtWord} board`;
+    const where = createdNew ? `new set "${activeProfile().name}"` : `your ${format} board`;
     if(typeof toast==='function') toast(`✓ Imported ${matched.length} into ${where}${unmatched?' · '+unmatched+' unmatched':''}, tweak away`);
   }
 
@@ -29347,7 +29237,7 @@ window.VaultGradeCal = (function () {
 
   function openImport(){
     const el = ensureImportEl();
-    _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'', dest:'active', newName:'', fmt:format };
+    _imp = { rows:[], headers:[], nameCol:-1, rankCol:-1, hasHeader:true, file:'', dest:'active', newName:'' };
     renderImportBody();
     el.style.display='flex';
   }
@@ -29362,7 +29252,7 @@ window.VaultGradeCal = (function () {
 
   function renderImportBody(){
     const inner = document.getElementById('mri-inner'); if(!inner) return;
-    const fmtName = _imp.fmt==='redraft'?'Redraft':'Dynasty';
+    const fmtName = format==='redraft'?'Redraft':'Dynasty';
     const head = `<div class="mri-head">
         <div><div class="mri-eyebrow">My Rankings · Import</div>
           <div class="mri-title">Build your ${fmtName} board from a CSV</div>
@@ -29412,12 +29302,7 @@ window.VaultGradeCal = (function () {
       </div>
       <div class="mri-preview">${prev}</div>
       <div class="mri-dest">
-        <div class="mlbl" style="margin-bottom:8px">This ranking is for</div>
-        <div class="mri-destseg mri-fmtseg">
-          <button class="${_imp.fmt!=='redraft'?'on':''}" onclick="window.__mriSet('fmt','dynasty')"><b>Dynasty</b><small>keeper / long-term value</small></button>
-          <button class="${_imp.fmt==='redraft'?'on':''}" onclick="window.__mriSet('fmt','redraft')"><b>Redraft</b><small>this season only</small></button>
-        </div>
-        <div class="mlbl" style="margin:15px 0 8px">Import into</div>
+        <div class="mlbl" style="margin-bottom:8px">Import into</div>
         <div class="mri-destseg">
           <button class="${_imp.dest!=='new'?'on':''}" onclick="window.__mriSet('dest','active')"><b>${esc(activeProfile().name)}</b><small>your current set</small></button>
           <button class="${_imp.dest==='new'?'on':''}" onclick="window.__mriSet('dest','new')"><b>＋ New set</b><small>keep as its own</small></button>
@@ -29426,7 +29311,7 @@ window.VaultGradeCal = (function () {
       </div>
       <div class="mri-foot">
         <button class="mri-btn" onclick="window.__mriReset()">Choose another file</button>
-        <button class="mri-btn go" ${matched.length?'':'disabled'} onclick="MyRankings._applyImport()">${_imp.dest==='new'?('Create set · '+fmtName):('Apply to '+esc(activeProfile().name)+' · '+fmtName)}</button>
+        <button class="mri-btn go" ${matched.length?'':'disabled'} onclick="MyRankings._applyImport()">${_imp.dest==='new'?'Create set + import':'Apply to '+esc(activeProfile().name)}</button>
       </div>
     </div>`;
     // set selects to current guesses
@@ -29441,7 +29326,6 @@ window.VaultGradeCal = (function () {
     else if(k==='rank') _imp.rankCol=parseInt(v,10);
     else if(k==='header') _imp.hasHeader=!!v;
     else if(k==='dest'){ _imp.dest = (v==='new'?'new':'active'); }
-    else if(k==='fmt'){ _imp.fmt = (v==='redraft'?'redraft':'dynasty'); }
     else if(k==='newname'){ _imp.newName = v; return; }   // don't re-render on each keystroke (would lose input focus)
     renderImportBody();
   };
