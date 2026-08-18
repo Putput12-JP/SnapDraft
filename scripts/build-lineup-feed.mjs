@@ -78,7 +78,15 @@ const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u03
 /* ── 0. current season / week ─────────────────────────────────────────── */
 async function getState() {
   const s = await jget(`${SLEEPER}/state/nfl`);
-  return { season: s.season, week: s.display_week || s.week || s.leg || 1 };
+  const seasonType = String(s.season_type || '');
+  let week = s.display_week || s.week || s.leg || 1;
+  // During pre/off-season, Sleeper's display_week counts PRESEASON weeks
+  // (currently "week 2" in mid-August), but the only lines the books post are
+  // for the regular-season opener. Anchor to week 1 so cards read "Week 1
+  // Props", not a phantom "Week 2" before the season has started. Mirrors the
+  // client's _vaultProjWeek() guard.
+  if (seasonType === 'pre' || seasonType === 'off' || !(week >= 1)) week = 1;
+  return { season: s.season, week, seasonType };
 }
 
 /* ── player id resolver (name+team → sleeperId), built from Sleeper ───────
@@ -323,8 +331,8 @@ async function srcDraftKings(season, week, resolver, sleeperPts) {
 
 /* ── orchestrate ──────────────────────────────────────────────────────── */
 async function main() {
-  const { season, week } = await getState();
-  log(`Building feed for ${season} week ${week}…`);
+  const { season, week, seasonType } = await getState();
+  log(`Building feed for ${season} week ${week}${seasonType ? ` (${seasonType})` : ''}…`);
   // Log which optional auth the run sees, so you can confirm in the workflow
   // logs that the right secrets are wired up (without leaking the values).
   const propsKey = process.env.PROPS_API_KEY || process.env.PARLAY_API_KEY;
@@ -396,7 +404,7 @@ async function main() {
   }
 
   const feed = {
-    season, week, generated: new Date().toISOString(), players,
+    season, week, season_type: seasonType || null, generated: new Date().toISOString(), players,
     ...(dvp ? { dvp } : {}),
     vegas_teams: vegas.vegas_teams,
     vegas_games: vegas.vegas_games,

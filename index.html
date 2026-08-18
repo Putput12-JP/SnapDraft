@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T12:00', tag:'Fixed', title:'Player props no longer jump ahead a week in the preseason',
+    items:[
+      'Before the season kicks off, a player\'s Vegas props card was labeled "Week 2 Props" even though Week 1 hadn\'t happened yet. It now correctly reads "Week 1 Props" until the regular season is underway.'
+    ]
+  },
+  {
     ts:'2026-08-17T18:00', tag:'Fixed', title:'A flaky connection no longer logs you out',
     items:[
       'If Sleeper is slow or your network blips while Vault is loading, it now quietly reconnects in the background and keeps your saved leagues — instead of dropping you on the connect screen and making you re-pick everything.',
@@ -32571,7 +32577,14 @@ window.VaultGradeCal = (function () {
     const bp = betPlayer(), row = PLR.row;
     const pos = (bp && bp.pos) || (row && row.pos) || 'WR';
     const mkts = marketsForPos(pos);
-    const wk = PLR.bet.week;
+    // Preseason guard: Sleeper's display_week counts PRESEASON weeks (e.g. "2"
+    // in mid-August), so a raw feed week can label the opener's lines "Week 2"
+    // before Week 1 exists. Anchor to Week 1 during pre/off-season, mirroring
+    // _vaultProjWeek — the books only post regular-season openers anyway.
+    const wk = PLR.bet.week == null ? null
+      : (typeof _vaultProjWeek === 'function')
+        ? _vaultProjWeek({ season_type: PLR.bet.season_type, week: PLR.bet.week })
+        : Math.max(1, PLR.bet.week);
     const live = bp && bp.weekly && !bp.weekly.derived;
     const wkTitle = wk != null ? `Week ${wk} Props` : 'Weekly Props';
     let weekly = '';
@@ -37404,6 +37417,7 @@ body .page,body .page.on{background:transparent!important}
     return {
       season: feed ? feed.season : null,
       week: feed ? feed.week : null,
+      season_type: feed ? (feed.season_type || null) : null,
       generated: feed ? feed.generated : null,
       meta: (feed && feed.vegas_meta) || {},
       hasLiveProps: !!hasFeedProps,
