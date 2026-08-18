@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T20:00', tag:'Fixed', title:'Refreshing a Portfolio command page keeps your place',
+    items:[
+      'Reloading the page while on Lineup Command, Trade Center, Waiver Command, or Taxi Manager now returns you to that page instead of dropping back to the portfolio overview.',
+    ]
+  },
+  {
     ts:'2026-08-18T18:30', tag:'New', title:'Draft picks in Trade Center',
     items:[
       'Trade Center now prices draft picks in dynasty leagues using real trade-market values — a 2027 1st is worth what leagues actually pay for it, not a flat guess, and picks add into each side\'s total.',
@@ -13614,7 +13620,19 @@ function showPage(p, opts){
   const sidebarMap = {overview:'sl-overview',draft:'sl-draft',visual:'sl-visual',teams:'sl-teams',trade:'sl-trade',research:'sl-research',myteams:'sl-myteams',portfolio:'sl-portfolio',myrankings:'sl-myrankings'};
   if(sidebarMap[p]) document.getElementById(sidebarMap[p])?.classList.add('active');
   if(p==='overview') renderOverview();
-  if(p==='portfolio') renderPortfolio();
+  if(p==='portfolio'){
+    renderPortfolio();
+    // On the first paint of the session (a refresh/deep-link into /portfolio),
+    // restore the command sub-view the user was last on. The sub-views share
+    // this URL, so without this a refresh always drops back to the overview.
+    if(!window._pfViewRestored){
+      window._pfViewRestored = true;
+      try {
+        const saved = sessionStorage.getItem('vault-pf-view');
+        if(saved && saved !== 'overview' && typeof pfSetView === 'function') pfSetView(saved);
+      } catch(e){}
+    }
+  }
   // Season Sim: if the active league changed since the last run, the cached
   // results (and trade ideas) are stale, recompute against the new roster set.
   // _ssResults etc. are private to the Season Sim scope, so go through the
@@ -18028,6 +18046,24 @@ async function renderTeamsFromLeague(leagueId) {
     if (_lgCtx) fcEnsureBucket(_lgCtx);                      // warm before the first paint
     const lgVal = (name) => _lgValOf(name);
 
+    // Dynasty draft-pick capital per roster. Picks are real dynasty assets, so
+    // the Power Rankings fold them into each team's total; redraft leagues carry
+    // no future picks and skip this. Cached per league for the session so
+    // re-opening the tab doesn't refetch traded_picks each time.
+    let _picksByRoster = {};
+    if (_lgCtx && _lgCtx.dyn){
+      try { if (window.VaultTradeMarket && VaultTradeMarket.load) await VaultTradeMarket.load(); } catch(e){}
+      window._lhPicksCache = window._lhPicksCache || {};
+      const _pc = window._lhPicksCache[leagueId];
+      if (_pc && Date.now()-_pc.at < 5*60*1000){ _picksByRoster = _pc.picksByRoster; }
+      else {
+        const _nameByRoster = {};
+        (rosters||[]).forEach(r => { _nameByRoster[r.roster_id] = userMap[r.owner_id] || ('Team '+r.roster_id); });
+        _picksByRoster = await _tcOwnedPicksByRoster({ isDynasty:true, lg:_lgObj }, { rosters, nameByRoster:_nameByRoster }).catch(()=>({}));
+        window._lhPicksCache[leagueId] = { at:Date.now(), picksByRoster:_picksByRoster };
+      }
+    }
+
     const teamData = (rosters||[]).map((r, i) => {
       const ownerId = r.owner_id;
       const name = userMap[ownerId] || `Team ${i+1}`;
@@ -18074,7 +18110,14 @@ async function renderTeamsFromLeague(leagueId) {
       const totalVal = ages.reduce((s,x)=>s+x.val,0);
       const avgAge = totalVal>0 ? ages.reduce((s,x)=>s+(x.age*x.val),0)/totalVal : null;
 
-      return { idx:i, name, avatarUrl: avatarMap[ownerId] || '', roster: dedupedRoster, fcTotal, qbs, rbs, wrs, tes, best, bestFC:{value:bestVal}, trendSum, avgAge, isMe, ownerId };
+      const teamPicks = (_picksByRoster[r.roster_id]||[])
+        .map(pk => ({ season:pk.season, round:pk.round, orig:pk.orig, acquired:pk.acquired,
+                      fromName: userMap[rosterOwnerMap[pk.orig]] || ('Team '+pk.orig),
+                      v: _tcPickValue(pk, true) }))
+        .sort((a,b)=>b.v-a.v);
+      const picksVal = teamPicks.reduce((s,pk)=>s+pk.v,0);
+
+      return { idx:i, name, avatarUrl: avatarMap[ownerId] || '', roster: dedupedRoster, fcTotal, qbs, rbs, wrs, tes, best, bestFC:{value:bestVal}, trendSum, avgAge, isMe, ownerId, picks: teamPicks, picksVal };
     });
 
     renderPowerRankingsTable(teamData);
@@ -22773,6 +22816,11 @@ function pfSetView(v){
     taxi:     { el:'pf-view-taxi', title:'Taxi Manager', sub:'Stash eligible rookies and clear players who’ve aged out, across your dynasty leagues' },
   };
   if(!views[v]) v = 'overview';
+  window._pfView = v;
+  // Persist the active sub-view so a page refresh returns here instead of the
+  // overview. The command views all share the /portfolio URL, so the router
+  // can't tell them apart — this is what makes refresh land on the right one.
+  try { sessionStorage.setItem('vault-pf-view', v); } catch(e){}
   Object.entries(views).forEach(([key, cfg]) => {
     const el = document.getElementById(cfg.el);
     if(el) el.style.display = key === v ? '' : 'none';
@@ -36721,12 +36769,13 @@ body .page,body .page.on{background:transparent!important}
 
   /* ---------- playoff odds (transparent model) ---------- */
   function playoffModel(teams, rec){
-    const vals = teams.map(t=>t.fcTotal||0);
+    const tot = t => (t._total != null ? t._total : (t.fcTotal||0));
+    const vals = teams.map(tot);
     const vmin = Math.min.apply(null, vals.concat([0])), vmax = Math.max.apply(null, vals.concat([1])), vr = (vmax-vmin)||1;
     const scored = teams.map(t=>{
       const r = rec[t.ownerId] || { w:0,l:0,t:0,g:0 };
       const wp = r.g ? (r.w + 0.5*r.t)/r.g : 0.5;
-      const vp = ((t.fcTotal||0)-vmin)/vr;
+      const vp = (tot(t)-vmin)/vr;
       return { ownerId:t.ownerId, score: wp*0.62 + vp*0.38 };
     });
     scored.sort((a,b)=>b.score-a.score);
