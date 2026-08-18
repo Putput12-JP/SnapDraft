@@ -13088,6 +13088,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T18:30', tag:'New', title:'Draft picks in Trade Center',
+    items:[
+      'Trade Center now prices draft picks in dynasty leagues using real trade-market values — a 2027 1st is worth what leagues actually pay for it, not a flat guess, and picks add into each side\'s total.',
+      'Send Offer lets you attach your own picks and the other manager\'s picks to an offer, right alongside players. Acquired picks show which team they came from.',
+    ]
+  },
+  {
     ts:'2026-08-18T16:00', tag:'New', title:'Player Comparison is now its own page',
     items:[
       'Research → Player Comparison lines two players up in full-height cards, each with its own headshot, team-colored header and clean Metric / Value list.',
@@ -21751,7 +21758,24 @@ function _tcVal(name, lg){
   if(!c.ctx.dyn) return (window._redraft1QB && (window._redraft1QB[name]||{}).value) || (fc&&fc.redraftValue) || 0;
   return (fc&&fc.value) || 0;
 }
-const _tcPickVal = {1:3500, 2:1800, 3:800};
+// Flat fallback used only when the fitted market is cold or the pick isn't
+// dynasty — never leave a pick priced at 0.
+const _TC_PICK_FALLBACK = {1:3500, 2:1800, 3:800, 4:300, 5:150};
+const _TC_ORD = {1:'1st', 2:'2nd', 3:'3rd', 4:'4th', 5:'5th'};
+// Value one draft pick. Dynasty picks are priced off the fitted trade-market
+// model (VaultTradeMarket.pickValue — years-out aware, same FantasyCalc scale as
+// _tcVal so a pick and a player sum correctly); a cold model or a non-dynasty
+// pick falls back to the flat round table. Never returns 0 for a live pick.
+function _tcPickValue(pk, isDyn){
+  if(isDyn && pk && _TC_ORD[pk.round] && window.VaultTradeMarket && VaultTradeMarket.pickValue){
+    const v = VaultTradeMarket.pickValue(`${pk.season} ${_TC_ORD[pk.round]}`);
+    if(v != null) return v;
+  }
+  return _TC_PICK_FALLBACK[pk && pk.round] || 300;
+}
+// Rookie drafts run in May, so from June on "next year" is the following
+// calendar year — the same normalization VaultTradeMarket uses for pick keys.
+function _tcNextRookieYear(){ const d = new Date(); return d.getUTCMonth() <= 4 ? d.getUTCFullYear() : d.getUTCFullYear() + 1; }
 function _tcName(pid){ return (typeof globalPidToName!=='undefined' && globalPidToName[pid]) || ('#'+pid); }
 
 async function _tcLoadLeague(d, force){
@@ -21773,6 +21797,43 @@ async function _tcLoadLeague(d, force){
   const entry = { txns, nameByRoster, rosters, at: Date.now() };
   window._tcCache[lid] = entry;
   return entry;
+}
+
+// Each roster's tradeable future draft picks, for the offer composer. Picks only
+// matter in dynasty, so redraft leagues return {} and show no pick rows. Built
+// from Sleeper's traded_picks (roster_id = the pick's ORIGINAL owner, owner_id =
+// who holds it now) over the next three rookie drafts. Cached on the league
+// entry so re-opening / switching partners doesn't refetch.
+//   → { rosterId: [ {season, round, orig, acquired}, … ] }
+async function _tcOwnedPicksByRoster(d, entry){
+  if(entry._picksByRoster) return entry._picksByRoster;
+  const out = {};
+  entry._picksByRoster = out;
+  if(!d.isDynasty) return out;
+  const lg = d.lg, lid = lg.league_id;
+  const rounds = (lg.settings && lg.settings.draft_rounds) || 4;
+  const y0 = _tcNextRookieYear();
+  const seasons = [String(y0), String(y0+1), String(y0+2)];
+  let traded = [];
+  try { traded = await fetch(`https://api.sleeper.app/v1/league/${lid}/traded_picks`).then(r=>r.json()); } catch(e){}
+  // season|round|originalOwner -> current owner (Sleeper collapses a chain of
+  // trades to one entry naming the final owner, so a plain override is correct).
+  const override = {};
+  (traded||[]).forEach(tp => {
+    const s = String(tp.season);
+    if(seasons.includes(s)) override[`${s}|${tp.round}|${tp.roster_id}`] = tp.owner_id;
+  });
+  (entry.rosters||[]).forEach(r => {
+    const orig = r.roster_id;
+    seasons.forEach(season => {
+      for(let round=1; round<=rounds; round++){
+        const key = `${season}|${round}|${orig}`;
+        const owner = override.hasOwnProperty(key) ? override[key] : orig;
+        (out[owner] = out[owner] || []).push({ season, round, orig, acquired: owner!==orig });
+      }
+    });
+  });
+  return out;
 }
 
 // Classify one trade transaction relative to my roster in that league.
@@ -21799,8 +21860,9 @@ function _tcSide(t, rosterId, d, entry, kind){
     const pos = (typeof _pfLcPos==='function' && _pfLcPos(nm)) || '';
     return `<div class="cx-pchip"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,30):'')}" onerror="this.style.visibility='hidden'"><div class="pi"><div class="pn"><span>${nm}</span>${pos?`<span class="cx-pos ${pos}">${pos}</span>`:''}</div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
   }).concat(recvPicks.map(pk => {
-    const v = _tcPickVal[pk.round]||300; total += v;
-    return `<div class="cx-pchip"><span class="pav">${pk.round}</span><div class="pi"><div class="pn"><span>${pk.season} Round ${pk.round}</span> <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v.toLocaleString()}</span></div>`;
+    const v = _tcPickValue(pk, d.isDynasty); total += v;
+    const label = _TC_ORD[pk.round] ? `${pk.season} ${_TC_ORD[pk.round]}` : `${pk.season} Round ${pk.round}`;
+    return `<div class="cx-pchip"><span class="pav">${pk.round}</span><div class="pi"><div class="pn"><span>${label}</span> <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
   })).concat(faab.map(w => { total += (w.amount||0); return `<div class="cx-pchip"><span class="pav">$</span><div class="pi"><div class="pn">$${w.amount} FAAB</div></div></div>`; }));
   const label = kind==='get' ? 'You get' : 'You give';
   return { total, html: `<div class="cx-tside${kind==='get'?' get':''}">
@@ -21972,15 +22034,33 @@ async function tcOpenComposer(preLid, preRoster){
   const partnerId = preRoster || (partners[0] && partners[0].roster_id);
   const partner = partners.find(r => r.roster_id===partnerId) || partners[0];
   const myRoster = entry.rosters.find(r => r.roster_id===d.myRosterId);
+  const picksByRoster = await _tcOwnedPicksByRoster(d, entry).catch(()=>({}));
 
-  const list = (roster, side) => [...new Set((roster.players||[]).map(String))]
-    .map(pid => ({ pid, nm:_tcName(pid), v: Math.round(_tcVal(_tcName(pid), d.lg)) }))
-    .sort((a,b)=>b.v-a.v)
-    .map(p => `<label style="display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px;cursor:pointer">
+  const list = (roster, side) => {
+    const players = [...new Set((roster.players||[]).map(String))]
+      .map(pid => ({ pid, nm:_tcName(pid), v: Math.round(_tcVal(_tcName(pid), d.lg)) }))
+      .sort((a,b)=>b.v-a.v)
+      .map(p => `<label style="display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px;cursor:pointer">
         <input type="checkbox" data-tc-side="${side}" value="${p.pid}" onchange="tcComposerTotals()">
         <span style="flex:1;font-weight:600">${p.nm}</span>
         <span style="color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px">${p.v?p.v.toLocaleString():'—'}</span>
       </label>`).join('');
+    // Dynasty picks, valued off the fitted market, sorted high→low under a divider.
+    const picks = (picksByRoster[roster.roster_id]||[])
+      .map(pk => ({ pk, v:_tcPickValue(pk, d.isDynasty) }))
+      .sort((a,b)=>b.v-a.v)
+      .map(({pk,v}) => {
+        const label = `${pk.season} ${_TC_ORD[pk.round]||('R'+pk.round)}`;
+        const from = pk.acquired ? ` <span style="color:var(--muted);font-weight:500;font-size:10.5px">via ${entry.nameByRoster[pk.orig]||('Tm '+pk.orig)}</span>` : '';
+        return `<label style="display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px;cursor:pointer">
+        <input type="checkbox" data-tc-side="${side}" data-tc-pick='${JSON.stringify({season:pk.season,round:pk.round,orig:pk.orig})}' onchange="tcComposerTotals()">
+        <span style="flex:1;font-weight:600">${label}${from}</span>
+        <span style="color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px">${v?v.toLocaleString():'—'}</span>
+      </label>`;
+      }).join('');
+    const div = picks ? `<div style="margin:6px 2px 3px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border2);padding-top:6px">Picks</div>` : '';
+    return players + div + picks;
+  };
 
   pfLcModal({
     title: 'Send trade offer',
@@ -22005,18 +22085,27 @@ async function tcOpenComposer(preLid, preRoster){
         </div>
       </div>`,
     confirmLabel: 'Send offer',
-    note: 'Draft picks and FAAB can\'t be attached here yet — add those in Sleeper after sending, or send a players-only offer.',
+    note: d.isDynasty
+      ? 'Players and dynasty picks both send. FAAB can\'t be attached here yet — add that in Sleeper after sending.'
+      : 'FAAB can\'t be attached here yet — add that in Sleeper after sending, or send a players-only offer.',
     onConfirm: async () => {
-      const sel = side => [...document.querySelectorAll(`#pf-lc-modal input[data-tc-side="${side}"]:checked`)].map(i=>i.value);
+      const sel = side => [...document.querySelectorAll(`#pf-lc-modal input[data-tc-side="${side}"]:not([data-tc-pick]):checked`)].map(i=>i.value);
+      const pickSel = side => [...document.querySelectorAll(`#pf-lc-modal input[data-tc-pick][data-tc-side="${side}"]:checked`)].map(i=>JSON.parse(i.dataset.tcPick));
       const send = sel('send'), recv = sel('recv');
-      if(!send.length && !recv.length) throw new Error('Pick at least one player.');
+      const sendPicks = pickSel('send'), recvPicks = pickSel('recv');
+      if(!send.length && !recv.length && !sendPicks.length && !recvPicks.length) throw new Error('Pick at least one player or draft pick.');
       const adds = {}, drops = {};
       send.forEach(pid => { adds[pid]=partner.roster_id; drops[pid]=d.myRosterId; });
       recv.forEach(pid => { adds[pid]=d.myRosterId; drops[pid]=partner.roster_id; });
+      // Sleeper's draft_picks objects: roster_id = the pick's ORIGINAL owner,
+      // previous_owner_id = who holds it now, owner_id = who gets it in this trade.
+      const draftPicks = [];
+      sendPicks.forEach(p => draftPicks.push({ season:String(p.season), round:Number(p.round), roster_id:Number(p.orig), previous_owner_id:Number(d.myRosterId), owner_id:Number(partner.roster_id) }));
+      recvPicks.forEach(p => draftPicks.push({ season:String(p.season), round:Number(p.round), roster_id:Number(p.orig), previous_owner_id:Number(partner.roster_id), owner_id:Number(d.myRosterId) }));
       await VaultSleeper.proposeTrade({
         leagueId: lid, rosterId: d.myRosterId,
         rosterIds: [d.myRosterId, partner.roster_id],
-        adds, drops
+        adds, drops, draftPicks
       });
       delete window._tcCache[lid];
       setTimeout(()=>renderTradeCenter(true), 600);
@@ -22027,7 +22116,10 @@ async function tcOpenComposer(preLid, preRoster){
 function tcComposerTotals(){
   const d = _tcLeagues().find(x => x.lg.league_id === (document.getElementById('tc-cmp-league')||{}).value) || _tcLeagues()[0];
   const sum = side => [...document.querySelectorAll(`#pf-lc-modal input[data-tc-side="${side}"]:checked`)]
-    .reduce((s,i)=>s+Math.round(_tcVal(_tcName(i.value), d && d.lg)),0);
+    .reduce((s,i)=>{
+      if(i.dataset.tcPick){ try { return s + _tcPickValue(JSON.parse(i.dataset.tcPick), d && d.isDynasty); } catch(e){ return s; } }
+      return s + Math.round(_tcVal(_tcName(i.value), d && d.lg));
+    },0);
   const se=document.getElementById('tc-total-send'), re=document.getElementById('tc-total-recv');
   if(se) se.textContent = sum('send').toLocaleString();
   if(re) re.textContent = sum('recv').toLocaleString();
