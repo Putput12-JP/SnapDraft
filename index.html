@@ -13088,6 +13088,15 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T16:00', tag:'New', title:'Player Comparison is now its own page',
+    items:[
+      'Research → Player Comparison lines two players up in full-height cards, each with its own headshot, team-colored header and clean Metric / Value list.',
+      'Every stat is color-coded green / yellow / red so you can see at a glance who wins each category.',
+      'Pick players from the searchable list on the left — filter by position, or choose All to compare across positions (a running back vs a receiver shows the stats they share).',
+      'New Timeframe picker: compare a full season, a player\'s full career, or drill down to any single week.',
+    ]
+  },
+  {
     ts:'2026-08-18T14:30', tag:'Improved', title:'Betting now flags preseason games',
     items:[
       'Game Markets now clearly marks preseason matchups as PRESEASON so you don\'t mistake an exhibition line for a regular-season one.',
@@ -13525,7 +13534,7 @@ const PAGE_SLUGS = {
   research:'research',    myrankings:'rankings', draft:'draft',
   teams:'league',         betting:'betting', visual:'draft-room',
   myteams:'sync',         advstats:'stats',  gamelogs:'gamelogs',
-  seasonsim:'season-sim'
+  statcompare:'player-comparison', seasonsim:'season-sim'
 };
 const SLUG_PAGES = Object.fromEntries(Object.entries(PAGE_SLUGS).map(([p,s])=>[s,p]));
 function _slugForPage(p){ return PAGE_SLUGS[p] || p; }
@@ -13577,7 +13586,7 @@ function showPage(p, opts){
   document.getElementById(`nb-${p}`)?.classList.add('on');
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('on'));
   // Direct tab match, with aliases (trade page → Calc tab)
-  const tabAlias = { trade: 'tb-calc', visual: 'tb-draft', advstats: 'tb-research', gamelogs: 'tb-research', research: 'tb-research' };
+  const tabAlias = { trade: 'tb-calc', visual: 'tb-draft', advstats: 'tb-research', gamelogs: 'tb-research', statcompare: 'tb-research', research: 'tb-research' };
   const directTab = document.getElementById(tabAlias[p] || `tb-${p}`);
   if (directTab) directTab.classList.add('on');
   const pageDiv = document.getElementById(`page-${p}`);
@@ -30584,6 +30593,24 @@ window.VaultGradeCal = (function () {
       return rows;
     });
   }
+  // Rows for a subset of weeks of a season — same shape as buildRows, aggregated
+  // from just those weeks. `weeks` is one week or an array/set of week numbers.
+  // Reuses buildRow by swapping each player's weeks array to the picked slice.
+  function buildWeekRows(year, weeks) {
+    const set = new Set((Array.isArray(weeks) ? weeks : [weeks]).map(Number));
+    return fetchYear(year).then(m => {
+      const rows = [];
+      Object.keys(m || {}).forEach(n => {
+        const rec = m[n];
+        const wk = (rec.weeks || []).filter(w => set.has(Number(w.wk)));
+        if (!wk.length) return;
+        const row = buildRow(n, [Object.assign({}, rec, { weeks: wk })]);
+        if (row) rows.push(row);
+      });
+      applyAges(rows);
+      return rows;
+    });
+  }
   function applyAges(rows) {
     if (!_ageMap) return false;
     rows.forEach(r => { const a = _ageMap[normName(r.name)]; if (a != null) r.age = a; });
@@ -30985,7 +31012,7 @@ window.VaultGradeCal = (function () {
 
   window.RHData = {
     BASE, CURRENT, ARCHIVE_YEARS, POSSET,
-    fetchMeta, buildRows, applyAges, COLS, QUALIFY, LEADERS,
+    fetchMeta, buildRows, buildWeekRows, applyAges, COLS, QUALIFY, LEADERS,
     computeLeaders, percentiles, loadAges, meta: _meta,
     applyAdvanced, loadNGS, loadSnaps, loadInjuries, inOffseason,
     // game logs
@@ -31109,15 +31136,15 @@ window.VaultGradeCal = (function () {
 
   function asLoadSeason() {
     const s = AS.season;
-    if (AS.rowsCache[s]) { AS.rows = AS.rowsCache[s]; AS.loading = false; asRender(); return; }
-    AS.loading = true; AS.err = null; asRender();
+    if (AS.rowsCache[s]) { AS.rows = AS.rowsCache[s]; AS.loading = false; rhRenderActive(); return; }
+    AS.loading = true; AS.err = null; rhRenderActive();
     D.buildRows(s).then(rows => {
       AS.rowsCache[s] = rows; AS.rows = rows; AS.loading = false;
       if (!rows.length) AS.err = 'No data returned for ' + s + '.';
-      asRender();
-      D.loadAges().then(() => { if (D.applyAges(rows) && AS.season === s) asRender(); }).catch(() => {});
-      D.applyAdvanced(rows, s).then(ok => { if (ok && AS.season === s) asRender(); }).catch(() => {});
-    }).catch(e => { AS.err = e.message; AS.loading = false; asRender(); });
+      rhRenderActive();
+      D.loadAges().then(() => { if (D.applyAges(rows) && AS.season === s) rhRenderActive(); }).catch(() => {});
+      D.applyAdvanced(rows, s).then(ok => { if (ok && AS.season === s) rhRenderActive(); }).catch(() => {});
+    }).catch(e => { AS.err = e.message; AS.loading = false; rhRenderActive(); });
   }
 
   // A column is hidden if the user explicitly toggled it off, else by its
@@ -31338,6 +31365,7 @@ window.VaultGradeCal = (function () {
   function asRender() {
     const mount = document.getElementById('rh-adv-mount');
     if (!mount) return;
+    if (!POS_LIST.includes(AS.pos)) asUsePos('WR');   // data table has no ALL view
     const cols = D.COLS[AS.pos];
     const visCols = asVisCols();
     const { posRows, rows } = AS.loading ? { posRows: [], rows: [] } : asComputed();
@@ -31347,16 +31375,12 @@ window.VaultGradeCal = (function () {
     const statCols = visCols.length - cols.filter(c => c.group === 'info').length;
     const hiddenCount = Object.keys(AS.hidden).filter(k => AS.hidden[k]).length;
 
-    let middle;
-    if (AS.mode === 'compare') {
-      middle = cmpSectionHtml();
-    } else {
-      let main;
-      if (AS.loading) main = `<div class="rh-loading"><span class="spinner sm"></span> Loading ${esc(seasonLabel)} from nflverse…</div>`;
-      else if (AS.err) main = `<div class="rh-loading err">Couldn’t load data, ${esc(AS.err)}</div>`;
-      else { const liveCols = asLiveCols(visCols, posRows); main = asIsMobile() ? asMobileHtml(rows, liveCols)
-        : asLeadersHtml(posRows) + asTableHtml(rows, liveCols); }
-      middle = `
+    let main;
+    if (AS.loading) main = `<div class="rh-loading"><span class="spinner sm"></span> Loading ${esc(seasonLabel)} from nflverse…</div>`;
+    else if (AS.err) main = `<div class="rh-loading err">Couldn’t load data, ${esc(AS.err)}</div>`;
+    else { const liveCols = asLiveCols(visCols, posRows); main = asIsMobile() ? asMobileHtml(rows, liveCols)
+      : asLeadersHtml(posRows) + asTableHtml(rows, liveCols); }
+    const middle = `
       ${askHtml()}
       <div class="rh-tools">
         <div class="rh-search">
@@ -31369,7 +31393,6 @@ window.VaultGradeCal = (function () {
       </div>
       <div class="rh-status">${AS.pos} · ${esc(seasonLabel)} · <b>${rows.length}</b> of ${posRows.length} players${AS.qualified ? ' · qualified only' : ''}<span class="rh-status-dot">·</span> Updated ${esc(updated)}</div>
       ${main}`;
-    }
 
     mount.innerHTML = `
       <div class="rh-head">
@@ -31378,10 +31401,6 @@ window.VaultGradeCal = (function () {
           <div class="rh-rule"></div>
           <p class="rh-sub">Every advanced stat, sortable and searchable with the columns you choose. Live from nflverse + RosterAudit.</p>
           ${(D.inOffseason && D.inOffseason()) ? `<div class="rh-offnote">◷ ${esc(String(D.meta.detected))} season hasn’t started — showing ${esc(String(D.meta.current))}.</div>` : ''}
-        </div>
-        <div class="rh-modeseg">
-          <button class="${AS.mode === 'data' ? 'on' : ''}" data-rh-mode="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>Data</button>
-          <button class="${AS.mode === 'compare' ? 'on' : ''}" data-rh-mode="compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 8 3 12l4 4M17 8l4 4-4 4M14 4l-4 16"/></svg>Compare</button>
         </div>
       </div>
       <div class="rh-filters">
@@ -31393,116 +31412,254 @@ window.VaultGradeCal = (function () {
     if (AS.colMenu) asWireDrag(mount);
   }
 
+  // Player Comparison — its own Research page. Shares AS.rows / AS.season / AS.pos
+  // with Advanced Stats but renders the head-to-head cards instead of the table.
+  const SC_POS = ['QB', 'RB', 'WR', 'TE', 'ALL'];
+  function scRender() {
+    const mount = document.getElementById('rh-sc-mount');
+    if (!mount) return;
+    cmpPrefill();                     // seed top-2 once data is in (no-ops otherwise)
+    mount.innerHTML = `
+      <div class="rh-head">
+        <div>
+          <h1 class="rh-title">Player Comparison</h1>
+          <div class="rh-rule"></div>
+          <p class="rh-sub">Line up any two players side by side — every advanced stat, colour-coded so you can see who wins each category.</p>
+        </div>
+      </div>
+      <div class="rh-filters">
+        <div class="rh-fgroup"><span class="rh-flabel">Position</span><div class="rh-seg pos">${SC_POS.map(p => `<button class="rh-segbtn${AS.pos === p ? ' on' : ''}" data-rh-pos="${p}" style="${AS.pos === p && POS_COLOR[p] ? '--pc:' + POS_COLOR[p] : ''}">${p === 'ALL' ? 'All' : p}</button>`).join('')}</div></div>
+        <div class="rh-fgroup"><span class="rh-flabel">Timeframe</span><button class="rh-tfbtn" data-rh-tfopen><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>${esc(TF_LABEL())}</span><svg class="rh-tfbtn-ch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      </div>
+      ${cmpSectionHtml()}
+      <div class="rh-foot">Stats via <a href="https://github.com/nflverse" target="_blank" rel="noopener">nflverse</a> · age via <a href="https://rosteraudit.com" target="_blank" rel="noopener">RosterAudit</a></div>`;
+    scTfSync();
+  }
+
+  // The Timeframe modal lives on document.body (not inside the page) so its
+  // position:fixed overlay isn't trapped by the mobile shell's transformed
+  // ancestor. Kept in sync on open/close; body updates via scTfBody().
+  function scTfSync() {
+    let host = document.getElementById('rh-tf-host');
+    if (!host) { host = document.createElement('div'); host.id = 'rh-tf-host'; host.className = 'rh-scope'; document.body.appendChild(host); }
+    host.innerHTML = scTfModalHtml();
+  }
+
+  // Timeframe modal — Full Career / a season, plus an optional single week.
+  // Uses a draft (CMP.tfDraft) so nothing changes until Apply.
+  function scTfBodyHtml() {
+    const d = CMP.tfDraft || (CMP.tfDraft = { scope: AS.season, weeks: CMP.weeks.slice(), anchor: null });
+    const sel = new Set(d.weeks || []);
+    const scopes = [['all', 'Full Career'], ['2025', '2025']];
+    const weekLabel = d.scope === 'all' ? 'Full Career' : 'Full ' + d.scope;
+    const weekDisabled = d.scope === 'all';
+    const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
+    return `<div class="rh-tf-row">${scopes.map(([v, l]) => `<button class="rh-tf-chip${d.scope === v ? ' on' : ''}" data-rh-tfscope="${v}">${l}</button>`).join('')}</div>
+      <div class="rh-tf-row rh-tf-weeks${weekDisabled ? ' off' : ''}">
+        <button class="rh-tf-chip${sel.size === 0 ? ' on' : ''}" data-rh-tfweek="">${esc(weekLabel)}</button>
+        ${weeks.map(w => `<button class="rh-tf-chip wk${sel.has(w) ? ' on' : ''}" data-rh-tfweek="${w}">${w}</button>`).join('')}
+      </div>
+      ${weekDisabled ? '<div class="rh-tf-note">Weeks apply to a single season — pick 2025 to filter by week.</div>'
+        : '<div class="rh-tf-note">Click weeks to combine them (e.g. 4–9). Shift-click to select a range.</div>'}`;
+  }
+  function scTfModalHtml() {
+    if (!CMP.tfOpen) return '';
+    return `<div class="rh-tf-ov">
+      <div class="rh-tf-modal" role="dialog" aria-label="Timeframe">
+        <div class="rh-tf-head"><span class="rh-tf-title">Timeframe</span><button class="rh-tf-x" data-rh-tfcancel title="Close">×</button></div>
+        <div class="rh-tf-body" id="rh-tf-body">${scTfBodyHtml()}</div>
+        <div class="rh-tf-foot"><button class="rh-tf-cancel" data-rh-tfcancel>Cancel</button><button class="rh-tf-apply" data-rh-tfapply>Apply Timeframe</button></div>
+      </div>
+    </div>`;
+  }
+  function scTfBody() { const b = document.getElementById('rh-tf-body'); if (b) b.innerHTML = scTfBodyHtml(); }
+
+  // Re-render whichever Research data page is currently visible.
+  function rhRenderActive() {
+    if (document.getElementById('page-statcompare')?.classList.contains('on')) scRender();
+    else asRender();
+  }
+
   /* ════════════════════════ COMPARE ════════════════════════ */
-  const CMP = { players: [], search: '', acOpen: false };
+  const CMP = { players: [], search: '', acOpen: false, seeded: false,
+    // Timeframe: weeks === [] means the whole scope (AS.season, incl. 'all' = career);
+    // one or more week numbers restrict to those weeks of AS.season, aggregated.
+    weeks: [], tfRows: null, tfKey: '', tfLoading: false, tfOpen: false, tfDraft: null };
+
+  // Active row set for the comparison — the picked weeks' aggregated rows when a
+  // week filter is on, otherwise the season/career rows already in AS.rows.
+  function cmpRows() { return (CMP.weeks.length && CMP.tfRows) ? CMP.tfRows : AS.rows; }
+
+  // Load (and cache) the rows for the picked weeks, then re-render.
+  function scLoadWeeks() {
+    const key = AS.season + ':' + CMP.weeks.join(',');
+    if (CMP.tfKey === key && CMP.tfRows) { scRender(); return; }
+    CMP.tfLoading = true; scRender();
+    D.buildWeekRows(AS.season, CMP.weeks).then(rows => {
+      CMP.tfKey = key; CMP.tfRows = rows; CMP.tfLoading = false; scRender();
+      if (D.loadAges) D.loadAges().then(() => { D.applyAges(rows); if (CMP.weeks.length) scRender(); }).catch(() => {});
+    }).catch(() => { CMP.tfLoading = false; scRender(); });
+  }
+  // "Week 5" / "Weeks 4–9" (contiguous) / "5 Weeks" (scattered)
+  function tfWeeksLabel(weeks) {
+    const s = weeks.slice().sort((a, b) => a - b);
+    if (s.length === 1) return 'Week ' + s[0];
+    const contiguous = s.every((w, i) => i === 0 || w === s[i - 1] + 1);
+    return contiguous ? 'Weeks ' + s[0] + '–' + s[s.length - 1] : s.length + ' Weeks';
+  }
+  const TF_LABEL = () => AS.season === 'all' ? 'Full Career'
+    : (CMP.weeks.length ? AS.season + ' · ' + tfWeeksLabel(CMP.weeks) : 'Season ' + AS.season);
 
   function cmpData() {
-    const posRows = asPosRows();
+    const rows = cmpRows();
+    const posRows = AS.pos === 'ALL' ? rows.slice() : rows.filter(r => r.pos === AS.pos);
     const byName = {};
-    posRows.forEach(r => { byName[r.name] = r; });
+    posRows.forEach(r => { if (!byName[r.name]) byName[r.name] = r; });
     const players = CMP.players.map(n => byName[n]).filter(Boolean);
     return { posRows, players };
   }
 
-  function cmpAcHtml() {
-    if (!CMP.acOpen) return '';
-    const { posRows } = cmpData();
-    const chosen = {}; CMP.players.forEach(n => { chosen[n] = 1; });
-    const s = CMP.search.trim().toLowerCase();
-    let pool = posRows.filter(p => !chosen[p.name]);
-    pool = s ? pool.filter(p => p.name.toLowerCase().includes(s) || (p.team || '').toLowerCase().includes(s)) : pool;
-    pool = pool.sort((a, b) => (b.fpts || 0) - (a.fpts || 0)).slice(0, 8);
-    const items = pool.length ? pool.map(p => `<button class="rh-ac-item" data-rh-cmpadd="${esc(p.name)}">${avatar(p, 'rh-ac-av')}<span class="rh-ac-name">${esc(p.name)}</span><span class="rh-ac-meta">${esc(p.team)} · ${r1(p.fppg)} FP/G</span></button>`).join('') : '<div class="rh-ac-empty">No players found</div>';
-    return `<div class="rh-ac">${items}</div>`;
-  }
-
   function cmpSectionHtml() {
-    if (AS.loading) return `<div class="rh-loading"><span class="spinner sm"></span> Loading players…</div>`;
+    if (AS.loading || CMP.tfLoading) return `<div class="rh-loading"><span class="spinner sm"></span> Loading ${CMP.tfLoading ? esc(TF_LABEL()) : 'players'}…</div>`;
     const { players } = cmpData();
-    const cols = D.COLS[AS.pos];
-
-    // table is built first so the header cards can carry each player's stat-win tally
-    let body, wins = players.map(() => 0), statTotal = 0;
-    if (players.length < 2) {
-      body = `<div class="rh-cmp-empty"><div class="rh-cmp-empty-ic">⇄</div><div class="rh-cmp-empty-t">Compare ${AS.pos}s head-to-head</div><div class="rh-cmp-empty-s">Add at least two players above to line up every advanced metric side by side. The leader in each stat is highlighted.</div></div>`;
+    const show = players.slice(0, 2);           // capped at two, Flock-style
+    // On ALL, the two players may be different positions — use the columns their
+    // positions share (matched by key), so a WR-vs-RB compare keeps only the
+    // stats both actually track. Same-position (or single-position) is unchanged.
+    let cols;
+    if (AS.pos === 'ALL') {
+      const sets = show.map(p => D.COLS[p.pos]).filter(Boolean);
+      if (sets.length) { const keyOK = k => sets.every(cs => cs.some(c => c.key === k)); cols = sets[0].filter(c => keyOK(c.key)); }
+      else cols = D.COLS.WR;
     } else {
-      const t = cmpTableHtml(players, cols);
-      body = t.html; wins = t.wins; statTotal = t.statTotal;
+      cols = D.COLS[AS.pos] || D.COLS.WR;
     }
-    const bestWins = Math.max.apply(null, wins.concat([0]));
 
-    const slotCards = players.map((p, i) => `
-      <div class="rh-cmp-slot filled" style="--pc:${POS_COLOR[p.pos]}">
-        <button class="rh-cmp-x" data-rh-cmpremove="${esc(p.name)}" title="Remove">×</button>
-        ${avatar(p, 'rh-cmp-av')}
-        <div class="rh-cmp-sid">
-          <div class="rh-cmp-sname">${esc(p.name)}</div>
-          <div class="rh-cmp-smeta"><span class="rh-pos" style="color:${POS_COLOR[p.pos]};border-color:${POS_COLOR[p.pos]}40;background:${POS_COLOR[p.pos]}14">${esc(p.pos)}</span>${esc(p.team)}${p.age != null ? ' · ' + p.age.toFixed(1) + 'y' : ''}</div>
-          ${statTotal ? `<div class="rh-cmp-swins${wins[i] === bestWins && bestWins > 0 ? ' lead' : ''}">${wins[i] === bestWins && bestWins > 0 ? '▲ ' : ''}Leads ${wins[i]} of ${statTotal} stats</div>` : ''}
-        </div>
-        <div class="rh-cmp-spts">${r1(p.fppg)}<small>FP/G · ${p.g} G</small></div>
-      </div>`).join('');
-    const addSlot = players.length < 3 ? `
-      <div class="rh-cmp-slot add">
-        <div class="rh-cmp-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input id="rh-cmp-search" placeholder="Add ${AS.pos}…" autocomplete="off" spellcheck="false">
-          <div id="rh-cmp-ac" class="rh-ac-host"></div>
-        </div>
-        <span class="rh-cmp-addhint">${players.length === 0 ? 'Pick a player' : players.length === 1 ? 'Add one more' : 'Add a third (optional)'}</span>
-      </div>` : '';
-    const clearBtn = players.length ? `<button class="rh-cmp-clear" data-rh-cmpclear>Clear all</button>` : '';
+    // shared metric list: every non-info column at least one shown player has a value for
+    const metrics = cols.filter(c => c.group !== 'info' && typeof c.fmt === 'function'
+      && show.some(p => p[c.key] != null && isFinite(p[c.key])));
+    const ctx = { rank: cmpPosRank(), metrics };
+
+    let cardsHtml;
+    if (show.length < 2) {
+      const filled = show.map(p => cmpCardHtml(p, null, ctx)).join('');
+      const ghosts = Array.from({ length: 2 - show.length }, () =>
+        `<div class="rh-cmp-ghost"><div class="rh-cmp-ghost-ic">⇄</div><div class="rh-cmp-ghost-t">Pick a ${AS.pos === 'ALL' ? 'player' : AS.pos}</div><div class="rh-cmp-ghost-s">Choose from the list to line up every advanced stat side by side.</div></div>`).join('');
+      cardsHtml = filled + ghosts;
+    } else {
+      cardsHtml = cmpCardHtml(show[0], show[1], ctx) + cmpCardHtml(show[1], show[0], ctx);
+    }
+    const clearBtn = players.length ? `<button class="rh-cmp-clear" data-rh-cmpclear>Clear</button>` : '';
 
     return `<div class="rh-cmp">
-      <div class="rh-cmp-top"><span class="rh-cmp-cap">Head-to-head · ${AS.pos} · ${AS.season === 'all' ? 'All seasons' : AS.season}</span>${clearBtn}</div>
-      <div class="rh-cmp-slots">${slotCards}${addSlot}</div>
-      ${body}
+      <div class="rh-cmp-top"><span class="rh-cmp-cap">Head-to-head · ${AS.pos === 'ALL' ? 'All positions' : AS.pos} · ${AS.season === 'all' ? 'All seasons' : AS.season}</span>${clearBtn}</div>
+      <div class="rh-cmp-layout">
+        <div class="rh-cmp-rail">
+          <div class="rh-cmp-railsearch">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="rh-cmp-search" placeholder="Search ${AS.pos === 'ALL' ? 'players' : AS.pos}…" autocomplete="off" spellcheck="false" value="${esc(CMP.search)}">
+          </div>
+          <div class="rh-cmp-raillist" id="rh-cmp-raillist">${cmpRailListHtml()}</div>
+        </div>
+        <div class="rh-cmp-cards">${cardsHtml}</div>
+      </div>
     </div>`;
   }
 
-  function cmpTableHtml(players, cols) {
-    const groups = [];
-    cols.forEach(c => { const last = groups[groups.length - 1]; if (last && last.key === c.group) last.cols.push(c); else groups.push({ key: c.group, cols: [c] }); });
-    const headCols = players.map(p => `<th class="rh-cmp-ph"><span class="rh-cmp-ph-in">${avatar(p, 'rh-cmp-ph-av')}<span class="rh-cmp-ph-txt"><span class="rh-cmp-ph-name">${esc(p.name.split(' ').slice(-1)[0])}</span><span class="rh-cmp-ph-team">${esc(p.team)}</span></span></span></th>`).join('');
-    let rowsHtml = '';
-    const wins = players.map(() => 0);
-    let statTotal = 0;
-    groups.forEach(g => {
-      // only show metrics at least one player has a value for (keeps NGS rows
-      // from filling the table with em-dashes when that feed isn't in yet)
-      const liveCols = g.cols.filter(c => players.some(p => p[c.key] != null && isFinite(p[c.key])));
-      if (!liveCols.length) return;
-      rowsHtml += `<tr class="rh-cmp-grouprow"><td colspan="${players.length + 1}"><span class="tick"></span>${GROUP_LABEL[g.key] || ''}</td></tr>`;
-      liveCols.forEach(c => {
-        const vals = players.map(p => p[c.key]);
-        const valid = vals.filter(v => v != null && isFinite(v));
-        const lo = !!c.lo;
-        let best = null;
-        if (valid.length) best = lo ? Math.min.apply(null, valid) : Math.max.apply(null, valid);
-        const contested = valid.length > 1 && valid.some(x => x !== best);
-        if (contested) statTotal++;
-        const maxAbs = Math.max.apply(null, valid.map(v => Math.abs(v)).concat([1]));
-        const cells = players.map((p, idx) => {
-          const v = vals[idx];
-          const isWin = v != null && isFinite(v) && best != null && v === best && contested;
-          if (isWin) wins[idx]++;
-          const pct = (v != null && isFinite(v)) ? Math.max(4, Math.abs(v) / maxAbs * 100) : 0;
-          return `<td class="rh-cmp-cell${isWin ? ' win' : ''}"><span class="rh-cmp-v">${esc(c.fmt(v))}${isWin ? '<span class="rh-cmp-crown">▲</span>' : ''}</span><span class="rh-cmp-track"><span class="rh-cmp-bar" style="width:${pct}%"></span></span></td>`;
-        }).join('');
-        rowsHtml += `<tr class="rh-cmp-row"><td class="rh-cmp-metric" title="${esc(c.hint)}">${esc(c.label)}<small>${esc(c.hint)}</small></td>${cells}</tr>`;
-      });
+  // position finish (WR6 etc.) by season fantasy points — always ranked WITHIN each
+  // position, so the label is right even on the ALL view where the two players can
+  // be different positions.
+  function cmpPosRank() {
+    const m = {}; const rows = cmpRows();
+    ['QB', 'RB', 'WR', 'TE'].forEach(pos => {
+      rows.filter(r => r.pos === pos).sort((a, b) => (b.fpts || 0) - (a.fpts || 0)).forEach((r, i) => { m[r.name] = i + 1; });
     });
-    return { html: `<div class="rh-cmp-tablewrap"><table class="rh-cmp-table"><thead><tr><th class="rh-cmp-mh">Metric</th>${headCols}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`, wins, statTotal };
+    return m;
   }
 
-  function cmpRenderAc() {
-    const host = document.getElementById('rh-cmp-ac');
-    if (host) host.innerHTML = cmpAcHtml();
+  // per-cell colour vs the OTHER card: green = leader or within 6%, yellow = moderate
+  // gap, red = big gap. Drives the Flock-style value tiers.
+  function cellTier(v, other, lo) {
+    if (v == null || !isFinite(v)) return 'na';
+    if (other == null || !isFinite(other)) return 'mid';
+    if (v === other) return 'good';
+    if (lo ? v < other : v > other) return 'good';
+    const rel = Math.abs(v - other) / Math.max(Math.abs(v), Math.abs(other), 1e-6);
+    return rel < 0.06 ? 'good' : rel < 0.22 ? 'mid' : 'bad';
   }
-  function cmpPrefill() {
-    if (CMP.players.length || AS.loading) return;
-    const top = asPosRows().filter(D.QUALIFY[AS.pos]).sort((a, b) => (b.fpts || 0) - (a.fpts || 0));
-    CMP.players = top.slice(0, 2).map(p => p.name);
+
+  function cmpRailListHtml() {
+    const { posRows } = cmpData();
+    const chosen = {}; CMP.players.forEach(n => { chosen[n] = 1; });
+    const rank = cmpPosRank();
+    const s = CMP.search.trim().toLowerCase();
+    let pool = posRows.slice().sort((a, b) => (b.fpts || 0) - (a.fpts || 0));
+    if (s) pool = pool.filter(p => p.name.toLowerCase().includes(s) || (p.team || '').toLowerCase().includes(s));
+    pool = pool.slice(0, 60);
+    if (!pool.length) return '<div class="rh-cmp-railempty">No players found</div>';
+    const full = CMP.players.length >= 2;
+    return pool.map(p => {
+      const on = chosen[p.name]; const col = POS_COLOR[p.pos];
+      return `<button class="rh-cmp-prow${on ? ' on' : ''}${full && !on ? ' full' : ''}" data-rh-cmpadd="${esc(p.name)}" style="--pc:${col}">
+        ${avatar(p, 'rh-cmp-prav')}
+        <span class="rh-cmp-prid">
+          <span class="rh-cmp-prname">${esc(p.name)}</span>
+          <span class="rh-cmp-prtags"><span class="rh-cmp-prpos" style="background:${col}">${esc(p.pos)}${rank[p.name] ? ' ' + rank[p.name] : ''}</span><span class="rh-cmp-prteam">${esc(p.team || 'FA')}</span></span>
+        </span>
+      </button>`;
+    }).join('');
+  }
+  function cmpRenderRail() {
+    const host = document.getElementById('rh-cmp-raillist');
+    if (host) host.innerHTML = cmpRailListHtml();
+  }
+
+  // one Flock-format card: tinted header + Metric | Value table, coloured vs `other`
+  function cmpCardHtml(p, other, ctx) {
+    const col = POS_COLOR[p.pos];
+    const rk = ctx.rank[p.name];
+    const headline = [
+      { k: 'FP/G', v: p.fppg, ov: other ? other.fppg : null, lo: false, fmt: v => r1(v) },
+      { k: p.pos + ' Finish', v: rk, ov: other ? ctx.rank[other.name] : null, lo: true, fmt: v => p.pos + ' ' + v },
+    ];
+    const rowHtml = (label, hint, v, ov, lo, fmt) => {
+      const t = cellTier(v, ov, lo);
+      const val = (v != null && isFinite(v)) ? fmt(v) : '—';
+      return `<div class="rh-cmp-mrow"><span class="rh-cmp-k">${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span><span class="rh-cmp-val ${t}">${esc(val)}</span></div>`;
+    };
+    const headRows = headline.map(h => rowHtml(h.k, '', h.v, h.ov, h.lo, h.fmt)).join('');
+    const statRows = ctx.metrics.map(c => rowHtml(c.label, c.hint, p[c.key], other ? other[c.key] : null, !!c.lo, c.fmt)).join('');
+    return `<div class="rh-cmp-card" style="--pc:${col}">
+      <div class="rh-cmp-chead">
+        <span class="rh-cmp-wm">${esc(p.team || '')}</span>
+        <button class="rh-cmp-cx" data-rh-cmpremove="${esc(p.name)}" title="Remove">×</button>
+        ${avatar(p, 'rh-cmp-hs')}
+        <div class="rh-cmp-hid">
+          <div class="rh-cmp-hname">${esc(p.name)}</div>
+          <div class="rh-cmp-hsub"><span class="rh-cmp-rk">${esc(p.pos)}${rk || ''}</span><span class="rh-cmp-htm">${esc(p.team || 'FA')}${p.age != null ? ' · ' + p.age.toFixed(1) + 'y' : ''}</span></div>
+        </div>
+      </div>
+      <div class="rh-cmp-cmeta"><span class="rh-cmp-tf">Timeframe <b>${esc(TF_LABEL().toUpperCase())}</b></span><span class="rh-cmp-gp">${p.g != null ? p.g + ' G' : ''}</span></div>
+      <div class="rh-cmp-mtab">
+        <div class="rh-cmp-mhrow"><span>Metric</span><span>Value</span></div>
+        <div class="rh-cmp-emph">${headRows}</div>
+        <div class="rh-cmp-mdiv"></div>
+        ${statRows}
+      </div>
+    </div>`;
+  }
+
+  // Seed the two cards with the position's top scorers. Runs once (`seeded`), so it
+  // NEVER refills after the user clears or empties the picks — pass force=true only
+  // on a position switch, where re-seeding the new position's top 2 is what's wanted.
+  function cmpPrefill(force) {
+    if (AS.loading) return;
+    if (!force && (CMP.seeded || CMP.players.length)) return;
+    const rows = cmpRows();
+    const pool = AS.pos === 'ALL' ? rows.slice()
+      : rows.filter(r => r.pos === AS.pos).filter(D.QUALIFY[AS.pos] || (() => true));
+    CMP.players = pool.sort((a, b) => (b.fpts || 0) - (a.fpts || 0)).slice(0, 2).map(p => p.name);
+    CMP.seeded = true;
   }
 
   /* ════════════════════ ASK THE DATA (local query box) ════════════════════
@@ -31730,15 +31887,16 @@ window.VaultGradeCal = (function () {
 
   /* ════════════════════════ EVENT DELEGATION ════════════════════════ */
   document.addEventListener('click', e => {
-    // ── Advanced Stats ──
-    const adv = e.target.closest('#page-advstats');
+    // ── Advanced Stats + Player Comparison (shared filters) ──
+    const adv = e.target.closest('#page-advstats, #page-statcompare');
     if (adv) {
-      const pos = e.target.closest('[data-rh-pos]'); if (pos) { asUsePos(pos.dataset.rhPos); AS.sortKey = 'fpts'; AS.sortDir = 'desc'; AS.colMenu = false; CMP.players = []; CMP.search = ''; CMP.acOpen = false; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
+      const pos = e.target.closest('[data-rh-pos]'); if (pos) { asUsePos(pos.dataset.rhPos); AS.sortKey = 'fpts'; AS.sortDir = 'desc'; AS.colMenu = false; CMP.players = []; CMP.search = ''; if (adv.id === 'page-statcompare') cmpPrefill(true); rhRenderActive(); return; }
       const ssn = e.target.closest('[data-rh-season]'); if (ssn) { AS.season = ssn.dataset.rhSeason; AS._userSeason = true; asLoadSeason(); return; }
-      const mode = e.target.closest('[data-rh-mode]'); if (mode) { AS.mode = mode.dataset.rhMode; if (AS.mode === 'compare') cmpPrefill(); asRender(); return; }
-      const cmpAdd = e.target.closest('[data-rh-cmpadd]'); if (cmpAdd) { const n = cmpAdd.dataset.rhCmpadd; if (CMP.players.indexOf(n) < 0 && CMP.players.length < 3) CMP.players.push(n); CMP.search = ''; CMP.acOpen = false; asRender(); return; }
-      const cmpRm = e.target.closest('[data-rh-cmpremove]'); if (cmpRm) { CMP.players = CMP.players.filter(x => x !== cmpRm.dataset.rhCmpremove); asRender(); return; }
-      const cmpClr = e.target.closest('[data-rh-cmpclear]'); if (cmpClr) { CMP.players = []; CMP.search = ''; CMP.acOpen = false; asRender(); return; }
+      const cmpAdd = e.target.closest('[data-rh-cmpadd]'); if (cmpAdd) { const n = cmpAdd.dataset.rhCmpadd; const i = CMP.players.indexOf(n); if (i >= 0) CMP.players.splice(i, 1); else if (CMP.players.length < 2) CMP.players.push(n); else CMP.players = [CMP.players[1], n]; scRender(); return; }
+      const cmpRm = e.target.closest('[data-rh-cmpremove]'); if (cmpRm) { CMP.players = CMP.players.filter(x => x !== cmpRm.dataset.rhCmpremove); scRender(); return; }
+      const cmpClr = e.target.closest('[data-rh-cmpclear]'); if (cmpClr) { CMP.players = []; CMP.search = ''; CMP.seeded = true; scRender(); return; }
+      // Timeframe trigger (the modal itself is handled at document level, below)
+      const tfOpen = e.target.closest('[data-rh-tfopen]'); if (tfOpen) { CMP.tfOpen = true; CMP.tfDraft = { scope: AS.season, weeks: CMP.weeks.slice(), anchor: null }; scTfSync(); return; }
       const ask = e.target.closest('[data-rh-ask]'); if (ask) { askRun(); return; }
       const qual = e.target.closest('[data-rh-qual]'); if (qual) { AS.qualified = !AS.qualified; asRender(); return; }
       const clr = e.target.closest('[data-rh-clear]'); if (clr) { AS.search = ''; asRender(); return; }
@@ -31754,7 +31912,6 @@ window.VaultGradeCal = (function () {
         return;
       }
       if (AS.colMenu && !e.target.closest('.rh-colmenu') && !e.target.closest('[data-rh-colmenu]')) { AS.colMenu = false; asRender(); }
-      if (CMP.acOpen && !e.target.closest('.rh-cmp-search')) { CMP.acOpen = false; cmpRenderAc(); }
       return;
     }
     // ── Game Logs ──
@@ -31771,9 +31928,32 @@ window.VaultGradeCal = (function () {
     if (GL.acOpen) { GL.acOpen = false; glRenderAc(); }
   });
 
+  // Timeframe modal controls — the modal lives on document.body, so these are
+  // handled here rather than inside the page-scoped block above.
+  document.addEventListener('click', e => {
+    if (!CMP.tfOpen) return;
+    const tfScope = e.target.closest('[data-rh-tfscope]'); if (tfScope) { CMP.tfDraft = CMP.tfDraft || { scope: AS.season, weeks: CMP.weeks.slice(), anchor: null }; CMP.tfDraft.scope = tfScope.dataset.rhTfscope; if (CMP.tfDraft.scope === 'all') { CMP.tfDraft.weeks = []; CMP.tfDraft.anchor = null; } scTfBody(); return; }
+    const tfWeek = e.target.closest('[data-rh-tfweek]'); if (tfWeek) {
+      if (tfWeek.closest('.rh-tf-weeks.off')) return;
+      CMP.tfDraft = CMP.tfDraft || { scope: AS.season, weeks: CMP.weeks.slice(), anchor: null };
+      const raw = tfWeek.dataset.rhTfweek;
+      if (raw === '') { CMP.tfDraft.weeks = []; CMP.tfDraft.anchor = null; }
+      else {
+        const w = Number(raw); const set = new Set(CMP.tfDraft.weeks);
+        if (e.shiftKey && CMP.tfDraft.anchor != null) { const lo = Math.min(w, CMP.tfDraft.anchor), hi = Math.max(w, CMP.tfDraft.anchor); for (let k = lo; k <= hi; k++) set.add(k); }
+        else { set.has(w) ? set.delete(w) : set.add(w); CMP.tfDraft.anchor = w; }
+        CMP.tfDraft.weeks = [...set].sort((a, b) => a - b);
+      }
+      scTfBody(); return;
+    }
+    const tfApply = e.target.closest('[data-rh-tfapply]'); if (tfApply) { const d = CMP.tfDraft || { scope: AS.season, weeks: CMP.weeks.slice() }; CMP.tfOpen = false; CMP.tfDraft = null; scTfSync(); AS.season = d.scope; AS._userSeason = true; CMP.weeks = (d.weeks || []).slice(); CMP.tfRows = null; CMP.tfKey = ''; if (CMP.weeks.length) scLoadWeeks(); else asLoadSeason(); return; }
+    const tfCancel = e.target.closest('[data-rh-tfcancel]'); if (tfCancel) { CMP.tfOpen = false; CMP.tfDraft = null; scTfSync(); return; }
+    if (e.target.classList.contains('rh-tf-ov')) { CMP.tfOpen = false; CMP.tfDraft = null; scTfSync(); return; }
+  });
+
   document.addEventListener('input', e => {
     if (e.target.id === 'rh-adv-search') { AS.search = e.target.value; AS._focus = true; asRenderSearchOnly(); }
-    if (e.target.id === 'rh-cmp-search') { CMP.search = e.target.value; CMP.acOpen = true; cmpRenderAc(); }
+    if (e.target.id === 'rh-cmp-search') { CMP.search = e.target.value; cmpRenderRail(); }
     if (e.target.id === 'rh-gl-search') { GL.acQuery = e.target.value; GL.acOpen = true; glRenderAc(); }
     if (e.target.id === 'rh-ask-input') { ASK.q = e.target.value; }
   });
@@ -31786,7 +31966,7 @@ window.VaultGradeCal = (function () {
   });
   document.addEventListener('focusin', e => {
     if (e.target.id === 'rh-gl-search') { GL.acOpen = true; glRenderAc(); }
-    if (e.target.id === 'rh-cmp-search') { CMP.acOpen = true; cmpRenderAc(); }
+    if (e.target.id === 'rh-cmp-search') { cmpRenderRail(); }
   });
 
   // Advanced search: re-render but preserve the input focus/caret
@@ -31873,7 +32053,7 @@ window.VaultGradeCal = (function () {
     ${S} .rh-lcard-val{font-family:var(--font-mono);font-size:var(--t-label);font-weight:600;color:var(--text2);margin-top:3px}
     ${S} .rh-av,.rh-ac-av,.rh-head-av{position:relative}
     ${S} .rh-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;z-index:1}
-    ${S} .rh-av img,.rh-lcard-av img,.rh-ac-av img,.rh-head-av img{position:relative;z-index:2;width:100%;height:100%;object-fit:cover;object-position:top center}
+    ${S} .rh-av img,.rh-lcard-av img,.rh-ac-av img,.rh-head-av img,.rh-cmp-hs img,.rh-cmp-prav img{position:relative;z-index:2;width:100%;height:100%;object-fit:cover;object-position:top center}
     ${S} .rh-tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--s1)}
     ${S} .rh-table{border-collapse:separate;border-spacing:0;width:100%;min-width:max-content;font-family:var(--font-sans)}
     ${S} .rh-grouprow .rh-gh{position:sticky;top:0;z-index:5;background:var(--s2);font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:600;text-align:center;padding:10px 8px;border-bottom:1px solid var(--border)}
@@ -32007,6 +32187,98 @@ window.VaultGradeCal = (function () {
     ${S} .rh-cmp-cell.win .rh-cmp-bar{background:var(--rb)}
     ${S} .rh-cmp-crown{font-size:var(--t-nano);color:var(--rb)}
     @media(max-width:760px){${S} .rh-cmp-slots{grid-template-columns:1fr}${S} .rh-cmp-mh{width:34%}${S} .rh-cmp-metric small{display:none}${S} .rh-cmp-cell{padding:7px 8px 0}${S} .rh-cmp-x{opacity:1}${S} .rh-cmp-ph-txt{display:none}}
+    /* ── Compare · Flock-format two-card layout ── */
+    ${S} .rh-cmp{max-width:1300px;--v-good:var(--rb);--v-good-bg:color-mix(in srgb,var(--rb) 14%,transparent);--v-mid:var(--te);--v-mid-bg:color-mix(in srgb,var(--te) 13%,transparent);--v-bad:var(--red2);--v-bad-bg:color-mix(in srgb,var(--red) 15%,transparent)}
+    ${S} .rh-cmp-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+    ${S} .rh-cmp-rail{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;position:sticky;top:16px}
+    ${S} .rh-cmp-railsearch{display:flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--border2);border-radius:11px;padding:11px 13px;margin-bottom:12px;transition:border-color .15s}
+    ${S} .rh-cmp-railsearch:focus-within{border-color:var(--rh-border3)}
+    ${S} .rh-cmp-railsearch svg{width:16px;height:16px;color:var(--muted);flex-shrink:0}
+    ${S} .rh-cmp-railsearch input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--text);font-size:var(--t-secondary);font-family:var(--font-sans)}
+    ${S} .rh-cmp-raillist{display:flex;flex-direction:column;gap:7px;max-height:72vh;overflow-y:auto;padding-right:3px}
+    ${S} .rh-cmp-raillist::-webkit-scrollbar{width:7px}
+    ${S} .rh-cmp-raillist::-webkit-scrollbar-thumb{background:var(--s4);border-radius:99px}
+    ${S} .rh-cmp-prow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:8px 9px;border-radius:12px;background:var(--s2);border:1px solid var(--border);color:var(--text);cursor:pointer;transition:border-color .14s,opacity .14s}
+    ${S} .rh-cmp-prow:hover{border-color:var(--rh-border3)}
+    ${S} .rh-cmp-prow.on{border-color:var(--pc);box-shadow:inset 0 0 0 1px var(--pc)}
+    ${S} .rh-cmp-prow.full{opacity:.48}
+    ${S} .rh-cmp-prow.full:hover{opacity:.85}
+    ${S} .rh-cmp-prow:active{transform:scale(var(--press-row))}
+    ${S} .rh-cmp-prav{position:relative;width:40px;height:40px;border-radius:10px;overflow:hidden;background:var(--s3);border:1px solid var(--border2);font-size:var(--t-secondary);flex-shrink:0}
+    ${S} .rh-cmp-prid{min-width:0;display:flex;flex-direction:column;gap:5px}
+    ${S} .rh-cmp-prname{font-size:var(--t-secondary);font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-sans)}
+    ${S} .rh-cmp-prtags{display:flex;align-items:center;gap:6px}
+    ${S} .rh-cmp-prpos{font-size:var(--t-nano);font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:5px;color:var(--pos-ink);line-height:1}
+    ${S} .rh-cmp-prteam{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted);letter-spacing:.04em}
+    ${S} .rh-cmp-railempty{padding:22px;text-align:center;color:var(--muted);font-size:var(--t-secondary)}
+    ${S} .rh-cmp-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+    ${S} .rh-cmp-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-card)}
+    ${S} .rh-cmp-chead{position:relative;display:flex;align-items:center;gap:15px;padding:18px 18px 16px;overflow:hidden;background:linear-gradient(120deg,color-mix(in srgb,var(--pc) 52%,var(--s1)) 0%,color-mix(in srgb,var(--pc) 18%,var(--s1)) 62%,var(--s1) 100%)}
+    ${S} .rh-cmp-wm{position:absolute;right:-4px;top:50%;transform:translateY(-50%);font-family:var(--font-sans);font-size:76px;font-weight:900;letter-spacing:-.04em;line-height:1;color:rgba(255,255,255,.08);white-space:nowrap;pointer-events:none}
+    [data-theme="light"] ${S} .rh-cmp-wm{color:rgba(0,0,0,.05)}
+    ${S} .rh-cmp-hs{position:relative;width:76px;height:76px;border-radius:14px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);font-size:var(--t-h1);z-index:1}
+    ${S} .rh-cmp-hid{z-index:1;min-width:0}
+    ${S} .rh-cmp-hname{font-size:var(--t-title);font-weight:900;letter-spacing:-.025em;line-height:1.02;font-family:var(--font-sans);color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.35)}
+    [data-theme="light"] ${S} .rh-cmp-hname{color:var(--text);text-shadow:none}
+    ${S} .rh-cmp-hsub{display:flex;align-items:center;gap:8px;margin-top:7px}
+    ${S} .rh-cmp-rk{font-size:var(--t-micro);font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.32);color:#fff;letter-spacing:.03em}
+    ${S} .rh-cmp-htm{font-family:var(--font-mono);font-size:var(--t-secondary);font-weight:600;color:rgba(255,255,255,.86)}
+    [data-theme="light"] ${S} .rh-cmp-htm{color:var(--text2)}
+    ${S} .rh-cmp-cx{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.32);color:#fff;font-size:var(--t-h2);line-height:1;cursor:pointer;z-index:2;display:grid;place-items:center;opacity:1;transition:background .12s}
+    ${S} .rh-cmp-cx:hover{background:var(--red)}
+    ${S} .rh-cmp-cmeta{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border)}
+    ${S} .rh-cmp-tf{font-family:var(--font-mono);font-size:var(--t-micro);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+    ${S} .rh-cmp-tf b{color:var(--te);margin-left:6px;letter-spacing:.04em}
+    ${S} .rh-cmp-gp{font-family:var(--font-mono);font-size:var(--t-micro);color:var(--faint);letter-spacing:.05em}
+    ${S} .rh-cmp-mtab{padding:8px 8px 12px}
+    ${S} .rh-cmp-mhrow{display:flex;align-items:center;justify-content:space-between;padding:6px 12px 8px;font-family:var(--font-mono);font-size:var(--t-nano);letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:600}
+    ${S} .rh-cmp-emph .rh-cmp-mrow{padding-top:9px;padding-bottom:9px}
+    ${S} .rh-cmp-mrow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:8px 12px}
+    ${S} .rh-cmp-k{font-size:var(--t-secondary);color:var(--text2);font-weight:600;font-family:var(--font-sans);min-width:0}
+    ${S} .rh-cmp-k small{display:block;font-family:var(--font-mono);font-weight:400;font-size:var(--t-nano);color:var(--faint);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;margin-top:2px}
+    ${S} .rh-cmp-val{min-width:60px;text-align:center;font-family:var(--font-mono);font-weight:700;font-size:var(--t-body);padding:6px 12px;border-radius:9px;color:var(--text2);font-variant-numeric:tabular-nums}
+    ${S} .rh-cmp-val.good{color:var(--v-good);background:var(--v-good-bg)}
+    ${S} .rh-cmp-val.mid{color:var(--v-mid);background:var(--v-mid-bg)}
+    ${S} .rh-cmp-val.bad{color:var(--v-bad);background:var(--v-bad-bg)}
+    ${S} .rh-cmp-val.na{color:var(--faint)}
+    ${S} .rh-cmp-mdiv{height:0;margin:9px 12px;border-top:1px dashed var(--border2)}
+    ${S} .rh-cmp-ghost{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;min-height:360px;background:var(--s1);border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:32px 22px}
+    ${S} .rh-cmp-ghost-ic{font-size:28px;color:var(--sky)}
+    ${S} .rh-cmp-ghost-t{font-size:var(--t-h2);font-weight:700;font-family:var(--font-sans)}
+    ${S} .rh-cmp-ghost-s{font-size:var(--t-secondary);color:var(--muted);line-height:1.55;max-width:230px;font-family:var(--font-sans)}
+    @media(max-width:980px){${S} .rh-cmp-layout{grid-template-columns:1fr}${S} .rh-cmp-rail{position:static}${S} .rh-cmp-raillist{max-height:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}}
+    @media(max-width:620px){${S} .rh-cmp-cards{grid-template-columns:1fr}${S} .rh-cmp-hname{font-size:var(--t-h1)}${S} .rh-cmp-hs{width:62px;height:62px}${S} .rh-cmp-wm{font-size:60px}}
+    /* ── Timeframe picker (Player Comparison) ── */
+    ${S} .rh-tfbtn{display:inline-flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--border2);border-radius:11px;padding:9px 13px;color:var(--text);font-family:var(--font-sans);font-size:var(--t-secondary);font-weight:600;cursor:pointer;transition:border-color .15s}
+    ${S} .rh-tfbtn:hover{border-color:var(--rh-border3)}
+    ${S} .rh-tfbtn>svg{width:16px;height:16px;color:var(--muted);flex-shrink:0}
+    ${S} .rh-tfbtn-ch{width:13px!important;height:13px!important;margin-left:2px}
+    ${S} .rh-tf-ov{position:fixed;inset:0;z-index:2000;background:rgba(3,6,12,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;animation:rhTfFade .14s ease-out}
+    @keyframes rhTfFade{from{opacity:0}to{opacity:1}}
+    ${S} .rh-tf-modal{width:min(1000px,96vw);background:var(--s1);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:0 40px 100px -30px rgba(0,0,0,.8);overflow:hidden;animation:rhTfPop .18s var(--ease-out)}
+    @keyframes rhTfPop{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
+    ${S} .rh-tf-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px}
+    ${S} .rh-tf-title{font-size:var(--t-title);font-weight:800;letter-spacing:-.02em;color:var(--gold,var(--te))}
+    ${S} .rh-tf-x{width:30px;height:30px;border-radius:50%;border:none;background:var(--s3);color:var(--text);font-size:16px;cursor:pointer;display:grid;place-items:center;transition:background .12s}
+    ${S} .rh-tf-x:hover{background:var(--s4)}
+    ${S} .rh-tf-body{padding:6px 24px 4px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+    ${S} .rh-tf-row{display:flex;flex-wrap:wrap;gap:8px;padding:16px 0}
+    ${S} .rh-tf-row+.rh-tf-row{border-top:1px dashed var(--border2)}
+    ${S} .rh-tf-weeks{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+    ${S} .rh-tf-weeks::-webkit-scrollbar{height:6px}${S} .rh-tf-weeks::-webkit-scrollbar-thumb{background:var(--s4);border-radius:99px}
+    ${S} .rh-tf-weeks.off{opacity:.4;pointer-events:none}
+    ${S} .rh-tf-chip{flex-shrink:0;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:9px 16px;color:var(--text2);font-family:var(--font-sans);font-size:var(--t-body);font-weight:600;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+    ${S} .rh-tf-chip.wk{min-width:34px;text-align:center;padding:9px 6px;font-family:var(--font-mono)}
+    ${S} .rh-tf-chip:hover{border-color:var(--rh-border3);color:var(--text)}
+    ${S} .rh-tf-chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+    ${S} .rh-tf-note{padding:0 0 14px;font-family:var(--font-mono);font-size:var(--t-micro);color:var(--muted)}
+    ${S} .rh-tf-foot{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:16px 24px}
+    ${S} .rh-tf-cancel{background:transparent;border:none;color:var(--muted);font-family:var(--font-sans);font-size:var(--t-body);font-weight:600;padding:10px 16px;cursor:pointer;transition:color .12s}
+    ${S} .rh-tf-cancel:hover{color:var(--text)}
+    ${S} .rh-tf-apply{background:var(--gold,var(--te));color:#1a1204;border:none;border-radius:11px;padding:11px 22px;font-family:var(--font-sans);font-size:var(--t-body);font-weight:800;cursor:pointer;transition:filter .12s,transform .1s}
+    ${S} .rh-tf-apply:hover{filter:brightness(1.06)}
+    ${S} .rh-tf-apply:active{transform:scale(.98)}
+    @media(max-width:620px){${S} .rh-tf-chip{padding:8px 12px;font-size:var(--t-secondary)}${S} .rh-tf-chip.wk{min-width:38px}}
     /* Game Logs */
     ${S} .gl-season{align-self:flex-start}
     ${S} .rh-glsearch{flex:none;margin-bottom:18px;padding:14px 16px;gap:11px}
@@ -32085,6 +32357,11 @@ window.VaultGradeCal = (function () {
       p.innerHTML = '<div class="rh-wrap"><div id="rh-gl-mount"></div></div>';
       anchor.parentNode.appendChild(p);
     }
+    if (!document.getElementById('page-statcompare')) {
+      const p = document.createElement('div'); p.className = 'page rh-scope'; p.id = 'page-statcompare'; p.style.overflowY = 'auto';
+      p.innerHTML = '<div class="rh-wrap"><div id="rh-sc-mount"></div></div>';
+      anchor.parentNode.appendChild(p);
+    }
   }
 
   function injectNavDropdown() {
@@ -32096,7 +32373,8 @@ window.VaultGradeCal = (function () {
       navBtn.insertAdjacentHTML('beforeend', '<span class="rh-caret">▼</span>');
       const menu = document.createElement('div'); menu.className = 'rh-mt-menu'; menu.id = 'rh-mt-menu';
       menu.innerHTML = `
-        <button class="rh-mt-item" data-go="advstats"><span class="ic">${reIcon('chart',{size:17})}</span><span><b>Advanced Stats</b><small>Leaderboard · metrics · compare</small></span></button>
+        <button class="rh-mt-item" data-go="advstats"><span class="ic">${reIcon('chart',{size:17})}</span><span><b>Advanced Stats</b><small>Leaderboard · metrics · sortable</small></span></button>
+        <button class="rh-mt-item" data-go="statcompare"><span class="ic">${reIcon('swap',{size:17})}</span><span><b>Player Comparison</b><small>Two players · head-to-head</small></span></button>
         <button class="rh-mt-item" data-go="gamelogs"><span class="ic">${reIcon('clipboard',{size:17})}</span><span><b>Game Logs</b><small>Per-game · DvP · splits</small></span></button>`;
       document.body.appendChild(menu);
       let hideT;
@@ -32111,8 +32389,10 @@ window.VaultGradeCal = (function () {
     const sl = document.getElementById('sl-research') || document.querySelector('[onclick*="showPage(\'research\')"].sidebar-link');
     if (sl && !document.getElementById('sl-gamelogs')) {
       sl.setAttribute('onclick', "showPage('advstats')");
+      const c = document.createElement('button'); c.id = 'sl-statcompare'; c.className = 'sidebar-link'; c.setAttribute('onclick', "showPage('statcompare')"); c.innerHTML = '<span style="font-size:17px">⇄</span><span>Player Comparison</span>';
+      sl.parentNode.insertBefore(c, sl.nextSibling);
       const g = document.createElement('button'); g.id = 'sl-gamelogs'; g.className = 'sidebar-link'; g.setAttribute('onclick', "showPage('gamelogs')"); g.innerHTML = '<span style="font-size:17px">▤</span><span>Game Logs</span>';
-      sl.parentNode.insertBefore(g, sl.nextSibling);
+      c.parentNode.insertBefore(g, c.nextSibling);
     }
   }
 
@@ -32138,13 +32418,15 @@ window.VaultGradeCal = (function () {
     if (window.__rhShowPageHooked) return true; window.__rhShowPageHooked = true;
     window.showPage = function (p) {
       orig.apply(this, arguments);
-      const onRH = (p === 'advstats' || p === 'gamelogs');
+      const onRH = (p === 'advstats' || p === 'gamelogs' || p === 'statcompare');
       document.getElementById('nb-research')?.classList.toggle('on', onRH);
       document.getElementById('sl-research')?.classList.toggle('active', p === 'advstats');
+      document.getElementById('sl-statcompare')?.classList.toggle('active', p === 'statcompare');
       document.getElementById('sl-gamelogs')?.classList.toggle('active', p === 'gamelogs');
       document.querySelectorAll('#rh-mt-menu .rh-mt-item').forEach(it => it.classList.toggle('active', it.dataset.go === p));
       // our injected pages need explicit show (showPage toggles .on by id match)
-      if (p === 'advstats') { document.getElementById('page-advstats')?.classList.add('on'); if (!AS.booted) { AS.booted = true; asLoadSeason(); } else asRender(); }
+      if (p === 'advstats') { if (!POS_LIST.includes(AS.pos)) asUsePos('WR'); document.getElementById('page-advstats')?.classList.add('on'); if (!AS.booted) { AS.booted = true; asLoadSeason(); } else asRender(); }
+      if (p === 'statcompare') { document.getElementById('page-statcompare')?.classList.add('on'); if (!AS.booted) { AS.booted = true; asLoadSeason(); } else scRender(); }
       if (p === 'gamelogs') { document.getElementById('page-gamelogs')?.classList.add('on'); if (!GL.booted) { GL.booted = true; glLoadSeason(); } else glRender(); }
     };
     // menu click routing
