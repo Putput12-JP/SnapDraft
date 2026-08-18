@@ -13088,6 +13088,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T21:15', tag:'Fixed', title:'Draft picks in the Trade Center offer builder',
+    items:[
+      'Your draft picks now sit at the top of the Send Offer builder in dynasty leagues, so they\'re the first thing you see instead of being buried under your whole roster.',
+      'Pick values are now the real trade-market numbers for your league\'s format — a 2027, 2028 and 2029 first each price differently instead of all showing the same flat estimate.',
+    ]
+  },
+  {
     ts:'2026-08-18T20:30', tag:'New', title:'Draft picks in League power rankings',
     items:[
       'In dynasty leagues, the League tab now counts each team\'s future draft picks as part of their value — so a roster stacked with 1sts ranks where it should, not just on current players.',
@@ -25806,9 +25813,9 @@ function pickYear(year) {
     }
     const ORD = { '1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5 };
     function parsePick(name) {
-      const m = /^(\d{4})\s+(1st|2nd|3rd|4th|5th)/.exec(String(name || ''));
+      const m = /^(\d{4})\s+(1st|2nd|3rd|4th|5th)(?:\s*\(?(Early|Mid|Late)\)?)?/.exec(String(name || ''));
       if (!m) return null;
-      return { season: +m[1], round: ORD[m[2]], out: +m[1] - nextRookieYear() };
+      return { season: +m[1], round: ORD[m[2]], tier: m[3] || null, out: +m[1] - nextRookieYear() };
     }
     /* Sleeper's trade feed carries no draft slot, so the fit knows "a 2027 1st"
        but not an early vs late one. Keep the existing Early/Mid/Late spread as a
@@ -25823,13 +25830,22 @@ function pickYear(year) {
       if (p.out < 0 || p.out > 3) return null;
       const row = b.picks['P' + p.out + 'R' + Math.min(p.round, 5)];
       if (!row || !row.v) return null;
+      // Early/Mid/Late is a spread over the fitted level. The spread now rides
+      // in the model (b.pickTiers, keyed by round, refreshed every build); the
+      // hand PICK_VALUES table is only a fallback for a model built before it.
       let ratio = 1;
-      try {
-        if (p.round === 1 && typeof PICK_VALUES !== 'undefined') {
-          const mid = PICK_VALUES[p.season + ' 1st Mid'], self = PICK_VALUES[name];
-          if (mid && self) ratio = self / mid;
+      if (p.tier) {
+        const tiers = b.pickTiers && b.pickTiers[String(p.round)];
+        if (tiers && tiers[p.tier[0]]) {
+          ratio = tiers[p.tier[0]];
+        } else if (p.round === 1 && typeof PICK_VALUES !== 'undefined') {
+          try {
+            const mid = PICK_VALUES[p.season + ' 1st Mid'],
+                  self = PICK_VALUES[p.season + ' 1st ' + p.tier];
+            if (mid && self) ratio = self / mid;
+          } catch (e) {}
         }
-      } catch (e) {}
+      }
       return Math.round(row.v * ratio);
     }
 

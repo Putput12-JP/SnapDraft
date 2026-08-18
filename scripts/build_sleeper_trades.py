@@ -523,8 +523,11 @@ def load_priors(log):
     table somebody made up. They are a real market source, so use them: it also
     means a thin bucket starts somewhere sane instead of somewhere invented.
 
-    Untiered rows ("2028 1st") are the ones we want, since the corpus has no
-    draft slot either. Tiered rows are only read to fill a gap.
+    Untiered rows ("2028 1st") set each slot's level, since the corpus has no
+    draft slot either. The tiered rows ("2027 1st (Early)") are kept SEPARATELY,
+    per slot, so build_bucket can derive the Early/Mid/Late spread from them —
+    that spread used to live as a hand table in index.html. Tiered rows also fill
+    an untiered gap (via their Mid) as before.
     """
     priors = {}
     base_year = next_rookie_year(time.time() * 1000)
@@ -536,7 +539,8 @@ def load_priors(log):
             log(f"WARNING: FantasyCalc prior unavailable for {mode}/{fmt}")
             priors[(mode, fmt)] = {}
             continue
-        d, picks, tiered = {}, {}, {}
+        # tiers: "P{out}R{rnd}" -> {"E":val, "M":val, "L":val}
+        d, picks, tiers = {}, {}, {}
         for row in data:
             p = row.get("player") or {}
             v = row.get("value")
@@ -548,14 +552,21 @@ def load_priors(log):
             if m:
                 out, rnd, tier = int(m.group(1)) - base_year, int(m.group(2)), m.group(3)
                 if 0 <= out <= MAX_YEARS_OUT and 1 <= rnd <= MAX_PICK_ROUND:
-                    (tiered if tier else picks)[f"P{out}R{rnd}"] = float(v)
+                    key = f"P{out}R{rnd}"
+                    if tier:
+                        tiers.setdefault(key, {})[tier[0]] = float(v)   # 'E'/'M'/'L'
+                    else:
+                        picks[key] = float(v)
             elif sid:
                 d[str(sid)] = float(v)
-        for k, v in tiered.items():
-            picks.setdefault(k, v)
+        # Untiered fallback: a slot FantasyCalc only tiered still needs a level.
+        for k, tv in tiers.items():
+            picks.setdefault(k, tv.get("M") or (sum(tv.values()) / len(tv)))
         priors[(mode, fmt)] = d
         priors[("picks", mode, fmt)] = picks
-        log(f"prior {mode}/{fmt}: {len(d)} players + {len(picks)} pick slots from FantasyCalc")
+        priors[("tiers", mode, fmt)] = tiers
+        log(f"prior {mode}/{fmt}: {len(d)} players + {len(picks)} pick slots "
+            f"+ {len(tiers)} tiered slots from FantasyCalc")
     return priors
 
 
@@ -702,7 +713,38 @@ def quantize(vals):
     return [round(pct(s, q), 4) for q in QUANTILES]
 
 
-def build_bucket(corpus, mode, fmt, prior, pick_prior, meta, today_day, log):
+def compute_pick_tiers(tiers):
+    """Early/Mid/Late spread WITHIN a round, as ratios to Mid, keyed by round.
+
+    FantasyCalc only tiers the nearest rookie year, but the spread of a 1st into
+    Early/Mid/Late is essentially year-independent, so we key the ratio by round
+    (averaging any out-years FC does tier) and the frontend applies it to every
+    year's fitted level. This replaces the hand-written PICK_VALUES tier table in
+    index.html: sourced live here, it refreshes with every 6h build and never
+    needs a year key added by hand.
+    """
+    if not tiers:
+        return {}
+    by_round = {}   # rnd -> {"E":[ratios], "L":[ratios]}
+    for key, tv in tiers.items():
+        rnd = int(key[key.index("R") + 1:])
+        mid = tv.get("M") or (sum(tv.values()) / len(tv) if tv else 0)
+        if not mid:
+            continue
+        agg = by_round.setdefault(rnd, {"E": [], "L": []})
+        if tv.get("E"):
+            agg["E"].append(tv["E"] / mid)
+        if tv.get("L"):
+            agg["L"].append(tv["L"] / mid)
+    out = {}
+    for rnd, agg in by_round.items():
+        e = sum(agg["E"]) / len(agg["E"]) if agg["E"] else 1.0
+        l = sum(agg["L"]) / len(agg["L"]) if agg["L"] else 1.0
+        out[str(rnd)] = {"E": round(e, 3), "M": 1.0, "L": round(l, 3)}
+    return out
+
+
+def build_bucket(corpus, mode, fmt, prior, pick_prior, tiers, meta, today_day, log):
     trades, faab_trades = flatten(corpus, mode, fmt)
     tag = f" {mode}/{fmt}"
     if len(trades) < MIN_TRADES_BUCKET:
@@ -824,6 +866,9 @@ def build_bucket(corpus, mode, fmt, prior, pick_prior, meta, today_day, log):
         "surplus": {k: quantize(v) for k, v in surplus.items() if len(v) >= 40},
         "shapes": {k: round(v / tot_shapes, 4) for k, v in
                    sorted(shapes.items(), key=lambda kv: -kv[1])},
+        # Early/Mid/Late spread per round, ratios to Mid — the frontend lays this
+        # over each pick's fitted level so a hand table never sets the tiering.
+        "pickTiers": compute_pick_tiers(tiers),
         "pickShare": round(pick_share / ntr, 4),
         "liqP90": round(liq_p90, 3),
         "positions": {k: round(v / tot_pos, 4) for k, v in pos_moved.items()},
@@ -898,7 +943,8 @@ def build_model(corpus, log):
     for mode, fmt in BUCKETS:
         key = f"{mode}_{fmt}"
         b = build_bucket(corpus, mode, fmt, priors[(mode, fmt)],
-                         priors.get(("picks", mode, fmt)), meta, today_day, log)
+                         priors.get(("picks", mode, fmt)),
+                         priors.get(("tiers", mode, fmt)) or {}, meta, today_day, log)
         if b:
             buckets[key] = b
             comps[key] = build_comps(corpus, mode, fmt, meta, log)
