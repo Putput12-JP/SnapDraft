@@ -13088,6 +13088,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T23:55', tag:'Fixed', title:'League tab no longer drops your league on refresh',
+    items:[
+      'If Sleeper was slow to respond while the page loaded, the League tab could show "Select league" with everything zeroed out. It now shows a brief "Reconnecting…" and restores your league and values automatically — the header switcher included.',
+    ]
+  },
+  {
     ts:'2026-08-18T23:40', tag:'Improved', title:'Clearer League power rankings',
     items:[
       'Each team\'s power value now shows its breakdown right below — how much is players vs draft picks — so you can see both numbers that make up the total.',
@@ -13898,10 +13904,10 @@ function _reconnectingHtml(){
   return '<div class="v-loading"><div class="spinner lg"></div>'
        + '<span>Reconnecting to Sleeper…</span></div>';
 }
-function _reconnectFailedHtml(msg){
+function _reconnectFailedHtml(msg, retryFn){
   return '<div class="fc-error" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
        + '<span>'+(msg||'Couldn’t reach Sleeper just now — your leagues are still saved.')+'</span>'
-       + '<button class="v-btn" style="padding:7px 14px" onclick="renderOverview()">Retry</button></div>';
+       + '<button class="v-btn" style="padding:7px 14px" onclick="'+(retryFn||'renderOverview')+'()">Retry</button></div>';
 }
 let _ovRendering = false;
 async function renderOverview() {
@@ -18007,6 +18013,29 @@ function setViewTeam(val) {
 }
 
 function renderTeams() {
+  // Resume-safety (mirrors renderOverview): a saved session whose Sleeper identity
+  // hasn't resolved yet — a slow/flaky load on refresh — must NOT paint the League
+  // page from stale/empty TEAMS (that's the "Select league" + zeroed values bug).
+  // Show a quiet reconnecting state, load the account, then restore + re-render.
+  // A persistent outage offers Retry (no auto-loop), same as My Team.
+  let _savedUser = null; try { _savedUser = localStorage.getItem(SK+'-username'); } catch(e){}
+  if (!myTeamsUserId && _savedUser && typeof loadMyTeams === 'function') {
+    const _prEl = document.getElementById('power-rankings');
+    if (_prEl) _prEl.innerHTML = _reconnectingHtml();
+    loadMyTeams().then(() => {
+      if (myTeamsUserId) {
+        try { restoreLeagueSelection(); } catch(e){}
+        // Re-sync the header league switcher — it read null before the account
+        // landed and stuck on "Select league".
+        try { if (typeof populateHeaderLeague==='function') populateHeaderLeague(); } catch(e){}
+        try { if (typeof window._vlgRefreshDD==='function') window._vlgRefreshDD(); } catch(e){}
+        renderTeams();
+      }
+      else if (_prEl && _prEl.isConnected) _prEl.innerHTML = _reconnectFailedHtml('Couldn’t reach Sleeper just now — your leagues are still saved.', 'renderTeams');
+    });
+    return;
+  }
+
   if (teamsTab === 'mv') { renderMovers(); return; }
 
   // A4: Empty state, no league chosen AND no draft loaded means there's nothing to compute team metrics for
@@ -25654,6 +25683,10 @@ function pickYear(year) {
     // Empty <img src=""> resolves to the page URL and 404s, strip until real src is set
     [].slice.call(document.querySelectorAll('img')).forEach(function(im){ if(!im.getAttribute('src')) im.removeAttribute('src'); });
     ensureDD(); refreshDD(); watchSelect();
+    // Exposed so a resume/heal that sets header-league-select.value programmatically
+    // (the MutationObserver only watches the value ATTRIBUTE, not the property) can
+    // force the custom pill label to re-sync — otherwise it stays "Select league".
+    try { window._vlgRefreshDD = refreshDD; } catch(e){}
     var _fitT; window.addEventListener('resize', function(){ clearTimeout(_fitT); _fitT=setTimeout(fitTrigger, 120); });
     // fitTrigger sizes the pill from the slack left after the LAST tab, so it is
     // only right once the header has SETTLED. Several things land late and used
