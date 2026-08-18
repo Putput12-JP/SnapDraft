@@ -13088,6 +13088,15 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T14:30', tag:'Improved', title:'Betting now flags preseason games',
+    items:[
+      'Game Markets now clearly marks preseason matchups as PRESEASON so you don\'t mistake an exhibition line for a regular-season one.',
+      'Each preseason game shows its real kickoff — weekday, date and start time — instead of a regular-season slot label like TNF or MNF.',
+      'Games are listed in the order they play: earliest day and start time first.',
+      'Fixed the preseason slate itself: it now shows every game of the exhibition week and no longer mixes in — or mislabels — early regular-season games.'
+    ]
+  },
+  {
     ts:'2026-08-18T12:00', tag:'Fixed', title:'Player props no longer jump ahead a week in the preseason',
     items:[
       'Before the season kicks off, a player\'s Vegas props card was labeled "Week 2 Props" even though Week 1 hadn\'t happened yet. It now correctly reads "Week 1 Props" until the regular season is underway.'
@@ -37395,9 +37404,15 @@ body .page,body .page.on{background:transparent!important}
     // ── games ────────────────────────────────────────────────────────────
     let games, gamesSample = false;
     if (hasFeedGames) {
+      const isPre = /^pre/i.test(feed.season_type || '');
       let fg = feed.vegas_games.slice();
-      // keep only the current week's slate when games are week-tagged
-      if (feed.week != null && fg.some(g => g.week != null)) fg = fg.filter(g => g.week == null || g.week === feed.week);
+      // keep only the current week's slate when games are week-tagged. Skipped in
+      // the preseason: `feed.week` counts REGULAR-season weeks, while exhibition
+      // games carry null or mis-tagged week numbers (a real Aug preseason game
+      // shows up tagged week 8 or 15), so matching on it both drops real
+      // preseason games AND leaks regular Week-1 lines into the slate. The
+      // date-clustering step below isolates the exhibition week instead.
+      if (!isPre && feed.week != null && fg.some(g => g.week != null)) fg = fg.filter(g => g.week == null || g.week === feed.week);
       // dedupe by matchup (feeds can repeat a game per book / per market)
       const seenMatch = new Set();
       fg = fg.filter(g => { const k = (g.away || '') + '@' + (g.home || ''); if (seenMatch.has(k)) return false; seenMatch.add(k); return true; });
@@ -37407,8 +37422,27 @@ body .page,body .page.on{background:transparent!important}
       fg = fg.filter(g => { const t = g.commence ? Date.parse(g.commence) : NaN; return isNaN(t) || (t + GAME_OVER_MS) > nowMs; });
       // chronological order: earliest kickoff first; undated games sort last
       fg.sort((a, b) => { const ta = a.commence ? Date.parse(a.commence) : Infinity, tb = b.commence ? Date.parse(b.commence) : Infinity; return ta - tb; });
-      // hard guard: an NFL week never exceeds 16 games
-      if (fg.length > 16) fg = fg.slice(0, 16);
+      if (isPre) {
+        // Preseason spans exhibition weeks of up to 16 games each, and the feed
+        // also carries early regular-season lines separated by a multi-day break
+        // (e.g. this exhibition weekend, then a ~2½-week gap to the Week-1 opener).
+        // Keep the upcoming exhibition cluster: games from the first kickoff up to
+        // the first gap longer than 6 days (the trough before the regular season).
+        // No flat count cap, so a full 16-game preseason slate is never truncated,
+        // and date, not the unreliable week tag, decides what's in.
+        const CLUSTER_GAP_MS = 6 * 24 * 60 * 60 * 1000;
+        let cut = fg.length, prev = null;
+        for (let i = 0; i < fg.length; i++) {
+          const t = fg[i].commence ? Date.parse(fg[i].commence) : NaN;
+          if (isNaN(t)) continue;                 // undated: never a boundary
+          if (prev != null && (t - prev) > CLUSTER_GAP_MS) { cut = i; break; }
+          prev = t;
+        }
+        fg = fg.slice(0, cut);
+      } else if (fg.length > 16) {
+        // hard guard: an NFL regular-season week never exceeds 16 games
+        fg = fg.slice(0, 16);
+      }
       games = fg.map(g => normalizeFeedGame(g));
     } else {
       games = sampleGames(teams, cfg); gamesSample = true;
@@ -37794,6 +37828,7 @@ body .page,body .page.on{background:transparent!important}
 #page-betting .bt-trow .imp{color:var(--bt-accent2);font-weight:700}
 #page-betting .bt-center{text-align:center;flex:1;min-width:150px}
 #page-betting .bt-when{font-family:var(--bt-mono);font-size:var(--t-micro);color:var(--bt-muted);letter-spacing:.1em;text-transform:uppercase}
+#page-betting .bt-pretag{display:inline-block;font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;letter-spacing:.1em;color:var(--bt-gold);border:1px solid color-mix(in srgb,var(--bt-gold) 30%,transparent);background:color-mix(in srgb,var(--bt-gold) 8%,transparent);padding:2px 7px;border-radius:5px;margin-bottom:6px}
 #page-betting .bt-wp{max-width:260px;margin:9px auto 0}
 #page-betting .bt-wpl{display:flex;justify-content:space-between;font-family:var(--bt-mono);font-size:var(--t-micro);color:var(--bt-muted);margin-bottom:6px;white-space:nowrap}
 #page-betting .bt-wpl b{color:var(--bt-text);font-size:var(--t-label)}
@@ -37955,12 +37990,26 @@ body .page,body .page.on{background:transparent!important}
 
   /* ── GAME MARKETS grid ────────────────────────────────────────────────── */
   function gatherBooks(getQ) { const seen = [], set = new Set(); MODEL.games.forEach(g => (getQ(g) || []).forEach(q => { if (!set.has(q.book)) { set.add(q.book); seen.push(q.book); } })); return seen.length ? seen : F().bookColumns(MODEL); }
+  // Preseason kickoff label: real weekday + date + ET time, so exhibition games
+  // read in the order they play (day, then start time) instead of a fake slot.
+  function preWhen(iso) {
+    if (!iso) return 'Preseason';
+    const d = new Date(iso); if (isNaN(d)) return 'Preseason';
+    const et = new Date(d.getTime() - 4 * 3600 * 1000);   // ET (EDT, matches slot logic)
+    const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let h = et.getUTCHours(); const m = et.getUTCMinutes(), ap = h >= 12 ? 'p' : 'a';
+    h = h % 12 || 12;
+    return DOW[et.getUTCDay()] + ' ' + (et.getUTCMonth() + 1) + '/' + et.getUTCDate()
+         + ' · ' + h + (m ? ':' + String(m).padStart(2, '0') : '') + ap + ' ET';
+  }
   function renderGames() {
     const fb = F(), gm = curGM;
+    const isPre = /^pre/i.test(MODEL.season_type || '');
     const books = gatherBooks(g => g[gm] && g[gm].quotes);
     let rows = MODEL.games.slice();
-    // Always chronological — earliest kickoff first (model is already date-sorted
-    // and pruned of finished games; re-sort here so it holds across re-renders).
+    // Always chronological — earliest kickoff first, so games read by day then
+    // start time (model is already date-sorted and pruned of finished games;
+    // re-sort here so it holds across re-renders). Undated games sort last.
     rows.sort((a, b) => { const ta = a.commence ? Date.parse(a.commence) : Infinity, tb = b.commence ? Date.parse(b.commence) : Infinity; return ta - tb; });
     const TN = fb.TEAMNAME || {}, fullName = c => TN[c] || c;
     if (searchQ) { const q = searchQ.toLowerCase(); rows = rows.filter(g => (g.away + ' ' + g.home + ' ' + fullName(g.away) + ' ' + fullName(g.home)).toLowerCase().includes(q)); }
@@ -37997,9 +38046,12 @@ body .page,body .page.on{background:transparent!important}
       const head = '<thead><tr><th class="lft">' + gmLabel + ' · ' + books.length + ' books</th><th class="bst">Best</th>' + books.map(b => '<th>' + b + '</th>').join('') + '</tr></thead>';
       const wp = wpA != null ? '<div class="bt-wp"><div class="bt-wpl"><span>' + g.away + ' <b>' + wpA + '%</b></span><span>WIN PROB</span><span><b>' + (100 - wpA) + '%</b> ' + g.home + '</span></div><div class="bt-wbar"><i style="width:' + wpA + '%"></i></div></div>' : '';
       const teamSide = (code, right) => '<div class="bt-team' + (right ? ' r' : '') + '"><span class="bt-logo" data-logo="' + code + '"></span><div><div class="bt-tn">' + fullName(code) + '</div><div class="bt-trow">' + ((code === g.away ? ia : ih) != null ? '<span class="imp">' + (code === g.away ? ia : ih) + '</span> imp' : code) + (g.sample ? ' · <span class="bt-pj">SAMPLE</span>' : '') + '</div></div></div>';
-      const when = g.slot || (g.sample ? 'Sample line' : 'Matchup');
+      // Preseason: NFL slot labels (TNF/MNF/OTHER) are meaningless for exhibition
+      // games, so show the real weekday + date + kickoff instead and flag it.
+      const preTag = isPre ? '<span class="bt-pretag">PRESEASON</span>' : '';
+      const when = isPre ? preWhen(g.commence) : (g.slot || (g.sample ? 'Sample line' : 'Matchup'));
       const header = '<div class="bt-gh">' + teamSide(g.away, false) +
-        '<div class="bt-center"><div class="bt-when">' + when + '</div>' + wp + '</div>' +
+        '<div class="bt-center">' + preTag + '<div class="bt-when">' + when + '</div>' + wp + '</div>' +
         teamSide(g.home, true) + '</div>';
       if (isMobile()) {
         let sides;
@@ -38124,7 +38176,11 @@ body .page,body .page.on{background:transparent!important}
     else { w.className = 'bt-seg'; w.innerHTML = '<button data-tf="weekly" class="' + (tf === 'weekly' ? 'on' : '') + '">Weekly</button><button data-tf="season" class="' + (tf === 'season' ? 'on' : '') + '">Season-Long</button>'; w.querySelectorAll('button').forEach(b => b.onclick = () => { tf = b.dataset.tf; renderTfSel(); renderProps(); }); }
   }
   function infoText() {
-    if (view === 'games') return MODEL.gamesSample ? ['Sample slate', 'Off-season, no live game lines yet. Spreads & totals are math-consistent with the real implied team totals; matchups, prices & books are illustrative. Live book lines replace this each week.'] : null;
+    if (view === 'games') {
+      if (MODEL.gamesSample) return ['Sample slate', 'Off-season, no live game lines yet. Spreads & totals are math-consistent with the real implied team totals; matchups, prices & books are illustrative. Live book lines replace this each week.'];
+      if (/^pre/i.test(MODEL.season_type || '')) return ['Preseason games', 'These are preseason (exhibition) games. Starters usually sit or play a series or two, so these spreads and totals reflect exhibition matchups — not regular-season action. Games are listed in the order they kick off, earliest first.'];
+      return null;
+    }
     return !MODEL.hasLiveProps ? ['Projected lines', 'No live props feed yet, book prices shown are modeled around each player\'s projected line so you can see the comparison grid. Once props post (ParlayAPI), real book odds replace these automatically.'] : null;
   }
   function renderInfo() {
