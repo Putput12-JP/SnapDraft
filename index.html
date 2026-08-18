@@ -13088,6 +13088,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-18T23:40', tag:'Improved', title:'Cleaner League power rankings',
+    items:[
+      'Power rankings now rank teams on roster (player) value, and show each team\'s draft-pick capital as its own clearly-labeled number right below — both figures are visible, but picks no longer inflate the ranking.',
+      'Fixed a quick flash when opening the League tab — the page was briefly rendering the view twice.',
+    ]
+  },
+  {
     ts:'2026-08-18T21:15', tag:'Fixed', title:'Draft picks in the Trade Center offer builder',
     items:[
       'Your draft picks now sit at the top of the Send Offer builder in dynasty leagues, so they\'re the first thing you see instead of being buried under your whole roster.',
@@ -13705,8 +13712,13 @@ function showPage(p, opts){
     _applySrc(valueSrcPref);
     const src = valueSource;
     const loaded = src==='fc' ? fcLoaded : raLoaded;
+    // Reset to Overview on every navigation, but STATE-ONLY: renderTeams below is
+    // the single paint. Doing both setTeamsTab('ov') and renderTeams() rendered
+    // the Overview twice back-to-back — the League-tab flash.
+    setTeamsTab('ov', true);
     if(!loaded){
-      // Kick off the fetch, then render once it lands so the table isn't empty/stale.
+      // Values not in yet: show a skeleton, kick the fetch, render once it lands.
+      const _prEl = document.getElementById('power-rankings'); if(_prEl) _prEl.innerHTML = skelRows(4);
       (src==='fc' ? fetchFantasyCalc() : fetchRosterAudit());
       let _tries=0;
       const _t=setInterval(()=>{ _tries++;
@@ -13716,8 +13728,6 @@ function showPage(p, opts){
     } else {
       renderTeams();
     }
-    // Reset teams tab to Overview on every page navigation
-    setTeamsTab('ov');
   }
   if(p==='visual'){ renderBoard(); ldInitPage(); }
   if(p==='trade'){ initTrade(); }
@@ -17343,7 +17353,7 @@ function renderDraftGrades() {
     </div>`;
 }
 
-function setTeamsTab(tab) {
+function setTeamsTab(tab, skipRender) {
   teamsTab = tab;
   ['ov','pr','mv','tx','st','gr'].forEach(t => document.getElementById(`teams-tab-${t}`)?.classList.toggle('on', t===tab));
   try { if (window.lhSyncTabsel) lhSyncTabsel(tab); } catch(e){}
@@ -17357,6 +17367,11 @@ function setTeamsTab(tab) {
 
   // Hide sub-panels used only by Rankings tab
   ['team-detail','csec'].forEach(id => { const el=document.getElementById(id); if(el)el.style.display='none'; });
+
+  // State-only mode: set the active tab + chrome without painting. showPage uses
+  // this so the page's own render runs exactly once — calling setTeamsTab AND
+  // renderTeams both painted the same view back-to-back, which is the flash.
+  if (skipRender) return;
 
   if (tab === 'ov')       lhRenderOverview();
   else if (tab === 'pr')  renderTeams();
@@ -36827,9 +36842,10 @@ body .page,body .page.on{background:transparent!important}
     const total = teams.length || 1;
     const rec = recMap();
     const psFn = posStrengthFn(teams);
-    // Power = players + dynasty draft-pick capital. picksVal is 0 in redraft and
-    // when no pick data has loaded, so _total collapses to fcTotal there.
-    teams.forEach(t=>{ t._total = (t.fcTotal||0) + (t.picksVal||0); });
+    // Power ranks on PLAYER value only. Draft-pick capital is shown alongside as
+    // a separate line (t.picksVal) but never folded into the ranked total — a
+    // team's power is its roster, not its future picks.
+    teams.forEach(t=>{ t._total = (t.fcTotal||0); });
     const byValue = teams.slice().sort((a,b)=>(b._total||0)-(a._total||0));
     byValue.forEach((t,i)=> t._pr = i+1);
     const model = playoffModel(teams, rec);
@@ -36868,7 +36884,7 @@ body .page,body .page.on{background:transparent!important}
           <div class="lh-pod-owner">#${place} power${recTxt}</div>
           <div class="lh-pod-val">${fmt(t._total)}</div>
           <div class="lh-pod-tr">${deltaHtml(t._trend)} <span class="lh-muted lh-mono">30d</span></div>
-          ${t.picksVal?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--faint);margin-top:3px">+${kfmt(t.picksVal)} in picks</div>`:''}
+          ${t.picksVal?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px">+ ${fmt(t.picksVal)} in picks</div>`:''}
           ${t.best ? `<div class="lh-pod-top"><span class="lh-muted">TOP</span> ${posPill(t.best.pos)} ${esc(lastName(t.best.name))} · ${kfmt(t._bestVal)}</div>` : ''}
         </div>`;
       }).join('') + `</div>`;
@@ -36891,7 +36907,7 @@ body .page,body .page.on{background:transparent!important}
             <span class="lh-pr-rk" style="color:${t._color}">${t._pr}</span>
             ${avatar(t.name,t._color,34)}
             <div class="lh-pr-mid"><div class="lh-pr-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-pr-owner">${esc(meta)}</div></div>
-            <div class="lh-pr-mval"><div class="lh-pr-val" style="color:${t._color}">${fmt(t._total)}</div>${deltaHtml(t._trend)}${t.picksVal?`<div style="font-family:var(--font-mono);font-size:9.5px;color:var(--faint)">+${kfmt(t.picksVal)} picks</div>`:''}</div>
+            <div class="lh-pr-mval"><div class="lh-pr-val" style="color:${t._color}">${fmt(t._total)}</div>${deltaHtml(t._trend)}${t.picksVal?`<div style="font-family:var(--font-mono);font-size:9.5px;color:var(--muted)">+${kfmt(t.picksVal)} picks</div>`:''}</div>
             <span class="lh-pr-caret" aria-hidden="true">▸</span>
           </div>
           <div class="lh-pr-mbot">
@@ -36908,7 +36924,7 @@ body .page,body .page.on{background:transparent!important}
           <div class="lh-pr-id"><div class="lh-pr-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-pr-owner">${esc(meta||'—')}</div></div>
           <div class="lh-pr-pos">${posBars(t._ps,34)}</div>
           <div class="lh-pr-strength">${bar(t._strPct,t._color)}<span class="lh-pr-strpct">${t._strPct}% of #1</span></div>
-          <div class="lh-pr-valcol"><div class="lh-pr-val" style="color:${t._color}">${fmt(t._total)}</div><div style="font-size:11px;margin-top:2px">${deltaHtml(t._trend)} <span class="lh-muted">30d</span></div>${t.picksVal?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--faint);margin-top:2px">+${kfmt(t.picksVal)} picks</div>`:''}</div>
+          <div class="lh-pr-valcol"><div class="lh-pr-val" style="color:${t._color}">${fmt(t._total)}</div><div style="font-size:11px;margin-top:2px">${deltaHtml(t._trend)} <span class="lh-muted">30d</span></div>${t.picksVal?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px">+ ${fmt(t.picksVal)} picks</div>`:''}</div>
           <div class="lh-pr-best">${t.best?`<div class="lh-pr-bl">TOP ASSET</div><div class="lh-pr-bn">${posPill(t.best.pos)} ${esc(lastName(t.best.name))}</div><div class="lh-pr-bv" style="color:${t._color}">${fmt(t._bestVal)}</div>`:''}</div>
           <span class="lh-pr-caret" aria-hidden="true">▸</span>
         </div>`;
