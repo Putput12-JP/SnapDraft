@@ -4825,7 +4825,7 @@ function openConnect(){
       <div class="vcx-hd">EVALUATE</div>
       <div class="vcx-list">
 <button class="vcx-row" data-vc-go="trade"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3M4 7h13m0 13 3-3-3-3M20 17H7"/></svg></span><span class="vcx-lb">Trade Calculator</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-<button class="vcx-row" data-vc-go="compare"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg></span><span class="vcx-lb">Player Comparison</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="vcx-row" data-vc-go="compare"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg></span><span class="vcx-lb">Lineup Compare</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button class="vcx-row" data-vc-go="advstats"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><span class="vcx-lb">Advanced Stats</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button class="vcx-row" data-vc-go="gamelogs"><span class="vcx-ic vcx-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><span class="vcx-lb">Game Logs</span><svg class="vcx-ch" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
@@ -13093,7 +13093,8 @@ const VAULT_CHANGELOG = [
       'Research → Player Comparison lines two players up in full-height cards, each with its own headshot, team-colored header and clean Metric / Value list.',
       'Every stat is color-coded green / yellow / red so you can see at a glance who wins each category.',
       'Pick players from the searchable list on the left — filter by position, or choose All to compare across positions (a running back vs a receiver shows the stats they share).',
-      'New Timeframe picker: compare a full season, a player\'s full career, or drill down to any single week.',
+      'New Timeframe picker: compare a full season, a player\'s full career, or pick a stretch of weeks (e.g. 4–9) to see how someone did while their QB was out.',
+      'The week-by-week lineup tool under My Team is now called “Lineup Compare,” so the two are easy to tell apart.',
     ]
   },
   {
@@ -30227,7 +30228,7 @@ window.VaultGradeCal = (function () {
     }
     `;
     const el = document.createElement('style'); el.id = 'lc-vault-styles'; el.textContent = css; document.head.appendChild(el);
-    // Re-scope the same styling for the standalone Player Comparison Tool page.
+    // Re-scope the same styling for the standalone Lineup Compare page.
     const elC = document.createElement('style'); elC.id = 'lc-vault-styles-compare';
     elC.textContent = css.replace(/#page-lineup\b/g, '#page-compare');
     document.head.appendChild(elC);
@@ -30245,7 +30246,7 @@ window.VaultGradeCal = (function () {
         <div class="lc-subnav" role="tablist" aria-label="My Team sections">
           <button data-go="overview"><span aria-hidden="true">${reIcon('grid',{size:14})}</span> Team Review</button>
           <button class="on" data-go="lineup" aria-current="page"><span aria-hidden="true">${reIcon('bolt',{size:14})}</span> Lineup Command</button>
-          <button data-go="compare"><span aria-hidden="true">${reIcon('swap',{size:14})}</span> Compare</button>
+          <button data-go="compare"><span aria-hidden="true">${reIcon('swap',{size:14})}</span> Lineup Compare</button>
         </div>
         <div class="lc-head">
           <div>
@@ -30261,7 +30262,7 @@ window.VaultGradeCal = (function () {
       </div>`;
     anchor.parentNode.appendChild(page);
 
-    // ── Standalone Player Comparison Tool page ──
+    // ── Standalone Lineup Compare page ──
     if (!document.getElementById('page-compare')) {
       const cpage = document.createElement('div');
       cpage.className = 'page'; cpage.id = 'page-compare';
@@ -30271,11 +30272,11 @@ window.VaultGradeCal = (function () {
         <div class="lc-subnav" role="tablist" aria-label="My Team sections">
           <button data-go="overview"><span aria-hidden="true">${reIcon('grid',{size:14})}</span> Team Review</button>
           <button data-go="lineup"><span aria-hidden="true">${reIcon('bolt',{size:14})}</span> Lineup Command</button>
-          <button class="on" data-go="compare" aria-current="page"><span aria-hidden="true">${reIcon('swap',{size:14})}</span> Compare</button>
+          <button class="on" data-go="compare" aria-current="page"><span aria-hidden="true">${reIcon('swap',{size:14})}</span> Lineup Compare</button>
         </div>
         <div class="lc-head">
           <div>
-            <h1 class="lc-title">Player Comparison Tool</h1>
+            <h1 class="lc-title">Lineup Compare</h1>
             <div class="lc-rule"></div>
             <div class="lc-sub" style="margin-top:9px">Search any player, your roster, an opponent's bench, or the wire, and weigh up to four side by side for the week.</div>
           </div>
@@ -30297,7 +30298,7 @@ window.VaultGradeCal = (function () {
       menu.innerHTML = `
         <button class="lc-mt-item" data-go="overview" data-dynview="dynasty"><span class="ic">${reIcon('grid',{size:17})}</span><span><b>Team Review</b><small>Roster · grade · outlook</small></span></button>
         <button class="lc-mt-item" id="lc-mt-matchup" data-go="overview" data-dynview="matchup" style="display:none"><span class="ic">${reIcon('building',{size:17})}</span><span><b>Matchup</b><small>This week · head-to-head</small></span></button>
-        <button class="lc-mt-item" data-go="compare"><span class="ic">${reIcon('swap',{size:17})}</span><span><b>Player Comparison Tool</b><small>Side-by-side · up to 4</small></span></button>`;
+        <button class="lc-mt-item" data-go="compare"><span class="ic">${reIcon('swap',{size:17})}</span><span><b>Lineup Compare</b><small>Side-by-side · up to 4</small></span></button>`;
       document.body.appendChild(menu);
       let hideT;
       const place = () => { const r = wrap.getBoundingClientRect(); menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = r.left + 'px'; };
@@ -30318,7 +30319,7 @@ window.VaultGradeCal = (function () {
     if (sl && !document.getElementById('sl-compare')) {
       const bc = document.createElement('button');
       bc.id = 'sl-compare'; bc.className = 'sidebar-link'; bc.setAttribute('onclick', "showPage('compare')");
-      bc.innerHTML = `<span>${reIcon('swap',{size:16})}</span><span>Player Comparison</span>`;
+      bc.innerHTML = `<span>${reIcon('swap',{size:16})}</span><span>Lineup Compare</span>`;
       const after = document.getElementById('sl-lineup') || sl;
       after.parentNode.insertBefore(bc, after.nextSibling);
     }
@@ -30338,7 +30339,7 @@ window.VaultGradeCal = (function () {
         bc.className = 'lc-injected';
         bc.setAttribute('onclick', "closeMoreSheet();showPage('compare')");
         bc.setAttribute('style', 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:transparent;border:none;border-radius:10px;color:var(--text);font-family:var(--font-sans);font-size:15px;cursor:pointer;text-align:left;min-height:52px');
-        bc.innerHTML = `<span>${reIcon('swap',{size:19})}</span><span style="font-weight:600">Player Comparison Tool</span>`;
+        bc.innerHTML = `<span>${reIcon('swap',{size:19})}</span><span style="font-weight:600">Lineup Compare</span>`;
         b.parentNode.insertBefore(bc, b.nextSibling);
       }
     }
@@ -30396,7 +30397,7 @@ window.VaultGradeCal = (function () {
   document.addEventListener('focusin', e => { if (e.target.id === 'lcInput') runSearch(e.target.value); });
 
   /* RETIRED · Team Review / Lineup Command / Compare strip on Home.
-     Vault Command carries Lineup Command and Player Comparison as first-class
+     Vault Command carries Lineup Command and Lineup Compare as first-class
      rows now, so this strip was a second route to the same two screens sitting
      directly under the league capsules. Removed from Home only — #page-lineup
      and #page-compare keep their own .lc-subnav, which is still how you get
