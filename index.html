@@ -13120,6 +13120,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-19T15:30', tag:'New', title:'Build your rankings for PPR, Half-PPR, and Standard',
+    items:[
+      'My Rankings now has a Scoring toggle — PPR · Half · Std — alongside Dynasty/Redraft, so you can keep a separate board for each scoring format.',
+      'Each board is independent: your pins, tiers and notes in PPR stay put when you switch to Half or Standard, and untouched players track that scoring’s market.',
+      'Your boards are used automatically where it counts: connect to a Half-PPR draft (or open a Half-PPR league) and every “Mine” value switches to your Half-PPR board.',
+    ]
+  },
+  {
     ts:'2026-08-19T12:00', tag:'Fixed', title:'Deleted leagues no longer show up when you connect to a draft',
     items:[
       'The “Connect to your draft” list used to include drafts from leagues you’d already deleted on Sleeper — like old test leagues that stuck around as “Upcoming.”',
@@ -28105,6 +28113,14 @@ window.VaultGradeCal = (function () {
   // ── State ──────────────────────────────────────────────────────────
   const SK = 'vault-myrank-v1';
   let format = (typeof window!=='undefined' && window._dvMode==='redraft') ? 'redraft' : 'dynasty';  // shared with Draft Vault mode
+  // Scoring axis (independent of format). FantasyCalc publishes exactly three
+  // bands, so every board is stored per (format × scoring). On the PAGE this is
+  // the board you're editing; CONSUMERS ("Mine" value source, Draft Vault MINE
+  // column, grades) resolve it from the connected league/draft instead — see
+  // _activeScoring — so your half-PPR board automatically prices a half-PPR draft.
+  let scoring = 'ppr';                     // 'ppr' | 'half' | 'std'
+  const SLOTS = ['dynasty_ppr','dynasty_half','dynasty_std','redraft_ppr','redraft_half','redraft_std'];
+  function slotOf(f, s){ return (f||format) + '_' + (s||scoring); }
   let posFilter = 'ALL';
   let searchQ = '';
   let compareSrc = null;                  // truthy = multi-source compare matrix is on
@@ -28112,7 +28128,12 @@ window.VaultGradeCal = (function () {
   // A source key is 'fc' (FantasyCalc market) or a profile id. Seeded on first open.
   let cmpCols = null;                     // e.g. ['fc', '<activeProfileId>', '<otherId>']
   let cmpSort = 'fc';                     // the source key the rows are ordered by
-  let baseline = { dynasty: [], redraft: [] };  // [{name,pos,team,age,value,fcRank}] sorted by market value
+  // Per-slot market boards (6 keys of SLOTS). `baseline.dynasty` / `.redraft`
+  // are ALIASES re-pointed onto the current scoring by repointBaseline(), so
+  // every existing `baseline[format]` read below keeps working unchanged.
+  let baselineAll = {};                    // slot -> [{name,pos,team,age,value,fcRank}] sorted by market value
+  let baseline = { dynasty: [], redraft: [] };
+  function repointBaseline(){ baseline.dynasty = baselineAll[slotOf('dynasty')] || []; baseline.redraft = baselineAll[slotOf('redraft')] || []; }
 
   // ── Named ranking profiles ─────────────────────────────────────────
   // The page used to be a single board. It is now a *library* of named
@@ -28125,17 +28146,22 @@ window.VaultGradeCal = (function () {
   // would sever the reference) — see _reset / load, which mutate in place.
   function blankSide(){ return { order:null, pinned:{}, notes:{}, breaks:null }; }
   function normSide(s){ s=s||{}; return { order:s.order||null, pinned:s.pinned||{}, notes:s.notes||{}, breaks:s.breaks||null }; }
+  function blankBoards(){ const b={}; SLOTS.forEach(s=>b[s]=blankSide()); return b; }
   let _pidSeq = 0;
   function newProfile(name){
     return { id:'mrp_'+Date.now().toString(36)+'_'+(_pidSeq++).toString(36),
-             name:(name||'My Board'), dynasty:blankSide(), redraft:blankSide() };
+             name:(name||'My Board'), boards:blankBoards() };
   }
   let profiles = [ newProfile('My Board') ];
   let activeId = profiles[0].id;
   function activeProfile(){ return profiles.find(p=>p.id===activeId) || profiles[0]; }
-  // per-format user state — a live view onto the ACTIVE profile (rebound on switch)
-  let state = { dynasty: profiles[0].dynasty, redraft: profiles[0].redraft };
-  function syncState(){ const p=activeProfile(); state.dynasty=p.dynasty; state.redraft=p.redraft; }
+  // per-format user state — a live view onto the ACTIVE profile's CURRENT-scoring
+  // sides (rebound on profile switch AND on scoring change). state.dynasty /
+  // state.redraft alias boards['dynasty_'+scoring] / boards['redraft_'+scoring],
+  // so every existing state[format] read/write keeps working and mutates the
+  // right slot in place.
+  let state = { dynasty: profiles[0].boards['dynasty_ppr'], redraft: profiles[0].boards['redraft_ppr'] };
+  function syncState(){ const p=activeProfile(); state.dynasty=p.boards[slotOf('dynasty')]; state.redraft=p.boards[slotOf('redraft')]; }
   let _dragFrom = null;
   let _gk = null;   // Grade Keys factor map for the current board (normName → factors)
 
@@ -28244,58 +28270,118 @@ window.VaultGradeCal = (function () {
     return list.slice().sort((a,b) => a.blendRank - b.blendRank);
   }
 
-  function makeBoards(arr, live) {
-    // Dynasty: sort by dyn value desc
-    const dyn = arr.filter(p=>p.dyn>0).sort((a,b)=>b.dyn-a.dyn)
-      .map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age, value:p.dyn, fcRank:i+1 }));
-    baseline.dynasty = applySlBlend(dyn, 'dynasty');
+  // Sort→rank→blend a single-mode item list [{name,pos,team,age,value}] into a
+  // market baseline. Shared by every (format × scoring) slot.
+  function _rankBaseline(items, mode){
+    const arr = items.filter(p=>p.value>0).sort((a,b)=>b.value-a.value)
+      .map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age, value:p.value, fcRank:i+1 }));
+    return applySlBlend(arr, mode);
+  }
+  // Redraft derived from dynasty when the real 1QB store hasn't loaded yet
+  // (age + QB reweight, then re-curve) — only used for the PPR fallback.
+  function _deriveRedraft(arr){
+    const scored = arr.map(p=>{
+      const age = p.age||26;
+      let s = p.dyn * (1 + (age-26)*0.018);          // older = more redraft weight
+      if (p.pos==='QB') s *= 0.66;                    // 1QB redraft deflates QBs
+      if (age<=23) s *= 0.92;                         // raw rookies slightly down
+      return { ...p, s };
+    }).sort((a,b)=>b.s-a.s);
+    const rdrArr = scored.map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age,
+      value: Math.round(9704 * Math.pow(0.962, i)), fcRank:i+1 }));
+    return applySlBlend(rdrArr, 'redraft');
+  }
 
-    // Redraft: live → use rdr value; fallback → derive rdr from dyn (age + QB reweight) then re-curve
-    let rdrArr;
-    if (live) {
-      rdrArr = arr.filter(p=>p.rdr>0).sort((a,b)=>b.rdr-a.rdr)
-        .map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age, value:p.rdr, fcRank:i+1 }));
-    } else {
-      const scored = arr.map(p=>{
-        const age = p.age||26;
-        let s = p.dyn * (1 + (age-26)*0.018);          // older = more redraft weight
-        if (p.pos==='QB') s *= 0.66;                    // 1QB redraft deflates QBs
-        if (age<=23) s *= 0.92;                         // raw rookies slightly down
-        return { ...p, s };
-      }).sort((a,b)=>b.s-a.s);
-      rdrArr = scored.map((p,i)=>({ name:p.name, pos:p.pos, team:p.team, age:p.age,
-        value: Math.round(9704 * Math.pow(0.962, i)), fcRank:i+1 }));
+  // ── Lazy per-scoring FC boards (half / std) ─────────────────────────
+  // PPR is always loaded on boot (fcValues + _redraft1QB). Half & Standard fetch
+  // on first use of that scoring — the page toggle, or a consumer resolving that
+  // band from a connected league — then rebuild their slots and repaint in place.
+  const _scoreRows = {};        // slot -> [{name,pos,team,age,value}]
+  const _scoreInflight = {};
+  function _scoreUrl(f, ppr){
+    return 'https://api.fantasycalc.com/values/current?isDynasty=' + (f==='dynasty'?'true':'false')
+         + '&numQbs=' + (f==='dynasty'?2:1) + '&numTeams=12&ppr=' + ppr;
+  }
+  function ensureScoreData(sc){
+    if (sc==='ppr' || !/^(half|std)$/.test(sc)) return;   // ppr always present
+    const ppr = sc==='half' ? 0.5 : 0;
+    ['dynasty','redraft'].forEach(f=>{
+      const slot = f+'_'+sc;
+      if (_scoreRows[slot] || _scoreInflight[slot]) return;
+      _scoreInflight[slot] = true;
+      (async ()=>{
+        let rows = null;
+        try {
+          rows = (typeof _fcFetchJson==='function')
+            ? await _fcFetchJson(_scoreUrl(f, ppr))
+            : await (await fetch(_scoreUrl(f, ppr))).json();
+        } catch(e){}
+        delete _scoreInflight[slot];
+        if (!rows || !rows.length){ console.warn('MyRankings score fetch failed:', slot); return; }
+        _scoreRows[slot] = rows.map(it=>{ const p=it.player||{}; return {
+          name:p.name, pos:p.position, team:p.maybeTeam,
+          age: p.maybeAge ? Math.round(p.maybeAge*10)/10 : null, value: it.value||0 }; })
+          .filter(x=>x.name);
+        _lastSig = null; buildBaseline(); invalidate();
+        try { if (typeof renderList==='function') renderList(); } catch(e){}
+        try { if (document.getElementById('page-myrankings')?.classList.contains('on')) render(); } catch(e){}
+      })();
+    });
+  }
+
+  function makeBoards(arr, live) {
+    // PPR slots come from the always-loaded stores (fcValues + _redraft1QB).
+    baselineAll['dynasty_ppr'] = _rankBaseline(
+      arr.map(p=>({ name:p.name, pos:p.pos, team:p.team, age:p.age, value:p.dyn })), 'dynasty');
+    baselineAll['redraft_ppr'] = live
+      ? _rankBaseline(arr.map(p=>({ name:p.name, pos:p.pos, team:p.team, age:p.age, value:p.rdr })), 'redraft')
+      : _deriveRedraft(arr);
+    // Half / Std slots: real FC boards when fetched, else ALIAS the PPR slot so a
+    // not-yet-loaded scoring shows PPR values (never zeros) until its data lands.
+    for (const f of ['dynasty','redraft']) for (const s of ['half','std']){
+      const slot = f+'_'+s, rows = _scoreRows[slot];
+      baselineAll[slot] = rows ? _rankBaseline(rows, f) : baselineAll[f+'_ppr'];
     }
-    baseline.redraft = applySlBlend(rdrArr, 'redraft');
+    repointBaseline();
   }
 
   // ── Persistence ────────────────────────────────────────────────────
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(SK) || '{}');
+      // Rebuild a profile's 6-slot board matrix from any stored shape.
+      //  • boards{...}          → current shape, normalize each slot
+      //  • dynasty/redraft side → pre-scoring shape: those boards were PPR, so
+      //                           they migrate into the *_ppr slots; half/std blank
+      const _boardsFrom = p => {
+        const b = blankBoards();
+        if (p && p.boards) { SLOTS.forEach(s=>{ if(p.boards[s]) b[s]=normSide(p.boards[s]); }); }
+        else { if(p && p.dynasty) b['dynasty_ppr']=normSide(p.dynasty);
+               if(p && p.redraft) b['redraft_ppr']=normSide(p.redraft); }
+        return b;
+      };
       if (raw && Array.isArray(raw.profiles) && raw.profiles.length) {
         profiles = raw.profiles.map(p => ({
           id: p.id || newProfile().id,
           name: p.name || 'Board',
-          dynasty: normSide(p.dynasty),
-          redraft: normSide(p.redraft),
+          boards: _boardsFrom(p),
         }));
         activeId = (raw.activeId && profiles.some(p=>p.id===raw.activeId)) ? raw.activeId : profiles[0].id;
       } else if (raw && (raw.dynasty || raw.redraft)) {
-        // MIGRATION: the old single-board shape becomes one profile "My Board",
-        // so nobody loses the rankings they already built.
+        // MIGRATION: the oldest single-board shape becomes one profile "My Board",
+        // so nobody loses the rankings they already built (old boards were PPR).
         const p = newProfile('My Board');
-        p.dynasty = normSide(raw.dynasty);
-        p.redraft = normSide(raw.redraft);
+        p.boards = _boardsFrom(raw);
         profiles = [p];
         activeId = p.id;
       }
+      if (raw && /^(ppr|half|std)$/.test(raw.scoring)) scoring = raw.scoring;
       syncState();
     } catch(e){}
   }
   function save() {
     try {
-      localStorage.setItem(SK, JSON.stringify({ profiles, activeId }));
+      localStorage.setItem(SK, JSON.stringify({ profiles, activeId, scoring }));
     } catch(e){}
   }
   // Read the profile library from storage WITHOUT the heavy board build that
@@ -28309,11 +28395,14 @@ window.VaultGradeCal = (function () {
   // If the user has reordered, we keep an explicit `order` array but re-merge
   // any *unpinned* players by current market value into the gaps, so the
   // untouched part of the board keeps tracking FantasyCalc.
-  function computeBoard() {
+  // Compute a board from an explicit market baseline + user side. Callers that
+  // pass nothing get the page's current (format × scoring) via the live aliases;
+  // consumers pass a specific slot's baseline/side (see boardForSlot).
+  function computeBoard(base, st) {
     maybeRebuild();
-    const base = baseline[format];
-    const st = state[format];
-    if (!base.length) return [];
+    if (base === undefined) base = baseline[format];
+    if (st   === undefined) st   = state[format];
+    if (!base || !base.length || !st) return [];
 
     const byName = new Map(base.map(p=>[norm(p.name), p]));
     let order;
@@ -28391,26 +28480,22 @@ window.VaultGradeCal = (function () {
   // ════════════════════════════════════════════════════════════════
   //  PUBLIC API (Draft Vault column + global "Mine" source)
   // ════════════════════════════════════════════════════════════════
-  const _cache = { dynasty:null, redraft:null };
-  const _uniCache = { dynasty:null, redraft:null };
-  let _profCache = {};   // keyed "<profileId>|<format>" — per-profile boards for the DV columns
-  function invalidate(){ _cache.dynasty=null; _cache.redraft=null; _uniCache.dynasty=null; _uniCache.redraft=null; _profCache={}; }
-  function boardFor(f){
-    const save_=format; format=f;
-    const r = computeBoard(); format=save_;
-    const m = new Map(); r.forEach(x=>m.set(norm(x.name), x));
-    return { rows:r, map:m };
-  }
-  // Compute ANY profile's board for a format without disturbing the active one.
-  // `state` holds references to the active profile's two sides, so we swap those
-  // references (and format), run the normal computeBoard, then restore.
-  function boardForProfileSide(prof, f){
-    const sd=state.dynasty, sr=state.redraft, sf=format;
-    state.dynasty=prof.dynasty; state.redraft=prof.redraft; format=f;
-    let rows; try { rows=computeBoard(); } finally { state.dynasty=sd; state.redraft=sr; format=sf; }
-    const m=new Map(); rows.forEach(x=>m.set(norm(x.name), x));
+  // Caches key on the composite slot ("<format>_<scoring>") now, so a half-PPR
+  // read never returns a PPR-cached board and vice-versa.
+  let _cache = {};       // slot -> { rows, map }  (active profile)
+  let _uniCache = {};    // slot -> grading pool
+  let _profCache = {};   // "<profileId>|<slot>" -> { rows, map }  (DV columns)
+  function invalidate(){ _cache = {}; _uniCache = {}; _profCache = {}; }
+  // Any profile's board for a given (format × scoring) slot, computed off that
+  // slot's market baseline and the profile's own side — never disturbs the page.
+  function boardForSlot(prof, f, s){
+    ensureScoreData(s);
+    const rows = computeBoard(baselineAll[slotOf(f,s)], prof.boards[slotOf(f,s)]);
+    const m = new Map(); rows.forEach(x=>m.set(norm(x.name), x));
     return { rows, map:m };
   }
+  // Active profile's board for the page's current scoring (used by the page).
+  function boardFor(f){ return boardForSlot(activeProfile(), f, scoring); }
 
   // ── Compare matrix: source model ───────────────────────────────────
   // A "source" is FantasyCalc market ('fc') or a saved profile (its id).
@@ -28443,7 +28528,7 @@ window.VaultGradeCal = (function () {
         return { ...meta, get:(nk)=>{ const e=mkt.get(nk); return e?{rank:e.rank,value:e.value}:null; } };
       }
       const prof = profiles.find(p=>p.id===key);
-      const b = boardForProfileSide(prof, f);
+      const b = boardForSlot(prof, f, scoring);
       return { ...meta, get:(nk)=>{ const e=b.map.get(nk); return e?{rank:e.myRank,value:e.myValue}:null; } };
     }).filter(Boolean);
     return { cols, mkt };
@@ -28457,13 +28542,28 @@ window.VaultGradeCal = (function () {
   // dependent on each caller remembering to sort by fcRank.
   // Cached and invalidated with the board, so VaultGrades can pool off array
   // identity instead of rebuilding per player.
-  function marketUniverse(f){
+  // Scoring for CONSUMER surfaces ("Mine" value source, Draft Vault MINE column,
+  // grades): resolved from the SAME context FantasyCalc prices off (connected
+  // draft > selected league > default), so your Mine board and the FC market are
+  // always the same scoring — a half-PPR draft reads your half-PPR board. The My
+  // Rankings PAGE ignores this and uses its own explicit toggle.
+  function _bandOf(p){ return p>=0.75?'ppr':p>=0.25?'half':'std'; }
+  function _activeScoring(){
+    try { if (typeof fcActiveCtx==='function'){ const c=fcActiveCtx(); if(c && c.ppr!=null) return _bandOf(c.ppr); } } catch(e){}
+    return 'ppr';
+  }
+  function _resolveScoring(explicit){
+    return /^(ppr|half|std)$/.test(explicit) ? explicit : _activeScoring();
+  }
+  function marketUniverse(f, sc){
     f = (f === 'redraft') ? 'redraft' : 'dynasty';
     if (!_booted) init();
     maybeRebuild();
-    if (_uniCache[f]) return _uniCache[f];
+    sc = _resolveScoring(sc); ensureScoreData(sc);
+    const key = slotOf(f, sc);
+    if (_uniCache[key]) return _uniCache[key];
     const pc = {};
-    return (_uniCache[f] = [...(baseline[f] || [])]
+    return (_uniCache[key] = [...(baselineAll[key] || baselineAll[slotOf(f,'ppr')] || [])]
       .sort((a, b) => (a.fcRank || 9e9) - (b.fcRank || 9e9))
       .map(p => ({ name:p.name, pos:p.pos, team:p.team, age:p.age,
                    ovrRank: p.fcRank, posRank: (pc[p.pos] = (pc[p.pos] || 0) + 1) })));
@@ -28473,8 +28573,9 @@ window.VaultGradeCal = (function () {
     render: render,
     marketUniverse: marketUniverse,   // the single grading pool (see VaultGrades)
     isCustomized: () => customCount()>0,
-    // for Draft Vault MINE column (dynasty context)
-    getRankInfo(name, f){
+    // for Draft Vault MINE column. `sc` optional — omitted, scoring resolves from
+    // the connected league/draft, so a half-PPR draft reads your half-PPR board.
+    getRankInfo(name, f, sc){
       f = f || 'dynasty';
       // Self-initialize: load() pulls the user's saved board (pins/reorders) from
       // storage. Without this, calling getValue/getRankInfo before the My Rankings
@@ -28482,8 +28583,10 @@ window.VaultGradeCal = (function () {
       // collapses back to market values everywhere it's read globally.
       if (!_booted) init();
       maybeRebuild();
-      if (!_cache[f]) _cache[f] = boardFor(f);
-      const e = _cache[f].map.get(norm(name));
+      sc = _resolveScoring(sc); ensureScoreData(sc);
+      const key = slotOf(f, sc);
+      if (!_cache[key]) _cache[key] = boardForSlot(activeProfile(), f, sc);
+      const e = _cache[key].map.get(norm(name));
       if (!e) return null;
       return { myRank:e.myRank, posRank:e.myPosRank, value:e.myValue,
                marketRank:e.fcRank, delta:e.fcRank - e.myRank, pinned:e.pinned, pos:e.pos };
@@ -28491,25 +28594,27 @@ window.VaultGradeCal = (function () {
     // Like getRankInfo but for a SPECIFIC profile (the Draft Vault renders one
     // column per selected profile). Per-profile board is cached + invalidated
     // with everything else, so renderList calling this per player stays cheap.
-    getRankInfoFor(id, name, f){
+    getRankInfoFor(id, name, f, sc){
       f = f || 'dynasty';
       if (!_booted) init();
       maybeRebuild();
       const prof = profiles.find(p=>p.id===id); if(!prof) return null;
-      const key = id+'|'+f;
-      if(!_profCache[key]) _profCache[key] = boardForProfileSide(prof, f);
+      sc = _resolveScoring(sc); ensureScoreData(sc);
+      const key = id+'|'+slotOf(f, sc);
+      if(!_profCache[key]) _profCache[key] = boardForSlot(prof, f, sc);
       const e = _profCache[key].map.get(norm(name));
       if(!e) return null;
       return { myRank:e.myRank, posRank:e.myPosRank, value:e.myValue,
                marketRank:e.fcRank, delta:e.fcRank - e.myRank, pinned:e.pinned, pos:e.pos };
     },
     // for global value source = 'my'
-    getValue(name, f){
-      const info = this.getRankInfo(name, f||'dynasty');
+    getValue(name, f, sc){
+      const info = this.getRankInfo(name, f||'dynasty', sc);
       return info ? info.value : 0;
     },
-    // full computed board for a format (used by the Draft Vault MINE column demo)
-    getBoard(f){ if(!_booted) init(); return boardFor(f||'dynasty').rows; },
+    // full computed board for a format (Draft Vault MINE column, ADP board view,
+    // Player Comparison). Scoring resolves from context unless passed explicitly.
+    getBoard(f, sc){ if(!_booted) init(); return boardForSlot(activeProfile(), f||'dynasty', _resolveScoring(sc)).rows; },
     refresh(){ _lastSig = null; invalidate(); }
   };
 
@@ -28870,6 +28975,9 @@ window.VaultGradeCal = (function () {
     // standalone and another once a Sleeper draft connected.
     try { window.slWarmAdp && slWarmAdp(); } catch(e){}
     buildBaseline();
+    // Warm the non-PPR boards we already know we'll need: the saved page scoring
+    // and whatever the connected league prices at. PPR is a no-op here.
+    try { ensureScoreData(scoring); ensureScoreData(_activeScoring()); } catch(e){}
     // Grade Keys columns appear once nflverse stats land (one-shot re-render)
     try { window.VaultGrades && VaultGrades.onReady(() => {
       if (document.getElementById('page-myrankings')?.classList.contains('on')) render();
@@ -28995,6 +29103,13 @@ window.VaultGradeCal = (function () {
             <button class="${format==='redraft'?'on':''}" onclick="MyRankings._setFormat('redraft')">Redraft</button>
           </div>
           <span class="mr-sync-ind" title="Dynasty/Redraft stays in sync with the Draft Vault">⇄ synced</span>
+        </div>
+        <div class="mr-grp"><span class="mr-ctl-label">Scoring</span>
+          <div class="mr-seg">
+            <button class="${scoring==='ppr'?'on':''}" title="Full PPR" onclick="MyRankings._setScoring('ppr')">PPR</button>
+            <button class="${scoring==='half'?'on':''}" title="Half PPR" onclick="MyRankings._setScoring('half')">Half</button>
+            <button class="${scoring==='std'?'on':''}" title="Standard (non-PPR)" onclick="MyRankings._setScoring('std')">Std</button>
+          </div>
         </div>
         <div class="mr-grp"><span class="mr-ctl-label">Pos</span>
           <div class="mr-seg posseg">
@@ -29316,6 +29431,11 @@ window.VaultGradeCal = (function () {
   // ── Interaction handlers (exposed) ─────────────────────────────────
   Object.assign(window.MyRankings, {
     _setFormat(f){ if(format===f)return; format=f; posFilter='ALL'; try{ if(typeof setDvMode==='function' && window._dvMode!==f) setDvMode(f); }catch(e){} render(); },
+    // Scoring toggle (PPR / Half / Std) — the board you're editing. Re-points the
+    // state + baseline aliases to the new slot, kicks off its FC fetch if needed.
+    _setScoring(s){ if(scoring===s || !/^(ppr|half|std)$/.test(s)) return;
+      scoring=s; posFilter='ALL'; ensureScoreData(s);
+      syncState(); repointBaseline(); invalidate(); save(); render(); },
     setFormat(f){ if(format===f)return; format=f; posFilter='ALL'; render(); },   // external sync (from Draft Vault), no callback
 
     // ── Profile library (see the named-profiles block above) ──────────
@@ -29354,8 +29474,7 @@ window.VaultGradeCal = (function () {
     _profDup(){
       const src = activeProfile();
       const p = newProfile(src.name + ' copy');
-      p.dynasty = normSide(JSON.parse(JSON.stringify(src.dynasty)));
-      p.redraft = normSide(JSON.parse(JSON.stringify(src.redraft)));
+      SLOTS.forEach(s=>{ p.boards[s] = normSide(JSON.parse(JSON.stringify(src.boards[s]||{}))); });
       profiles.push(p); activeId = p.id; syncState(); save();
       _profExternalRefresh(); render();
       if(typeof toast==='function') toast(`✓ Duplicated as "${p.name}"`);
@@ -29363,7 +29482,7 @@ window.VaultGradeCal = (function () {
     _profDelete(){
       if(profiles.length<=1){ if(typeof toast==='function') toast('Keep at least one ranking set'); return; }
       const p = activeProfile();
-      if(typeof confirm==='function' && !confirm(`Delete "${p.name}"? Its Dynasty and Redraft boards are removed. This can't be undone.`)) return;
+      if(typeof confirm==='function' && !confirm(`Delete "${p.name}"? All of its boards (Dynasty & Redraft, every scoring) are removed. This can't be undone.`)) return;
       const i = profiles.findIndex(x=>x.id===p.id);
       profiles.splice(i,1);
       activeId = profiles[Math.max(0,i-1)].id;
@@ -29400,7 +29519,7 @@ window.VaultGradeCal = (function () {
     _addTier(idx){ const b=new Set(state[format].breaks||[]); b.add(idx); state[format].breaks=[...b].sort((a,b)=>a-b); save(); render(); },
     _delTier(idx){ state[format].breaks=(state[format].breaks||[]).filter(x=>x!==idx); save(); render(); },
     _reset(){
-      if(!confirm(`Reset "${activeProfile().name}" (${format}) back to the FantasyCalc baseline? Your pins, tiers and notes for this board will be cleared.`)) return;
+      if(!confirm(`Reset "${activeProfile().name}" (${format} · ${scoring.toUpperCase()}) back to the FantasyCalc baseline? Your pins, tiers and notes for this board will be cleared.`)) return;
       // Mutate in place — replacing state[format] would sever the reference to
       // the active profile, so its board would stop persisting.
       const s = state[format];
@@ -29413,8 +29532,8 @@ window.VaultGradeCal = (function () {
       const body=rows.map(r=>[r.myRank,`"${r.name}"`,r.pos,r.team,r.myValue,r.fcRank,r.marketValue,`"${(state[format].notes[r.name]||'').replace(/"/g,'""')}"`].join(',')).join('\n');
       const blob=new Blob([head+body],{type:'text/csv'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-      a.download=`my-${format}-rankings.csv`; a.click();
-      if(typeof toast==='function') toast('✓ Exported your '+format+' board');
+      a.download=`my-${format}-${scoring}-rankings.csv`; a.click();
+      if(typeof toast==='function') toast('✓ Exported your '+format+' '+scoring.toUpperCase()+' board');
     },
     _import(){ openImport(); },
     _applyImport(){ doApplyImport(); },
