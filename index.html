@@ -9325,8 +9325,19 @@ async function findDrafts() {
       fetch(`https://api.sleeper.app/v1/user/${user.user_id}/drafts/nfl/${year+1}`).then(r=>r.json()).catch(()=>[]),
     ]);
 
-    const allRaw = [...(drafts1||[]), ...(drafts2||[]), ...(drafts3||[])]
+    let allRaw = [...(drafts1||[]), ...(drafts2||[]), ...(drafts3||[])]
       .filter((d,i,arr) => arr.findIndex(x=>x.draft_id===d.draft_id)===i);
+
+    // Drop orphaned drafts from deleted leagues. Sleeper keeps a deleted league's
+    // draft object alive on the user-drafts endpoint (stuck at pre_draft) even
+    // though the league itself is gone from /leagues. Cross-reference against the
+    // live league list (loaded just above) and keep only drafts whose league still
+    // exists; mock drafts have no league_id so keep those. See ldRescan() for the
+    // same gate.
+    const liveLeagueIds = new Set((myTeamsData||[]).map(l => l && l.league_id).filter(Boolean));
+    if (liveLeagueIds.size) {
+      allRaw = allRaw.filter(d => !d.league_id || liveLeagueIds.has(d.league_id));
+    }
 
     const DONE = new Set(['complete','cancelled']);
     const activeDrafts = allRaw.filter(d => !DONE.has(d.status));
@@ -13109,6 +13120,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-19T12:00', tag:'Fixed', title:'Deleted leagues no longer show up when you connect to a draft',
+    items:[
+      'The “Connect to your draft” list used to include drafts from leagues you’d already deleted on Sleeper — like old test leagues that stuck around as “Upcoming.”',
+      'It now only shows drafts for leagues you’re actually still in.',
+    ]
+  },
+  {
     ts:'2026-08-19T09:00', tag:'Fixed', title:'ADP Explorer’s Rookie Draft now looks like a real rookie draft',
     items:[
       'Pick "Rookie Draft" and you’ll now see only this year’s incoming rookie class — no veterans mixed in.',
@@ -16032,6 +16050,20 @@ async function ldRescan() {
       });
       // Dedupe by draft_id.
       drafts = drafts.filter((d,i,arr) => d && arr.findIndex(x => x && x.draft_id === d.draft_id) === i);
+
+      // Drop ORPHANED drafts. When a Sleeper league is deleted, the league drops
+      // out of /leagues/nfl (so myTeamsData no longer has it), but Sleeper keeps
+      // the draft object alive — it still comes back from the user-drafts endpoint
+      // (and /draft/{id} still resolves it), stuck at pre_draft. That's how deleted
+      // "Test" leagues kept showing as UPCOMING. Cross-reference each draft's
+      // league_id against the live league list and keep only drafts whose league
+      // still exists. Mock drafts carry no league_id, so keep those; and only apply
+      // the gate when we actually have a loaded league list, so a failed/empty
+      // league fetch never wipes the whole list.
+      const liveLeagueIds = new Set((myTeamsData||[]).map(l => l && l.league_id).filter(Boolean));
+      if (liveLeagueIds.size) {
+        drafts = drafts.filter(d => !d.league_id || liveLeagueIds.has(d.league_id));
+      }
     }
 
     // 3) ESPN leagues live in myTeamsData, not the Sleeper endpoints — fold each one
