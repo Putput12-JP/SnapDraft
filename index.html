@@ -10091,7 +10091,7 @@ async function launch(skip=false) {
   }
 
   renderAll();
-  if (myTeam===null) openTModal();
+  _tmAutoOrPrompt();
 }
 
 function loadSaved() {
@@ -10791,6 +10791,27 @@ function openTModal(){
 
 function closeTModal(){
   document.getElementById('tmodal')?.classList.add('gone');
+}
+
+// Auto-launching the "which team are you?" picker on every load is wrong once we
+// already know who you are. If there's a "You" slot (the default mock board), or
+// a team matching your Sleeper name, select it silently; only fall back to the
+// picker when the team genuinely can't be inferred.
+function _tmAutoOrPrompt(){
+  if (myTeam !== null) return;
+  let idx = TEAMS.indexOf('You');
+  if (idx < 0 && typeof myTeamsUserId !== 'undefined' && myTeamsUserId){
+    const me = (typeof mySleeperUser !== 'undefined' && mySleeperUser) ? (mySleeperUser.display_name || mySleeperUser.username) : null;
+    if (me) idx = TEAMS.findIndex(n => String(n).toLowerCase() === String(me).toLowerCase());
+  }
+  if (idx >= 0){
+    myTeam = idx;
+    try { save(); } catch(e){}
+    try { updateTeamPill(); } catch(e){}
+    try { renderAll(); } catch(e){}
+    return;
+  }
+  openTModal(); // truly ambiguous — ask
 }
 
 function selectTeam(ti){
@@ -13087,6 +13108,12 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-19T00:35', tag:'Fixed', title:'No more "which team are you?" popup on every load',
+    items:[
+      'Once Vault knows who you are, it stops popping the team picker every time the app opens — it just defaults to your team. You can still change it anytime with Switch.',
+    ]
+  },
   {
     ts:'2026-08-19T00:20', tag:'New', title:'Draft picks in the Power Rankings roster view',
     items:[
@@ -20530,7 +20557,7 @@ function resumeSession() {
   setTimeout(() => {
     renderAll();
     showPage(_route.initialPage());
-    if (myTeam === null) openTModal();
+    _tmAutoOrPrompt();
     if (did) {
       sleeperDraftId = did;
       syncSleeper().then(() => {
