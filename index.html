@@ -3272,6 +3272,10 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-pr-name{ font-size:var(--t-body); font-weight:700; letter-spacing:-0.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
 .lh-pr-owner{ font-family:var(--font-mono); font-size:var(--t-micro); color:var(--muted); margin-top:2px; }
 .lh-pr-pos{ width:118px; flex-shrink:0; }
+.lh-pr-picks{ width:132px; flex-shrink:0; }
+.lh-pr-pklist{ display:flex; flex-wrap:wrap; gap:2px 7px; font-family:var(--font-mono); font-size:10px; line-height:1.3; }
+.lh-pr-pkyr{ white-space:nowrap; color:var(--muted); }
+.lh-pr-pkyr b{ color:var(--text2); font-weight:700; }
 .lh-pr-strength{ width:120px; flex-shrink:0; }
 .lh-pr-strpct{ font-family:var(--font-mono); font-size:var(--t-nano); color:var(--muted); margin-top:3px; display:block; }
 .lh-pr-valcol{ width:120px; text-align:right; flex-shrink:0; }
@@ -13087,6 +13091,13 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-19T00:20', tag:'New', title:'Draft picks column in Power Rankings',
+    items:[
+      'Power Rankings now has a Picks column showing every team\'s future draft picks at a glance, grouped by year (e.g. ’27 1·2·3·4).',
+      'Fixed a team\'s roster panel collapsing on its own a second after you opened it — it now stays open through background value refreshes.',
+    ]
+  },
   {
     ts:'2026-08-18T23:55', tag:'Fixed', title:'League tab no longer drops your league on refresh',
     items:[
@@ -36900,6 +36911,23 @@ body .page,body .page.on{background:transparent!important}
   }
 
   /* ════════════════ POWER RANKINGS ════════════════ */
+  // Which team's roster row is expanded. The expanded panel is DOM-only, so a
+  // re-render (a live-value refresh landing a second later) would silently
+  // collapse it — the "I open the row and it closes" bug. Persist the id and
+  // re-open after every render.
+  let _lhExpandedTid = null;
+  // Compact list of a team's future picks for the PICKS column: grouped by year,
+  // rounds joined ("'27 1·2·3 · '28 1·2"). Empty (redraft / none) → dash.
+  function picksSummary(t){
+    const pk = (t && t.picks) || [];
+    if (!pk.length) return '<span class="lh-muted" style="font-size:10px">—</span>';
+    const byYr = {};
+    pk.forEach(p => { (byYr[p.season] = byYr[p.season] || []).push(p.round); });
+    return '<div class="lh-pr-pklist">' + Object.keys(byYr).sort().map(function(yr){
+      const rs = byYr[yr].slice().sort((a,b)=>a-b).join('·');
+      return '<span class="lh-pr-pkyr"><b>’' + String(yr).slice(2) + '</b> ' + rs + '</span>';
+    }).join('') + '</div>';
+  }
   function renderPower(teamData){
     const E = el(); if (!E) return;
     const { byValue, total } = buildRanked(teamData);
@@ -36957,6 +36985,7 @@ body .page,body .page.on{background:transparent!important}
           ${avatar(t.name,t._color,38)}
           <div class="lh-pr-id"><div class="lh-pr-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-pr-owner">${esc(meta||'—')}</div></div>
           <div class="lh-pr-pos">${posBars(t._ps,34)}</div>
+          <div class="lh-pr-picks">${picksSummary(t)}</div>
           <div class="lh-pr-strength">${bar(t._strPct,t._color)}<span class="lh-pr-strpct">${t._strPct}% of #1</span></div>
           <div class="lh-pr-valcol"><div class="lh-pr-val" style="color:${t._color}">${fmt(t._total)}</div><div style="font-size:11px;margin-top:2px">${deltaHtml(t._trend)} <span class="lh-muted">30d</span></div>${t.picksVal?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px">${kfmt(t.fcTotal)} players · ${kfmt(t.picksVal)} picks</div>`:''}</div>
           <div class="lh-pr-best">${t.best?`<div class="lh-pr-bl">TOP ASSET</div><div class="lh-pr-bn">${posPill(t.best.pos)} ${esc(lastName(t.best.name))}</div><div class="lh-pr-bv" style="color:${t._color}">${fmt(t._bestVal)}</div>`:''}</div>
@@ -36969,6 +36998,7 @@ body .page,body .page.on{background:transparent!important}
       <span style="width:24px;text-align:center">#</span>
       <span style="flex:1;padding-left:54px">TEAM</span>
       <span style="width:118px">POSITIONAL STRENGTH</span>
+      <span style="width:132px">PICKS</span>
       <span style="width:120px">ROSTER STRENGTH</span>
       <span style="width:120px;text-align:right">VALUE / 30d</span>
       <span style="width:160px;text-align:right">TOP ASSET</span>
@@ -36976,6 +37006,12 @@ body .page,body .page.on{background:transparent!important}
     </div>` : '';
 
     E.innerHTML = `<div class="lh-wrap">${podium}<div class="lh-pr-list">${head}${rows}</div></div>`;
+
+    // Re-open the row that was expanded before this re-render (state is DOM-only).
+    if (_lhExpandedTid != null) {
+      const _r = E.querySelector('.lh-pr-row[data-tid="'+_lhExpandedTid+'"], .lh-pr-mcard[data-tid="'+_lhExpandedTid+'"]');
+      if (_r) lhToggleRoster(_r); else _lhExpandedTid = null;
+    }
   }
 
   /* ---------- inline roster panel (Power Rankings accordion) ---------- */
@@ -37044,7 +37080,7 @@ body .page,body .page.on{background:transparent!important}
     const E = el();
     (E||document).querySelectorAll('.lh-pr-detail').forEach(d=>d.remove());
     (E||document).querySelectorAll('.lh-pr-row.expanded, .lh-pr-mcard.expanded').forEach(r=>{ r.classList.remove('expanded'); r.setAttribute('aria-expanded','false'); });
-    if (wasOpen) return; // second click on an open row just collapses it
+    if (wasOpen) { _lhExpandedTid = null; return; } // second click on an open row just collapses it
     const team = (typeof _lastTeamData!=='undefined' && _lastTeamData || []).find(t => String(t.idx)===String(idx));
     if (!team) return;
     const c = teamColor(team.idx||0);
@@ -37056,6 +37092,7 @@ body .page,body .page.on{background:transparent!important}
     rowEl.after(d);
     rowEl.classList.add('expanded');
     rowEl.setAttribute('aria-expanded','true');
+    _lhExpandedTid = String(idx);
   }
   window.lhToggleRoster = lhToggleRoster;
 
