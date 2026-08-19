@@ -13109,6 +13109,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-19T09:00', tag:'Fixed', title:'ADP Explorer’s Rookie Draft now looks like a real rookie draft',
+    items:[
+      'Pick "Rookie Draft" and you’ll now see only this year’s incoming rookie class — no veterans mixed in.',
+      'The board is capped at 4 rounds, the way dynasty rookie drafts actually run. Search still reaches every rookie, even beyond round 4.',
+    ]
+  },
+  {
     ts:'2026-08-19T00:35', tag:'Fixed', title:'No more "which team are you?" popup on every load',
     items:[
       'Once Vault knows who you are, it stops popping the team picker every time the app opens — it just defaults to your team. You can still change it anytime with Switch.',
@@ -39440,13 +39447,27 @@ function _adpMergeSleeper(cb) {
     .then(j => { _adpSleeperCache[k] = j.players || []; apply(_adpSleeperCache[k]); })
     .catch(() => { _adpSleeperCache[k] = []; apply([]); });
 }
+/* A rookie draft (dynasty) drafts only the incoming class, so the Rookie Draft
+   format must show only rookies — years of experience 0. The Sleeper real-draft
+   corpus is classified by round count (2–7 round dynasty drafts), which also
+   sweeps in short startup/orphan drafts full of veterans; filtering to yoe 0 on
+   render keeps the tool honest regardless of that noise. FC/main rows use
+   `years_of_experience`; Sleeper-only extra rows carry it mapped from `years_exp`. */
+const _ADP_ROOKIE_ROUNDS = 4;   // a dynasty rookie draft is 4 rounds
+function _adpIsRookiePlayer(p) {
+  const y = (p.years_of_experience != null) ? p.years_of_experience
+          : (p.years_exp != null ? p.years_exp : null);
+  return y === 0;
+}
 /* When the Sleeper source is active, render the full Sleeper universe (main rows +
    the extra rows above); every other source stays on the main file's rows. */
 function _adpActiveList(base) {
   base = base || _adpData;
   const full = (_adpSource === 'sl' && _adpSleeperExtra.length) ? base.concat(_adpSleeperExtra) : base;
   const needs = _adpLeagueNeeds();
-  return full.filter(p => _adpPosAllowed(p.pos, needs));   // hide K/DEF/IDP the league doesn't start
+  const rookieOnly = _adpScoring === 'rookie';
+  return full.filter(p => _adpPosAllowed(p.pos, needs)          // hide K/DEF/IDP the league doesn't start
+    && (!rookieOnly || _adpIsRookiePlayer(p)));                 // Rookie Draft → incoming class only
 }
 
 // Default the ADP format to the connected league. Unconnected, the state default
@@ -39613,6 +39634,11 @@ function _adpRenderTable(players) {
     else { av = a.adp||999; bv = b.adp||999; }
     return _adpSortDir*(av-bv);
   });
+
+  // Rookie Draft is a 4-round dynasty draft — show only the picks that get made
+  // (teams × 4). Skip the cap while searching so a deep-rookie name lookup still
+  // resolves anywhere in the class.
+  if (_adpScoring === 'rookie' && !q) rows = rows.slice(0, (_adpTeams || 12) * _ADP_ROOKIE_ROUNDS);
 
   // collecting-history hint for the change column
   const listNote = document.getElementById('adp-list-note');
@@ -39818,7 +39844,8 @@ function _adpRenderBoard() {
 
   const mineMap = hasMy ? _adpMyRankMap() : {};
   const draftConnected = _adpDraftConnected();
-  const rounds = Math.min(24, Math.max(1, Math.ceil(list.length / teams)));
+  const maxRounds = _adpScoring === 'rookie' ? _ADP_ROOKIE_ROUNDS : 24;
+  const rounds = Math.min(maxRounds, Math.max(1, Math.ceil(list.length / teams)));
 
   // Draft-order shape from the connected league: snake, or snake with a third-round
   // reversal (reversal_round, usually 3) which flips the order from that round on —
