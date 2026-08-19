@@ -3272,10 +3272,6 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
 .lh-pr-name{ font-size:var(--t-body); font-weight:700; letter-spacing:-0.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
 .lh-pr-owner{ font-family:var(--font-mono); font-size:var(--t-micro); color:var(--muted); margin-top:2px; }
 .lh-pr-pos{ width:118px; flex-shrink:0; }
-.lh-pr-picks{ width:132px; flex-shrink:0; }
-.lh-pr-pklist{ display:flex; flex-wrap:wrap; gap:2px 7px; font-family:var(--font-mono); font-size:10px; line-height:1.3; }
-.lh-pr-pkyr{ white-space:nowrap; color:var(--muted); }
-.lh-pr-pkyr b{ color:var(--text2); font-weight:700; }
 .lh-pr-strength{ width:120px; flex-shrink:0; }
 .lh-pr-strpct{ font-family:var(--font-mono); font-size:var(--t-nano); color:var(--muted); margin-top:3px; display:block; }
 .lh-pr-valcol{ width:120px; text-align:right; flex-shrink:0; }
@@ -13092,9 +13088,9 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
-    ts:'2026-08-19T00:20', tag:'New', title:'Draft picks column in Power Rankings',
+    ts:'2026-08-19T00:20', tag:'New', title:'Draft picks in the Power Rankings roster view',
     items:[
-      'Power Rankings now has a Picks column showing every team\'s future draft picks at a glance, grouped by year (e.g. ’27 1·2·3·4).',
+      'Expand any team in Power Rankings and their draft picks now appear as a column right alongside QB/RB/WR/TE — each pick with its name and value, and who it came from if it was traded for.',
       'Fixed a team\'s roster panel collapsing on its own a second after you opened it — it now stays open through background value refreshes.',
     ]
   },
@@ -36916,18 +36912,6 @@ body .page,body .page.on{background:transparent!important}
   // collapse it — the "I open the row and it closes" bug. Persist the id and
   // re-open after every render.
   let _lhExpandedTid = null;
-  // Compact list of a team's future picks for the PICKS column: grouped by year,
-  // rounds joined ("'27 1·2·3 · '28 1·2"). Empty (redraft / none) → dash.
-  function picksSummary(t){
-    const pk = (t && t.picks) || [];
-    if (!pk.length) return '<span class="lh-muted" style="font-size:10px">—</span>';
-    const byYr = {};
-    pk.forEach(p => { (byYr[p.season] = byYr[p.season] || []).push(p.round); });
-    return '<div class="lh-pr-pklist">' + Object.keys(byYr).sort().map(function(yr){
-      const rs = byYr[yr].slice().sort((a,b)=>a-b).join('·');
-      return '<span class="lh-pr-pkyr"><b>’' + String(yr).slice(2) + '</b> ' + rs + '</span>';
-    }).join('') + '</div>';
-  }
   function renderPower(teamData){
     const E = el(); if (!E) return;
     const { byValue, total } = buildRanked(teamData);
@@ -36985,7 +36969,6 @@ body .page,body .page.on{background:transparent!important}
           ${avatar(t.name,t._color,38)}
           <div class="lh-pr-id"><div class="lh-pr-name">${esc(t.name)}${t.isMe?'<span class="lh-you">YOU</span>':''}</div><div class="lh-pr-owner">${esc(meta||'—')}</div></div>
           <div class="lh-pr-pos">${posBars(t._ps,34)}</div>
-          <div class="lh-pr-picks">${picksSummary(t)}</div>
           <div class="lh-pr-strength">${bar(t._strPct,t._color)}<span class="lh-pr-strpct">${t._strPct}% of #1</span></div>
           <div class="lh-pr-valcol"><div class="lh-pr-val" style="color:${t._color}">${fmt(t._total)}</div><div style="font-size:11px;margin-top:2px">${deltaHtml(t._trend)} <span class="lh-muted">30d</span></div>${t.picksVal?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px">${kfmt(t.fcTotal)} players · ${kfmt(t.picksVal)} picks</div>`:''}</div>
           <div class="lh-pr-best">${t.best?`<div class="lh-pr-bl">TOP ASSET</div><div class="lh-pr-bn">${posPill(t.best.pos)} ${esc(lastName(t.best.name))}</div><div class="lh-pr-bv" style="color:${t._color}">${fmt(t._bestVal)}</div>`:''}</div>
@@ -36998,7 +36981,6 @@ body .page,body .page.on{background:transparent!important}
       <span style="width:24px;text-align:center">#</span>
       <span style="flex:1;padding-left:54px">TEAM</span>
       <span style="width:118px">POSITIONAL STRENGTH</span>
-      <span style="width:132px">PICKS</span>
       <span style="width:120px">ROSTER STRENGTH</span>
       <span style="width:120px;text-align:right">VALUE / 30d</span>
       <span style="width:160px;text-align:right">TOP ASSET</span>
@@ -37026,7 +37008,7 @@ body .page,body .page.on{background:transparent!important}
     const league = (typeof _lastTeamData!=='undefined' && _lastTeamData) || [];
     const total = league.length || 1;
     const roomVal = (t,pos)=>(t.roster||[]).reduce((s,p)=>s+(p.pos===pos?val(p.name):0),0);
-    const grid = `<div class="roster-grid">${['QB','RB','WR','TE'].map(pos=>{
+    const posGroups = ['QB','RB','WR','TE'].map(pos=>{
       const players = byPos[pos];
       const posTotal = players.reduce((s,p)=>s+val(p.name),0);
       let rank = 1; league.forEach(t=>{ if (roomVal(t,pos) > posTotal) rank++; });
@@ -37056,18 +37038,35 @@ body .page,body .page.on{background:transparent!important}
           </div>`;
         }).join('') : `<div style="font-size:12px;color:var(--muted);padding:8px">No ${pos}s</div>`}
       </div>`;
-    }).join('')}</div>`;
-    // Dynasty draft picks this team owns, valued off the fitted trade market.
+    }).join('');
+    // Draft picks as a 5th column, styled exactly like a position room: title +
+    // total, then one row per pick (name + value), priced off the fitted trade
+    // market. Only appears in dynasty (redraft teams hold no future picks).
     const pk = (team.picks||[]);
-    const picksHtml = pk.length ? `<div style="margin-top:12px;border-top:1px solid var(--border2);padding-top:11px">
-      <div style="display:flex;align-items:center;justify-content:space-between;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);margin-bottom:9px">
-        <span>DRAFT PICKS</span><span>${pk.length} · ${fmt(team.picksVal||0)}</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:7px">${pk.map(p=>{
+    const pc = 'var(--accent2)';
+    const picksGroup = pk.length ? `<div class="roster-pos-group">
+      <div class="roster-pos-title">
+        <span><span style="color:${pc}">PICKS</span> <span style="color:${pc};font-weight:800">${pk.length}</span><span class="lh-muted" style="font-weight:500"> total</span></span>
+        ${team.picksVal ? `<span style="color:${pc};font-size:10px">${fmt(team.picksVal)}</span>` : ''}
+      </div>
+      ${pk.map(p=>{
         const label = p.season+' '+(_TC_ORD[p.round]||('R'+p.round));
-        const via = p.acquired && p.fromName ? `<span style="color:var(--faint);font-weight:500;font-size:10px"> · ${esc(p.fromName)}</span>` : '';
-        return `<span style="display:inline-flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:5px 9px;font-size:11.5px"><b style="font-weight:700">${label}</b>${via}<span style="color:var(--muted);font-family:var(--font-mono)">${p.v?fmt(p.v):'—'}</span></span>`;
-      }).join('')}</div></div>` : '';
-    return grid + picksHtml;
+        const via = p.acquired && p.fromName ? `via ${esc(p.fromName)}` : 'Own pick';
+        return `<div class="roster-player">
+          <div class="rp-left">
+            <span class="rp-av" style="color:${pc};background:color-mix(in srgb,${pc} 13%,var(--s3));font-family:var(--font-mono)">${p.round}</span>
+            <div style="min-width:0">
+              <div class="rp-name">${label}</div>
+              <div class="rp-meta">${esc(via)}</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="rp-val" style="color:${pc}">${p.v?fmt(p.v):'—'}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+    return `<div class="roster-grid">${posGroups}${picksGroup}</div>`;
   }
 
   // Row click → unfold that team's roster inline (accordion, one open at a time).
