@@ -39853,7 +39853,9 @@ function _adpRenderBoard() {
   const _adInfo  = window._activeDraft || {};
   const revRound = (+_adInfo.reversalRound) || 0;
   // Mover mode reads strictly top-left → right by rank, so force a linear fill.
-  const linear   = _adInfo.type === 'linear' || moverMode;
+  // Rookie drafts run linear too (same order every round, not a snake), so every
+  // row reads T1→Tlast.
+  const linear   = _adInfo.type === 'linear' || moverMode || _adpScoring === 'rookie';
   // true → this round runs T(last)→T1 (pick 1 on the right side)
   const _revRow = (R) => linear ? false : (R < revRound ? (R % 2 === 0) : (R % 2 === revRound % 2));
 
