@@ -2054,6 +2054,22 @@ header {
   box-shadow:0 0 0 3px rgba(204,0,60,0.12)!important;
   outline:none!important;
 }
+/* ── Chromeless search inputs ──
+   Search fields sit inside a wrapper that already owns the border + focus
+   state. Without this the global input[type]/:focus rules above draw a thin
+   crimson box INSIDE every search field, so pin the inner input transparent. */
+.dvc-search input, .res-search input, .lc-search input, .pp-search input,
+.mr-search input, .adp-search-wrap input, .rh-search input,
+.rh-cmp-railsearch input, .vcx-search input, .trade-search-wrap input,
+.dvc-search input:focus, .res-search input:focus, .lc-search input:focus,
+.pp-search input:focus, .mr-search input:focus, .adp-search-wrap input:focus,
+.rh-search input:focus, .rh-cmp-railsearch input:focus, .vcx-search input:focus,
+.trade-search-wrap input:focus {
+  background:transparent!important;
+  border:none!important;
+  box-shadow:none!important;
+  outline:none!important;
+}
 
 /* ── Primary buttons, crimson gradient ── */
 .connect-btn, .launch-btn, .resume-big-btn, .ld-load-btn {
@@ -9276,9 +9292,16 @@ function renderDraftItems(drafts) {
     const statusLabel = isLive ? '● LIVE' : isComplete ? '✓ DONE' : '⏳ UPCOMING';
     const statusClass = isLive ? 'in_progress' : isComplete ? 'complete' : 'pre_draft';
 
-    const positions = d.settings?.roster_positions || d.roster_positions || [];
+    // Authoritative league type comes from the league object (settings.type:
+    // 0=redraft, 1=keeper, 2=dynasty), joined by league_id. Only fall back to
+    // the rounds>=15 heuristic for mock drafts with no league — that heuristic
+    // mislabels big-roster redrafts (e.g. guillotine) as dynasty.
+    const lg = d.league_id && (myTeamsData||[]).find(l => l && l.league_id === d.league_id);
+    const positions = lg?.roster_positions || d.settings?.roster_positions || d.roster_positions || [];
     const isSuperflex = positions.includes('SUPER_FLEX');
-    const isDynasty = parseInt(d.settings?.rounds || d.rounds || 0) >= 15;
+    const isDynasty = lg
+      ? (lg.settings?.type === 2 || /dynasty/i.test(lg.name||''))
+      : parseInt(d.settings?.rounds || d.rounds || 0) >= 15;
     const typeTags = [];
     if (isDynasty) typeTags.push('DYNASTY'); else typeTags.push('REDRAFT');
     if (isSuperflex) typeTags.push('SUPERFLEX');
@@ -13119,6 +13142,18 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-20T10:00', tag:'Fixed', title:'Redraft leagues no longer mislabeled as Dynasty',
+    items:[
+      'Draft setup now reads your league’s real type from Sleeper, so big-roster redraft formats like guillotine show up as Redraft instead of Dynasty.',
+    ],
+  },
+  {
+    ts:'2026-08-19T16:10', tag:'Fixed', title:'Cleaner search boxes',
+    items:[
+      'Removed the stray thin red outline that appeared inside search fields — the box now shows a single clean border.',
+    ],
+  },
   {
     ts:'2026-08-19T15:30', tag:'New', title:'Build your rankings for PPR, Half-PPR, and Standard',
     items:[
