@@ -4573,6 +4573,11 @@ h1,h2,h3 { font-family:var(--font-sans)!important; letter-spacing:-0.02em!import
     </div>
     <!-- Your draft grade, painted + animated by dvPaintDraftRecap() -->
     <div class="dvr" id="dcp-recap" hidden></div>
+    <!-- Share the recap as a branded image card (VaultDraftRecap). Unhidden by
+         dvPaintDraftRecap() only once a real grade is painted. -->
+    <button class="dcp-share" id="dcp-share-btn" onclick="VaultDraftRecap.share(event)" hidden>
+      <span class="dcp-share-ic" aria-hidden="true">↗</span> Share your draft card
+    </button>
     <div class="dcp-choices">
       <button class="dcp-choice" onclick="chooseViewCompleted()">
         <span class="dcp-choice-icon"><span data-reicon="check" data-rsize="20"></span></span>
@@ -13196,6 +13201,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-20T15:30', tag:'New', title:'Share your draft as an image',
+    items:[
+      'When a draft wraps, the recap now has a Share your draft card button — a clean image of your draft grade, full starting lineup with headshots, and your projected outlook.',
+      'On your phone it opens the share sheet straight to messages or X; on desktop it copies and downloads the image.',
+    ],
+  },
+  {
     ts:'2026-08-20T12:00', tag:'New', title:'Share any trade as an image',
     items:[
       'Build a trade in the Trade Calculator and tap the new Share button to get a clean, shareable card — both packages, the values, and the verdict.',
@@ -16337,12 +16349,14 @@ function dvMyPickRollup(){
 function dvPaintDraftRecap(){
   const el = document.getElementById('dcp-recap');
   if (!el) return;
+  const shareBtn = document.getElementById('dcp-share-btn');
   const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   // Stats not in yet → skeleton in the shape we're about to fill, and repaint
   // once. A skeleton, not a spinner: we already know the layout (motion §3).
   if (!(window.VaultGrades && VaultGrades.ready())){
     el.hidden = false;
+    if (shareBtn) shareBtn.hidden = true;   // no card to share until stats land
     el.innerHTML = `<div class="dvr-ring-wrap"><div class="skel dvr-skel-ring"></div></div>
       <div class="dvr-body"><div class="skel dvr-skel-l1"></div><div class="skel dvr-skel-l2"></div><div class="skel dvr-skel-l3"></div></div>`;
     if (!el._dvrWaiting && window.VaultGrades){
@@ -16353,7 +16367,8 @@ function dvPaintDraftRecap(){
   }
 
   const g = dvTeamGrade();
-  if (!g){ el.hidden = true; el.innerHTML = ''; return; }
+  if (!g){ el.hidden = true; el.innerHTML = ''; if (shareBtn) shareBtn.hidden = true; return; }
+  if (shareBtn) shareBtn.hidden = false;    // real grade → the card is shareable
   const roll = dvMyPickRollup();
 
   const R = 38, C = 2 * Math.PI * R;
@@ -25440,6 +25455,17 @@ function pickYear(year) {
 
   /* ───── Draft complete prompt: choice cards ───── */
   .dcp-choices{ display:flex; flex-direction:column; gap:10px; }
+  /* Share-your-draft-card CTA: the primary action on the recap. Accent-filled so
+     it reads above the three neutral choice rows below it. */
+  .dcp-share{ display:flex; align-items:center; justify-content:center; gap:9px; width:100%; margin:2px 0 4px;
+    padding:14px 16px; border-radius:12px; border:1px solid var(--accent); cursor:pointer;
+    background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
+    color:var(--text); font-family:var(--font-sans); font-size:15px; font-weight:800; letter-spacing:-.01em;
+    transition:border-color .15s, transform var(--dur-release) var(--ease-spring), background .15s; }
+  .dcp-share:hover{ background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 32%, transparent), color-mix(in srgb, var(--accent) 18%, transparent)); }
+  .dcp-share:active{ transform:scale(.985); transition:transform var(--dur-press) ease-out; }
+  .dcp-share[disabled]{ opacity:.6; cursor:default; }
+  .dcp-share .dcp-share-ic{ font-size:17px; line-height:1; }
   .dcp-choice{ display:flex; align-items:center; gap:14px; text-align:left; width:100%; padding:15px 16px; border-radius:12px; border:1px solid var(--border2); background:var(--bg); cursor:pointer; transition:border-color .15s, transform var(--dur-release) var(--ease-spring), background .15s; }
   .dcp-choice:hover{ border-color:var(--accent); background:var(--s2); }
   .dcp-choice:active{ transform:scale(.99); }
@@ -27731,6 +27757,260 @@ function pickYear(year) {
     if(window.TC){ TC._live=null; if(document.getElementById('page-trade') && document.getElementById('page-trade').classList.contains('on')) setTimeout(()=>{ TC.loadLeague().then(()=>{ const lt=TC.leagueType(); if(lt) TC.vmode=lt; if(!TC._showPicks()) TC._stripPicks(); TC.render(); }); },60); }
     return r;
   };
+})();
+</script>
+<script>
+/* ══════════ SHARE YOUR DRAFT — post-draft recap card (canvas, no libs) ══════════
+   Same card family as the trade share (onyx / Archivo / JetBrains Mono /
+   steel-blue). Data comes from the live grade engine (dvTeamGrade +
+   dvComputeFactors), your drafted roster, and the draft board's team values, so
+   the card always matches the Draft Grade card. Headshots load cross-origin —
+   both sleepercdn and static.www.nfl.com send ACAO:* on an Origin'd request, so
+   crossOrigin='anonymous' keeps the canvas un-tainted and toBlob() works; a
+   headshot that fails falls back to a monogram rather than tainting. */
+(function(){
+  const DR = {};
+  const _SHIELD_ASPECT = 452/376;
+  DR._shieldUri = null;
+  DR._loadShield = async function(){
+    if (DR._shieldUri!==null) return DR._shieldUri;
+    try{ const t=await (await fetch('vault-shield.svg')).text();
+      DR._shieldUri='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(t))); }
+    catch(e){ DR._shieldUri=''; }
+    return DR._shieldUri;
+  };
+  DR._img = (uri,cross)=> new Promise(res=>{ if(!uri) return res(null);
+    const im=new Image(); if(cross) im.crossOrigin='anonymous';
+    im.onload=()=>res(im); im.onerror=()=>res(null); im.src=uri; });
+
+  const _posLetter = v=> v>=8.7?'A+':v>=8.2?'A':v>=7.7?'A-':v>=7.2?'B+':v>=6.6?'B':v>=6?'B-':v>=5.4?'C+':v>=4.8?'C':'C-';
+
+  // ── gather everything the card needs, or null if the roster isn't gradeable ──
+  DR.data = function(){
+    if (typeof dvTeamGrade!=='function') return null;
+    const g = dvTeamGrade(); if(!g) return null;
+    const roster = (typeof getMyRoster==='function'?getMyRoster():[]).filter(p=>p && DVF_POS[p.pos]);
+    if(!roster.length) return null;
+    const withF = roster.map(p=>{
+      const f=(window._dvFactors&&window._dvFactors[normName(p.name)])||dvComputeFactors(p);
+      if(!f) return null;
+      const g10=Math.max(0,Math.min(10,(f.upside+f.floor+(11-f.risk)+f.situational)/4));
+      return {name:p.name, pos:p.pos, team:p.team||'', g10};
+    }).filter(Boolean);
+    if(!withF.length) return null;
+
+    // starter slots incl. superflex, filled by best overall
+    const s=(window._activeDraft&&window._activeDraft.settings)||{};
+    const req={QB:s.slots_qb!=null?s.slots_qb:DVF_SLOTS.QB, RB:s.slots_rb!=null?s.slots_rb:DVF_SLOTS.RB,
+               WR:s.slots_wr!=null?s.slots_wr:DVF_SLOTS.WR, TE:s.slots_te!=null?s.slots_te:DVF_SLOTS.TE};
+    const flexN=(s.slots_flex!=null?s.slots_flex:DVF_SLOTS.FLEX)|0;
+    const sfN=(s.slots_super_flex!=null?s.slots_super_flex:(window._draftIsSuperflex?1:0))|0;
+    const by=withF.slice().sort((a,b)=>b.g10-a.g10);
+    const used=new Set(), lineup=[], have={QB:0,RB:0,WR:0,TE:0};
+    const push=(p,slot)=>{ p.slot=slot; lineup.push(p); used.add(p); };
+    ['QB','RB','WR','TE'].forEach(pos=>{ by.forEach(p=>{ if(used.has(p)||p.pos!==pos)return; if(have[pos]<(req[pos]||0)){ push(p,pos); have[pos]++; } }); });
+    let fx=0; by.forEach(p=>{ if(fx>=flexN||used.has(p))return; if(p.pos==='RB'||p.pos==='WR'||p.pos==='TE'){ push(p,'FLEX'); fx++; } });
+    let sf=0; by.forEach(p=>{ if(sf>=sfN||used.has(p))return; push(p,'SF'); sf++; });
+    const ord={QB:0,RB:1,WR:2,TE:3,FLEX:4,SF:5};
+    lineup.sort((a,b)=> (ord[a.slot]-ord[b.slot]) || (b.g10-a.g10));
+
+    // team value + rank across the draft board
+    let myVal=0, valRank=null;
+    let totalTeams=(typeof NUM_TEAMS!=='undefined'&&NUM_TEAMS)||(typeof TEAMS!=='undefined'&&TEAMS.length)||12;
+    try{
+      myVal = roster.reduce((t,p)=>t+(getPlayerValue(p.name)||0),0);
+      if(typeof draftState!=='undefined' && typeof TEAMS!=='undefined' && typeof myTeam!=='undefined' && myTeam!=null){
+        const vals=TEAMS.map((_,i)=>({i,val:Object.entries(draftState).filter(([,d])=>d.teamIdx===i).reduce((a,[n])=>a+(getPlayerValue(n)||0),0)})).sort((a,b)=>b.val-a.val);
+        valRank=(vals.findIndex(v=>v.i===myTeam)+1)||null;
+        totalTeams=TEAMS.length||totalTeams;
+      }
+    }catch(e){}
+
+    // strongest position group by mean overall
+    const grp={}; withF.forEach(p=>{ (grp[p.pos]=grp[p.pos]||[]).push(p.g10); });
+    let strong=null; Object.keys(grp).forEach(pos=>{ const m=grp[pos].reduce((a,b)=>a+b,0)/grp[pos].length; if(!strong||m>strong.m) strong={pos,m}; });
+
+    const dyn = window._dvMode ? window._dvMode!=='redraft' : true;
+    const isSF = !!window._draftIsSuperflex;
+    const pprN = (typeof _dvIsPPR==='function')?_dvIsPPR():1;
+    const pprLbl = pprN>=1?'PPR':pprN>0?'HALF-PPR':'STANDARD';
+    const fmt=[dyn?'DYNASTY':'REDRAFT', isSF?'SUPERFLEX':pprLbl, totalTeams+'-TEAM'];
+
+    const rank=valRank||Math.round(totalTeams/2);
+    const q=totalTeams?rank/totalTeams:0.5;
+    const finishWord=q<=0.25?'Contender':q<=0.5?'Playoff hunt':q<=0.75?'Bubble':'Rebuild';
+    const finishSub =q<=0.25?'top tier':q<=0.5?'in the mix':q<=0.75?'on the edge':'building';
+    const teamName = (typeof TEAMS!=='undefined' && myTeam!=null && TEAMS[myTeam]) || 'My Team';
+
+    return { g, lineup, teamName, fmt, dyn,
+      outlook:[
+        {k:'PROJ. FINISH', v:finishWord, c:(q<=0.25?'acc':q<=0.5?'grn':null), sub:finishSub},
+        {k:'POWER RANK',   v:valRank?('#'+valRank):'—', c:null, sub:'of '+totalTeams+' teams'},
+        {k:'TEAM VALUE',   v:myVal?Math.round(myVal).toLocaleString():'—', c:null, sub:'roster value'},
+        strong?{k:'STRONGEST', v:strong.pos, c:'pos:'+strong.pos, sub:_posLetter(strong.m)+' corps'}
+              :{k:'STRONGEST', v:'—', c:null, sub:''}
+      ]
+    };
+  };
+
+  DR._draw = async function(D){
+    const W=1200,H=675,S=2;
+    const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+    const x=cv.getContext('2d'); x.scale(S,S);
+    const SANS='Archivo,"Hanken Grotesk",system-ui,sans-serif', MONO='"JetBrains Mono",monospace';
+    try{ await document.fonts.ready; await Promise.all(
+      ['900 118px Archivo','800 30px Archivo','700 18px Archivo','700 21px '+MONO,'700 15px '+MONO,'500 12px '+MONO].map(f=>document.fonts.load(f))); }catch(e){}
+    const C={text:'#f3f4f7',t2:'#c9cdd6',mut:'#868c9b',acc:'#8fb4e0',grn:'#4bd18a',te:'#f5c842',red:'#e23a4e',
+             bd:'rgba(255,255,255,0.09)',bd2:'rgba(255,255,255,0.14)',pan:'rgba(255,255,255,0.02)',pan2:'rgba(255,255,255,0.035)'};
+    const POS={QB:'#ff6680',WR:'#7bd0ff',TE:'#f5c842',RB:'#b9d2ec',DEF:'#868c9b',K:'#868c9b'};
+    const gradeCol = l => l[0]==='A'?C.acc:l[0]==='B'?C.grn:l[0]==='C'?C.te:C.red;
+    const g10Col  = v => v>=8.5?C.acc:v>=7?C.te:C.red;
+    const ls=v=>{ try{ x.letterSpacing=v; }catch(e){} };
+    const rr=(px,py,w,h,r)=>{ x.beginPath(); x.moveTo(px+r,py); x.arcTo(px+w,py,px+w,py+h,r); x.arcTo(px+w,py+h,px,py+h,r); x.arcTo(px,py+h,px,py,r); x.arcTo(px,py,px+w,py,r); x.closePath(); };
+    const clip=(s,max)=>{ if(x.measureText(s).width<=max) return s; while(s.length>1 && x.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; };
+    x.textBaseline='alphabetic';
+
+    // bg
+    const rad=x.createRadialGradient(W*0.5,-H*0.1,80,W*0.5,H*0.4,W*0.95);
+    rad.addColorStop(0,'#182234'); rad.addColorStop(.46,'#10131b'); rad.addColorStop(1,'#0b0c11');
+    x.fillStyle=rad; x.fillRect(0,0,W,H);
+    const shield = await DR._img(await DR._loadShield());
+    if(shield){ const ww=250,wh=ww*_SHIELD_ASPECT; x.save(); x.globalAlpha=.07; x.drawImage(shield,W/2-ww/2,H*0.45-wh/2,ww,wh); x.restore(); }
+
+    // header
+    const g=D.g;
+    x.fillStyle=C.acc; x.beginPath(); x.arc(52,50,4,0,7); x.fill();
+    x.fillStyle=C.mut; x.font='700 15px '+MONO; x.textAlign='left'; ls('2px');
+    x.fillText(clip(('DRAFT RECAP · '+D.teamName).toUpperCase(),620),66,55);
+    x.textAlign='right'; x.font='500 14px '+MONO; ls('1.5px'); x.fillText(D.fmt.join(' · ').toUpperCase(),W-48,55); ls('0px'); x.textAlign='left';
+
+    // ── grade panel [48..426] x [84..468] ──
+    const gpX=48, gpW=378, bodyY=84, bodyH=384;
+    x.fillStyle=C.pan; rr(gpX,bodyY,gpW,bodyH,16); x.fill(); x.strokeStyle=C.bd; x.lineWidth=1; rr(gpX,bodyY,gpW,bodyH,16); x.stroke();
+    const gx=gpX+30, gInner=gpX+gpW-26;
+    x.fillStyle=C.mut; x.font='700 12.5px '+MONO; ls('2.4px'); x.fillText('DRAFT GRADE',gx,bodyY+30); ls('0px');
+    x.fillStyle=gradeCol(g.letter); x.font='900 118px '+SANS; x.fillText(g.letter, gx-3, bodyY+140);
+    x.fillStyle=C.t2; x.font='700 18px '+MONO; x.fillText(g.score+' / 100'+(D.outlook[1].v!=='—'?'  ·  '+D.outlook[1].v+' of '+D.fmt[2].replace('-TEAM',''):''), gx, bodyY+172);
+    x.fillStyle=C.text; x.font='800 21px '+SANS; x.fillText(clip(g.desc,gpW-56), gx, bodyY+205);
+    // factor bars pinned to panel bottom
+    const facts=[['UPSIDE',g.factors.upside,C.acc],['FLOOR',g.factors.floor,C.acc],['RISK',11-g.factors.risk,C.te],['SITUATION',g.factors.situational,C.acc]];
+    let fy=bodyY+bodyH-26-((facts.length-1)*24);
+    facts.forEach(([lb,val,col])=>{
+      x.fillStyle=C.mut; x.font='500 11.5px '+MONO; ls('.5px'); x.textAlign='left'; x.fillText(lb,gx,fy+4); ls('0px');
+      const bx=gx+86, bw=gInner-40-bx, frac=Math.max(0,Math.min(1,val/10));
+      x.fillStyle='rgba(255,255,255,.06)'; rr(bx,fy-3,bw,7,3.5); x.fill();
+      x.fillStyle=col; rr(bx,fy-3,Math.max(6,bw*frac),7,3.5); x.fill();
+      x.fillStyle=C.t2; x.font='700 13px '+MONO; x.textAlign='right'; x.fillText(val.toFixed(1),gInner,fy+4); x.textAlign='left';
+      fy+=24;
+    });
+
+    // ── lineup panel [450..1152] x [84..468] ──
+    const lpX=450, lpW=W-48-lpX;
+    x.fillStyle=C.pan; rr(lpX,bodyY,lpW,bodyH,16); x.fill(); x.strokeStyle=C.bd; rr(lpX,bodyY,lpW,bodyH,16); x.stroke();
+    const lPad=26;
+    x.fillStyle=C.acc; x.font='700 12.5px '+MONO; ls('2px'); x.textAlign='left'; x.fillText('STARTING LINEUP',lpX+lPad,bodyY+30);
+    x.fillStyle=C.mut; x.textAlign='right'; x.fillText('GRADE',lpX+lpW-lPad,bodyY+30); ls('0px'); x.textAlign='left';
+
+    const rowsTop=bodyY+46, rowsBot=bodyY+bodyH-18, rowsH=rowsBot-rowsTop;
+    const L=D.lineup, two = L.length>9;
+    // preload headshots (cross-origin) at 2x for retina
+    const hs = await Promise.all(L.map(p=>{
+      let u=''; try{ u=(typeof vaultHeadshot==='function')?vaultHeadshot(p.name,'',36):''; }catch(e){}
+      return DR._img(u,true);
+    }));
+
+    const drawRow=(p,img,rx,ry,rw,rh,compact)=>{
+      const d=compact?30:34, cx=rx+d/2, cy=ry+rh/2;
+      // headshot circle (or monogram)
+      x.save(); x.beginPath(); x.arc(cx,cy,d/2,0,7); x.closePath(); x.clip();
+      if(img){ x.drawImage(img,cx-d/2,cy-d/2,d,d); }
+      else { x.fillStyle=C.pan2; x.fillRect(cx-d/2,cy-d/2,d,d);
+        x.fillStyle=C.t2; x.font='800 '+(compact?12:13)+'px '+SANS; x.textAlign='center'; x.textBaseline='middle';
+        x.fillText(p.name.split(' ').map(w=>w[0]).slice(0,2).join(''),cx,cy); x.textAlign='left'; x.textBaseline='alphabetic'; }
+      x.restore();
+      x.beginPath(); x.arc(cx,cy,d/2,0,7); x.strokeStyle=C.bd2; x.lineWidth=1; x.stroke();
+      // slot badge
+      const pc=POS[p.pos]||C.mut, bx=rx+d+11;
+      x.font='700 12px '+MONO; ls('.5px'); const bw=Math.max(compact?42:46, x.measureText(p.slot).width+16);
+      x.strokeStyle=pc+'55'; x.lineWidth=1; rr(bx,cy-12.5,bw,25,7); x.stroke();
+      x.fillStyle=pc; x.textAlign='center'; x.fillText(p.slot,bx+bw/2,cy+4); x.textAlign='left'; ls('0px');
+      // name + team, grade right
+      const gCol=g10Col(p.g10); x.font='700 '+(compact?15:16)+'px '+MONO; ls('0px');
+      x.textAlign='right'; x.fillStyle=gCol; x.fillText(p.g10.toFixed(1),rx+rw,cy+ (compact?5:6)); x.textAlign='left';
+      const nx=bx+bw+13, nMax=rx+rw-nx-40;
+      x.fillStyle=C.text; x.font='700 '+(compact?16:17.5)+'px '+SANS; x.fillText(clip(p.name,nMax),nx,cy+(p.team?-1:5));
+      if(p.team){ x.fillStyle=C.mut; x.font='500 10.5px '+MONO; ls('.5px'); x.fillText(p.team.toUpperCase(),nx,cy+13); ls('0px'); }
+    };
+
+    if(!two){
+      const rh=rowsH/L.length;
+      L.forEach((p,i)=>{
+        const ry=rowsTop+i*rh;
+        drawRow(p,hs[i],lpX+lPad,ry,lpW-lPad*2,rh,false);
+        if(i<L.length-1){ x.strokeStyle='rgba(255,255,255,.05)'; x.beginPath(); x.moveTo(lpX+lPad,ry+rh); x.lineTo(lpX+lpW-lPad,ry+rh); x.stroke(); }
+      });
+    } else {
+      const per=Math.ceil(L.length/2), colGap=26, colW=(lpW-lPad*2-colGap)/2, rh=rowsH/per;
+      L.forEach((p,i)=>{
+        const col=i<per?0:1, ci=i-col*per;
+        const rx=lpX+lPad+col*(colW+colGap), ry=rowsTop+ci*rh;
+        drawRow(p,hs[i],rx,ry,colW,rh,true);
+        if(ci<Math.min(per,L.length-col*per)-1){ x.strokeStyle='rgba(255,255,255,.05)'; x.beginPath(); x.moveTo(rx,ry+rh); x.lineTo(rx+colW,ry+rh); x.stroke(); }
+      });
+    }
+
+    // ── outlook strip [48..1152] x [484..588] ──
+    const stX=48, stY=484, stW=W-96, stH=104;
+    x.fillStyle=C.pan; rr(stX,stY,stW,stH,16); x.fill(); x.strokeStyle=C.bd; rr(stX,stY,stW,stH,16); x.stroke();
+    const capW=150;
+    x.save(); rr(stX,stY,capW,stH,16); x.clip(); x.fillStyle=C.pan2; x.fillRect(stX,stY,capW,stH); x.restore();
+    x.strokeStyle=C.bd; x.beginPath(); x.moveTo(stX+capW,stY); x.lineTo(stX+capW,stY+stH); x.stroke();
+    x.fillStyle=C.acc; x.font='700 12px '+MONO; ls('1.5px'); x.textAlign='left'; x.fillText('OUTLOOK',stX+20,stY+46);
+    x.fillStyle=C.mut; x.font='500 11px '+MONO; ls('0px'); x.fillText('projected',stX+20,stY+66);
+    const cellW=(stW-capW)/4;
+    D.outlook.forEach((o,i)=>{
+      const ox=stX+capW+i*cellW;
+      if(i>0){ x.strokeStyle='rgba(255,255,255,.05)'; x.beginPath(); x.moveTo(ox,stY+18); x.lineTo(ox,stY+stH-18); x.stroke(); }
+      x.fillStyle=C.mut; x.font='500 11px '+MONO; ls('1px'); x.fillText(o.k,ox+20,stY+38); ls('0px');
+      let vc=C.text; if(o.c==='acc')vc=C.acc; else if(o.c==='grn')vc=C.grn; else if(o.c&&o.c.indexOf('pos:')===0)vc=POS[o.c.slice(4)]||C.text;
+      x.fillStyle=vc; x.font='900 '+(String(o.v).length>7?24:30)+'px '+SANS; x.fillText(clip(String(o.v),cellW-32),ox+20,stY+70);
+      if(o.sub){ x.fillStyle=C.mut; x.font='500 11px '+MONO; x.fillText(clip(o.sub,cellW-32),ox+20,stY+88); }
+    });
+
+    // ── footer ──
+    const fy2=H-30-14;
+    x.fillStyle=C.mut; x.font='500 12.5px '+MONO; ls('.6px'); x.textAlign='left';
+    x.fillText('Graded on '+(D.dyn?'real market value':'projected points')+' + last-season production',48,fy2+8); ls('0px');
+    if(shield){ const lw=40,lh=lw*_SHIELD_ASPECT; x.drawImage(shield,W-48-190,fy2-lh/2+8,lw,lh); }
+    x.textAlign='left'; x.fillStyle=C.text; x.font='900 21px '+SANS; x.fillText('VAULT',W-48-140,fy2-2);
+    x.fillStyle=C.mut; x.font='500 11.5px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-48-140,fy2+14); ls('0px');
+    return cv;
+  };
+
+  DR.share = async function(ev){
+    if(ev && ev.stopPropagation) ev.stopPropagation();
+    const D = DR.data();
+    if(!D){ if(typeof toast==='function') toast('Draft grade not ready yet'); return; }
+    const btn = ev && ev.currentTarget, orig = btn && btn.innerHTML;
+    if(btn){ btn.disabled=true; btn.innerHTML='Generating…'; }
+    try{
+      const cv = await DR._draw(D);
+      const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
+      const file = new File([blob],'vault-draft-recap.png',{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file], title:'My Vault draft grade', text:'Graded by Vault — free at vaultfantasy.com'}); }catch(e){}
+      } else {
+        let copied=false;
+        try{ if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); copied=true; } }catch(e){}
+        const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='vault-draft-recap.png';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
+        if(typeof toast==='function') toast(copied?'Recap copied + downloaded':'Recap downloaded');
+      }
+    }catch(e){ console.error('draft recap share',e); if(typeof toast==='function') toast('Could not generate the card'); }
+    finally{ if(btn){ btn.disabled=false; btn.innerHTML=orig; } }
+  };
+
+  window.VaultDraftRecap = DR;
 })();
 </script>
 <style id="vault-mobile-v2">
