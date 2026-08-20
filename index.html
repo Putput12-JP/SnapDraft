@@ -16421,9 +16421,18 @@ function dvPaintDraftRecap(){
     el._dvrCardSig = sig;
     if (!el.querySelector('canvas')) el.innerHTML = '<div class="dvr-card-skel skel"></div>';
     if (window.VaultDraftRecap && VaultDraftRecap.previewInto){
+      // If the draw fails or times out, clear the signature and repaint shortly so
+      // the skeleton is never permanent — the next attempt redraws the card.
+      const onFail = () => {
+        el._dvrCardSig = null;
+        if (!el.querySelector('canvas')){
+          clearTimeout(el._dvrRetry);
+          el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 900);
+        }
+      };
       VaultDraftRecap.previewInto(el)
-        .then(ok => { if (!ok && !el.querySelector('canvas')) el._dvrCardSig = null; })
-        .catch(() => { el._dvrCardSig = null; });
+        .then(ok => { if (!ok) onFail(); })
+        .catch(onFail);
     }
   }
 }
@@ -27775,14 +27784,27 @@ function pickYear(year) {
   DR._shieldUri = null;
   DR._loadShield = async function(){
     if (DR._shieldUri!==null) return DR._shieldUri;
-    try{ const t=await (await fetch('vault-shield.svg')).text();
-      DR._shieldUri='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(t))); }
+    try{
+      const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+      const to = ctrl ? setTimeout(()=>ctrl.abort(), 4000) : null;
+      const t = await (await fetch('vault-shield.svg', ctrl?{signal:ctrl.signal}:undefined)).text();
+      if (to) clearTimeout(to);
+      DR._shieldUri='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(t)));
+    }
     catch(e){ DR._shieldUri=''; }
     return DR._shieldUri;
   };
-  DR._img = (uri,cross)=> new Promise(res=>{ if(!uri) return res(null);
+  // Resolve on load OR error OR timeout — a headshot request that STALLS (never
+  // fires load or error) would otherwise hang Promise.all and leave the card
+  // preview stuck on its skeleton forever. Timeout → null → monogram fallback.
+  DR._img = (uri,cross)=> new Promise(res=>{
+    if(!uri) return res(null);
+    let done=false; const finish=v=>{ if(done)return; done=true; res(v); };
     const im=new Image(); if(cross) im.crossOrigin='anonymous';
-    im.onload=()=>res(im); im.onerror=()=>res(null); im.src=uri; });
+    im.onload=()=>finish(im); im.onerror=()=>finish(null);
+    setTimeout(()=>finish(null), 4500);
+    im.src=uri;
+  });
 
   const _posLetter = v=> v>=8.7?'A+':v>=8.2?'A':v>=7.7?'A-':v>=7.2?'B+':v>=6.6?'B':v>=6?'B-':v>=5.4?'C+':v>=4.8?'C':'C-';
 
@@ -27859,8 +27881,13 @@ function pickYear(year) {
     const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
     const x=cv.getContext('2d'); x.scale(S,S);
     const SANS='Archivo,"Hanken Grotesk",system-ui,sans-serif', MONO='"JetBrains Mono",monospace';
-    try{ await document.fonts.ready; await Promise.all(
-      ['900 118px Archivo','800 30px Archivo','700 18px Archivo','700 21px '+MONO,'700 15px '+MONO,'500 12px '+MONO].map(f=>document.fonts.load(f))); }catch(e){}
+    // Race the font wait against a timeout — a stalled webfont must not hang the
+    // whole draw (fallbacks in each stack still render legible text).
+    try{
+      const _fonts = (async()=>{ try{ await document.fonts.ready; await Promise.all(
+        ['900 118px Archivo','800 30px Archivo','700 18px Archivo','700 21px '+MONO,'700 15px '+MONO,'500 12px '+MONO].map(f=>document.fonts.load(f))); }catch(e){} })();
+      await Promise.race([_fonts, new Promise(r=>setTimeout(r,2000))]);
+    }catch(e){}
     const C={text:'#f3f4f7',t2:'#c9cdd6',mut:'#868c9b',acc:'#8fb4e0',grn:'#4bd18a',te:'#f5c842',red:'#e23a4e',
              bd:'rgba(255,255,255,0.09)',bd2:'rgba(255,255,255,0.14)',pan:'rgba(255,255,255,0.02)',pan2:'rgba(255,255,255,0.035)'};
     const POS={QB:'#ff6680',WR:'#7bd0ff',TE:'#f5c842',RB:'#b9d2ec',DEF:'#868c9b',K:'#868c9b'};
@@ -27994,8 +28021,16 @@ function pickYear(year) {
   DR.previewInto = async function(el){
     if(!el) return false;
     const D = DR.data(); if(!D) return false;
-    let cv; try{ cv = await DR._draw(D); }catch(e){ return false; }
-    if(!el.isConnected) return false;
+    let cv;
+    try{
+      // Belt-and-suspenders: even with per-resource timeouts, never let a hung
+      // draw leave the modal stuck on its skeleton — bound the whole thing.
+      cv = await Promise.race([
+        DR._draw(D),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('draw-timeout')), 10000))
+      ]);
+    }catch(e){ return false; }
+    if(!cv || !el.isConnected) return false;
     cv.className = 'dvr-card';
     cv.setAttribute('role','img');
     cv.setAttribute('aria-label', 'Your draft recap card — grade '+D.g.letter);
