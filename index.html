@@ -16367,7 +16367,26 @@ function dvPaintDraftRecap(){
   }
 
   const g = dvTeamGrade();
-  if (!g){ el.hidden = true; el.innerHTML = ''; if (shareBtn) shareBtn.hidden = true; return; }
+  if (!g){
+    el.innerHTML = ''; if (shareBtn) shareBtn.hidden = true;
+    // A completed draft's picks can land a beat AFTER this modal opens (grades
+    // are ready, but getMyRoster() is still empty), so dvTeamGrade() is briefly
+    // null. Show the skeleton and poll until the roster fills in, rather than
+    // leaving the recap permanently blank. Bounded (~5s) so a genuinely empty
+    // roster still resolves to hidden.
+    const m = document.getElementById('draft-complete-modal');
+    const open = m && !m.classList.contains('gone');
+    if (open && (el._dvrTries = (el._dvrTries||0)+1) <= 12){
+      el.hidden = false;
+      el.innerHTML = `<div class="dvr-ring-wrap"><div class="skel dvr-skel-ring"></div></div>
+        <div class="dvr-body"><div class="skel dvr-skel-l1"></div><div class="skel dvr-skel-l2"></div><div class="skel dvr-skel-l3"></div></div>`;
+      clearTimeout(el._dvrRetry); el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 400);
+    } else {
+      el.hidden = true;
+    }
+    return;
+  }
+  el._dvrTries = 0; clearTimeout(el._dvrRetry);
   if (shareBtn) shareBtn.hidden = false;    // real grade → the card is shareable
   const roll = dvMyPickRollup();
 
@@ -16447,8 +16466,9 @@ function showDraftCompletePrompt(){
   }
   m.classList.remove('gone');
   // Paint after the modal is visible — the ring animates from a real layout, and
-  // a hidden element has no box to reflow.
-  try { dvPaintDraftRecap(); } catch(e){}
+  // a hidden element has no box to reflow. Reset the poll counter so a fresh
+  // open gets its full retry budget while the roster loads.
+  try { const _r = document.getElementById('dcp-recap'); if (_r) _r._dvrTries = 0; dvPaintDraftRecap(); } catch(e){}
 }
 function chooseViewCompleted(){
   window._completedDraftChoice = 'view';
@@ -25465,6 +25485,10 @@ function pickYear(year) {
   .dcp-share:hover{ background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 32%, transparent), color-mix(in srgb, var(--accent) 18%, transparent)); }
   .dcp-share:active{ transform:scale(.985); transition:transform var(--dur-press) ease-out; }
   .dcp-share[disabled]{ opacity:.6; cursor:default; }
+  /* `display:flex` above would otherwise out-rank the UA [hidden]{display:none}
+     (equal specificity, author wins), leaving the button visible with no grade.
+     Restore the attribute so dvPaintDraftRecap can hide it until a grade paints. */
+  .dcp-share[hidden]{ display:none !important; }
   .dcp-share .dcp-share-ic{ font-size:17px; line-height:1; }
   .dcp-choice{ display:flex; align-items:center; gap:14px; text-align:left; width:100%; padding:15px 16px; border-radius:12px; border:1px solid var(--border2); background:var(--bg); cursor:pointer; transition:border-color .15s, transform var(--dur-release) var(--ease-spring), background .15s; }
   .dcp-choice:hover{ border-color:var(--accent); background:var(--s2); }
