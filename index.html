@@ -26447,7 +26447,6 @@ function pickYear(year) {
         ${this._vsrcSelect()}
         <button class="tc-clear-all" onclick="TC.clearAll()" ${((tradeAssets.a||[]).length+(tradeAssets.b||[]).length)?'':'disabled'} title="Remove all players & picks from both sides">✕ Clear all</button>
         <button onclick="TC.explainValues(event)" style="display:flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:7px;padding:4px 9px;color:var(--muted);font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;white-space:nowrap">ⓘ How values work</button>
-        <button class="tc-clear-all" onclick="TC.shareCard(event)" ${((tradeAssets.a||[]).length&&(tradeAssets.b||[]).length)?'':'disabled'} title="Generate a shareable image of this trade" style="border-color:rgba(143,180,224,.4);color:var(--accent2)">↗ Share</button>
       </div>`; },
     explainValues(e){ if(e)e.stopPropagation();
       let m=document.getElementById('tc-explain'); if(m) m.remove();
@@ -26535,7 +26534,7 @@ function pickYear(year) {
         </div>
         ${hasAssets?`<button class="tc-int-send" onclick="TC.sendOnSleeper()"><svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>${lid?'Send trade on Sleeper':'Copy trade offer'}</button>
         <div class="tc-int-note">${lid?'Copies the offer + opens your Sleeper trade screen.<br>Sleeper’s API can’t submit trades — this is the fastest legal path.':'Copies a formatted offer you can paste anywhere.'}</div>
-        <div class="tc-int-alt"><button onclick="TC.copyOffer()">⧉ Copy offer</button><button onclick="TC.clearAll()">✕ Clear deal</button></div>`:''}
+        <div class="tc-int-alt"><button onclick="TC.shareCard(event)" style="color:var(--accent2);border-color:rgba(143,180,224,.45)">↗ Share image</button><button onclick="TC.copyOffer()">⧉ Copy offer</button><button onclick="TC.clearAll()">✕ Clear deal</button></div>`:''}
       </div>`;
     },
     tradeBlock(){
@@ -27544,7 +27543,8 @@ function pickYear(year) {
         <div style="display:flex;flex-direction:column;gap:16px">
           <div class="tc-card" style="padding:22px;text-align:center"><div class="tc-eyebrow" style="margin-bottom:14px">Trade Verdict · ${this.vmode==='re'?'Redraft':'Dynasty'}</div>
             <div class="tc-ring-wrap"><svg width="168" height="168" viewBox="0 0 168 168"><circle cx="84" cy="84" r="${R}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="9"/><circle cx="84" cy="84" r="${R}" fill="none" stroke="${ringColor}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-lean)).toFixed(1)}" style="transition:stroke-dashoffset .6s ease"/></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-family:var(--font-sans);font-weight:900;font-size:16px;letter-spacing:-.02em;color:${ringColor}">${vlabel}${v.pctDiff<=8?'':' WINS'}</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:3px">${Math.round(lean*100)}% lean</span></div></div>
-            <p style="font-size:12px;color:var(--muted);line-height:1.55;margin:0">${v.pctDiff<=8?'Dead even, a fair swap.':v.sub}</p></div>
+            <p style="font-size:12px;color:var(--muted);line-height:1.55;margin:0">${v.pctDiff<=8?'Dead even, a fair swap.':v.sub}</p>
+            ${((tradeAssets.a||[]).length&&(tradeAssets.b||[]).length)?`<button onclick="TC.shareCard(event)" style="margin-top:14px;width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;border-radius:10px;border:1px solid rgba(143,180,224,.45);background:rgba(143,180,224,.08);color:var(--accent2);font-family:var(--font-sans);font-weight:700;font-size:13px;cursor:pointer">↗ Share this trade</button>`:''}</div>
           <div class="tc-card" style="padding:18px"><div class="tc-eyebrow" style="margin-bottom:12px">Value Projection</div>${this.projectionBars()}<div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8.5px;color:var(--muted)"><span>NOW</span><span>WK4</span><span>WK8</span><span>PLYF</span><span>DYN</span></div></div>
         </div>
         ${this.sideBuilder('b','Side B sends','var(--accent2)','var(--red2)',totB)}</div>
