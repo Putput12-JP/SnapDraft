@@ -13196,6 +13196,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-20T12:00', tag:'New', title:'Share any trade as an image',
+    items:[
+      'Build a trade in the Trade Calculator and tap the new Share button to get a clean, shareable card — both packages, the values, and the verdict.',
+      'On your phone it opens the share sheet straight to messages or X; on desktop it copies and downloads the image.',
+    ],
+  },
+  {
     ts:'2026-08-20T10:00', tag:'Fixed', title:'Redraft leagues no longer mislabeled as Dynasty',
     items:[
       'Draft setup now reads your league’s real type from Sleeper, so big-roster redraft formats like guillotine show up as Redraft instead of Dynasty.',
@@ -26440,6 +26447,7 @@ function pickYear(year) {
         ${this._vsrcSelect()}
         <button class="tc-clear-all" onclick="TC.clearAll()" ${((tradeAssets.a||[]).length+(tradeAssets.b||[]).length)?'':'disabled'} title="Remove all players & picks from both sides">✕ Clear all</button>
         <button onclick="TC.explainValues(event)" style="display:flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border2);border-radius:7px;padding:4px 9px;color:var(--muted);font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;white-space:nowrap">ⓘ How values work</button>
+        <button class="tc-clear-all" onclick="TC.shareCard(event)" ${((tradeAssets.a||[]).length&&(tradeAssets.b||[]).length)?'':'disabled'} title="Generate a shareable image of this trade" style="border-color:rgba(143,180,224,.4);color:var(--accent2)">↗ Share</button>
       </div>`; },
     explainValues(e){ if(e)e.stopPropagation();
       let m=document.getElementById('tc-explain'); if(m) m.remove();
@@ -27598,6 +27606,122 @@ function pickYear(year) {
   try{ window.matchMedia('(max-width:700px)').addEventListener('change',()=>{ if(TC._inited) TC.render(); }); }catch(e){}
 
   window.TC = TC;
+
+  // ══════════ SHARE THIS TRADE — client-side branded card (canvas, no libs) ══════════
+  // Renders the same card family as Vault's marketing graphics (onyx / Archivo /
+  // JetBrains Mono / steel-blue, no green, shield lockup). Values come straight
+  // from the calc (TC.val / TC.sideTotal), so it always matches what's on screen.
+  // Text-only rows + a same-origin data-URI shield keep the canvas un-tainted so
+  // toBlob() works for download + navigator.share.
+  const _SHIELD_ASPECT = 452/376; // height/width of vault-shield.svg viewBox
+  TC._shieldUri = null;
+  TC._loadShield = async function(){
+    if(TC._shieldUri !== null) return TC._shieldUri;
+    try{ const t = await (await fetch('vault-shield.svg')).text();
+      TC._shieldUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(t))); }
+    catch(e){ TC._shieldUri = ''; }
+    return TC._shieldUri;
+  };
+  TC._img = uri => new Promise(res=>{ if(!uri) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=uri; });
+
+  TC.shareCard = async function(ev){
+    if(ev && ev.stopPropagation) ev.stopPropagation();
+    const A=(tradeAssets.a||[]), B=(tradeAssets.b||[]);
+    if(!A.length || !B.length){ toast('Add players or picks to both sides first'); return; }
+    const btn = ev && ev.currentTarget; const orig = btn && btn.innerHTML;
+    if(btn){ btn.disabled=true; btn.innerHTML='Generating…'; }
+    try{
+      const cv = await TC._drawShareCard();
+      const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
+      const file = new File([blob],'vault-trade.png',{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file], title:'Vault trade check', text:'Graded by Vault — free at vaultfantasy.com'}); }
+        catch(e){ /* cancelled */ }
+      } else {
+        let copied=false;
+        try{ if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); copied=true; } }catch(e){}
+        const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='vault-trade.png';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
+        toast(copied?'Trade card copied + downloaded':'Trade card downloaded');
+      }
+    }catch(e){ console.error('shareCard',e); toast('Could not generate the card'); }
+    finally{ if(btn){ btn.disabled=false; btn.innerHTML=orig; } }
+  };
+
+  TC._drawShareCard = async function(){
+    const W=1200,H=675,S=2;
+    const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+    const x=cv.getContext('2d'); x.scale(S,S);
+    const SANS='Archivo,"Hanken Grotesk",system-ui,sans-serif', MONO='"JetBrains Mono",monospace';
+    try{ await document.fonts.ready; await Promise.all(
+      ['800 30px Archivo','900 20px Archivo','700 23px Archivo','700 21px '+MONO,'500 14px '+MONO].map(f=>document.fonts.load(f))); }catch(e){}
+    const C={text:'#f3f4f7',t2:'#c9cdd6',mut:'#868c9b',acc:'#8fb4e0',red:'#e23a4e',bd:'rgba(255,255,255,0.09)',pan:'rgba(255,255,255,0.02)'};
+    const POS={QB:'#ff6680',WR:'#7bd0ff',TE:'#f5c842',RB:'#b9d2ec',PICK:'#868c9b',DEF:'#868c9b',K:'#868c9b'};
+    const ls=v=>{ try{ x.letterSpacing=v; }catch(e){} };
+    const rr=(px,py,w,h,r)=>{ x.beginPath(); x.moveTo(px+r,py); x.arcTo(px+w,py,px+w,py+h,r); x.arcTo(px+w,py+h,px,py+h,r); x.arcTo(px,py+h,px,py,r); x.arcTo(px,py,px+w,py,r); x.closePath(); };
+    const clip=(s,max)=>{ if(x.measureText(s).width<=max) return s; while(s.length>1 && x.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; };
+    x.textBaseline='alphabetic';
+    // bg
+    const g=x.createRadialGradient(W*0.5,-H*0.1,80,W*0.5,H*0.4,W*0.95); g.addColorStop(0,'#182234'); g.addColorStop(.46,'#10131b'); g.addColorStop(1,'#0b0c11');
+    x.fillStyle=g; x.fillRect(0,0,W,H);
+    const shield = await TC._img(await TC._loadShield());
+    if(shield){ const ww=190,wh=ww*_SHIELD_ASPECT; x.save(); x.globalAlpha=.05; x.drawImage(shield,W/2-ww/2,H*0.46-wh/2,ww,wh); x.restore(); }
+    // data
+    const totA=TC.sideTotal('a'), totB=TC.sideTotal('b');
+    const league=TC.mode==='league';
+    const tA=league?TC.team(TC.teamA):{name:'Side A',owner:''};
+    const tB=league?TC.team(TC.teamB):{name:'Side B',owner:''};
+    const fp=[TC.vmode==='re'?'Redraft':'Dynasty'];
+    try{ const lg=TC._live&&TC._live.league; if(league&&lg){ fp.push((lg.roster_positions||[]).includes('SUPER_FLEX')?'Superflex':'1QB'); if(lg.total_rosters) fp.push(lg.total_rosters+'-team'); } }catch(e){}
+    // header
+    x.fillStyle=C.acc; x.beginPath(); x.arc(52,50,4,0,7); x.fill();
+    x.fillStyle=C.mut; x.font='700 15px '+MONO; x.textAlign='left'; ls('2px'); x.fillText('TRADE CHECK',66,55);
+    x.textAlign='right'; x.font='500 14px '+MONO; ls('1.5px'); x.fillText(fp.join(' · ').toUpperCase(),W-48,55); ls('0px'); x.textAlign='left';
+    // columns
+    const pad=48,gap=64,colW=(W-pad*2-gap)/2,colY=88,colH=428;
+    const drawCol=(px,label,assets,total)=>{
+      x.fillStyle=C.pan; rr(px,colY,colW,colH,16); x.fill(); x.strokeStyle=C.bd; x.lineWidth=1; rr(px,colY,colW,colH,16); x.stroke();
+      const ix=px+26; let iy=colY+38;
+      x.fillStyle=C.acc; x.font='700 14px '+MONO; x.textAlign='left'; ls('2px'); x.fillText(clip((label+' sends').toUpperCase(),colW-52),ix,iy); ls('0px');
+      iy+=34;
+      assets.slice(0,5).forEach(a=>{
+        const pos=(a.type==='pick'?'PICK':(a.pos||'?')).toUpperCase(), col=POS[pos]||C.mut;
+        x.font='700 12px '+MONO; ls('.5px'); const cw=Math.max(52,x.measureText(pos).width+18);
+        x.strokeStyle=col+'55'; rr(ix,iy-15,cw,24,7); x.stroke(); x.fillStyle=col; x.textAlign='center'; x.fillText(pos,ix+cw/2,iy+2); x.textAlign='left'; ls('0px');
+        const nx=ix+cw+14, nMax=colW-26-cw-14-96;
+        x.fillStyle=C.text; x.font='700 23px '+SANS; x.fillText(clip(a.name,nMax),nx,iy);
+        const meta=(a.type==='pick'?'PICK':[pos,a.team].filter(Boolean).join(' · ')).toUpperCase();
+        x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('.6px'); x.fillText(meta,nx,iy+17); ls('0px');
+        const v=TC.val(a); x.fillStyle=C.text; x.font='700 21px '+MONO; x.textAlign='right'; x.fillText(v?v.toLocaleString():'—',px+colW-24,iy); x.textAlign='left';
+        iy+=52;
+      });
+      if(assets.length>5){ x.fillStyle=C.mut; x.font='500 13px '+MONO; x.fillText('+ '+(assets.length-5)+' more',ix,iy); }
+      const sy=colY+colH-28; x.strokeStyle=C.bd; x.beginPath(); x.moveTo(ix,sy-26); x.lineTo(px+colW-24,sy-26); x.stroke();
+      x.fillStyle=C.mut; x.font='500 13px '+MONO; ls('1.2px'); x.fillText('TOTAL VALUE',ix,sy); ls('0px');
+      x.fillStyle=C.text; x.font='700 30px '+MONO; x.textAlign='right'; x.fillText(total?total.toLocaleString():'—',px+colW-24,sy+4); x.textAlign='left';
+    };
+    drawCol(pad,tA.name,tradeAssets.a||[],totA);
+    drawCol(pad+colW+gap,tB.name,tradeAssets.b||[],totB);
+    x.fillStyle=C.mut; x.font='900 20px '+SANS; x.textAlign='center'; x.fillText('VS',W/2,colY+colH/2+7); x.textAlign='left';
+    // verdict
+    const recvA=totB,recvB=totA,diff=recvA-recvB,pct=Math.round(Math.abs(diff)/Math.max(recvA,recvB,1)*100);
+    const mineA=/you/i.test(tA.owner||'')||/\(you\)/i.test(tA.name||''), mineB=/you/i.test(tB.owner||'')||/\(you\)/i.test(tB.name||'');
+    let big,small,vc;
+    if(pct<=8){ big='Fair trade'; small='Within market range · '+pct+'% apart'; vc=C.acc; }
+    else { const aWins=recvA>recvB;
+      if(mineA||mineB){ const iWin=(mineA&&aWins)||(mineB&&!aWins); big=iWin?'You win':'They win'; small='by '+pct+'% in real-market value'; vc=iWin?C.acc:C.red; }
+      else { big=(aWins?tA.name:tB.name)+' wins'; small='by '+pct+'% in real-market value'; vc=C.acc; } }
+    const vy=colY+colH+22,vh=88;
+    x.fillStyle=C.pan; rr(pad,vy,W-pad*2,vh,14); x.fill(); x.strokeStyle=C.bd; rr(pad,vy,W-pad*2,vh,14); x.stroke();
+    x.fillStyle=C.mut; x.font='700 13px '+MONO; ls('2.4px'); x.fillText('VERDICT',pad+26,vy+30); ls('0px');
+    x.fillStyle=vc; x.font='800 30px '+SANS; x.fillText(big,pad+26,vy+64); const bw=x.measureText(big).width;
+    x.fillStyle=C.t2; x.font='400 16px '+SANS; x.fillText(clip(small,W-pad*2-52-200-bw),pad+26+bw+14,vy+64);
+    if(shield){ const lw=42,lh=lw*_SHIELD_ASPECT; x.drawImage(shield,W-pad-24-176,vy+vh/2-lh/2,lw,lh); }
+    x.textAlign='right'; x.fillStyle=C.text; x.font='900 22px '+SANS; x.fillText('VAULT',W-pad-24,vy+40);
+    x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-pad-24,vy+58); ls('0px'); x.textAlign='left';
+    return cv;
+  };
+
   window.initTrade = function(){ TC.init(); };
   window.renderTradeRosterChips = function(){ if(TC._inited) TC.render(); };
   // when the header league changes, reload the trade calc's league if it's open
