@@ -16343,9 +16343,28 @@ function dvMyPickRollup(){
   return n ? { n, avg: sum / n, best, worst } : null;
 }
 
-/* Post-draft recap: the grade you finished with, with the ring/letter/score
-   arriving rather than just appearing. Re-entrant — called again by
-   VaultGrades.onReady when the modal opened before the stats landed. */
+/* Load the finished draft's picks so the recap has a roster to grade.
+   Guarded so only one sync runs at a time, and safe to call repeatedly — the
+   recap's poll calls it on every attempt, so a first kick that fired before the
+   Sleeper user context / draft id was ready is simply retried until it takes.
+   Repaints the recap when the sync lands. No-op once a roster exists. */
+function _dvKickDraftSync(){
+  try {
+    if (typeof getMyRoster === 'function' && getMyRoster().length) return;   // already have it
+    if (window._dvrSyncing) return;                                          // one in flight
+    if (typeof syncActiveDraft !== 'function') return;
+    if (!(typeof sleeperDraftId !== 'undefined' && sleeperDraftId) &&
+        !(typeof espnDraftLid !== 'undefined' && espnDraftLid)) return;      // no draft to sync yet
+    window._dvrSyncing = true;
+    Promise.resolve(syncActiveDraft())
+      .then(() => { window._dvrSyncing = false; try{ dvPaintDraftRecap(); }catch(e){} })
+      .catch(() => { window._dvrSyncing = false; });
+  } catch(e){ window._dvrSyncing = false; }
+}
+
+/* Post-draft recap: previews the shareable card you finished with. Re-entrant —
+   called again by VaultGrades.onReady and by its own poll while the finished
+   draft's roster is still loading. */
 function dvPaintDraftRecap(){
   const el = document.getElementById('dcp-recap');
   if (!el) return;
@@ -16376,10 +16395,11 @@ function dvPaintDraftRecap(){
     // roster still resolves to hidden.
     const m = document.getElementById('draft-complete-modal');
     const open = m && !m.classList.contains('gone');
-    if (open && (el._dvrTries = (el._dvrTries||0)+1) <= 20){
+    if (open && (el._dvrTries = (el._dvrTries||0)+1) <= 30){
       el.hidden = false;
       el.classList.add('dvr-card-mode');
       if (!el.querySelector('canvas')) el.innerHTML = `<div class="dvr-card-skel skel"></div>`;
+      _dvKickDraftSync();   // re-attempt the load each tick until the roster lands
       clearTimeout(el._dvrRetry); el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 500);
     } else {
       el.hidden = true;
@@ -16420,19 +16440,8 @@ function showDraftCompletePrompt(){
   m.classList.remove('gone');
   // The finished draft's picks may not be loaded yet on this path — the prompt
   // opens straight from renderDraftSummary() without the board's sync having run
-  // (that only fires on "Reconnect"). Without a roster, getMyRoster() is empty
-  // and the recap can never grade. So kick the sync ourselves (guarded, once) and
-  // repaint when it lands; the recap's own poll bridges the wait meanwhile.
-  try {
-    if (typeof getMyRoster === 'function' && !getMyRoster().length
-        && (sleeperDraftId || espnDraftLid) && typeof syncActiveDraft === 'function'
-        && !window._dvrSyncing) {
-      window._dvrSyncing = true;
-      Promise.resolve(syncActiveDraft())
-        .then(() => { window._dvrSyncing = false; try{ dvPaintDraftRecap(); }catch(e){} })
-        .catch(() => { window._dvrSyncing = false; });
-    }
-  } catch(e){}
+  // (that only fires on "Reconnect"). Kick the sync so the recap has a roster.
+  _dvKickDraftSync();
   // Paint after the modal is visible — the ring animates from a real layout, and
   // a hidden element has no box to reflow. Reset the poll counter so a fresh
   // open gets its full retry budget while the roster loads.
