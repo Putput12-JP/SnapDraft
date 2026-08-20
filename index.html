@@ -13201,10 +13201,10 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
-    ts:'2026-08-20T15:30', tag:'New', title:'Share your draft as an image',
+    ts:'2026-08-20T16:45', tag:'New', title:'Share your draft as an image',
     items:[
-      'When a draft wraps, the recap now has a Share your draft card button — a clean image of your draft grade, full starting lineup with headshots, and your projected outlook.',
-      'On your phone it opens the share sheet straight to messages or X; on desktop it copies and downloads the image.',
+      'When a draft wraps, the recap now previews your shareable draft card right in the popup — your grade, full starting lineup with headshots, and projected outlook.',
+      'Tap Share your draft card: on your phone it opens the share sheet straight to messages or X; on desktop it copies and downloads the image.',
     ],
   },
   {
@@ -16357,8 +16357,8 @@ function dvPaintDraftRecap(){
   if (!(window.VaultGrades && VaultGrades.ready())){
     el.hidden = false;
     if (shareBtn) shareBtn.hidden = true;   // no card to share until stats land
-    el.innerHTML = `<div class="dvr-ring-wrap"><div class="skel dvr-skel-ring"></div></div>
-      <div class="dvr-body"><div class="skel dvr-skel-l1"></div><div class="skel dvr-skel-l2"></div><div class="skel dvr-skel-l3"></div></div>`;
+    el.classList.add('dvr-card-mode');
+    if (!el.querySelector('canvas')) el.innerHTML = `<div class="dvr-card-skel skel"></div>`;
     if (!el._dvrWaiting && window.VaultGrades){
       el._dvrWaiting = true;
       VaultGrades.onReady(() => { el._dvrWaiting = false; try{ dvPaintDraftRecap(); }catch(e){} });
@@ -16378,8 +16378,8 @@ function dvPaintDraftRecap(){
     const open = m && !m.classList.contains('gone');
     if (open && (el._dvrTries = (el._dvrTries||0)+1) <= 20){
       el.hidden = false;
-      el.innerHTML = `<div class="dvr-ring-wrap"><div class="skel dvr-skel-ring"></div></div>
-        <div class="dvr-body"><div class="skel dvr-skel-l1"></div><div class="skel dvr-skel-l2"></div><div class="skel dvr-skel-l3"></div></div>`;
+      el.classList.add('dvr-card-mode');
+      if (!el.querySelector('canvas')) el.innerHTML = `<div class="dvr-card-skel skel"></div>`;
       clearTimeout(el._dvrRetry); el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 500);
     } else {
       el.hidden = true;
@@ -16388,70 +16388,23 @@ function dvPaintDraftRecap(){
   }
   el._dvrTries = 0; clearTimeout(el._dvrRetry);
   if (shareBtn) shareBtn.hidden = false;    // real grade → the card is shareable
-  const roll = dvMyPickRollup();
 
-  const R = 38, C = 2 * Math.PI * R;
-  const frac = Math.max(0, Math.min(1, g.score / 100));
-  const pk = (r) => `${r.name.split(' ').pop()} <b style="color:${r.g.color}">${r.g.letter}</b> <span>at ${_dvPickStr(r.pickNo, NUM_TEAMS)}</span>`;
-
+  // Show the ACTUAL shareable card as the recap preview (scaled to the modal),
+  // not the old compact grade ring — the preview is exactly what gets shared, so
+  // draw it 1:1. The canvas paints async (fonts + headshots), so hold a skeleton
+  // in the card's aspect until it lands, and keep any existing canvas up across a
+  // repaint so it never flashes.
   el.hidden = false;
-  el.innerHTML = `
-    <div class="dvr-ring-wrap">
-      <svg class="dvr-ring" width="88" height="88" viewBox="0 0 88 88" aria-hidden="true">
-        <circle cx="44" cy="44" r="${R}" class="dvr-ring-bg" stroke-width="7" fill="none"/>
-        <circle cx="44" cy="44" r="${R}" class="dvr-ring-fg" stroke-width="7" fill="none"
-                stroke-linecap="round" stroke="${g.color}"
-                stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/>
-      </svg>
-      <div class="dvr-ring-mid">
-        <span class="dvr-letter" style="color:${g.color}">${g.letter}</span>
-        <span class="dvr-score"><b id="dvr-score-n">0</b>/100</span>
-      </div>
-    </div>
-    <div class="dvr-body">
-      <div class="dvr-desc" style="color:${g.color}">${g.desc}</div>
-      <div class="dvr-sub">Your ${g.nStarters}-man starting lineup${roll ? ` · ${dvPickLetter(roll.avg)} across ${roll.n} graded picks` : ''}</div>
-      <div class="ds-gfac dvr-facs">${dvGradeFactorChips(g)}</div>
-      ${roll && roll.best ? `<div class="dvr-pk"><span class="dvr-pk-k">Best</span>${pk(roll.best)}</div>` : ''}
-      ${roll && roll.worst && roll.worst !== roll.best ? `<div class="dvr-pk"><span class="dvr-pk-k">Toughest</span>${pk(roll.worst)}</div>` : ''}
-    </div>`;
-
-  const scoreEl = el.querySelector('#dvr-score-n');
-  const ring    = el.querySelector('.dvr-ring-fg');
-  const target  = (C * (1 - frac)).toFixed(1);
-
-  // Final state written FIRST, so a tab that never paints (no rAF, no
-  // transitions) still shows the right number and a filled ring.
-  if (scoreEl) scoreEl.textContent = String(g.score);
-  if (reduce){ if (ring) ring.style.strokeDashoffset = target; return; }
-
-  // Ring travels to its endpoint: --ease-out on stroke-dashoffset. NOT
-  // --ease-spring — overshoot is only ever safe on transform, and an overshooting
-  // dashoffset would visibly rewind past the arc.
-  if (ring){
-    ring.style.transition = 'none';
-    ring.style.strokeDashoffset = C.toFixed(1);
-    void ring.getBoundingClientRect();          // forced reflow, never rAF
-    ring.style.transition = 'stroke-dashoffset 900ms var(--ease-out)';
-    ring.style.strokeDashoffset = target;
-  }
-  // Letter + chips arrive in place → --ease-spring, on transform only.
-  el.classList.remove('dvr-in');
-  void el.offsetWidth;
-  el.classList.add('dvr-in');
-
-  // Count-up is the one rAF here, and it's cosmetic: the final value is already
-  // in the DOM above, so a throttled tab loses the animation, not the number.
-  if (scoreEl && g.score > 0){
-    const dur = 900, t0 = performance.now();
-    const ease = x => 1 - Math.pow(1 - x, 3);
-    const tick = now => {
-      const t = Math.min(1, (now - t0) / dur);
-      scoreEl.textContent = String(Math.round(g.score * ease(t)));
-      if (t < 1) requestAnimationFrame(tick);
-    };
-    scoreEl.textContent = '0';
-    requestAnimationFrame(tick);
+  el.classList.add('dvr-card-mode');
+  const sig = g.letter + '|' + g.score + '|' + (g.nStarters || 0);
+  if (el._dvrCardSig !== sig){
+    el._dvrCardSig = sig;
+    if (!el.querySelector('canvas')) el.innerHTML = '<div class="dvr-card-skel skel"></div>';
+    if (window.VaultDraftRecap && VaultDraftRecap.previewInto){
+      VaultDraftRecap.previewInto(el)
+        .then(ok => { if (!ok && !el.querySelector('canvas')) el._dvrCardSig = null; })
+        .catch(() => { el._dvrCardSig = null; });
+    }
   }
 }
 
@@ -16483,7 +16436,7 @@ function showDraftCompletePrompt(){
   // Paint after the modal is visible — the ring animates from a real layout, and
   // a hidden element has no box to reflow. Reset the poll counter so a fresh
   // open gets its full retry budget while the roster loads.
-  try { const _r = document.getElementById('dcp-recap'); if (_r) _r._dvrTries = 0; dvPaintDraftRecap(); } catch(e){}
+  try { const _r = document.getElementById('dcp-recap'); if (_r){ _r._dvrTries = 0; _r._dvrCardSig = null; } dvPaintDraftRecap(); } catch(e){}
 }
 function chooseViewCompleted(){
   window._completedDraftChoice = 'view';
@@ -28024,6 +27977,21 @@ function pickYear(year) {
     x.textAlign='left'; x.fillStyle=C.text; x.font='900 21px '+SANS; x.fillText('VAULT',W-48-140,fy2-2);
     x.fillStyle=C.mut; x.font='500 11.5px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-48-140,fy2+14); ls('0px');
     return cv;
+  };
+
+  // Draw the card and mount it (scaled) into a modal element as the recap
+  // preview. Guarded by a signature on the element so repeated paints don't
+  // redraw the same card.
+  DR.previewInto = async function(el){
+    if(!el) return false;
+    const D = DR.data(); if(!D) return false;
+    let cv; try{ cv = await DR._draw(D); }catch(e){ return false; }
+    if(!el.isConnected) return false;
+    cv.className = 'dvr-card';
+    cv.setAttribute('role','img');
+    cv.setAttribute('aria-label', 'Your draft recap card — grade '+D.g.letter);
+    el.innerHTML = ''; el.appendChild(cv);
+    return true;
   };
 
   DR.share = async function(ev){
@@ -43875,6 +43843,11 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   border-top:1px solid var(--border);border-bottom:1px solid var(--border);
 }
 .dvr[hidden]{display:none}
+/* Card-preview mode: the recap shows the ACTUAL shareable card (scaled to the
+   modal width), not the compact grade ring. Overrides the flex ring layout. */
+.dvr.dvr-card-mode{display:block;gap:0;padding:14px 2px 8px}
+.dvr-card{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 10px 34px -14px rgba(0,0,0,.65)}
+.dvr-card-skel{width:100%;aspect-ratio:1200/675;border-radius:12px}
 .dvr-ring-wrap{position:relative;flex-shrink:0;width:88px;height:88px}
 .dvr-ring{transform:rotate(-90deg)}          /* 12 o'clock start */
 .dvr-ring-bg{stroke:var(--border2)}
