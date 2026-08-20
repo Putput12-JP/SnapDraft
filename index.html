@@ -16363,78 +16363,98 @@ function _dvKickDraftSync(){
 }
 
 /* Post-draft recap: previews the shareable card you finished with. Re-entrant —
-   called again by VaultGrades.onReady and by its own poll while the finished
-   draft's roster is still loading. */
+   called by its own poll and by VaultGrades.onReady while the finished draft's
+   grades/roster are still loading. A REAL-TIME budget (a start timestamp, not a
+   call counter — repeated renders would keep resetting a counter) guarantees the
+   recap always resolves to the card, or to a clear retryable failure, and can
+   never sit on an endless skeleton. */
 function dvPaintDraftRecap(){
   const el = document.getElementById('dcp-recap');
   if (!el) return;
   const shareBtn = document.getElementById('dcp-share-btn');
-  const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const m = document.getElementById('draft-complete-modal');
+  const open = !!(m && !m.classList.contains('gone'));
 
-  // Stats not in yet → skeleton in the shape we're about to fill, and repaint
-  // once. A skeleton, not a spinner: we already know the layout (motion §3).
-  if (!(window.VaultGrades && VaultGrades.ready())){
-    el.hidden = false;
-    if (shareBtn) shareBtn.hidden = true;   // no card to share until stats land
-    el.classList.add('dvr-card-mode');
-    if (!el.querySelector('canvas')) el.innerHTML = `<div class="dvr-card-skel skel"></div>`;
-    if (!el._dvrWaiting && window.VaultGrades){
-      el._dvrWaiting = true;
-      VaultGrades.onReady(() => { el._dvrWaiting = false; try{ dvPaintDraftRecap(); }catch(e){} });
+  const gradesReady = !!(window.VaultGrades && VaultGrades.ready());
+  const g = gradesReady ? dvTeamGrade() : null;
+
+  // ── success: show the actual shareable card, scaled into the modal ──
+  if (g){
+    el._dvrStart = null; clearTimeout(el._dvrRetry);
+    if (shareBtn) shareBtn.hidden = false;
+    el.hidden = false; el.classList.add('dvr-card-mode');
+    const sig = g.letter + '|' + g.score + '|' + (g.nStarters || 0);
+    if (el._dvrCardSig !== sig){
+      el._dvrCardSig = sig;
+      if (!el.querySelector('canvas')) el.innerHTML = '<div class="dvr-card-skel skel"></div>';
+      if (window.VaultDraftRecap && VaultDraftRecap.previewInto){
+        // If the draw fails/times out, clear the sig and repaint so it retries.
+        const onFail = () => { el._dvrCardSig = null;
+          if (!el.querySelector('canvas')){ clearTimeout(el._dvrRetry);
+            el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 900); } };
+        VaultDraftRecap.previewInto(el).then(ok => { if (!ok) onFail(); }).catch(onFail);
+      }
     }
     return;
   }
 
-  const g = dvTeamGrade();
-  if (!g){
-    el.innerHTML = ''; if (shareBtn) shareBtn.hidden = true;
-    // A completed draft's picks can land a beat AFTER this modal opens (grades
-    // are ready, but getMyRoster() is still empty), so dvTeamGrade() is briefly
-    // null. Show the skeleton and poll until the roster fills in, rather than
-    // leaving the recap permanently blank. Bounded (~5s) so a genuinely empty
-    // roster still resolves to hidden.
-    const m = document.getElementById('draft-complete-modal');
-    const open = m && !m.classList.contains('gone');
-    if (open && (el._dvrTries = (el._dvrTries||0)+1) <= 30){
-      el.hidden = false;
-      el.classList.add('dvr-card-mode');
-      if (!el.querySelector('canvas')) el.innerHTML = `<div class="dvr-card-skel skel"></div>`;
-      _dvKickDraftSync();   // re-attempt the load each tick until the roster lands
-      clearTimeout(el._dvrRetry); el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 500);
-    } else {
-      el.hidden = true;
-    }
+  // ── no grade yet: grades still loading, or the roster hasn't landed ──
+  if (shareBtn) shareBtn.hidden = true;
+  if (!open){ el.hidden = true; el.classList.remove('dvr-card-mode'); el._dvrStart = null; clearTimeout(el._dvrRetry); return; }
+  if (!gradesReady && !el._dvrWaiting && window.VaultGrades){       // warm the grade engine once
+    el._dvrWaiting = true;
+    VaultGrades.onReady(() => { el._dvrWaiting = false; try{ dvPaintDraftRecap(); }catch(e){} });
+  }
+  if (el._dvrStart == null) el._dvrStart = Date.now();
+  el.hidden = false; el.classList.add('dvr-card-mode');
+  const budget = (window._dvrBudgetMs|0) || 18000;
+
+  if (Date.now() - el._dvrStart < budget){
+    // within the window — keep a skeleton up and keep trying to load the roster
+    if (!el.querySelector('canvas') && !el.querySelector('.dvr-fail')) el.innerHTML = '<div class="dvr-card-skel skel"></div>';
+    _dvKickDraftSync();
+    clearTimeout(el._dvrRetry);
+    el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 600);
     return;
   }
-  el._dvrTries = 0; clearTimeout(el._dvrRetry);
-  if (shareBtn) shareBtn.hidden = false;    // real grade → the card is shareable
 
-  // Show the ACTUAL shareable card as the recap preview (scaled to the modal),
-  // not the old compact grade ring — the preview is exactly what gets shared, so
-  // draw it 1:1. The canvas paints async (fonts + headshots), so hold a skeleton
-  // in the card's aspect until it lands, and keep any existing canvas up across a
-  // repaint so it never flashes.
-  el.hidden = false;
-  el.classList.add('dvr-card-mode');
-  const sig = g.letter + '|' + g.score + '|' + (g.nStarters || 0);
-  if (el._dvrCardSig !== sig){
-    el._dvrCardSig = sig;
-    if (!el.querySelector('canvas')) el.innerHTML = '<div class="dvr-card-skel skel"></div>';
-    if (window.VaultDraftRecap && VaultDraftRecap.previewInto){
-      // If the draw fails or times out, clear the signature and repaint shortly so
-      // the skeleton is never permanent — the next attempt redraws the card.
-      const onFail = () => {
-        el._dvrCardSig = null;
-        if (!el.querySelector('canvas')){
-          clearTimeout(el._dvrRetry);
-          el._dvrRetry = setTimeout(() => { try{ dvPaintDraftRecap(); }catch(e){} }, 900);
-        }
-      };
-      VaultDraftRecap.previewInto(el)
-        .then(ok => { if (!ok) onFail(); })
-        .catch(onFail);
-    }
+  // ── budget exhausted: never a stuck skeleton. Say why, offer a retry, and log
+  //    the actual state so the real cause is visible in the console. ──
+  try{ console.warn('[Vault] draft recap could not build', {
+    reason: gradesReady ? 'roster/grade did not load' : 'grades did not load',
+    status: window._activeDraft && window._activeDraft.status,
+    picks: (typeof draftState !== 'undefined') ? Object.keys(draftState).length : '?',
+    myTeam: (typeof myTeam !== 'undefined') ? myTeam : '?',
+    roster: (typeof getMyRoster === 'function') ? getMyRoster().length : '?',
+    gradesReady, draftId: (typeof sleeperDraftId !== 'undefined' ? sleeperDraftId : '') || (typeof espnDraftLid !== 'undefined' ? espnDraftLid : '')
+  }); }catch(e){}
+  if (!el.querySelector('.dvr-fail')){
+    el.innerHTML =
+      '<div class="dvr-fail">' +
+        '<div class="dvr-fail-t">Couldn\'t build your recap card</div>' +
+        '<div class="dvr-fail-s">Your roster didn\'t finish loading for this draft. Reconnect to the board to review it, or try again.</div>' +
+        '<button class="dvr-fail-btn press press-btn" onclick="dvRecapRetry(event)">↻ Try again</button>' +
+      '</div>';
   }
+}
+
+/* Reset the recap and force a fresh roster sync + repaint. */
+function dvRecapRetry(ev){
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const el = document.getElementById('dcp-recap'); if (!el) return;
+  el._dvrStart = null; el._dvrCardSig = null; window._dvrSyncing = false;
+  el.hidden = false; el.classList.add('dvr-card-mode');
+  el.innerHTML = '<div class="dvr-card-skel skel"></div>';
+  try{
+    if (typeof syncActiveDraft === 'function' &&
+        ((typeof sleeperDraftId !== 'undefined' && sleeperDraftId) || (typeof espnDraftLid !== 'undefined' && espnDraftLid))){
+      window._dvrSyncing = true;
+      Promise.resolve(syncActiveDraft())
+        .then(()=>{ window._dvrSyncing = false; try{ dvPaintDraftRecap(); }catch(e){} })
+        .catch(()=>{ window._dvrSyncing = false; });
+    }
+  }catch(e){ window._dvrSyncing = false; }
+  dvPaintDraftRecap();
 }
 
 function showDraftCompletePrompt(){
@@ -16446,15 +16466,17 @@ function showDraftCompletePrompt(){
     const total = (d?.teams||0) * (d?.rounds||0);
     sub.textContent = total ? `Review all ${total} picks & your roster` : 'Review the final board & your roster';
   }
+  // Reset the recap's load timer + card ONLY on a fresh open — renderDraftSummary
+  // re-calls this on sync ticks while the modal is up, and resetting the timer
+  // every time is exactly what would let a non-loading roster skeleton forever.
+  const wasGone = m.classList.contains('gone');
   m.classList.remove('gone');
+  if (wasGone){ try { const _r = document.getElementById('dcp-recap'); if (_r){ _r._dvrStart = null; _r._dvrCardSig = null; } } catch(e){} }
   // The finished draft's picks may not be loaded yet on this path — the prompt
   // opens straight from renderDraftSummary() without the board's sync having run
   // (that only fires on "Reconnect"). Kick the sync so the recap has a roster.
   _dvKickDraftSync();
-  // Paint after the modal is visible — the ring animates from a real layout, and
-  // a hidden element has no box to reflow. Reset the poll counter so a fresh
-  // open gets its full retry budget while the roster loads.
-  try { const _r = document.getElementById('dcp-recap'); if (_r){ _r._dvrTries = 0; _r._dvrCardSig = null; } dvPaintDraftRecap(); } catch(e){}
+  try { dvPaintDraftRecap(); } catch(e){}
 }
 function chooseViewCompleted(){
   window._completedDraftChoice = 'view';
@@ -43892,6 +43914,15 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .dvr.dvr-card-mode{display:block;gap:0;padding:14px 2px 8px}
 .dvr-card{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 10px 34px -14px rgba(0,0,0,.65)}
 .dvr-card-skel{width:100%;aspect-ratio:1200/675;border-radius:12px}
+/* Recap failure state — shown instead of an endless skeleton when the roster
+   can't be loaded for this draft. */
+.dvr-fail{width:100%;aspect-ratio:1200/675;border-radius:12px;border:1px solid var(--border);background:var(--s2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:20px}
+.dvr-fail-t{font-family:var(--font-sans);font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.dvr-fail-s{font-family:var(--font-sans);font-size:12.5px;color:var(--muted);line-height:1.45;max-width:44ch}
+.dvr-fail-btn{margin-top:6px;font-family:var(--font-sans);font-size:13px;font-weight:700;color:var(--text);cursor:pointer;
+  padding:9px 16px;border-radius:9999px;border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.dvr-fail-btn:hover{background:color-mix(in srgb,var(--accent) 24%,transparent)}
 .dvr-ring-wrap{position:relative;flex-shrink:0;width:88px;height:88px}
 .dvr-ring{transform:rotate(-90deg)}          /* 12 o'clock start */
 .dvr-ring-bg{stroke:var(--border2)}
