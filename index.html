@@ -13229,6 +13229,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-21T19:30', tag:'Fixed', title:'Latest Move card no longer flickers',
+    items:[
+      'The “Latest Move” card on your League overview used to blink back to a loading state and reload every time your league values refreshed in the background.',
+      'It now holds the trade in place and only refreshes when there’s something new, so the card sits still instead of flashing.',
+    ]
+  },
+  {
     ts:'2026-08-21T18:00', tag:'Fixed', title:'Guillotine leagues no longer show as Dynasty',
     items:[
       'When you enter a big-roster redraft league — like a guillotine format — the draft board now reads your league’s real type from Sleeper instead of guessing from the roster size, so it correctly shows Redraft.',
@@ -38016,6 +38023,16 @@ body .page,body .page.on{background:transparent!important}
   window.lhToggleRoster = lhToggleRoster;
 
   /* ════════════════ OVERVIEW ════════════════ */
+  // The overview grid is rebuilt every time the data layer republishes team
+  // values (FC buckets land one at a time, rosters refresh, values recompute) —
+  // several full repaints in the first seconds of a league load. Every other
+  // card renders its final content synchronously, so a repaint is invisible for
+  // them. The Latest Move card is the exception: it fills asynchronously, so a
+  // naked repaint dropped it back to "Loading recent activity…" and then back to
+  // content on each pass — a visible flash/flicker. Cache the last rendered
+  // (and terminal) latest-move HTML per league and seed the slot with it, so a
+  // repaint shows the real card immediately instead of the loading state.
+  let _lhLatestCache = {};  // { [lid]: { html, ts } }
   function renderOverviewView(teamData){
     const E = el(); if (!E) return;
     const { teams, byValue, total } = buildRanked(teamData);
@@ -38127,9 +38144,12 @@ body .page,body .page.on{background:transparent!important}
     </div>`;
 
     /* latest move (lazy) */
+    const _lhLid = (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || window._currentLeagueId || '';
+    const _lhCached = _lhLatestCache[_lhLid];
+    const _lhInit = _lhCached ? _lhCached.html : `<div class="lh-muted" style="font-size:12px;padding:6px 2px">Loading recent activity…</div>`;
     const tradeCard = `<div class="lh-ov-trade lh-card lh-pad">
       <div class="lh-sec-h">Latest Move <span class="lh-sec-h-r lh-link" onclick="setTeamsTab('tx')">Trade feed →</span></div>
-      <div id="lh-ov-latest"><div class="lh-muted" style="font-size:12px;padding:6px 2px">Loading recent activity…</div></div>
+      <div id="lh-ov-latest">${_lhInit}</div>
     </div>`;
 
     /* movers */
@@ -38144,18 +38164,25 @@ body .page,body .page.on{background:transparent!important}
 
     E.innerHTML = `<div class="lh-wrap"><div class="lh-ov-grid">${hero}${pulse}${power}${raceCard}${tradeCard}${moversCard}</div></div>`;
 
-    // fill latest trade asynchronously
-    fillLatestTrade();
+    // fill latest trade asynchronously — but only when we don't already have a
+    // fresh cached result for this league. The slot is already seeded with the
+    // cached card above, so a repaint within the freshness window skips both the
+    // loading flash and the redundant Sleeper round-trips.
+    if (!_lhCached || (Date.now()-_lhCached.ts) > 120000) fillLatestTrade();
   }
 
   async function fillLatestTrade(){
     const slot = document.getElementById('lh-ov-latest');
     if (!slot) return;
+    // Cache the terminal HTML per league so the next overview repaint seeds the
+    // slot with it instead of flashing back to the loading state.
+    const _lid = (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || window._currentLeagueId || '';
+    const setSlot = (html)=>{ slot.innerHTML = html; if (_lid) _lhLatestCache[_lid] = { html, ts: Date.now() }; };
     try {
       const lg = leagueObj();
-      if (lg && vpPlat(lg)==='espn'){ slot.innerHTML = `<div class="lh-muted" style="font-size:12px;padding:6px 2px">ESPN trade history isn't wired yet, rankings & standings still run on live ESPN data.</div>`; return; }
+      if (lg && vpPlat(lg)==='espn'){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">ESPN trade history isn't wired yet, rankings & standings still run on live ESPN data.</div>`); return; }
       const ctx = await getLeagueContext();
-      if (!ctx || !ctx.rosters){ slot.innerHTML = `<div class="lh-muted" style="font-size:12px;padding:6px 2px">No recent moves.</div>`; return; }
+      if (!ctx || !ctx.rosters){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">No recent moves.</div>`); return; }
       if (typeof sleeperPlayersLoaded!=='undefined' && !sleeperPlayersLoaded) await fetchSleeperPlayers();
       const lid = ctx.lid, rosters = ctx.rosters || [], users = ctx.users || [];
       const userMap = buildUserMap(users), rom = buildRosterOwnerMap(rosters);
@@ -38169,9 +38196,9 @@ body .page,body .page.on{background:transparent!important}
         tx.sort((a,b)=>(b.status_updated||0)-(a.status_updated||0));
         if (tx.length) trade = tx[0];
       }
-      if (!trade){ slot.innerHTML = `<div class="lh-muted" style="font-size:12px;padding:6px 2px">No trades yet this season.</div>`; return; }
-      slot.innerHTML = tradeMini(trade, userMap, rom);
-    } catch(e){ slot.innerHTML = `<div class="lh-muted" style="font-size:12px;padding:6px 2px">No recent moves.</div>`; }
+      if (!trade){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">No trades yet this season.</div>`); return; }
+      setSlot(tradeMini(trade, userMap, rom));
+    } catch(e){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">No recent moves.</div>`); }
   }
 
   function tradeMini(tx, userMap, rom){
