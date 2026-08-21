@@ -13218,6 +13218,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-21T12:30', tag:'Fixed', title:'Draft picks now show on trade offers',
+    items:[
+      'Pending trade offers in the Trade Center that include draft picks now list those picks on the right side, with the pick and its value counted into each side\'s total.',
+      'Previously a pick attached to an offer was silently left off the card, so a trade could look emptier or more lopsided than it really was.',
+    ]
+  },
+  {
     ts:'2026-08-20T16:45', tag:'New', title:'Share your draft as an image',
     items:[
       'When a draft wraps, the recap now previews your shareable draft card right in the popup — your grade, full starting lineup with headshots, and projected outlook.',
@@ -22099,6 +22106,22 @@ function _tcVal(name, lg){
 // dynasty — never leave a pick priced at 0.
 const _TC_PICK_FALLBACK = {1:3500, 2:1800, 3:800, 4:300, 5:150};
 const _TC_ORD = {1:'1st', 2:'2nd', 3:'3rd', 4:'4th', 5:'5th'};
+// Normalise a transaction's draft_picks entry to an object. Sleeper's public
+// REST /transactions returns pick OBJECTS, but the private GraphQL that feeds
+// pending offers (league_transactions_filtered) returns each pick as a bare CSV
+// STRING: "roster_id,season,round,owner_id,previous_owner_id" (verified against
+// the REST object for the same transaction). The Trade Center reads picks off
+// GraphQL, so without this every pick row was a no-op — pk.owner_id was
+// undefined and the filter dropped it, which is why picks never rendered.
+function _tcParsePick(pk){
+  if(pk && typeof pk === 'object') return pk;
+  if(typeof pk === 'string'){
+    const p = pk.split(',');
+    return { roster_id:Number(p[0]), season:String(p[1]), round:Number(p[2]),
+             owner_id:Number(p[3]), previous_owner_id:Number(p[4]) };
+  }
+  return {};
+}
 // Value one draft pick. Dynasty picks are priced off the fitted trade-market
 // model (VaultTradeMarket.pickValue — years-out aware, same FantasyCalc scale as
 // _tcVal so a pick and a player sum correctly); a cold model or a non-dynasty
@@ -22193,7 +22216,7 @@ function _tcClassify(t, myRosterId, myUserId){
 function _tcSide(t, rosterId, d, entry, kind){
   const lg = d.lg;
   const recvPids = Object.entries(t.adds||{}).filter(([,rid]) => rid===rosterId).map(([pid])=>pid);
-  const recvPicks = (t.draft_picks||[]).filter(pk => pk.owner_id===rosterId);
+  const recvPicks = (t.draft_picks||[]).map(_tcParsePick).filter(pk => pk.owner_id===rosterId);
   const faab = (t.waiver_budget||[]).filter(w => w.receiver===rosterId);
   let total = 0;
   const rows = recvPids.map(pid => {
