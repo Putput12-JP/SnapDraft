@@ -10412,6 +10412,14 @@ async function syncSleeper() {
         // without the manual "which team are you" step. myTeamsUserId is only
         // populated once My Teams loads, so fall back to resolving the saved
         // username once (cached on window, including failed lookups).
+        //
+        // A myTeam persisted from a DIFFERENT, larger draft (e.g. an 18-team or an
+        // ESPN one) is out of range for this draft and makes getMyRoster() return
+        // EMPTY — but the block below only ran when myTeam was null, so the stale
+        // slot was never corrected (this is what left the post-draft recap stuck:
+        // picks loaded, myTeam=16 on a 10-team draft, roster 0). Invalidate an
+        // out-of-range slot first so it re-resolves for THIS draft.
+        if (myTeam!==null && (myTeam<0 || myTeam>=NUM_TEAMS)) myTeam=null;
         if (myTeam===null){
           let uid = (typeof myTeamsUserId!=='undefined' && myTeamsUserId) || window._paUserId || null;
           if (!uid && window._paUserId!==false){
@@ -10422,13 +10430,22 @@ async function syncSleeper() {
               window._paUserId = uid || false;
             }
           }
-          if (uid && dOrder[uid]!==undefined){
-            const slot = parseInt(dOrder[uid])-1;
-            if (slot>=0 && slot<NUM_TEAMS){
-              myTeam = slot;
-              save(); try{ updateTeamPill(); }catch(e){}
-              if (typeof toast==='function') toast(`✦ Drafting as ${TEAMS[myTeam]}`);
+          let slot = (uid && dOrder[uid]!==undefined) ? parseInt(dOrder[uid])-1 : -1;
+          // draft_order is frequently EMPTY on finished drafts, so the lookup
+          // above can't resolve the slot. Resolve it from the picks themselves —
+          // the slot whose picks were picked_by me — which is always populated.
+          if ((slot<0 || slot>=NUM_TEAMS) && uid && Array.isArray(picks)){
+            for (const pk of picks){
+              if (pk && pk.picked_by === uid){
+                const ti = (rosterToIdx[pk.roster_id] != null) ? rosterToIdx[pk.roster_id] : ((pk.draft_slot||0)-1);
+                if (ti>=0 && ti<NUM_TEAMS){ slot=ti; break; }
+              }
             }
+          }
+          if (slot>=0 && slot<NUM_TEAMS){
+            myTeam = slot;
+            save(); try{ updateTeamPill(); }catch(e){}
+            if (typeof toast==='function') toast(`✦ Drafting as ${TEAMS[myTeam]}`);
           }
         }
       } catch(e){}
