@@ -10383,7 +10383,18 @@ async function syncSleeper() {
       Array(_ds.slots_dl|0).fill('DL'), Array(_ds.slots_lb|0).fill('LB'),
       Array(_ds.slots_db|0).fill('DB'), Array(_ds.slots_idp_flex|0).fill('IDP_FLEX'));
     const isSuperflex = rosterPositions.includes('SUPER_FLEX') || (_ds.slots_qb|0) > 1;
-    const isDynasty = (_ds.rounds||0) >= 15;
+    // Format (dynasty vs redraft) must come from the league's REAL type, not the
+    // round count. A guillotine/best-ball redraft carries a huge roster, so the old
+    // rounds>=15 heuristic mislabeled it as dynasty. Join the league object
+    // (settings.type: 0=redraft, 1=keeper, 2=dynasty) by league_id — from My Teams
+    // if it's loaded, else fetched directly — and only fall back to the heuristic
+    // for mock drafts that have no league. Mirrors renderDraftItems().
+    let _lgForType = draft.league_id && (myTeamsData||[]).find(l => l && l.league_id === draft.league_id);
+    if (!_lgForType && draft.league_id){
+      _lgForType = await fetch(`https://api.sleeper.app/v1/league/${draft.league_id}`)
+        .then(r=>r.ok?r.json():null).catch(()=>null);
+    }
+    const isDynasty = _lgForType ? _isDynastyLeague(_lgForType) : (_ds.rounds||0) >= 15;
 
     window._draftIsSuperflex = isSuperflex;
     window._draftIsDynasty = isDynasty;
@@ -13218,6 +13229,20 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-21T18:00', tag:'Fixed', title:'Guillotine leagues no longer show as Dynasty',
+    items:[
+      'When you enter a big-roster redraft league — like a guillotine format — the draft board now reads your league’s real type from Sleeper instead of guessing from the roster size, so it correctly shows Redraft.',
+      'Previously these leagues could load as Dynasty, which pulled in the wrong player values and grades.',
+    ]
+  },
+  {
+    ts:'2026-08-21T15:00', tag:'New', title:'Share a trade offer as an image',
+    items:[
+      'Every pending offer in the Trade Center now has a Share button that turns it into a clean branded card — both sides, real values, and the verdict — to post or drop in your league chat.',
+      'On your phone it opens the share sheet; on desktop it copies the image and downloads it.',
+    ]
+  },
+  {
     ts:'2026-08-21T12:30', tag:'Fixed', title:'Draft picks now show on trade offers',
     items:[
       'Pending trade offers in the Trade Center that include draft picks now list those picks on the right side, with the pick and its value counted into each side\'s total.',
@@ -13660,6 +13685,11 @@ function _dvAutoMode(){
       const lg = lid && myTeamsData && myTeamsData.find(l=>l.league_id===lid);
       if (lg) isDyn = !!_isDynastyLeague(lg);
     }
+    // The draft-load path now derives _draftIsDynasty from the league's real
+    // settings.type (fetched when My Teams isn't loaded), so trust it before the
+    // rounds heuristic below — that heuristic mislabels big-roster redrafts
+    // (guillotine, Goonies) as dynasty when the league lookup above came up empty.
+    if (isDyn===null && typeof window._draftIsDynasty === 'boolean') isDyn = window._draftIsDynasty;
     if (isDyn===null && window._activeDraft && _activeDraft.rounds) isDyn = parseInt(_activeDraft.rounds) >= 15;
   } catch(e){}
   if (isDyn===null) isDyn = true;     // default to dynasty
@@ -21716,7 +21746,8 @@ function _cxIc(n,s){ s=s||15; const p={
   plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
   target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
   alert:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
-  activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'
+  activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  share:'<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>'
 }[n]||''; return `<svg class="cx-ic" viewBox="0 0 24 24" style="width:${s}px;height:${s}px">${p}</svg>`; }
 // glow summary strip
 const _cxC = { steel:['#8fb4e0','rgba(143,180,224,.22)'], green:['var(--rb)','rgba(61,204,122,.2)'], amber:['var(--te)','rgba(245,200,66,.22)'], sky:['var(--wr)','rgba(123,208,255,.2)'], red:['var(--red2)','rgba(255,90,110,.18)'], neutral:['#c9cdd6','rgba(201,205,214,.14)'] };
@@ -22212,24 +22243,43 @@ function _tcClassify(t, myRosterId, myUserId){
   return t.status; // complete / rejected / failed / ...
 }
 
-// One side of a trade card: what a roster RECEIVES. kind: 'get' (mine) | 'give' (theirs)
-function _tcSide(t, rosterId, d, entry, kind){
+// Structured list of what one roster RECEIVES in a trade — the single source
+// the on-screen card AND the share card both read, so a pick or value can never
+// show on one but not the other. Players first, then picks, then FAAB.
+//   → { assets:[{type,pid?,name,pos,team,round?,value}], total }
+function _tcSideAssets(t, rosterId, d){
   const lg = d.lg;
   const recvPids = Object.entries(t.adds||{}).filter(([,rid]) => rid===rosterId).map(([pid])=>pid);
   const recvPicks = (t.draft_picks||[]).map(_tcParsePick).filter(pk => pk.owner_id===rosterId);
   const faab = (t.waiver_budget||[]).filter(w => w.receiver===rosterId);
-  let total = 0;
-  const rows = recvPids.map(pid => {
-    const nm = _tcName(pid), v = Math.round(_tcVal(nm, lg)); total += v;
-    const pos = (typeof _pfLcPos==='function' && _pfLcPos(nm)) || '';
-    return `<div class="cx-pchip"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(nm,pid,30):'')}" onerror="this.style.visibility='hidden'"><div class="pi"><div class="pn"><span>${nm}</span>${pos?`<span class="cx-pos ${pos}">${pos}</span>`:''}</div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
-  }).concat(recvPicks.map(pk => {
-    const v = _tcPickValue(pk, d.isDynasty, d.lg); total += v;
+  const assets = [];
+  recvPids.forEach(pid => {
+    const nm = _tcName(pid);
+    assets.push({ type:'player', pid, name:nm, pos:(typeof _pfLcPos==='function' && _pfLcPos(nm))||'', team:'', value:Math.round(_tcVal(nm, lg)) });
+  });
+  recvPicks.forEach(pk => {
     const label = _TC_ORD[pk.round] ? `${pk.season} ${_TC_ORD[pk.round]}` : `${pk.season} Round ${pk.round}`;
-    return `<div class="cx-pchip"><span class="pav">${pk.round}</span><div class="pi"><div class="pn"><span>${label}</span> <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
-  })).concat(faab.map(w => { total += (w.amount||0); return `<div class="cx-pchip"><span class="pav">$</span><div class="pi"><div class="pn">$${w.amount} FAAB</div></div></div>`; }));
+    assets.push({ type:'pick', name:label, pos:'PICK', round:pk.round, value:_tcPickValue(pk, d.isDynasty, d.lg) });
+  });
+  faab.forEach(w => assets.push({ type:'faab', name:`$${w.amount} FAAB`, pos:'', value:(w.amount||0) }));
+  return { assets, total: assets.reduce((s,a)=>s+(a.value||0),0) };
+}
+
+// One side of a trade card: what a roster RECEIVES. kind: 'get' (mine) | 'give' (theirs)
+function _tcSide(t, rosterId, d, entry, kind){
+  const { assets, total } = _tcSideAssets(t, rosterId, d);
+  const rows = assets.map(a => {
+    const v = a.value;
+    if(a.type==='player'){
+      return `<div class="cx-pchip"><img src="${(typeof vaultHeadshot==='function'?vaultHeadshot(a.name,a.pid,30):'')}" onerror="this.style.visibility='hidden'"><div class="pi"><div class="pn"><span>${a.name}</span>${a.pos?`<span class="cx-pos ${a.pos}">${a.pos}</span>`:''}</div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
+    }
+    if(a.type==='pick'){
+      return `<div class="cx-pchip"><span class="pav">${a.round}</span><div class="pi"><div class="pn"><span>${a.name}</span> <span class="cx-pos PICK">PICK</span></div></div><span class="pv">${v?v.toLocaleString():'—'}</span></div>`;
+    }
+    return `<div class="cx-pchip"><span class="pav">$</span><div class="pi"><div class="pn">${a.name}</div></div></div>`;
+  });
   const label = kind==='get' ? 'You get' : 'You give';
-  return { total, html: `<div class="cx-tside${kind==='get'?' get':''}">
+  return { total, assets, html: `<div class="cx-tside${kind==='get'?' get':''}">
     <div class="cx-tsl"><span>${label}</span><span class="t"${kind==='get'?' style="color:var(--rb)"':''}>${total?total.toLocaleString():'—'}</span></div>
     ${rows.join('') || '<div class="cx-mut" style="font-size:12px;padding:6px 0">Nothing</div>'}
   </div>` };
@@ -22258,12 +22308,139 @@ function _tcCardHtml(t, d, entry, cls){
   const body = others.length===1
     ? `<div class="cx-tbody">${give}<div class="cx-tmid">${_cxIc('swap',18)}</div>${my.html}</div>`
     : `<div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px">${give}${my.html}</div>`;
+  const shareBtn = `<button class="cx-btn outline sm" style="margin-right:auto" onclick="tcShareCard('${lg.league_id}','${t.transaction_id}',event)">${_cxIc('share',14)}Share</button>`;
   return `<div class="cx-trade">
     <div class="cx-ttop"><div class="lft">${tag}<span class="lg">${lg.name||'League'}</span></div><div class="rgt">${edgeBadge}<span class="when">${when}</span></div></div>
     ${body}
-    ${btns?`<div class="cx-tfoot">${btns}</div>`:''}
+    <div class="cx-tfoot">${shareBtn}${btns}</div>
   </div>`;
 }
+
+// ══════════ Branded trade share card (canvas, no libs) ══════════
+// Shared by the Trade Analyzer (TC._drawShareCard) and the Trade Center so both
+// export the same card family: onyx / Archivo / JetBrains Mono / steel-blue, the
+// same look as Vault's marketing graphics. Text-only rows + a same-origin
+// data-URI shield keep the canvas un-tainted so toBlob() works for download +
+// navigator.share.
+//   spec = { kicker?, fp:[…pills], cols:[{label,assets,total},{…}],
+//            verdict:{big, small, color:'acc'|'red'} }
+//   asset = { name, pos, team, type:'player'|'pick'|'faab', value }
+window._vtcShieldUri = (typeof window._vtcShieldUri !== 'undefined') ? window._vtcShieldUri : null;
+async function _vtcLoadShield(){
+  if(window._vtcShieldUri !== null) return window._vtcShieldUri;
+  try{ const t = await (await fetch('vault-shield.svg')).text();
+    window._vtcShieldUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(t))); }
+  catch(e){ window._vtcShieldUri = ''; }
+  return window._vtcShieldUri;
+}
+const _vtcImg = uri => new Promise(res=>{ if(!uri) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=uri; });
+
+async function vaultDrawTradeCard(spec){
+  const W=1200,H=675,S=2;
+  const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+  const x=cv.getContext('2d'); x.scale(S,S);
+  const SANS='Archivo,"Hanken Grotesk",system-ui,sans-serif', MONO='"JetBrains Mono",monospace';
+  try{ await document.fonts.ready; await Promise.all(
+    ['800 30px Archivo','900 20px Archivo','700 23px Archivo','700 21px '+MONO,'500 14px '+MONO].map(f=>document.fonts.load(f))); }catch(e){}
+  const C={text:'#f3f4f7',t2:'#c9cdd6',mut:'#868c9b',acc:'#8fb4e0',red:'#e23a4e',bd:'rgba(255,255,255,0.09)',pan:'rgba(255,255,255,0.02)'};
+  const POS={QB:'#ff6680',WR:'#7bd0ff',TE:'#f5c842',RB:'#b9d2ec',PICK:'#868c9b',DEF:'#868c9b',K:'#868c9b'};
+  const ASP=452/376;
+  const ls=v=>{ try{ x.letterSpacing=v; }catch(e){} };
+  const rr=(px,py,w,h,r)=>{ x.beginPath(); x.moveTo(px+r,py); x.arcTo(px+w,py,px+w,py+h,r); x.arcTo(px+w,py+h,px,py+h,r); x.arcTo(px,py+h,px,py,r); x.arcTo(px,py,px+w,py,r); x.closePath(); };
+  const clip=(s,max)=>{ s=String(s==null?'':s); if(x.measureText(s).width<=max) return s; while(s.length>1 && x.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; };
+  x.textBaseline='alphabetic';
+  const g=x.createRadialGradient(W*0.5,-H*0.1,80,W*0.5,H*0.4,W*0.95); g.addColorStop(0,'#182234'); g.addColorStop(.46,'#10131b'); g.addColorStop(1,'#0b0c11');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  const shield = await _vtcImg(await _vtcLoadShield());
+  if(shield){ const ww=190,wh=ww*ASP; x.save(); x.globalAlpha=.05; x.drawImage(shield,W/2-ww/2,H*0.46-wh/2,ww,wh); x.restore(); }
+  const fp=spec.fp||[];
+  x.fillStyle=C.acc; x.beginPath(); x.arc(52,50,4,0,7); x.fill();
+  x.fillStyle=C.mut; x.font='700 15px '+MONO; x.textAlign='left'; ls('2px'); x.fillText((spec.kicker||'TRADE').toUpperCase(),66,55);
+  x.textAlign='right'; x.font='500 14px '+MONO; ls('1.5px'); x.fillText(fp.join(' · ').toUpperCase(),W-48,55); ls('0px'); x.textAlign='left';
+  const pad=48,gap=64,colW=(W-pad*2-gap)/2,colY=88,colH=428;
+  const drawCol=(px,label,assets,total)=>{
+    x.fillStyle=C.pan; rr(px,colY,colW,colH,16); x.fill(); x.strokeStyle=C.bd; x.lineWidth=1; rr(px,colY,colW,colH,16); x.stroke();
+    const ix=px+26; let iy=colY+38;
+    x.fillStyle=C.acc; x.font='700 14px '+MONO; x.textAlign='left'; ls('2px'); x.fillText(clip((label||'').toUpperCase(),colW-52),ix,iy); ls('0px');
+    iy+=34;
+    if(!assets.length){ x.fillStyle=C.mut; x.font='500 15px '+SANS; x.fillText('Nothing',ix,iy); }
+    assets.slice(0,5).forEach(a=>{
+      const pos=(a.type==='pick'?'PICK':(a.pos||'?')).toUpperCase(), col=POS[pos]||C.mut;
+      x.font='700 12px '+MONO; ls('.5px'); const cw=Math.max(52,x.measureText(pos).width+18);
+      x.strokeStyle=col+'55'; rr(ix,iy-15,cw,24,7); x.stroke(); x.fillStyle=col; x.textAlign='center'; x.fillText(pos,ix+cw/2,iy+2); x.textAlign='left'; ls('0px');
+      const nx=ix+cw+14, nMax=colW-26-cw-14-96;
+      x.fillStyle=C.text; x.font='700 23px '+SANS; x.fillText(clip(a.name,nMax),nx,iy);
+      const meta=(a.type==='pick'?'PICK':[pos,a.team].filter(Boolean).join(' · ')).toUpperCase();
+      x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('.6px'); x.fillText(meta,nx,iy+17); ls('0px');
+      const v=a.value; x.fillStyle=C.text; x.font='700 21px '+MONO; x.textAlign='right'; x.fillText(v?v.toLocaleString():'—',px+colW-24,iy); x.textAlign='left';
+      iy+=52;
+    });
+    if(assets.length>5){ x.fillStyle=C.mut; x.font='500 13px '+MONO; x.fillText('+ '+(assets.length-5)+' more',ix,iy); }
+    const sy=colY+colH-28; x.strokeStyle=C.bd; x.beginPath(); x.moveTo(ix,sy-26); x.lineTo(px+colW-24,sy-26); x.stroke();
+    x.fillStyle=C.mut; x.font='500 13px '+MONO; ls('1.2px'); x.fillText('TOTAL VALUE',ix,sy); ls('0px');
+    x.fillStyle=C.text; x.font='700 30px '+MONO; x.textAlign='right'; x.fillText(total?total.toLocaleString():'—',px+colW-24,sy+4); x.textAlign='left';
+  };
+  const cols=spec.cols||[]; const L=cols[0]||{}, R=cols[1]||{};
+  drawCol(pad,L.label,L.assets||[],L.total);
+  drawCol(pad+colW+gap,R.label,R.assets||[],R.total);
+  x.fillStyle=C.mut; x.font='900 20px '+SANS; x.textAlign='center'; x.fillText('VS',W/2,colY+colH/2+7); x.textAlign='left';
+  const V=spec.verdict||{}; const vc=V.color==='red'?C.red:C.acc;
+  const vy=colY+colH+22,vh=88;
+  x.fillStyle=C.pan; rr(pad,vy,W-pad*2,vh,14); x.fill(); x.strokeStyle=C.bd; rr(pad,vy,W-pad*2,vh,14); x.stroke();
+  x.fillStyle=C.mut; x.font='700 13px '+MONO; ls('2.4px'); x.fillText('VERDICT',pad+26,vy+30); ls('0px');
+  x.fillStyle=vc; x.font='800 30px '+SANS; x.fillText(V.big||'',pad+26,vy+64); const bw=x.measureText(V.big||'').width;
+  x.fillStyle=C.t2; x.font='400 16px '+SANS; x.fillText(clip(V.small||'',W-pad*2-52-200-bw),pad+26+bw+14,vy+64);
+  if(shield){ const lw=42,lh=lw*ASP; x.drawImage(shield,W-pad-24-176,vy+vh/2-lh/2,lw,lh); }
+  x.textAlign='right'; x.fillStyle=C.text; x.font='900 22px '+SANS; x.fillText('VAULT',W-pad-24,vy+40);
+  x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-pad-24,vy+58); ls('0px'); x.textAlign='left';
+  return cv;
+}
+try{ window.vaultDrawTradeCard = vaultDrawTradeCard; }catch(e){}
+
+// Share one pending offer as a branded image. Left = what you give, right = what
+// you get — matching the on-screen card; verdict is driven off the value edge.
+async function tcShareCard(lid, tid, ev){
+  if(ev && ev.stopPropagation) ev.stopPropagation();
+  const btn = ev && ev.currentTarget; const orig = btn && btn.innerHTML;
+  const { d, t } = _tcFind(lid, tid);
+  if(!d || !t){ if(typeof toast==='function') toast('Could not load that trade'); return; }
+  if(btn){ btn.disabled=true; btn.innerHTML='Generating…'; }
+  try{
+    // Dynasty picks need the fitted market loaded to price correctly.
+    if(d.isDynasty){ try{ if(window.VaultTradeMarket && VaultTradeMarket.load) await VaultTradeMarket.load(); }catch(e){} }
+    const others = (t.roster_ids||[]).filter(r => r!==d.myRosterId);
+    const get = _tcSideAssets(t, d.myRosterId, d);
+    let giveAssets=[], giveTotal=0;
+    others.forEach(r => { const s=_tcSideAssets(t, r, d); giveAssets=giveAssets.concat(s.assets); giveTotal+=s.total; });
+    const edge = get.total - giveTotal, mx = Math.max(get.total, giveTotal, 1);
+    const pct = Math.round(Math.abs(edge)/mx*100);
+    let verdict;
+    if(pct<=8) verdict={big:'Fair trade', small:'Within market range · '+pct+'% apart', color:'acc'};
+    else if(edge>0) verdict={big:'You win', small:'by '+pct+'% in real-market value', color:'acc'};
+    else verdict={big:'You\'re paying up', small:'by '+pct+'% in real-market value', color:'red'};
+    const fp=[d.isDynasty?'Dynasty':'Redraft'];
+    try{ const lg=d.lg; if(lg){ fp.push((lg.roster_positions||[]).includes('SUPER_FLEX')?'Superflex':'1QB'); if(lg.total_rosters) fp.push(lg.total_rosters+'-team'); } }catch(e){}
+    const cv = await vaultDrawTradeCard({
+      kicker:'TRADE', fp,
+      cols:[ {label:'You give', assets:giveAssets, total:giveTotal},
+             {label:'You get', assets:get.assets, total:get.total} ],
+      verdict
+    });
+    const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
+    const file = new File([blob],'vault-trade.png',{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'Vault trade', text:'Graded by Vault — free at vaultfantasy.com'}); }catch(e){}
+    } else {
+      let copied=false;
+      try{ if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); copied=true; } }catch(e){}
+      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='vault-trade.png';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
+      if(typeof toast==='function') toast(copied?'Trade card copied + downloaded':'Trade card downloaded');
+    }
+  }catch(e){ console.error('tcShareCard',e); if(typeof toast==='function') toast('Could not generate the card'); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=orig; } }
+}
+try{ window.tcShareCard = tcShareCard; }catch(e){}
 
 async function renderTradeCenter(force){
   const el = document.getElementById('pf-trade-center');
@@ -27746,78 +27923,31 @@ function pickYear(year) {
     finally{ if(btn){ btn.disabled=false; btn.innerHTML=orig; } }
   };
 
+  // Delegates to the shared vaultDrawTradeCard so the Trade Analyzer and the
+  // Trade Center export one identical card family. Values still come straight
+  // from the calc (TC.val / TC.sideTotal), so the card always matches the page.
   TC._drawShareCard = async function(){
-    const W=1200,H=675,S=2;
-    const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
-    const x=cv.getContext('2d'); x.scale(S,S);
-    const SANS='Archivo,"Hanken Grotesk",system-ui,sans-serif', MONO='"JetBrains Mono",monospace';
-    try{ await document.fonts.ready; await Promise.all(
-      ['800 30px Archivo','900 20px Archivo','700 23px Archivo','700 21px '+MONO,'500 14px '+MONO].map(f=>document.fonts.load(f))); }catch(e){}
-    const C={text:'#f3f4f7',t2:'#c9cdd6',mut:'#868c9b',acc:'#8fb4e0',red:'#e23a4e',bd:'rgba(255,255,255,0.09)',pan:'rgba(255,255,255,0.02)'};
-    const POS={QB:'#ff6680',WR:'#7bd0ff',TE:'#f5c842',RB:'#b9d2ec',PICK:'#868c9b',DEF:'#868c9b',K:'#868c9b'};
-    const ls=v=>{ try{ x.letterSpacing=v; }catch(e){} };
-    const rr=(px,py,w,h,r)=>{ x.beginPath(); x.moveTo(px+r,py); x.arcTo(px+w,py,px+w,py+h,r); x.arcTo(px+w,py+h,px,py+h,r); x.arcTo(px,py+h,px,py,r); x.arcTo(px,py,px+w,py,r); x.closePath(); };
-    const clip=(s,max)=>{ if(x.measureText(s).width<=max) return s; while(s.length>1 && x.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; };
-    x.textBaseline='alphabetic';
-    // bg
-    const g=x.createRadialGradient(W*0.5,-H*0.1,80,W*0.5,H*0.4,W*0.95); g.addColorStop(0,'#182234'); g.addColorStop(.46,'#10131b'); g.addColorStop(1,'#0b0c11');
-    x.fillStyle=g; x.fillRect(0,0,W,H);
-    const shield = await TC._img(await TC._loadShield());
-    if(shield){ const ww=190,wh=ww*_SHIELD_ASPECT; x.save(); x.globalAlpha=.05; x.drawImage(shield,W/2-ww/2,H*0.46-wh/2,ww,wh); x.restore(); }
-    // data
     const totA=TC.sideTotal('a'), totB=TC.sideTotal('b');
     const league=TC.mode==='league';
     const tA=league?TC.team(TC.teamA):{name:'Side A',owner:''};
     const tB=league?TC.team(TC.teamB):{name:'Side B',owner:''};
     const fp=[TC.vmode==='re'?'Redraft':'Dynasty'];
     try{ const lg=TC._live&&TC._live.league; if(league&&lg){ fp.push((lg.roster_positions||[]).includes('SUPER_FLEX')?'Superflex':'1QB'); if(lg.total_rosters) fp.push(lg.total_rosters+'-team'); } }catch(e){}
-    // header
-    x.fillStyle=C.acc; x.beginPath(); x.arc(52,50,4,0,7); x.fill();
-    x.fillStyle=C.mut; x.font='700 15px '+MONO; x.textAlign='left'; ls('2px'); x.fillText('TRADE CHECK',66,55);
-    x.textAlign='right'; x.font='500 14px '+MONO; ls('1.5px'); x.fillText(fp.join(' · ').toUpperCase(),W-48,55); ls('0px'); x.textAlign='left';
-    // columns
-    const pad=48,gap=64,colW=(W-pad*2-gap)/2,colY=88,colH=428;
-    const drawCol=(px,label,assets,total)=>{
-      x.fillStyle=C.pan; rr(px,colY,colW,colH,16); x.fill(); x.strokeStyle=C.bd; x.lineWidth=1; rr(px,colY,colW,colH,16); x.stroke();
-      const ix=px+26; let iy=colY+38;
-      x.fillStyle=C.acc; x.font='700 14px '+MONO; x.textAlign='left'; ls('2px'); x.fillText(clip((label+' sends').toUpperCase(),colW-52),ix,iy); ls('0px');
-      iy+=34;
-      assets.slice(0,5).forEach(a=>{
-        const pos=(a.type==='pick'?'PICK':(a.pos||'?')).toUpperCase(), col=POS[pos]||C.mut;
-        x.font='700 12px '+MONO; ls('.5px'); const cw=Math.max(52,x.measureText(pos).width+18);
-        x.strokeStyle=col+'55'; rr(ix,iy-15,cw,24,7); x.stroke(); x.fillStyle=col; x.textAlign='center'; x.fillText(pos,ix+cw/2,iy+2); x.textAlign='left'; ls('0px');
-        const nx=ix+cw+14, nMax=colW-26-cw-14-96;
-        x.fillStyle=C.text; x.font='700 23px '+SANS; x.fillText(clip(a.name,nMax),nx,iy);
-        const meta=(a.type==='pick'?'PICK':[pos,a.team].filter(Boolean).join(' · ')).toUpperCase();
-        x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('.6px'); x.fillText(meta,nx,iy+17); ls('0px');
-        const v=TC.val(a); x.fillStyle=C.text; x.font='700 21px '+MONO; x.textAlign='right'; x.fillText(v?v.toLocaleString():'—',px+colW-24,iy); x.textAlign='left';
-        iy+=52;
-      });
-      if(assets.length>5){ x.fillStyle=C.mut; x.font='500 13px '+MONO; x.fillText('+ '+(assets.length-5)+' more',ix,iy); }
-      const sy=colY+colH-28; x.strokeStyle=C.bd; x.beginPath(); x.moveTo(ix,sy-26); x.lineTo(px+colW-24,sy-26); x.stroke();
-      x.fillStyle=C.mut; x.font='500 13px '+MONO; ls('1.2px'); x.fillText('TOTAL VALUE',ix,sy); ls('0px');
-      x.fillStyle=C.text; x.font='700 30px '+MONO; x.textAlign='right'; x.fillText(total?total.toLocaleString():'—',px+colW-24,sy+4); x.textAlign='left';
-    };
-    drawCol(pad,tA.name,tradeAssets.a||[],totA);
-    drawCol(pad+colW+gap,tB.name,tradeAssets.b||[],totB);
-    x.fillStyle=C.mut; x.font='900 20px '+SANS; x.textAlign='center'; x.fillText('VS',W/2,colY+colH/2+7); x.textAlign='left';
-    // verdict
+    const mkAssets = side => (tradeAssets[side]||[]).map(a=>({ name:a.name, pos:a.pos, team:a.team, type:a.type, value:TC.val(a) }));
+    // verdict — same math as before (win/lose framed from "you" when known)
     const recvA=totB,recvB=totA,diff=recvA-recvB,pct=Math.round(Math.abs(diff)/Math.max(recvA,recvB,1)*100);
     const mineA=/you/i.test(tA.owner||'')||/\(you\)/i.test(tA.name||''), mineB=/you/i.test(tB.owner||'')||/\(you\)/i.test(tB.name||'');
-    let big,small,vc;
-    if(pct<=8){ big='Fair trade'; small='Within market range · '+pct+'% apart'; vc=C.acc; }
+    let big,small,color='acc';
+    if(pct<=8){ big='Fair trade'; small='Within market range · '+pct+'% apart'; }
     else { const aWins=recvA>recvB;
-      if(mineA||mineB){ const iWin=(mineA&&aWins)||(mineB&&!aWins); big=iWin?'You win':'They win'; small='by '+pct+'% in real-market value'; vc=iWin?C.acc:C.red; }
-      else { big=(aWins?tA.name:tB.name)+' wins'; small='by '+pct+'% in real-market value'; vc=C.acc; } }
-    const vy=colY+colH+22,vh=88;
-    x.fillStyle=C.pan; rr(pad,vy,W-pad*2,vh,14); x.fill(); x.strokeStyle=C.bd; rr(pad,vy,W-pad*2,vh,14); x.stroke();
-    x.fillStyle=C.mut; x.font='700 13px '+MONO; ls('2.4px'); x.fillText('VERDICT',pad+26,vy+30); ls('0px');
-    x.fillStyle=vc; x.font='800 30px '+SANS; x.fillText(big,pad+26,vy+64); const bw=x.measureText(big).width;
-    x.fillStyle=C.t2; x.font='400 16px '+SANS; x.fillText(clip(small,W-pad*2-52-200-bw),pad+26+bw+14,vy+64);
-    if(shield){ const lw=42,lh=lw*_SHIELD_ASPECT; x.drawImage(shield,W-pad-24-176,vy+vh/2-lh/2,lw,lh); }
-    x.textAlign='right'; x.fillStyle=C.text; x.font='900 22px '+SANS; x.fillText('VAULT',W-pad-24,vy+40);
-    x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-pad-24,vy+58); ls('0px'); x.textAlign='left';
-    return cv;
+      if(mineA||mineB){ const iWin=(mineA&&aWins)||(mineB&&!aWins); big=iWin?'You win':'They win'; small='by '+pct+'% in real-market value'; color=iWin?'acc':'red'; }
+      else { big=(aWins?tA.name:tB.name)+' wins'; small='by '+pct+'% in real-market value'; } }
+    return vaultDrawTradeCard({
+      kicker:'TRADE CHECK', fp,
+      cols:[ {label:tA.name+' sends', assets:mkAssets('a'), total:totA},
+             {label:tB.name+' sends', assets:mkAssets('b'), total:totB} ],
+      verdict:{ big, small, color }
+    });
   };
 
   window.initTrade = function(){ TC.init(); };
