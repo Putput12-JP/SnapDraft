@@ -22392,14 +22392,16 @@ async function vaultDrawTradeCard(spec){
   drawCol(pad+colW+gap,R.label,R.assets||[],R.total);
   x.fillStyle=C.mut; x.font='900 20px '+SANS; x.textAlign='center'; x.fillText('VS',W/2,colY+colH/2+7); x.textAlign='left';
   const V=spec.verdict||{}; const vc=V.color==='red'?C.red:C.acc;
-  const vy=colY+colH+22,vh=88;
+  const vy=colY+colH+12,vh=72;
   x.fillStyle=C.pan; rr(pad,vy,W-pad*2,vh,14); x.fill(); x.strokeStyle=C.bd; rr(pad,vy,W-pad*2,vh,14); x.stroke();
-  x.fillStyle=C.mut; x.font='700 13px '+MONO; ls('2.4px'); x.fillText('VERDICT',pad+26,vy+30); ls('0px');
-  x.fillStyle=vc; x.font='800 30px '+SANS; x.fillText(V.big||'',pad+26,vy+64); const bw=x.measureText(V.big||'').width;
-  x.fillStyle=C.t2; x.font='400 16px '+SANS; x.fillText(clip(V.small||'',W-pad*2-52-200-bw),pad+26+bw+14,vy+64);
-  if(shield){ const lw=42,lh=lw*ASP; x.drawImage(shield,W-pad-24-176,vy+vh/2-lh/2,lw,lh); }
-  x.textAlign='right'; x.fillStyle=C.text; x.font='900 22px '+SANS; x.fillText('VAULT',W-pad-24,vy+40);
-  x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-pad-24,vy+58); ls('0px'); x.textAlign='left';
+  x.fillStyle=C.mut; x.font='700 13px '+MONO; ls('2.4px'); x.fillText('VERDICT',pad+26,vy+28); ls('0px');
+  x.fillStyle=vc; x.font='800 30px '+SANS; x.fillText(V.big||'',pad+26,vy+58); const bw=x.measureText(V.big||'').width;
+  x.fillStyle=C.t2; x.font='400 16px '+SANS; x.fillText(clip(V.small||'',W-pad*2-52-bw),pad+26+bw+14,vy+58);
+  // ── footer: branding sits BELOW the verdict card, not crammed inside it ──
+  const fy=H-30-14;
+  if(shield){ const lw=40,lh=lw*ASP; x.drawImage(shield,W-pad-24-172,fy-lh/2+6,lw,lh); }
+  x.textAlign='right'; x.fillStyle=C.text; x.font='900 21px '+SANS; x.fillText('VAULT',W-pad-24,fy-2);
+  x.fillStyle=C.mut; x.font='500 11.5px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-pad-24,fy+14); ls('0px'); x.textAlign='left';
   return cv;
 }
 try{ window.vaultDrawTradeCard = vaultDrawTradeCard; }catch(e){}
