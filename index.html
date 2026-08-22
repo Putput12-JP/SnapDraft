@@ -22364,7 +22364,7 @@ async function vaultDrawTradeCard(spec){
   x.fillStyle=C.acc; x.beginPath(); x.arc(52,50,4,0,7); x.fill();
   x.fillStyle=C.mut; x.font='700 15px '+MONO; x.textAlign='left'; ls('2px'); x.fillText((spec.kicker||'TRADE').toUpperCase(),66,55);
   x.textAlign='right'; x.font='500 14px '+MONO; ls('1.5px'); x.fillText(fp.join(' · ').toUpperCase(),W-48,55); ls('0px'); x.textAlign='left';
-  const pad=48,gap=64,colW=(W-pad*2-gap)/2,colY=88,colH=428;
+  const pad=48,gap=64,colW=(W-pad*2-gap)/2,colY=88,colH=406;
   const drawCol=(px,label,assets,total)=>{
     x.fillStyle=C.pan; rr(px,colY,colW,colH,16); x.fill(); x.strokeStyle=C.bd; x.lineWidth=1; rr(px,colY,colW,colH,16); x.stroke();
     const ix=px+26; let iy=colY+38;
@@ -22397,11 +22397,15 @@ async function vaultDrawTradeCard(spec){
   x.fillStyle=C.mut; x.font='700 13px '+MONO; ls('2.4px'); x.fillText('VERDICT',pad+26,vy+28); ls('0px');
   x.fillStyle=vc; x.font='800 30px '+SANS; x.fillText(V.big||'',pad+26,vy+58); const bw=x.measureText(V.big||'').width;
   x.fillStyle=C.t2; x.font='400 16px '+SANS; x.fillText(clip(V.small||'',W-pad*2-52-bw),pad+26+bw+14,vy+58);
-  // ── footer: branding sits BELOW the verdict card, not crammed inside it ──
-  const fy=H-30-14;
-  if(shield){ const lw=40,lh=lw*ASP; x.drawImage(shield,W-pad-24-172,fy-lh/2+6,lw,lh); }
-  x.textAlign='right'; x.fillStyle=C.text; x.font='900 21px '+SANS; x.fillText('VAULT',W-pad-24,fy-2);
-  x.fillStyle=C.mut; x.font='500 11.5px '+MONO; ls('1px'); x.fillText('VAULTFANTASY.COM · FREE',W-pad-24,fy+14); ls('0px'); x.textAlign='left';
+  // ── footer: branding sits BELOW the verdict card as its own row; the shield
+  // is placed to the LEFT of the MEASURED text block so the URL never runs over
+  // it — that overlap was the "shield covered" bug. ──
+  x.textAlign='right';
+  x.fillStyle=C.text; x.font='900 21px '+SANS; x.fillText('VAULT',W-pad,H-44);
+  x.fillStyle=C.mut; x.font='500 11.5px '+MONO; ls('1px');
+  const _uw=x.measureText('VAULTFANTASY.COM · FREE').width;
+  x.fillText('VAULTFANTASY.COM · FREE',W-pad,H-28); ls('0px'); x.textAlign='left';
+  if(shield){ const lw=40,lh=lw*ASP; x.drawImage(shield,W-pad-_uw-16-lw,H-42-lh/2,lw,lh); }
   return cv;
 }
 try{ window.vaultDrawTradeCard = vaultDrawTradeCard; }catch(e){}
