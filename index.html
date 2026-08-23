@@ -13229,6 +13229,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-23T12:00', tag:'Improved', title:'Shareable trade cards now show player headshots',
+    items:[
+      'The trade card you share now puts each player’s headshot next to their name, with draft picks shown as a clean round token.',
+      'Tidied up the footer so the Vault badge sits on its own line and the web address no longer runs across it.',
+    ]
+  },
+  {
     ts:'2026-08-21T19:30', tag:'Fixed', title:'Latest Move card no longer flickers',
     items:[
       'The “Latest Move” card on your League overview used to blink back to a loading state and reload every time your league values refreshed in the background.',
@@ -22340,7 +22347,7 @@ async function _vtcLoadShield(){
   catch(e){ window._vtcShieldUri = ''; }
   return window._vtcShieldUri;
 }
-const _vtcImg = uri => new Promise(res=>{ if(!uri) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=uri; });
+const _vtcImg = (uri,cross) => new Promise(res=>{ if(!uri) return res(null); let done=false; const fin=v=>{ if(done)return; done=true; res(v); }; const im=new Image(); if(cross) im.crossOrigin='anonymous'; im.onload=()=>fin(im); im.onerror=()=>fin(null); setTimeout(()=>fin(null),4500); im.src=uri; });
 
 async function vaultDrawTradeCard(spec){
   const W=1200,H=675,S=2;
@@ -22365,6 +22372,35 @@ async function vaultDrawTradeCard(spec){
   x.fillStyle=C.mut; x.font='700 15px '+MONO; x.textAlign='left'; ls('2px'); x.fillText((spec.kicker||'TRADE').toUpperCase(),66,55);
   x.textAlign='right'; x.font='500 14px '+MONO; ls('1.5px'); x.fillText(fp.join(' · ').toUpperCase(),W-48,55); ls('0px'); x.textAlign='left';
   const pad=48,gap=64,colW=(W-pad*2-gap)/2,colY=88,colH=406;
+  const cols=spec.cols||[]; const L=cols[0]||{}, R=cols[1]||{};
+  // preload player headshots (cross-origin so toBlob() stays un-tainted); picks
+  // and FAAB get a token circle instead of a face.
+  const hsMap=new Map();
+  try{
+    const players=[...(L.assets||[]),...(R.assets||[])].filter(a=>a && a.type!=='pick' && a.type!=='faab').slice(0,10);
+    await Promise.all(players.map(async a=>{
+      let u=''; try{ u=(typeof vaultHeadshot==='function')?vaultHeadshot(a.name,a.team||'',40):''; }catch(e){}
+      const im=await _vtcImg(u,true); if(im) hsMap.set(a,im);
+    }));
+  }catch(e){}
+  // circular face (or initials / pick-token fallback) at the head of a row
+  const drawFace=(a,cx,cy,d)=>{
+    const img=hsMap.get(a), r=d/2;
+    x.beginPath(); x.arc(cx,cy,r,0,7); x.closePath(); x.save(); x.clip();
+    if(img){ x.drawImage(img,cx-r,cy-r,d,d); }
+    else{
+      const isPk=(a.type==='pick'||a.type==='faab');
+      x.fillStyle=isPk?'rgba(255,255,255,0.035)':'rgba(255,255,255,0.05)'; x.fillRect(cx-r,cy-r,d,d);
+      let tok;
+      if(a.type==='faab') tok='FA';
+      else if(a.type==='pick'){ const m=String(a.name||'').match(/(\d)\s*(st|nd|rd|th)/i); tok=m?(m[1]+m[2].toLowerCase()):'PK'; }
+      else tok=String(a.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('');
+      x.fillStyle=isPk?C.mut:C.t2; x.font=(a.type==='pick'?'800 12px '+MONO:'800 14px '+SANS);
+      x.textAlign='center'; x.textBaseline='middle'; x.fillText(tok,cx,cy+1); x.textAlign='left'; x.textBaseline='alphabetic';
+    }
+    x.restore();
+    x.beginPath(); x.arc(cx,cy,r,0,7); x.strokeStyle=C.bd; x.lineWidth=1; x.stroke();
+  };
   const drawCol=(px,label,assets,total)=>{
     x.fillStyle=C.pan; rr(px,colY,colW,colH,16); x.fill(); x.strokeStyle=C.bd; x.lineWidth=1; rr(px,colY,colW,colH,16); x.stroke();
     const ix=px+26; let iy=colY+38;
@@ -22373,9 +22409,11 @@ async function vaultDrawTradeCard(spec){
     if(!assets.length){ x.fillStyle=C.mut; x.font='500 15px '+SANS; x.fillText('Nothing',ix,iy); }
     assets.slice(0,5).forEach(a=>{
       const pos=(a.type==='pick'?'PICK':(a.pos||'?')).toUpperCase(), col=POS[pos]||C.mut;
+      const d=40; drawFace(a,ix+d/2,iy-3,d);
+      const bx=ix+d+14;
       x.font='700 12px '+MONO; ls('.5px'); const cw=Math.max(52,x.measureText(pos).width+18);
-      x.strokeStyle=col+'55'; rr(ix,iy-15,cw,24,7); x.stroke(); x.fillStyle=col; x.textAlign='center'; x.fillText(pos,ix+cw/2,iy+2); x.textAlign='left'; ls('0px');
-      const nx=ix+cw+14, nMax=colW-26-cw-14-96;
+      x.strokeStyle=col+'55'; rr(bx,iy-15,cw,24,7); x.stroke(); x.fillStyle=col; x.textAlign='center'; x.fillText(pos,bx+cw/2,iy+2); x.textAlign='left'; ls('0px');
+      const nx=bx+cw+14, nMax=px+colW-24-96-nx;
       x.fillStyle=C.text; x.font='700 23px '+SANS; x.fillText(clip(a.name,nMax),nx,iy);
       const meta=(a.type==='pick'?'PICK':[pos,a.team].filter(Boolean).join(' · ')).toUpperCase();
       x.fillStyle=C.mut; x.font='500 12px '+MONO; ls('.6px'); x.fillText(meta,nx,iy+17); ls('0px');
@@ -22387,7 +22425,6 @@ async function vaultDrawTradeCard(spec){
     x.fillStyle=C.mut; x.font='500 13px '+MONO; ls('1.2px'); x.fillText('TOTAL VALUE',ix,sy); ls('0px');
     x.fillStyle=C.text; x.font='700 30px '+MONO; x.textAlign='right'; x.fillText(total?total.toLocaleString():'—',px+colW-24,sy+4); x.textAlign='left';
   };
-  const cols=spec.cols||[]; const L=cols[0]||{}, R=cols[1]||{};
   drawCol(pad,L.label,L.assets||[],L.total);
   drawCol(pad+colW+gap,R.label,R.assets||[],R.total);
   x.fillStyle=C.mut; x.font='900 20px '+SANS; x.textAlign='center'; x.fillText('VS',W/2,colY+colH/2+7); x.textAlign='left';
