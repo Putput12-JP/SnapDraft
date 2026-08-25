@@ -13264,6 +13264,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-25T15:00', tag:'Fixed', title:'Draft card no longer says “Rebuild” in redraft leagues',
+    items:[
+      'A bottom-of-the-pack projected finish on your shareable draft card now reads “Longshot” in redraft and guillotine leagues, instead of “Rebuild” — there’s no future to build for in a single-season league.',
+    ],
+  },
+  {
     ts:'2026-08-25T12:00', tag:'New', title:'Player props now show a no-vig fair price and value flags',
     items:[
       'Every player prop now shows a "Fair" price under the line: the true price once the sportsbook’s built-in juice is stripped out, so you can see what the over should really pay.',
@@ -28159,8 +28165,8 @@ function pickYear(year) {
 
     const rank=valRank||Math.round(totalTeams/2);
     const q=totalTeams?rank/totalTeams:0.5;
-    const finishWord=q<=0.25?'Contender':q<=0.5?'Playoff hunt':q<=0.75?'Bubble':'Rebuild';
-    const finishSub =q<=0.25?'top tier':q<=0.5?'in the mix':q<=0.75?'on the edge':'building';
+    const finishWord=q<=0.25?'Contender':q<=0.5?'Playoff hunt':q<=0.75?'Bubble':(dyn?'Rebuild':'Longshot');
+    const finishSub =q<=0.25?'top tier':q<=0.5?'in the mix':q<=0.75?'on the edge':(dyn?'building':'uphill climb');
     const teamName = (typeof TEAMS!=='undefined' && myTeam!=null && TEAMS[myTeam]) || 'My Team';
 
     return { g, lineup, teamName, fmt, dyn,
