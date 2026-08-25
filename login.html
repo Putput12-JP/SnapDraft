@@ -4,6 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vault — Sign in</title>
+<script id="vf-ref-capture">
+/* Share-card attribution. Cards link to /?utm_source=vault_share&utm_medium=share_card
+   &utm_campaign=<kind>. This page redirects to index.html WITHOUT the query string,
+   so stash the referral now; index.html fires the landing_from_share event once
+   analytics loads. Runs before auth/redirect scripts so it can't be beaten to it. */
+(function(){
+  try{
+    var q = new URLSearchParams(location.search);
+    var src = q.get('utm_source') || q.get('ref');
+    if(!src || !/share/i.test(src)) return;
+    var ref = { source:src, medium:q.get('utm_medium')||'share_card',
+                campaign:q.get('utm_campaign')||'unknown', ts:Date.now() };
+    localStorage.setItem('vault-ref', JSON.stringify(ref));
+    if(!localStorage.getItem('vault-ref-first')) localStorage.setItem('vault-ref-first', JSON.stringify(ref));
+  }catch(e){}
+})();
+</script>
 <link rel="icon" type="image/png" href="favicon.png">
 <link href="fonts/fonts.css" rel="stylesheet">
 <script src="auth/firebase-config.js"></script>
@@ -123,9 +140,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);-webkit-
 @media (prefers-reduced-motion:reduce){.rise{animation:none;opacity:1;transform:none}.d-fc-track{transition:none}}
 
 @media (max-width:900px){
-  .d-sheet{grid-template-columns:1fr;max-width:520px}
+  .d-lp{overflow:auto}
+  .d-sheet{grid-template-columns:1fr;max-width:520px;max-height:none;overflow:visible}
   .d-right{display:none}
-  .d-left{padding:28px 22px}
+  .d-left{padding:28px 22px;overflow:visible}
   .d-h1{font-size:30px}
   .d-blend{background:linear-gradient(180deg,rgba(14,15,19,0.55) 0%,rgba(14,15,19,0.82) 100%)}
 }
@@ -152,7 +170,7 @@ window.VAULT_SHOT_DRAFT="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBM
 
     <!-- ── VIEW: sign in ── -->
     <div class="view on" id="view-auth">
-      <div class="eyebrow d-eyebrow rise" style="animation-delay:.05s"><span class="dot"></span>Step 0 of 2 · Sign in</div>
+      <div class="eyebrow d-eyebrow rise" style="animation-delay:.05s"><span class="dot"></span><span id="step-label">Step 0 of 2 · Sign in</span></div>
       <h1 class="d-h1 rise" style="animation-delay:.1s">Welcome</h1>
       <p class="d-sub rise" style="animation-delay:.15s">Sign in to pull every league back into your war room — rosters, rankings &amp; trades, right where you left them.</p>
 
@@ -261,6 +279,7 @@ function setMode(m){
   $('tab-create').classList.toggle('on', m==='create');
   $('fld-name').style.display = m==='create' ? 'flex' : 'none';
   $('email-cta').textContent = m==='create' ? 'Create account →' : 'Sign in →';
+  var sl = $('step-label'); if (sl) sl.textContent = m==='create' ? 'Step 0 of 2 · Create account' : 'Step 0 of 2 · Sign in';
   $('forgot-link').style.display = m==='create' ? 'none' : 'block';
   $('f-pass').setAttribute('autocomplete', m==='create' ? 'new-password' : 'current-password');
   showErr('');
@@ -295,7 +314,7 @@ function needsSetup(){
 
 function goGuest(){
   try { localStorage.setItem('vf-guest','1'); } catch(e){}
-  location.href = 'index.html';
+  location.href = 'index.html' + location.search;
 }
 
 function forgotPassword(){
@@ -359,7 +378,7 @@ function onSignedIn(user){
     $('restore-sub').textContent = pulled > 0
       ? pulled + ' item' + (pulled===1?'':'s') + ' synced down \u2014 taking you in\u2026'
       : 'This device will now sync automatically \u2014 taking you in\u2026';
-    setTimeout(function(){ location.href = 'index.html'; }, 900);
+    setTimeout(function(){ location.href = 'index.html' + location.search; }, 900);
   });
 }
 
