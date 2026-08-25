@@ -1,8 +1,7 @@
-# Refresh the Lineup Command projection feed.
-# In-season: every 6h as a baseline, plus hourly through the game windows
-# (Thu/Sun/Mon, 13:00–23:00 UTC ≈ 9am–7pm ET) so projections track
-# late-breaking news. Offseason: once daily — see the credit budget below.
-# Matches the repo's scripts/ + data/ + workflows pattern.
+# Refresh the Lineup Command projection feed (also pulls ParlayAPI game odds +
+# player props). In-season: a daily baseline plus hourly through the Sun/Mon/Thu
+# game windows, sized to the full free credit budget (see below). Offseason:
+# once daily. Matches the repo's scripts/ + data/ + workflows pattern.
 # Place at: .github/workflows/update-lineup.yml
 
 name: Update Lineup projections
@@ -12,27 +11,35 @@ on:
     # ── ParlayAPI credit budget ──────────────────────────────────────────
     # Each run costs 6 ParlayAPI credits: 2 requests (/odds + /props) billed
     # at 3 credits each. Measured over Jul 2026 — 140 runs → 840 credits,
-    # exactly 6.0/run. The FREE tier is 1,000 credits/month, so the entire
-    # year has to fit inside ~166 runs/month.
+    # exactly 6.0/run. The FREE tier is 1,000 credits/month, so every month
+    # must fit inside ~166 runs. This whole schedule is sized to stay under
+    # that cap year-round, so the free plan is enough — no upgrade needed.
     #
-    # OFFSEASON (Feb–Aug) — once daily.
-    # Season-opener lines move a few times a WEEK, so the old year-round
-    # '0 */6' + hourly-game-window schedule burned ~70% of the monthly budget
-    # re-fetching numbers that hadn't changed. 1/day ≈ 180 credits/month.
+    # OFFSEASON (Feb–Aug) — once daily. ~30 runs ≈ 180 credits/month.
+    # In preseason ParlayAPI /props returns empty until books post player
+    # props; the free keyless PrizePicks workflow (update-props.yml) fills
+    # vegas_player_props in the meantime, and build-lineup-feed automatically
+    # swaps in the real ParlayAPI books the moment /props starts returning them.
     - cron: '0 9 * 2,3,4,5,6,7,8 *'
     #
-    # IN-SEASON (Sep–Jan) — unchanged for now.
-    # WARNING: this is ~172 runs ≈ 1,032 credits/month and does NOT fit the
-    # free tier. Before Week 1, either upgrade ($5/mo) or trim to a daily
-    # baseline + a 15-23 UTC game window (~146 runs ≈ 876 credits/month).
-    - cron: '0 */6 * 9,10,11,12,1 *'
-    - cron: '0 13-23 * 9,10,11,12,1 0,1,4'
+    # IN-SEASON (Sep–Jan) — sized to the FULL free budget. The busiest month
+    # (Nov 2026: 5 Sun + 5 Mon + 4 Thu) lands at 166 runs = 996 credits, which
+    # is the most whole 6-credit runs that fit under 1,000 (167 = 1,002, over).
+    # Hourly through the windows where lines + props actually move; one daily
+    # baseline otherwise. Per-month runs, measured on the 2026 season:
+    #   Sep 146 · Oct 156 · Nov 166 · Dec 156 · Jan 158  (876–996 credits)
+    #   daily baseline (all days)       08 UTC
+    #   Sunday main slate  13–23 UTC    +11 runs
+    #   Mon + Thu pregame  15–23 UTC    +9 runs
+    - cron: '0 8 * 9,10,11,12,1 *'
+    - cron: '0 13-23 * 9,10,11,12,1 0'
+    - cron: '0 15-23 * 9,10,11,12,1 1,4'
   workflow_dispatch: {}        # manual "Run workflow" button
 
-# Two cron entries both match 18:00 UTC on Sun/Mon/Thu in-season. Serialize so
-# the overlapping runs can't race on data/lineup-feed.json and trip the push
-# retry loop below. (This is a git-safety fix, not a credit saving — a queued
-# run still executes and still costs its 6 credits.)
+# Adjacent hourly pregame-window runs (and a manual workflow_dispatch) can
+# overlap on data/lineup-feed.json. Serialize so they can't race and trip the
+# push retry loop below. (Git-safety only, not a credit saving — a queued run
+# still executes and still costs its 6 credits.)
 concurrency:
   group: lineup-feed
   cancel-in-progress: false
