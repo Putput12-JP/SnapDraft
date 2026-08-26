@@ -38983,6 +38983,7 @@ body .page,body .page.on{background:transparent!important}
         id: id || null, name: ident.name, team: ident.team || null,
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
         rank: ident.rank ?? null, headshot: headshotFor(id, ident.name), season, weekly,
+        proj: stats || null,   // raw season stat projection per market → Model Lean
       });
     }
 
@@ -39169,11 +39170,17 @@ body .page,body .page.on{background:transparent!important}
         if (f.min != null && val < f.min) continue;
         if (f.max != null && val > f.max) continue;
         const best = { over: bestOf(quotes, 'over', realQuotes), under: bestOf(quotes, 'under', realQuotes) };
+        // Vault projection for this market (weekly = season ÷ games). Model Lean
+        // compares it to the line — meaningful only where the line is a real
+        // book line, since a modeled line IS the projection (lean would be 0).
+        const games = (model._cfg && model._cfg.gamesPerSeason) || 17;
+        const projRaw = (m.kind !== 'prob' && p.proj && p.proj[mk] != null) ? p.proj[mk] : null;
+        const projVal = projRaw == null ? null : (tf === 'weekly' ? +(projRaw / games).toFixed(1) : projRaw);
         rows.push({
           id: p.id, name: p.name, team: p.team, teamName: p.teamName, pos: p.pos,
           headshot: p.headshot, rank: p.rank,
           market: mk, marketLabel: m.label, marketShort: m.short, kind: m.kind,
-          line: consLine, prob: cell.prob ?? null, value: val,
+          line: consLine, prob: cell.prob ?? null, value: val, proj: projVal,
           // spread of distinct lines across books; null when they agree or when
           // the quotes are synthesized (jitter, not a real disagreement)
           lineSpread: lineVals.length > 1 ? { min: lineVals[0], max: lineVals[lineVals.length - 1], n: lineVals.length } : null,
@@ -40229,10 +40236,18 @@ window.VaultPropHistory = (function () {
       return;
     }
     if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
-    const head = '<thead><tr><th></th><th>Player</th><th>Pick</th><th class="r">Edge</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Hit% L10</th><th class="c">Watch</th></tr></thead>';
+    // Model Lean = projection − line, meaningful only when both are the same
+    // timeframe. In preseason the props are preseason-game lines while the
+    // projection is full-season weekly, so the lean is apples-to-oranges — hide
+    // it entirely rather than show misleading numbers. Lights up in-season.
+    const seasonReg = !/^pre/i.test(MODEL.season_type || '');
+    const anyLean = seasonReg && rows.some(r => r.proj != null && r.line != null);
+    const head = '<thead><tr><th></th><th>Player</th><th>Pick</th><th class="r">Edge</th><th class="r">EV / $1</th><th class="r">Fair / Best</th>' + (anyLean ? '<th class="r">Lean</th>' : '') + '<th class="c">Hit% L10</th><th class="c">Watch</th></tr></thead>';
     const body = rows.map((r, i) => {
       const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
+      const lean = anyLean && r.proj != null && r.line != null ? +(r.proj - r.line).toFixed(1) : null;
+      const leanAgree = lean != null && ((fe.side === 'over' && lean > 0) || (fe.side === 'under' && lean < 0));
       return '<tr class="' + (propKey(r) === ebSel ? 'sel' : '') + '" data-k="' + propKey(r) + '">'
         + '<td class="eb-rk">' + (i + 1) + '</td>'
         + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
@@ -40241,6 +40256,7 @@ window.VaultPropHistory = (function () {
         + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts > 0 ? '+' : '') + fe.edgePts + '</td>'
         + '<td style="text-align:right"><span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span></td>'
         + '<td class="eb-fb"><span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span></td>'
+        + (anyLean ? '<td class="eb-lean" style="text-align:right">' + (lean == null ? '<span class="mut">—</span>' : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + (lean > 0 ? '+' : '') + lean + '</span>') + '</td>' : '')
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
     }).join('');
@@ -40270,7 +40286,10 @@ window.VaultPropHistory = (function () {
       + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv good">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</div></div>'
-      + '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + fe.vig + '%</div></div></div>'
+      + ((!/^pre/i.test(MODEL.season_type || '') && r.proj != null && r.line != null)
+          ? '<div class="eb-tile"><div class="tl">Model lean</div><div class="tv cy">' + ((r.proj - r.line) > 0 ? '+' : '') + (+(r.proj - r.line).toFixed(1)) + '</div><div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + r.proj + ' vs ' + r.line + '</div></div>'
+          : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + fe.vig + '%</div></div>')
+      + '</div>'
       + '<div class="eb-chart" id="eb-chart"><div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span><span class="eb-cl">loading…</span></div><div class="eb-bars"><span class="spinner sm"></span></div></div>'
       + '<div class="eb-heat" id="eb-heat"></div>';
     paintHeadshots('#eb-feat');
