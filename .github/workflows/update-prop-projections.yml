@@ -1,0 +1,44 @@
+# Refits Vault's own player-prop projection model from the nflverse game logs
+# already in the repo and writes data/prop_model.json (fitted params +
+# per-market distribution + isotonic calibration). Pure stdlib Python — no deps,
+# no API calls, no credits. The model changes only when new weekly game logs
+# land, so this refits weekly during the season.
+name: Update prop projections
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Weekly, Wednesday 15:20 UTC — after the week's games are played and the
+    # nflverse stats cron has ingested them. Off-hour to dodge congestion.
+    # Commits only when the fitted model actually changes.
+    - cron: '20 15 * * 3'
+
+concurrency:
+  group: prop-projections
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  prop-projections:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fit prop projection model
+        run: python3 scripts/build_prop_projections.py --since=2016
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/prop_model.json; then
+            echo "No prop-model changes."
+          else
+            git config user.name  "vault-bot"
+            git config user.email "vault-bot@users.noreply.github.com"
+            git add data/prop_model.json
+            git commit -m "props: refit Vault prop projection model [skip ci]"
+            git push
+          fi

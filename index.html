@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-26T11:00', tag:'New', title:'Vault’s own projection now grades player props',
+    items:[
+      'Open any player prop and you’ll see a new “Vault edge” — our own projection, built from real NFL game logs, turned into the true chance a player goes over or under, then compared to the price you can actually bet.',
+      'It’s a second opinion next to the market: when a book’s price looks good but our projection disagrees, the Vault edge calls it out (and vice-versa). Shown alongside the existing lean so you can compare both.',
+    ],
+  },
+  {
     ts:'2026-08-26T09:00', tag:'New', title:'See how the betting numbers are built',
     items:[
       'A new “Real data” badge on the Betting page opens a short, plain-English rundown of where every number comes from: real sportsbook lines only, fair prices with the book’s juice removed, edges from shopping the best price, and hit rates counted from actual NFL games.',
@@ -39535,7 +39542,112 @@ window.VaultPropHistory = (function () {
     const gl = opts.limit ? glAll.slice(-opts.limit) : glAll;
     return { gl, glAll, heat: hitRates(glAll, Number(line), side), field: FIELD[marketKey], line: Number(line), side };
   }
-  return { load, index, gameLog, hitRates, forProp, FIELD, BASE };
+  return { load, index, gameLog, hitRates, forProp, FIELD, BASE, _nkey: nkey };
+})();
+
+/* inlined prop-model.js ──────────────────────────────────────────────────────
+   VaultPropModel — Vault's OWN player-prop projection, serving the model fit by
+   scripts/build_prop_projections.py (data/prop_model.json): recency-weighted
+   volume × shrunk efficiency → distribution → P(over) → isotonic calibration.
+   Reads game logs through VaultPropHistory (no new network cost). Returns null
+   until the params land, so a missing file falls back to the Sleeper projection.
+   Standalone mirror: prop-model.js. */
+window.VaultPropModel = (function () {
+  'use strict';
+  const BASE = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE)
+    ? NFLVERSE_BASE
+    : ((location.hostname.endsWith('github.io')) ? '' : '/data');
+  const URL = `${BASE}/prop_model.json`;
+  let _params = null;
+  function params() {
+    if (!_params) _params = fetch(URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    return _params;
+  }
+  const num = v => { const f = Number(v); return Number.isFinite(f) ? f : null; };
+  function wmean(vals, halfLife) {
+    const n = vals.length; if (!n) return [null, 0];
+    let acc = 0, sw = 0;
+    for (let i = 0; i < n; i++) { const w = Math.pow(0.5, ((n - 1) - i) / halfLife); acc += w * vals[i]; sw += w; }
+    return [sw ? acc / sw : null, sw];
+  }
+  function shrink(vals, prior, halfLife, k) {
+    const [wm, sw] = wmean(vals, halfLife);
+    if (wm == null) return prior;
+    return (sw * wm + k * prior) / (sw + k);
+  }
+  function series(weeks, field) { const out = []; for (const w of weeks) { const v = num(w[field]); if (v != null) out.push(v); } return out; }
+  function _marketKeyOf(m) { const k = Object.keys(m.prior)[0] || ''; return k.includes('|') ? k.split('|')[0] : k; }
+  function projectFrom(weeks, m, minPrior) {
+    if (m.kind === 'count') {
+      const s = series(weeks, m.stat);
+      if (s.length < minPrior) return null;
+      return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
+    }
+    const vs = [], es = [];
+    for (const w of weeks) {
+      const vol = num(w[m.vol]), en = num(w[m.eff_num]);
+      if (vol != null) vs.push(vol);
+      if (vol && vol > 0 && en != null) es.push(en / vol);
+    }
+    if (vs.length < minPrior || es.length < minPrior) return null;
+    const mkt = _marketKeyOf(m);
+    const pv = shrink(vs, m.prior[mkt + '|vol'], m.half_life, m.k_vol);
+    const pe = shrink(es, m.prior[mkt + '|eff'], m.half_life, m.k_eff);
+    return pv * pe;
+  }
+  function sdAt(m, proj) { return Math.sqrt(Math.max(m.sd_v0 + m.sd_v1 * Math.max(proj, 0), 1e-6)); }
+  function erf(x) {
+    const s = x < 0 ? -1 : 1; x = Math.abs(x);
+    const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  const normCdf = z => 0.5 * (1 + erf(z / Math.SQRT2));
+  function rawOver(proj, sd, line, count) { const L = count ? line - 0.5 : line; if (sd <= 0) return proj >= L ? 1 : 0; return 1 - normCdf((L - proj) / sd); }
+  function calibrate(calib, p) {
+    if (!calib || !calib.length) return p;
+    if (p <= calib[0][0]) return calib[0][1];
+    if (p >= calib[calib.length - 1][0]) return calib[calib.length - 1][1];
+    for (let i = 0; i < calib.length - 1; i++) {
+      const [x0, y0] = calib[i], [x1, y1] = calib[i + 1];
+      if (p >= x0 && p <= x1) { const t = x1 === x0 ? 0 : (p - x0) / (x1 - x0); return y0 + t * (y1 - y0); }
+    }
+    return p;
+  }
+  const round = (x, n) => { const f = 10 ** n; return Math.round(x * f) / f; };
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  async function fairProbOver(name, marketKey, line, opts) {
+    opts = opts || {};
+    const P = await params(); if (!P || !P.markets || !P.markets[marketKey]) return null;
+    if (typeof window.VaultPropHistory === 'undefined') return null;
+    const m = P.markets[marketKey];
+    const minPrior = (P.meta && P.meta.min_prior) || 3;
+    const seasons = opts.seasons || [2024, 2025];
+    const nkey = window.vaultNameKey || (window.VaultPropHistory._nkey) ||
+                 (s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, ''));
+    const key = nkey(name);
+    let weeks = [];
+    for (const s of seasons) {
+      const idx = await window.VaultPropHistory.index(s);
+      const p = idx && idx[key];
+      if (p && p.weeks) weeks = weeks.concat(p.weeks.slice().sort((a, b) => (a.wk || 0) - (b.wk || 0)));
+    }
+    if (!weeks.length) return null;
+    let proj = projectFrom(weeks, m, minPrior);
+    if (proj == null) return null;
+    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
+    const count = m.kind === 'count';
+    const sd = sdAt(m, proj);
+    const L = num(line);
+    if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
+    const raw = rawOver(proj, sd, L, count);
+    const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
+    return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
+             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2 };
+  }
+  async function projectStat(name, marketKey, opts) { const r = await fairProbOver(name, marketKey, null, opts); return r ? r.proj : null; }
+  function has(marketKey) { return params().then(P => !!(P && P.markets && P.markets[marketKey])); }
+  return { params, fairProbOver, projectStat, has, BASE };
 })();
 
 </script>
@@ -40368,11 +40480,13 @@ window.VaultPropHistory = (function () {
       + ((!/^pre/i.test(MODEL.season_type || '') && r.proj != null && r.line != null)
           ? '<div class="eb-tile"><div class="tl">Model lean</div><div class="tv cy">' + ((r.proj - r.line) > 0 ? '+' : '') + (+(r.proj - r.line).toFixed(1)) + '</div><div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + r.proj + ' vs ' + r.line + '</div></div>'
           : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + fe.vig + '%</div></div>')
+      + '<div class="eb-tile" id="eb-vtile"><div class="tl">Vault edge</div><div class="tv"><span class="spinner xs"></span></div></div>'
       + '</div>'
       + '<div class="eb-chart" id="eb-chart"><div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span><span class="eb-cl">loading…</span></div><div class="eb-bars"><span class="spinner sm"></span></div></div>'
       + '<div class="eb-heat" id="eb-heat"></div>';
     paintHeadshots('#eb-feat');
     feat.querySelector('.eb-wbtn').onclick = () => { const k = propKey(r); watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); };
+    ebFillVault(r, fe);
     const PH = window.VaultPropHistory;
     if (!PH) return;
     PH.forProp(r.name, r.market, r.line, fe.side, { limit: 14 }).then(h => {
@@ -40391,6 +40505,39 @@ window.VaultPropHistory = (function () {
     });
   }
 
+  // Seasons Vault's projection reads: the two most recent (prior + current).
+  // In preseason the current-season file has no games yet, so the prior season
+  // carries it — index() just returns null for the missing file.
+  function ebVaultSeasons() {
+    const s = Number(MODEL.season) || new Date().getFullYear();
+    return [s - 1, s];
+  }
+  // Fill the featured detail's "Vault edge" tile from Vault's OWN projection
+  // (VaultPropModel) → fair prob → edge vs the best price. Async: needs a game
+  // log fetch. Falls back to "—" when the player has no usable history yet.
+  function ebFillVault(r, fe) {
+    const PM = window.VaultPropModel, BM = window.VaultBettingMath;
+    const tile = document.getElementById('eb-vtile');
+    if (!tile) return;
+    if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; return; }
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
+      const t = document.getElementById('eb-vtile');
+      if (!t || propKey(r) !== ebSel) return;               // selection moved on
+      if (!v || v.fairProb == null) {
+        t.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'
+          + '<div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">no game log yet</div>';
+        return;
+      }
+      const sideProb = fe.side === 'under' ? v.under : v.over;
+      const mp = BM.americanToProb(fe.bestPrice);
+      const ed = mp != null ? BM.findEdge(sideProb, mp) : null;
+      const ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+      const lean = +(v.proj - Number(r.line)).toFixed(1);
+      t.innerHTML = '<div class="tl">Vault edge</div>'
+        + '<div class="tv ' + (ev != null && ev > 0 ? 'good' : '') + '">' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%') + '</div>'
+        + '<div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%</div>';
+    });
+  }
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
   function ebFillHits(rows) {
     const PH = window.VaultPropHistory; if (!PH) return;
