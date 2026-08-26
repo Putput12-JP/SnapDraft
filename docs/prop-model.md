@@ -38,11 +38,16 @@ For each market, the point projection decomposes the way real prop models do —
    **shrunk harder** toward the position/league mean — efficiency is noisy.
 3. `proj = weightedVolume × shrunkEfficiency` (count markets project the stat
    directly).
-4. **Distribution → probability**: `Normal(proj, sd)`, `sd = √(v0 + v1·proj)`
-   (variance grows with the mean, Poisson-like), with a continuity correction on
-   count markets. `P(over) = 1 − Φ((line − proj)/sd)`.
+4. **Distribution → probability**:
+   - yards / volume counts: `Normal(proj, sd)`, `sd = √(v0 + v1·proj)` (variance
+     grows with the mean, Poisson-like), continuity-corrected on counts.
+     `P(over) = 1 − Φ((line − proj)/sd)`.
+   - TDs: `Poisson(λ = proj)` tail, `P(over k.5) = 1 − PoissonCDF(k, λ)`.
 5. **Isotonic calibration** (PAV) maps the model-implied probability to the
-   realized hit-rate, so the published fair probability is honest.
+   realized hit-rate, so the published fair probability is honest. Each bin's
+   empirical rate is **shrunk toward its raw midpoint by a pseudo-count** before
+   PAV, so a sparse tail bin can't overfit a handful of coin-flips into a
+   confident (and dangerous) edge.
 
 **Every constant is fitted, not invented** (Vault rule). The recency half-life,
 the shrinkage strengths, the per-market `sd`, and the isotonic maps are all chosen
@@ -60,10 +65,21 @@ player's projection uses only prior games, then is scored against the actual.
 | rush_att | 10,700+| ~flat             | 0.52  |
 | rec      | 31,163 | −4.3%             | 0.34  |
 | rec_yd   | 9,954  | −3.9%             | 0.33  |
+| pass_td  | 4,112  | −7.1% (Poisson)   | 0.08  |
 
 RMSE improvements are over a trailing 4-game average (the baseline PropSignal also
-used). R² is in the same honest range PropSignal reports; TDs are a rare-event
-count market (Poisson) and are a deliberate next phase, not shipped here.
+used). R² is in the same honest range PropSignal reports; TDs are rare-event
+counts so their R² is low, but the Poisson projection still beats the baseline and
+the value is the calibrated `P(over)`.
+
+**`rush_td` / `rec_td` are fit but HELD** (not written to the model). Their
+calibration shows strong TD-scoring *persistence* — recency-weighted goal-line
+backs clear the over 75–90% in dense, real out-of-sample bins, well above the
+memoryless Poisson. That may be a genuine soft-market edge or overfitting; either
+way, shipping 0.85+ rush-TD probabilities would flag enormous edges against books
+that are very sharp on TD props. They stay held until the banked
+`prop_line_history.json` snapshots let us check that tail against real closing
+prices.
 
 The bigger value is not the point RMSE — it is the **calibrated distribution**.
 A trailing mean gives you a number; this gives you an honest `P(over)`, which is

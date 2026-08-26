@@ -48,7 +48,21 @@ MARKETS = {
     "rush_att": {"kind": "count", "stat": "car",                    "pos": ["RB", "QB"]},
     "rec":      {"kind": "count", "stat": "rec",                    "pos": ["WR", "TE", "RB"]},
     "rec_yd":   {"kind": "yards", "vol": "tgt", "eff_num": "recyds","pos": ["WR", "TE", "RB"]},
+    # TD markets — rare counts, so the projection (λ) drives a POISSON tail, not
+    # a Normal. Projected like a count; only the distribution/calibration differ.
+    "pass_td":  {"kind": "poisson", "stat": "ptds",  "pos": ["QB"]},
+    # rush_td / rec_td are fit but HELD from the shipped model (see HOLD below):
+    # their calibration shows strong TD-persistence signal (recency-weighted goal-
+    # line backs hit the over 75-90% in dense, real out-of-sample bins). That may
+    # be a genuine soft-market edge OR overfitting; either way, shipping 0.85+
+    # rush-TD probabilities would flag huge edges against books that are very
+    # sharp on TD props. Hold until the banked prop_line_history snapshots let us
+    # check the tail against real closing prices, then re-enable.
+    "rush_td":  {"kind": "poisson", "stat": "rtds",  "pos": ["RB", "QB", "WR"]},
+    "rec_td":   {"kind": "poisson", "stat": "rectds","pos": ["WR", "TE", "RB"]},
 }
+IS_COUNT = {"count", "poisson"}      # projected the same way (direct stat, shrunk)
+HOLD = {"rush_td", "rec_td"}         # fit + reported, but not written to the model
 
 MIN_PRIOR = 3          # need this many prior games before we score a projection
 LOOKBACK = 17          # trailing games considered (one season of memory)
@@ -137,7 +151,7 @@ def eval_market(mkt, spec, seq, half_life, k_vol, k_eff, priors):
         pos = key[1]
         if pos not in spec["pos"]:
             continue
-        if kind == "count":
+        if kind in IS_COUNT:
             stat = spec["stat"]
             series = collect_series(rows, stat)
             for i in range(len(series)):
@@ -218,6 +232,68 @@ def raw_prob_over(proj, sd, line, count):
     return 1 - phi_cdf((L - proj) / sd) if sd > 0 else (1.0 if proj >= L else 0.0)
 
 
+def pois_cdf(lam, k):
+    """P(X <= k) for Poisson(lam), k integer >= 0."""
+    if lam <= 0:
+        return 1.0
+    term = math.exp(-lam)
+    acc = term
+    for i in range(1, k + 1):
+        term *= lam / i
+        acc += term
+    return min(acc, 1.0)
+
+
+def pois_over(lam, line):
+    """P(X >= ceil(line)) for a .5 line = 1 - P(X <= floor(line))."""
+    k = math.floor(line)
+    return max(0.0, 1 - pois_cdf(lam, k))
+
+
+def fit_calibration_poisson(preds, actuals, bins=20):
+    """Isotonic calibration for a Poisson market over the real TD lines (0.5/1.5/2.5)."""
+    pairs = []
+    for lam, actual in zip(preds, actuals):
+        for line in (0.5, 1.5, 2.5):
+            p = pois_over(lam, line)
+            pairs.append((p, 1.0 if actual >= line else 0.0))
+    return _pav_bins(pairs, bins)
+
+
+def _pav_bins(pairs, bins, pseudo=50):
+    """
+    Bin (raw_p, hit) pairs, shrink each bin's empirical hit-rate toward the bin's
+    raw midpoint by `pseudo` pseudo-observations, then enforce monotonicity (PAV).
+    The shrink keeps sparse bins (e.g. the high-probability tail of a rare TD
+    market, where only a few elite games land) near the raw probability instead
+    of overfitting to a handful of coin-flips.
+    """
+    if not pairs:
+        return []
+    acc = [[0.0, 0.0] for _ in range(bins)]
+    for p, hit in pairs:
+        b = min(bins - 1, int(p * bins))
+        acc[b][0] += hit; acc[b][1] += 1
+    pts = []
+    for b in range(bins):
+        if acc[b][1] > 0:
+            mid = (b + 0.5) / bins
+            rate = (acc[b][0] + pseudo * mid) / (acc[b][1] + pseudo)   # shrink → diagonal
+            pts.append([mid, rate, acc[b][1]])
+    i = 0
+    while i < len(pts) - 1:
+        if pts[i][1] > pts[i + 1][1]:
+            w = pts[i][2] + pts[i + 1][2]
+            merged = (pts[i][1] * pts[i][2] + pts[i + 1][1] * pts[i + 1][2]) / w
+            pts[i] = [pts[i][0], merged, w]
+            del pts[i + 1]
+            if i > 0:
+                i -= 1
+        else:
+            i += 1
+    return [[round(p, 4), round(c, 4)] for p, c, _ in pts]
+
+
 def fit_calibration(preds, actuals, v0, v1, count, bins=20):
     """
     Isotonic (PAV) calibration curve. For each held-out game, evaluate the model's
@@ -234,30 +310,7 @@ def fit_calibration(preds, actuals, v0, v1, count, bins=20):
                 line = round(line * 2) / 2  # half-point lines
             p = raw_prob_over(proj, sd, line, count)
             pairs.append((p, 1.0 if actual >= line else 0.0))
-    if not pairs:
-        return []
-    # bin by raw p, empirical hit per bin
-    acc = [[0.0, 0.0] for _ in range(bins)]
-    for p, hit in pairs:
-        b = min(bins - 1, int(p * bins))
-        acc[b][0] += hit; acc[b][1] += 1
-    pts = []
-    for b in range(bins):
-        if acc[b][1] > 0:
-            pts.append([(b + 0.5) / bins, acc[b][0] / acc[b][1], acc[b][1]])
-    # PAV: enforce non-decreasing calibrated value (weighted)
-    i = 0
-    while i < len(pts) - 1:
-        if pts[i][1] > pts[i + 1][1]:
-            w = pts[i][2] + pts[i + 1][2]
-            merged = (pts[i][1] * pts[i][2] + pts[i + 1][1] * pts[i + 1][2]) / w
-            pts[i] = [pts[i][0], merged, w]
-            del pts[i + 1]
-            if i > 0:
-                i -= 1
-        else:
-            i += 1
-    return [[round(p, 4), round(c, 4)] for p, c, _ in pts]
+    return _pav_bins(pairs, bins)
 
 
 def r2(preds, actuals):
@@ -273,7 +326,7 @@ def compute_priors(seq):
     """Per-market league prior (mean per game) for volume, efficiency, direct."""
     pri = {}
     for mkt, spec in MARKETS.items():
-        if spec["kind"] == "count":
+        if spec["kind"] in IS_COUNT:
             vals = []
             for key, rows in seq.items():
                 if key[1] not in spec["pos"]:
@@ -336,24 +389,34 @@ def main():
         if not best:
             print(f"[prop-model] {mkt:9s} — too few points, skipped")
             continue
-        # fit the distribution width + isotonic calibration at the winning params
-        count = spec["kind"] == "count"
-        v0, v1 = fit_sd(best["preds"], best["actuals"])
-        calib = fit_calibration(best["preds"], best["actuals"], v0, v1, count)
-        lift = (best["base_rmse"] - best["rmse"]) / best["base_rmse"] * 100 if best["base_rmse"] else 0
-        print(f"[prop-model] {mkt:9s} n={best['n']:6d} hl={best['hl']} kv={best['k_vol']} ke={best['k_eff']} "
-              f"| RMSE {best['rmse']:.2f} vs base {best['base_rmse']:.2f} ({lift:+.1f}%) | R2 {best['r2']:.3f} "
-              f"| sd={v0:.1f}+{v1:.3f}·μ | calib {len(calib)}pt")
-        model["markets"][mkt] = {
+        # fit the distribution + isotonic calibration at the winning params
+        entry = {
             "kind": spec["kind"], "pos": spec["pos"],
             # weekly-row field names so the JS inference stays data-driven
             "vol": spec.get("vol"), "eff_num": spec.get("eff_num"), "stat": spec.get("stat"),
             "half_life": best["hl"], "k_vol": best["k_vol"], "k_eff": best["k_eff"],
             "prior": {k: round(priors[k], 4) for k in priors if k == mkt or k.startswith(mkt + "|")},
-            "sd_v0": v0, "sd_v1": v1, "calib": calib,
             "rmse": round(best["rmse"], 3), "r2": round(best["r2"], 4), "n": best["n"],
             "base_rmse": round(best["base_rmse"], 3),
         }
+        if spec["kind"] == "poisson":
+            calib = fit_calibration_poisson(best["preds"], best["actuals"])
+            entry["dist"] = "poisson"; entry["calib"] = calib
+            dist_desc = f"λ̄={statistics.fmean(best['preds']):.2f} (poisson)"
+        else:
+            count = spec["kind"] == "count"
+            v0, v1 = fit_sd(best["preds"], best["actuals"])
+            calib = fit_calibration(best["preds"], best["actuals"], v0, v1, count)
+            entry["dist"] = "normal"; entry["sd_v0"] = v0; entry["sd_v1"] = v1; entry["calib"] = calib
+            dist_desc = f"sd²={v0:.1f}+{v1:.3f}·μ"
+        lift = (best["base_rmse"] - best["rmse"]) / best["base_rmse"] * 100 if best["base_rmse"] else 0
+        held = " [HELD]" if mkt in HOLD else ""
+        print(f"[prop-model] {mkt:9s} n={best['n']:6d} hl={best['hl']} kv={best['k_vol']} ke={best['k_eff']} "
+              f"| RMSE {best['rmse']:.2f} vs base {best['base_rmse']:.2f} ({lift:+.1f}%) | R2 {best['r2']:.3f} "
+              f"| {dist_desc} | calib {len(calib)}pt{held}")
+        if mkt in HOLD:
+            continue                      # fit + reported above, but not shipped
+        model["markets"][mkt] = entry
 
     if args.dry:
         print("[prop-model] --dry: not written")

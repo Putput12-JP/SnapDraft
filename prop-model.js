@@ -61,7 +61,7 @@ window.VaultPropModel = (function () {
   // Point projection for one market from a player's ordered weeks. null if the
   // player has fewer than min_prior usable games (→ caller falls back).
   function projectFrom(weeks, m, minPrior) {
-    if (m.kind === 'count') {
+    if (m.kind === 'count' || m.kind === 'poisson') {   // direct-stat projection (poisson = λ)
       const s = series(weeks, m.stat);
       if (s.length < minPrior) return null;
       return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
@@ -102,6 +102,14 @@ window.VaultPropModel = (function () {
     const L = count ? line - 0.5 : line;         // continuity correction for counts
     if (sd <= 0) return proj >= L ? 1 : 0;
     return 1 - normCdf((L - proj) / sd);
+  }
+  // Poisson tail: P(X >= ceil(line)) for a .5 line = 1 - P(X <= floor(line)).
+  function poisOver(lam, line) {
+    if (lam <= 0) return 0;
+    const k = Math.floor(line);
+    let term = Math.exp(-lam), acc = term;
+    for (let i = 1; i <= k; i++) { term *= lam / i; acc += term; }
+    return Math.max(0, 1 - Math.min(acc, 1));
   }
 
   // Piecewise-linear interpolation on the isotonic calibration points.
@@ -146,11 +154,12 @@ window.VaultPropModel = (function () {
     if (proj == null) return null;
     proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
 
+    const poisson = m.kind === 'poisson';
     const count = m.kind === 'count';
-    const sd = sdAt(m, proj);
+    const sd = poisson ? Math.sqrt(proj) : sdAt(m, proj);   // Poisson sd = √λ (info only)
     const L = num(line);
     if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
-    const raw = rawOver(proj, sd, L, count);
+    const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
     const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2 };

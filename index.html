@@ -39578,7 +39578,7 @@ window.VaultPropModel = (function () {
   function series(weeks, field) { const out = []; for (const w of weeks) { const v = num(w[field]); if (v != null) out.push(v); } return out; }
   function _marketKeyOf(m) { const k = Object.keys(m.prior)[0] || ''; return k.includes('|') ? k.split('|')[0] : k; }
   function projectFrom(weeks, m, minPrior) {
-    if (m.kind === 'count') {
+    if (m.kind === 'count' || m.kind === 'poisson') {
       const s = series(weeks, m.stat);
       if (s.length < minPrior) return null;
       return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
@@ -39604,6 +39604,7 @@ window.VaultPropModel = (function () {
   }
   const normCdf = z => 0.5 * (1 + erf(z / Math.SQRT2));
   function rawOver(proj, sd, line, count) { const L = count ? line - 0.5 : line; if (sd <= 0) return proj >= L ? 1 : 0; return 1 - normCdf((L - proj) / sd); }
+  function poisOver(lam, line) { if (lam <= 0) return 0; const k = Math.floor(line); let term = Math.exp(-lam), acc = term; for (let i = 1; i <= k; i++) { term *= lam / i; acc += term; } return Math.max(0, 1 - Math.min(acc, 1)); }
   function calibrate(calib, p) {
     if (!calib || !calib.length) return p;
     if (p <= calib[0][0]) return calib[0][1];
@@ -39636,11 +39637,12 @@ window.VaultPropModel = (function () {
     let proj = projectFrom(weeks, m, minPrior);
     if (proj == null) return null;
     proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
+    const poisson = m.kind === 'poisson';
     const count = m.kind === 'count';
-    const sd = sdAt(m, proj);
+    const sd = poisson ? Math.sqrt(proj) : sdAt(m, proj);
     const L = num(line);
     if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
-    const raw = rawOver(proj, sd, L, count);
+    const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
     const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2 };
