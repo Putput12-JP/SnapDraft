@@ -1,0 +1,43 @@
+# Pulls NFL game-winner prices from Kalshi (regulated prediction exchange) into
+# data/prediction_markets.json — a second, independent implied probability the
+# Betting Game Markets Edge Board cross-checks against the sportsbook fair.
+# Keyless and free — no secrets, no credits (unlike the ParlayAPI lineup feed).
+name: Update Kalshi markets
+
+on:
+  workflow_dispatch: {}          # run manually any time from the Actions tab
+  schedule:
+    # Hourly, year-round. Kalshi prices move through the day; the job only
+    # commits when the file actually changed, so quiet hours are free. Off the
+    # top of the hour (:37) since that slot is less congested on GitHub.
+    - cron: '37 * * * *'
+
+concurrency:
+  group: kalshi-feed
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  kalshi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch Kalshi NFL game markets
+        run: node scripts/fetch-kalshi.mjs --out=data/prediction_markets.json
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/prediction_markets.json; then
+            echo "No Kalshi changes."
+          else
+            git config user.name  "vault-bot"
+            git config user.email "vault-bot@users.noreply.github.com"
+            git add data/prediction_markets.json
+            git commit -m "kalshi: refresh NFL game markets [skip ci]"
+            git push
+          fi
