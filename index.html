@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-26T13:00', tag:'New', title:'Anytime touchdown board, graded by Vault',
+    items:[
+      'Player Props now has an Anytime TD board. Sportsbooks only quote one side of an anytime touchdown, so the usual fair-price math can’t grade it — Vault uses its own projection to estimate each player’s real chance of scoring, then ranks who’s the best price.',
+      'Heads up: elite goal-line scorers can read high, so treat it as a lean, not a lock. It only shows once a book actually posts a price.',
+    ],
+  },
+  {
     ts:'2026-08-26T11:00', tag:'New', title:'Vault’s own projection now grades player props',
     items:[
       'Open any player prop and you’ll see a new “Vault edge” — our own projection, built from real NFL game logs, turned into the true chance a player goes over or under, then compared to the price you can actually bet.',
@@ -39576,10 +39583,11 @@ window.VaultPropModel = (function () {
     return (sw * wm + k * prior) / (sw + k);
   }
   function series(weeks, field) { const out = []; for (const w of weeks) { const v = num(w[field]); if (v != null) out.push(v); } return out; }
+  function sumSeries(weeks, fields) { const out = []; for (const w of weeks) { const vals = fields.map(f => num(w[f])); if (vals.every(v => v == null)) continue; out.push(vals.reduce((a, v) => a + (v || 0), 0)); } return out; }
   function _marketKeyOf(m) { const k = Object.keys(m.prior)[0] || ''; return k.includes('|') ? k.split('|')[0] : k; }
   function projectFrom(weeks, m, minPrior) {
     if (m.kind === 'count' || m.kind === 'poisson') {
-      const s = series(weeks, m.stat);
+      const s = m.stat_sum ? sumSeries(weeks, m.stat_sum) : series(weeks, m.stat);
       if (s.length < minPrior) return null;
       return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
     }
@@ -40421,6 +40429,12 @@ window.VaultPropModel = (function () {
   function renderPropsBoard() {
     const fb = F(), m = fb.MARKET_BY_KEY[curMarket], col = POS_COLOR[curPos];
     if (mineOnly && !MINE && !MINE_TRIED) { _pvInner().innerHTML = '<div class="bt-empty"><span class="spinner sm"></span><br>Reading your rosters…</div>'; mineLoad().then(renderProps); return; }
+    // Anytime TD is ONE-SIDED (books/feed carry only a "Yes" price), so it can't
+    // be de-vigged like the other markets — the ranked board above needs a two-
+    // way. It is the one market only Vault's projection can grade, so it gets its
+    // own isolated board driven by VaultPropModel. Kept fully separate from the
+    // proven de-vig path above.
+    if (curMarket === 'anytime_td') return renderAnytimeBoard(m, col);
     const rows = ebRows();
     document.getElementById('bt-count').textContent = rows.length + ' live ' + (rows.length === 1 ? 'line' : 'lines');
     if (!rows.length) {
@@ -40551,6 +40565,58 @@ window.VaultPropModel = (function () {
         const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-muted)';
         td.innerHTML = v == null ? '<span class="mut">—</span>' : '<span style="color:' + c + ';font-weight:700">' + v + '%</span>';
       });
+    });
+  }
+
+  // ══ Anytime TD · Vault-only board ════════════════════════════════════════
+  // The one market the de-vig engine can't touch (one-sided). Ranks real "Yes"
+  // prices by Vault's edge = our P(anytime TD) vs the book's implied prob.
+  function renderAnytimeBoard(m, col) {
+    const fb = F(), PM = window.VaultPropModel, BM = window.VaultBettingMath;
+    let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: 'anytime_td', team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
+    if (mineOnly && MINE) rows = rows.filter(r => (r.id && MINE.pids.has(String(r.id))) || MINE.names.has(_nn(r.name)));
+    // real "Yes" prices only — never a synthesized fill (same rule as the board)
+    rows = rows.filter(r => !r.synthetic && (r.over != null || r.prob != null));
+    if (!PM || !BM) { _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">Vault model loading…</div></div>'; return; }
+    if (!rows.length) {
+      _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No live anytime-TD prices</div><div class="eb-emt">No book is pricing '
+        + curPos + ' anytime TD yet</div><div class="eb-ems">Anytime TD is one-sided, so Vault grades it with its own projection — but only once a sportsbook actually posts a price. Check back in-season.</div></div>';
+      return;
+    }
+    _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-board"><div class="eb-bh"><div class="eb-t">Anytime TD · ' + curPos + '</div><div class="eb-cn"><span class="spinner sm"></span> grading with Vault projection…</div></div></div></div>';
+    // Vault's P(anytime) for every player, then rank by edge vs the book's Yes price.
+    Promise.all(rows.map(r =>
+      PM.fairProbOver(r.name, 'anytime_td', 0.5, { seasons: ebVaultSeasons() })
+        .then(v => ({ r, v })).catch(() => ({ r, v: null }))
+    )).then(res => {
+      if (curMarket !== 'anytime_td') return;                 // user navigated away
+      const graded = res.map(({ r, v }) => {
+        const yes = r.over != null ? BM.americanToProb(r.over) : r.prob;   // book implied
+        const vp = v && v.fairProb != null ? v.fairProb : null;
+        const ed = (vp != null && yes != null) ? BM.findEdge(vp, yes) : null;
+        return { r, vp, yes, ev: ed ? +(ed.evPerDollar * 100).toFixed(1) : null, proj: v ? v.proj : null };
+      });
+      graded.sort((a, b) => (b.ev ?? -99) - (a.ev ?? -99));
+      const withV = graded.filter(g => g.vp != null).length;
+      document.getElementById('bt-count').textContent = rows.length + ' live ' + (rows.length === 1 ? 'line' : 'lines');
+      const head = '<thead><tr><th></th><th>Player</th><th class="r">Vault P(TD)</th><th class="r">Book “Yes”</th><th class="r">Vault edge</th><th class="c">Watch</th></tr></thead>';
+      const body = graded.map((g, i) => {
+        const r = g.r, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join(''), on = watch.has(propKey(r));
+        const evTxt = g.ev == null ? '<span class="mut">—</span>' : '<span class="eb-ev">' + (g.ev > 0 ? '+' : '') + g.ev + '%</span>';
+        return '<tr data-k="' + propKey(r) + '"><td class="eb-rk">' + (i + 1) + '</td>'
+          + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
+          + '<div><div class="eb-pn">' + r.name + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
+          + '<td style="text-align:right">' + (g.vp == null ? '<span class="mut">—</span>' : '<b>' + Math.round(g.vp * 100) + '%</b>') + '</td>'
+          + '<td style="text-align:right">' + (r.over != null ? fb.fmtOdds(r.over) : (g.yes != null ? Math.round(g.yes * 100) + '%' : '—')) + '</td>'
+          + '<td style="text-align:right">' + evTxt + '</td>'
+          + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
+      }).join('');
+      _pvInner().innerHTML = '<div class="eb-wrap">'
+        + '<div class="bt-banner"><b class="lab">VAULT ONLY</b> Anytime TD can’t be de-vigged (books quote just the “Yes”), so this board is graded entirely by Vault’s projection — P(scores a TD) vs the price. Elite red-zone scorers can read high; treat it as a lean, not a lock.</div>'
+        + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Anytime TD · ' + curPos + '</div><div class="eb-cn">' + withV + ' graded · ranked by Vault edge</div></div>'
+        + '<div class="eb-tscroll"><table class="eb-table">' + head + '<tbody id="eb-rows">' + body + '</tbody></table></div></div></div>';
+      paintHeadshots('#bt-pv-inner');
+      _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderProps(); });
     });
   }
 

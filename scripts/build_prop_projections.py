@@ -60,6 +60,11 @@ MARKETS = {
     # check the tail against real closing prices, then re-enable.
     "rush_td":  {"kind": "poisson", "stat": "rtds",  "pos": ["RB", "QB", "WR"]},
     "rec_td":   {"kind": "poisson", "stat": "rectds","pos": ["WR", "TE", "RB"]},
+    # Anytime TD = scores ANY non-passing TD (rush or rec). λ = combined TD rate;
+    # P(anytime) = P(≥1) = 1 − e^(−λ). One-sided market (books/feed carry only the
+    # "Yes" price), so the de-vig Edge Board can't grade it — Vault's projection is
+    # the ONLY edge source, which is exactly why it's worth wiring.
+    "anytime_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE", "QB"]},
 }
 IS_COUNT = {"count", "poisson"}      # projected the same way (direct stat, shrunk)
 HOLD = {"rush_td", "rec_td"}         # fit + reported, but not written to the model
@@ -138,6 +143,24 @@ def collect_series(rows, key):
     return [num(r[1].get(key)) for r in rows]
 
 
+def collect_sum_series(rows, keys):
+    """Per-game SUM of several stat keys (e.g. rush+rec TDs → anytime). A game
+    counts if at least one key is present; missing keys contribute 0."""
+    out = []
+    for r in rows:
+        vals = [num(r[1].get(k)) for k in keys]
+        if all(v is None for v in vals):
+            out.append(None)
+        else:
+            out.append(sum(v or 0 for v in vals))
+    return out
+
+
+def market_series(rows, spec):
+    """The direct-projection series for a count/poisson market (stat or stat_sum)."""
+    return collect_sum_series(rows, spec["stat_sum"]) if spec.get("stat_sum") else collect_series(rows, spec["stat"])
+
+
 # ── walk-forward evaluation of one hyperparameter set for one market ───────
 def eval_market(mkt, spec, seq, half_life, k_vol, k_eff, priors):
     """
@@ -152,8 +175,7 @@ def eval_market(mkt, spec, seq, half_life, k_vol, k_eff, priors):
         if pos not in spec["pos"]:
             continue
         if kind in IS_COUNT:
-            stat = spec["stat"]
-            series = collect_series(rows, stat)
+            series = market_series(rows, spec)
             for i in range(len(series)):
                 if series[i] is None:
                     continue
@@ -331,7 +353,7 @@ def compute_priors(seq):
             for key, rows in seq.items():
                 if key[1] not in spec["pos"]:
                     continue
-                vals += [v for v in collect_series(rows, spec["stat"]) if v is not None]
+                vals += [v for v in market_series(rows, spec) if v is not None]
             pri[mkt] = statistics.fmean(vals) if vals else 0.0
         else:
             vv, ee = [], []
@@ -393,7 +415,8 @@ def main():
         entry = {
             "kind": spec["kind"], "pos": spec["pos"],
             # weekly-row field names so the JS inference stays data-driven
-            "vol": spec.get("vol"), "eff_num": spec.get("eff_num"), "stat": spec.get("stat"),
+            "vol": spec.get("vol"), "eff_num": spec.get("eff_num"),
+            "stat": spec.get("stat"), "stat_sum": spec.get("stat_sum"),
             "half_life": best["hl"], "k_vol": best["k_vol"], "k_eff": best["k_eff"],
             "prior": {k: round(priors[k], 4) for k in priors if k == mkt or k.startswith(mkt + "|")},
             "rmse": round(best["rmse"], 3), "r2": round(best["r2"], 4), "n": best["n"],

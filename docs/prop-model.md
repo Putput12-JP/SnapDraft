@@ -66,11 +66,20 @@ player's projection uses only prior games, then is scored against the actual.
 | rec      | 31,163 | −4.3%             | 0.34  |
 | rec_yd   | 9,954  | −3.9%             | 0.33  |
 | pass_td  | 4,112  | −7.1% (Poisson)   | 0.08  |
+| anytime_td | 13,530 | −4.8% (Poisson) | 0.22  |
 
 RMSE improvements are over a trailing 4-game average (the baseline PropSignal also
 used). R² is in the same honest range PropSignal reports; TDs are rare-event
 counts so their R² is low, but the Poisson projection still beats the baseline and
 the value is the calibrated `P(over)`.
+
+**Anytime TD** is Vault-only by nature. Books/feed carry only the "Yes" price, so
+the de-vig Edge Board can't grade it — it never even appeared before. `λ` is the
+combined rush+rec TD rate; `P(anytime) = 1 − e^(−λ)`, calibrated. It gets its own
+isolated board (`renderAnytimeBoard`) that ranks real "Yes" prices by Vault edge =
+`P(TD)` vs the book's implied prob. Well-calibrated for ~91% of players; the elite
+red-zone tail (λ≳0.9) reads aggressively high (same TD-persistence as rush_td), so
+the board is labeled a lean, not a lock, pending CLV validation.
 
 **`rush_td` / `rec_td` are fit but HELD** (not written to the model). Their
 calibration shows strong TD-scoring *persistence* — recency-weighted goal-line
@@ -104,7 +113,9 @@ The JS math mirrors the Python exactly (verified: Ja'Marr Chase rec_yd → proj
   as inference-time multipliers (`opts.oppMult`, `opts.envMult`) but are **not yet
   applied** — the historical weekly rows carry no opponent, so their elasticities
   aren't fit from tape. Applied conservatively at inference is the next step.
-- **TD / anytime_td** need a Poisson/count layer (phase 2).
+- **pass_td / anytime_td** ship (Poisson). `rush_td` / `rec_td` are fit but HELD
+  (see above). anytime_td's elite tail needs CLV validation before it's more than
+  a labeled lean.
 - **Live validation**: the banked `data/prop_line_history.json` snapshots will,
   over the season, let us test whether "Vault proj > line" clears the ~52.4%
   break-even and whether Vault's fair prob beats the closing line (CLV). The Vault

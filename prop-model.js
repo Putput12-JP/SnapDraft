@@ -57,12 +57,23 @@ window.VaultPropModel = (function () {
     for (const w of weeks) { const v = num(w[field]); if (v != null) out.push(v); }
     return out;
   }
+  // Per-game SUM of several fields (rush+rec TDs → anytime); a game counts if at
+  // least one field is present, missing fields contribute 0.
+  function sumSeries(weeks, fields) {
+    const out = [];
+    for (const w of weeks) {
+      const vals = fields.map(f => num(w[f]));
+      if (vals.every(v => v == null)) continue;
+      out.push(vals.reduce((a, v) => a + (v || 0), 0));
+    }
+    return out;
+  }
 
   // Point projection for one market from a player's ordered weeks. null if the
   // player has fewer than min_prior usable games (→ caller falls back).
   function projectFrom(weeks, m, minPrior) {
     if (m.kind === 'count' || m.kind === 'poisson') {   // direct-stat projection (poisson = λ)
-      const s = series(weeks, m.stat);
+      const s = m.stat_sum ? sumSeries(weeks, m.stat_sum) : series(weeks, m.stat);
       if (s.length < minPrior) return null;
       return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
     }
