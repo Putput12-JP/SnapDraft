@@ -39932,7 +39932,110 @@ window.VaultPropHistory = (function () {
     return DOW[et.getUTCDay()] + ' ' + (et.getUTCMonth() + 1) + '/' + et.getUTCDate()
          + ' · ' + h + (m ? ':' + String(m).padStart(2, '0') : '') + ap + ' ET';
   }
+  /* ══ Game Markets · Edge Board ═══════════════════════════════════════════
+     Featured game (win prob + spread/total/ML fair & EV) plus an EV-ranked
+     board of every priced bet across the slate. Real two-sided game lines only.
+     Legacy per-book compare cards kept behind a sub-toggle. Line-movement and
+     Kalshi columns arrive with their feeds. */
+  let gv = 'board';   // 'board' | 'compare'
+  let gSel = 0;       // selected game index for the featured detail
+
+  // Fair + best-price EV for both sides of one game market (VaultBettingMath).
+  function gameBets(g, market) {
+    const BM = window.VaultBettingMath, M = g[market];
+    if (!BM || !M || !M.quotes || !M.quotes.length) return [];
+    const med = a => { const s = a.filter(v => v != null).sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
+    // Best price counts only among quotes AT the consensus line — a plus price
+    // at a different (alt) spread/total is not comparable to fair at this line,
+    // and would fake a huge edge (the props bug, again).
+    const bestAt = list => { let bp = null, bk = null; list.forEach(x => { if (x.p != null && (bp == null || x.p > bp)) { bp = x.p; bk = x.book; } }); return bp == null ? null : { price: bp, book: bk }; };
+    let sides;
+    if (market === 'total') {
+      const ln = M.cons, qs = (M.quotes || []).filter(q => ln == null || q.line == null || q.line === ln);
+      sides = [{ lab: 'Over ' + (ln ?? ''), cons: med(qs.map(q => q.over)), best: bestAt(qs.map(q => ({ p: q.over, book: q.book }))) },
+               { lab: 'Under ' + (ln ?? ''), cons: med(qs.map(q => q.under)), best: bestAt(qs.map(q => ({ p: q.under, book: q.book }))) }];
+    } else if (market === 'spread') {
+      const sa = M.cons ? round05(M.cons.away) : null, sh = M.cons ? round05(M.cons.home) : null;
+      const qA = (M.quotes || []).filter(q => q.away && (sa == null || q.away.line == null || round05(q.away.line) === sa));
+      const qH = (M.quotes || []).filter(q => q.home && (sh == null || q.home.line == null || round05(q.home.line) === sh));
+      sides = [{ lab: g.away + ' ' + sline(sa), cons: med(qA.map(q => q.away.price)), best: bestAt(qA.map(q => ({ p: q.away.price, book: q.book }))) },
+               { lab: g.home + ' ' + sline(sh), cons: med(qH.map(q => q.home.price)), best: bestAt(qH.map(q => ({ p: q.home.price, book: q.book }))) }];
+    } else {
+      sides = [{ lab: g.away + ' ML', cons: med(M.quotes.map(q => q.away)), best: bestAt(M.quotes.map(q => ({ p: q.away, book: q.book }))) },
+               { lab: g.home + ' ML', cons: med(M.quotes.map(q => q.home)), best: bestAt(M.quotes.map(q => ({ p: q.home, book: q.book }))) }];
+    }
+    if (sides[0].cons == null || sides[1].cons == null) return [];
+    const dv = BM.devigTwoWay(sides[0].cons, sides[1].cons);
+    if (!dv || dv.vigPct <= 0) return [];
+    const fair = [dv.over, dv.under];
+    return sides.map((s, i) => {
+      const bp = s.best ? s.best.price : null;
+      const bk = s.best ? s.best.book : null;
+      if (bp == null) return null;
+      const ev = BM.findEdge(fair[i].fairProb, BM.americanToProb(bp));
+      return { g, market, lab: s.lab, fairAmerican: Math.round(fair[i].fairAmerican), bestPrice: bp, bestBook: bk,
+        ev: ev ? +(ev.evPerDollar * 100).toFixed(1) : null, edgePts: ev ? ev.edgePct : null, vig: dv.vigPct };
+    }).filter(Boolean);
+  }
+
   function renderGames() {
+    const host = document.getElementById('bt-v-games');
+    if (!host.querySelector('#bt-gv-inner')) host.innerHTML = '<div class="eb-pvbar" id="bt-gvbar"></div><div id="bt-gv-inner"></div>';
+    const bar = document.getElementById('bt-gvbar');
+    bar.innerHTML = '<div class="eb-seg"><button data-gv="board" class="' + (gv === 'board' ? 'on' : '') + '">Edge Board</button>'
+      + '<button data-gv="compare" class="' + (gv === 'compare' ? 'on' : '') + '">Compare books</button></div>';
+    bar.querySelectorAll('button').forEach(b => b.onclick = () => { gv = b.dataset.gv; renderGames(); });
+    if (gv === 'compare') return renderGamesCompare();
+    renderGamesBoard();
+  }
+
+  function renderGamesBoard() {
+    const fb = F(), TN = fb.TEAMNAME || {}, fullName = c => TN[c] || c;
+    let games = MODEL.games.slice().sort((a, b) => { const ta = a.commence ? Date.parse(a.commence) : Infinity, tb = b.commence ? Date.parse(b.commence) : Infinity; return ta - tb; });
+    if (searchQ) { const q = searchQ.toLowerCase(); games = games.filter(g => (g.away + ' ' + g.home + ' ' + fullName(g.away) + ' ' + fullName(g.home)).toLowerCase().includes(q)); }
+    const withBets = games.map(g => ({ g, bets: ['spread', 'total', 'ml'].flatMap(m => gameBets(g, m)) })).filter(x => x.bets.length);
+    document.getElementById('bt-count').textContent = withBets.length + ' games · ' + withBets.reduce((n, x) => n + x.bets.length, 0) + ' priced bets';
+    const inner = document.getElementById('bt-gv-inner');
+    if (!withBets.length) {
+      inner.innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No live lines</div><div class="eb-emt">No book is pricing these games yet</div><div class="eb-ems">Vault only shows games a sportsbook is actually pricing. Check back closer to kickoff.</div></div>';
+      return;
+    }
+    if (gSel >= withBets.length) gSel = 0;
+    const sel = withBets[gSel];
+    // featured game
+    const g = sel.g, ia = g.implied && g.implied.away, ih = g.implied && g.implied.home;
+    const wpA = (ia != null && ih != null && (ia + ih) > 0) ? Math.round(ia / (ia + ih) * 100) : null;
+    const mBlock = (market, label) => {
+      const bets = gameBets(g, market);
+      if (!bets.length) return '<div class="gb-mkt"><div class="gb-mh">' + label + '</div><div class="gb-none">not priced</div></div>';
+      const bestI = bets[0].ev >= (bets[1] ? bets[1].ev : -99) ? 0 : 1;
+      const sidesH = bets.map((b, i) => '<div class="gb-side' + (i === bestI && b.ev > 0 ? ' best' : '') + '">'
+        + '<div class="l"><div class="pk">' + b.lab + '</div><div class="fr">fair ' + fb.fmtOdds(b.fairAmerican) + '</div></div>'
+        + '<div class="r"><div class="pr">' + fb.fmtOdds(b.bestPrice) + '</div><div class="ev ' + (b.ev > 0 ? 'pos' : '') + '">' + (b.ev > 0 ? '+' : '') + b.ev + '% EV</div></div></div>').join('');
+      return '<div class="gb-mkt"><div class="gb-mh">' + label + '</div>' + sidesH + '</div>';
+    };
+    const wp = wpA != null ? '<div class="gb-wp"><div class="gb-wbar"><i style="width:' + wpA + '%"></i></div><div class="gb-wl"><span><b>' + g.away + ' ' + wpA + '%</b> win prob</span><span><b>' + (100 - wpA) + '%</b> ' + g.home + '</span></div></div>' : '';
+    const feat = '<div class="eb-feat"><div class="gb-ghead"><div class="gb-teams"><span class="bt-logo gb-lg" data-logo="' + g.away + '"></span><span class="gb-tn">' + g.away + '</span><span class="gb-at">@</span><span class="gb-tn">' + g.home + '</span><span class="bt-logo gb-lg" data-logo="' + g.home + '"></span></div><div class="gb-when">' + (g.slot || (g.commence ? new Date(g.commence).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '')) + '</div></div>'
+      + wp + '<div class="gb-mkts">' + mBlock('spread', 'Spread') + mBlock('total', 'Total') + mBlock('ml', 'Moneyline') + '</div></div>';
+    // board across every game+market, ranked by EV
+    const allBets = withBets.flatMap(x => x.bets).sort((a, b) => (b.ev ?? -99) - (a.ev ?? -99));
+    const mtag = m => m === 'ml' ? 'ML' : m === 'total' ? 'TOT' : 'SPR';
+    const rowsH = allBets.map((b, i) => '<tr data-gi="' + withBets.findIndex(x => x.g === b.g) + '">'
+      + '<td class="eb-rk">' + (i + 1) + '</td>'
+      + '<td class="gb-gm">' + b.g.away + ' <span class="mut">@ ' + b.g.home + '</span></td>'
+      + '<td><span class="gb-tag">' + mtag(b.market) + '</span></td>'
+      + '<td class="gb-pick">' + b.lab + '</td>'
+      + '<td style="text-align:right"><span class="eb-ev">' + (b.ev > 0 ? '+' : '') + b.ev + '%</span></td>'
+      + '<td class="eb-fb"><span class="mut">fair</span> ' + fb.fmtOdds(b.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(b.bestPrice) + '</span></td>'
+      + '<td class="gb-bk">' + (b.bestBook || '—') + '</td></tr>').join('');
+    inner.innerHTML = '<div class="eb-wrap">' + feat
+      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Best value across every game</div><div class="eb-cn">' + allBets.length + ' priced bets · ranked by EV</div></div>'
+      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th><th>Game</th><th>Market</th><th>Pick</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Book</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
+    paintLogos('#bt-gv-inner');
+    inner.querySelectorAll('tbody tr[data-gi]').forEach(tr => tr.onclick = () => { const gi = +tr.dataset.gi; if (gi >= 0) { gSel = gi; renderGamesBoard(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+  }
+
+  function renderGamesCompare() {
     const fb = F(), gm = curGM;
     const isPre = /^pre/i.test(MODEL.season_type || '');
     const books = gatherBooks(g => g[gm] && g[gm].quotes);
@@ -40015,8 +40118,8 @@ window.VaultPropHistory = (function () {
       return '<div class="bt-game">' + header +
         '<div class="bt-cmpwrap"><table class="bt-cmp">' + head + '<tbody>' + body + '</tbody></table></div></div>';
     };
-    document.getElementById('bt-v-games').innerHTML = rows.map(card).join('');
-    paintLogos('#bt-v-games');
+    document.getElementById('bt-gv-inner').innerHTML = rows.map(card).join('');
+    paintLogos('#bt-gv-inner');
   }
 
   /* ── PLAYER PROPS grid ────────────────────────────────────────────────── */
@@ -40476,6 +40579,35 @@ window.VaultPropHistory = (function () {
 #page-betting .eb-hit{text-align:center;font-family:var(--bt-mono);font-size:12px}
 #page-betting .eb-star{background:none;border:1px solid var(--bt-border2);color:var(--bt-muted);width:32px;height:28px;border-radius:7px;cursor:pointer;font-size:14px;line-height:1}
 #page-betting .eb-star.on{color:var(--bt-gold);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
+#page-betting .gb-ghead{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:15px 18px;border-bottom:1px solid var(--bt-border)}
+#page-betting .gb-teams{display:flex;align-items:center;gap:11px}
+#page-betting .gb-lg{width:30px;height:30px}
+#page-betting .gb-tn{font-size:17px;font-weight:800;letter-spacing:-.02em}
+#page-betting .gb-at{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted)}
+#page-betting .gb-when{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted)}
+#page-betting .gb-wp{padding:13px 18px;border-bottom:1px solid var(--bt-border)}
+#page-betting .gb-wbar{height:7px;border-radius:5px;background:var(--bt-s4);overflow:hidden}
+#page-betting .gb-wbar i{display:block;height:100%;background:linear-gradient(90deg,var(--bt-accent2),color-mix(in srgb,var(--bt-accent2) 70%,black))}
+#page-betting .gb-wl{display:flex;justify-content:space-between;font-family:var(--bt-mono);font-size:10.5px;color:var(--bt-muted);margin-top:6px}
+#page-betting .gb-wl b{color:var(--bt-text2)}
+#page-betting .gb-mkts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bt-border)}
+#page-betting .gb-mkt{background:var(--bt-s1);padding:14px 15px}
+#page-betting .gb-mh{font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:11px}
+#page-betting .gb-none{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted)}
+#page-betting .gb-side{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;border:1px solid var(--bt-border);margin-bottom:6px}
+#page-betting .gb-side.best{border-color:color-mix(in srgb,var(--bt-green) 40%,transparent);background:color-mix(in srgb,var(--bt-green) 7%,transparent)}
+#page-betting .gb-side .pk{font-weight:700;font-size:12.5px}
+#page-betting .gb-side .fr{font-family:var(--bt-mono);font-size:9.5px;color:var(--bt-muted);margin-top:2px}
+#page-betting .gb-side .r{text-align:right;flex:none}
+#page-betting .gb-side .pr{font-family:var(--bt-mono);font-size:12.5px;font-weight:700}
+#page-betting .gb-side.best .pr{color:var(--bt-green)}
+#page-betting .gb-side .ev{font-family:var(--bt-mono);font-size:9px;margin-top:2px;color:var(--bt-muted)}
+#page-betting .gb-side .ev.pos{color:var(--bt-green)}
+#page-betting .gb-gm{font-family:var(--bt-mono);font-size:12px;font-weight:700}
+#page-betting .gb-gm .mut{color:var(--bt-muted);font-weight:400}
+#page-betting .gb-tag{font-family:var(--bt-mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2)}
+#page-betting .gb-pick{font-weight:700;font-size:12.5px}
+#page-betting .gb-bk{font-family:var(--bt-mono);font-size:11px;color:var(--bt-accent2);text-align:center}
 `;
     document.head.appendChild(s);
   }
