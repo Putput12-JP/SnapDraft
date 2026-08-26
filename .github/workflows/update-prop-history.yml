@@ -1,0 +1,44 @@
+# Banks player-prop lines + Vault projections from data/lineup-feed.json into
+# data/prop_line_history.json so we can later backtest the Betting page:
+# closing-line value (CLV) for the de-vig engine, and the Model Lean projection
+# vs. actual results. Reads the already-built feed — no API calls, no credits.
+name: Update prop history
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Hourly, year-round. Runs at :27 — after update-props commits the fresh
+    # feed at :17 — so it banks the latest lines. Freezes each prop's first-seen
+    # snapshot as "open", rolls "cur" forward, and only commits when something
+    # actually moved, so quiet hours are free. Finished weeks are retained.
+    - cron: '27 * * * *'
+
+concurrency:
+  group: prop-history
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  prop-history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Snapshot prop lines + projections
+        run: node scripts/snapshot-prop-history.mjs --feed=data/lineup-feed.json --out=data/prop_line_history.json
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/prop_line_history.json; then
+            echo "No prop-history changes."
+          else
+            git config user.name  "vault-bot"
+            git config user.email "vault-bot@users.noreply.github.com"
+            git add data/prop_line_history.json
+            git commit -m "props: snapshot prop line history [skip ci]"
+            git push
+          fi
