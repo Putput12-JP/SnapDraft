@@ -51,13 +51,13 @@ async function getJSON(url) {
   return r.json();
 }
 
-// Follow Kalshi's cursor to collect all open KXNFLGAME events with markets.
-async function fetchEvents() {
+// Follow Kalshi's cursor to collect all open events for a series, with markets.
+async function fetchEvents(series) {
   const out = [];
   let cursor = '';
   for (let page = 0; page < 20; page++) {
     const u = new URL(BASE + '/events');
-    u.searchParams.set('series_ticker', 'KXNFLGAME');
+    u.searchParams.set('series_ticker', series);
     u.searchParams.set('status', 'open');
     u.searchParams.set('with_nested_markets', 'true');
     u.searchParams.set('limit', '200');
@@ -80,40 +80,76 @@ function yesQuote(m) {
   return { prob: (yb + ya) / 2, spread: Math.abs(ya - yb) };
 }
 
-function parseEvent(ev) {
+// Shared match id from any series ticker: KXNFLGAME-26AUG27PITBUF → 26AUG27PITBUF.
+const matchId = t => String(t || '').split('-')[1] || '';
+
+// KXNFLGAME event → { mid, key, away, home, ml } (the clean two-way winner).
+function parseGame(ev) {
   const markets = ev.markets || [];
-  if (markets.length !== 2) return null;                 // want a clean two-way winner
-  const title = ev.title || '';                          // "Pittsburgh vs Buffalo"
-  const vs = title.split(/\s+vs\.?\s+/i);
+  if (markets.length !== 2) return null;
+  const vs = (ev.title || '').split(/\s+vs\.?\s+/i);
   const awayCity = (vs[0] || '').trim(), homeCity = (vs[1] || '').trim();
   let away = null, home = null, mlAway = null, mlHome = null, worstSpread = 0, close = null;
   for (const m of markets) {
     const abbr = code(String(m.ticker || '').split('-').pop());
     const q = yesQuote(m);
-    if (!q) return null;                                 // a side isn't quoted → skip game
+    if (!q) return null;
     worstSpread = Math.max(worstSpread, q.spread);
     const city = (m.yes_sub_title || '').trim();
     close = m.close_time || close;
-    // Assign to away/home by matching the yes_sub_title (team city) to the title.
     if (awayCity && city && awayCity.toLowerCase().includes(city.toLowerCase())) { away = abbr; mlAway = q.prob; }
     else if (homeCity && city && homeCity.toLowerCase().includes(city.toLowerCase())) { home = abbr; mlHome = q.prob; }
     else if (!away) { away = abbr; mlAway = q.prob; } else { home = abbr; mlHome = q.prob; }
   }
-  if (!away || !home || mlAway == null || mlHome == null) return null;
-  if (worstSpread > MAX_SPREAD) return null;             // too wide → thin/stale, don't post
-  return { key: away + '@' + home, away, home, ml: { away: +mlAway.toFixed(4), home: +mlHome.toFixed(4) }, spreadCents: Math.round(worstSpread * 100), close };
+  if (!away || !home || mlAway == null || mlHome == null || worstSpread > MAX_SPREAD) return null;
+  return { mid: matchId(ev.event_ticker), key: away + '@' + home, away, home,
+    ml: { away: +mlAway.toFixed(4), home: +mlHome.toFixed(4) }, close };
+}
+
+// KXNFLTOTAL event → sorted "Over strike" ladder [[strike, P(over)], …] (tight strikes only).
+function totalLadder(ev) {
+  const out = [];
+  for (const m of ev.markets || []) {
+    const s = num(m.floor_strike), q = yesQuote(m);
+    if (s == null || !q || q.spread > MAX_SPREAD) continue;
+    out.push([s, +q.prob.toFixed(3)]);
+  }
+  out.sort((a, b) => a[0] - b[0]);
+  return out.length >= 3 ? out : null;
+}
+
+// KXNFLSPREAD event → per-team "wins by over strike" ladders { ABBR: [[strike, P], …] }.
+function spreadLadders(ev, away, home) {
+  const by = {};
+  for (const m of ev.markets || []) {
+    const suf = String(m.ticker || '').split('-').pop();      // "BUF17"
+    const abbr = code((suf.match(/^[A-Za-z]+/) || [''])[0]);
+    const s = num(m.floor_strike), q = yesQuote(m);
+    if (!abbr || s == null || !q || q.spread > MAX_SPREAD) continue;
+    if (abbr !== away && abbr !== home) continue;
+    (by[abbr] = by[abbr] || []).push([s, +q.prob.toFixed(3)]);
+  }
+  for (const a in by) by[a].sort((x, y) => x[0] - y[0]);
+  return Object.keys(by).length ? by : null;
 }
 
 (async () => {
-  let events;
-  try { events = await fetchEvents(); }
+  let gameEvs, totalEvs, spreadEvs;
+  try { [gameEvs, totalEvs, spreadEvs] = await Promise.all([fetchEvents('KXNFLGAME'), fetchEvents('KXNFLTOTAL'), fetchEvents('KXNFLSPREAD')]); }
   catch (e) { log('fetch failed:', e.message); process.exit(1); }
-  log(events.length + ' open KXNFLGAME events');
+  log(gameEvs.length + ' game · ' + totalEvs.length + ' total · ' + spreadEvs.length + ' spread events');
+
+  const byMatch = {};
+  for (const ev of gameEvs) { const g = parseGame(ev); if (g) byMatch[g.mid] = g; }
+  for (const ev of totalEvs) { const g = byMatch[matchId(ev.event_ticker)]; if (g) g.total = totalLadder(ev); }
+  for (const ev of spreadEvs) { const g = byMatch[matchId(ev.event_ticker)]; if (g) g.spread = spreadLadders(ev, g.away, g.home); }
+
   const games = {};
-  for (const ev of events) { const g = parseEvent(ev); if (g) games[g.key] = g; }
-  const payload = { source: 'kalshi', series: 'KXNFLGAME', generated: new Date().toISOString(), count: Object.keys(games).length, games };
-  log(payload.count + ' games priced (spread ≤ ' + (MAX_SPREAD * 100) + '¢)');
-  Object.values(games).slice(0, 6).forEach(g => log('  ' + g.key + '  away ' + (g.ml.away * 100).toFixed(0) + '¢ / home ' + (g.ml.home * 100).toFixed(0) + '¢  · spread ' + g.spreadCents + '¢'));
+  for (const mid in byMatch) { const g = byMatch[mid]; games[g.key] = { away: g.away, home: g.home, ml: g.ml, total: g.total || null, spread: g.spread || null, close: g.close }; }
+  const payload = { source: 'kalshi', series: 'KXNFLGAME+SPREAD+TOTAL', generated: new Date().toISOString(), count: Object.keys(games).length, games };
+  const nT = Object.values(games).filter(g => g.total).length, nS = Object.values(games).filter(g => g.spread).length;
+  log(payload.count + ' games · ' + nT + ' with total ladder · ' + nS + ' with spread ladders');
+  Object.values(games).slice(0, 5).forEach(g => log('  ' + g.away + '@' + g.home + '  ml ' + (g.ml.away * 100).toFixed(0) + '/' + (g.ml.home * 100).toFixed(0) + '¢  total ' + (g.total ? g.total.length : 0) + ' · spread ' + (g.spread ? Object.keys(g.spread).length : 0)));
   if (DRY) { log('--dry: not written'); return; }
   writeFileSync(OUT, JSON.stringify(payload));
   log('wrote ' + OUT);

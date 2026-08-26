@@ -39978,8 +39978,23 @@ window.VaultPropHistory = (function () {
     return { tag, cls, from: fmt(seg.open), to: fmt(seg.cur) };
   }
 
+  // Linear-interpolate a Kalshi strike ladder [[strike,prob],…] (sorted asc) at
+  // x; null if x sits more than a point outside the ladder's range.
+  function ladderProb(ladder, x) {
+    if (!ladder || ladder.length < 2 || x == null) return null;
+    const lo = ladder[0], hi = ladder[ladder.length - 1];
+    if (x < lo[0] - 1 || x > hi[0] + 1) return null;
+    if (x <= lo[0]) return lo[1];
+    if (x >= hi[0]) return hi[1];
+    for (let i = 1; i < ladder.length; i++) {
+      if (x <= ladder[i][0]) { const a = ladder[i - 1], b = ladder[i], t = (x - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * t; }
+    }
+    return null;
+  }
+
   // Fair + best-price EV for both sides of one game market (VaultBettingMath).
-  // Moneyline bets are also enriched with Kalshi cross-market edge + arbitrage.
+  // Moneyline, total and spread bets are enriched with Kalshi cross-market edge
+  // + arbitrage (spread/total interpolated from the exchange's strike ladders).
   function gameBets(g, market) {
     const BM = window.VaultBettingMath, M = g[market];
     if (!BM || !M || !M.quotes || !M.quotes.length) return [];
@@ -40015,19 +40030,31 @@ window.VaultPropHistory = (function () {
       return { g, market, lab: s.lab, bestProb: BM.americanToProb(bp), fairAmerican: Math.round(fair[i].fairAmerican), bestPrice: bp, bestBook: bk,
         ev: ev ? +(ev.evPerDollar * 100).toFixed(1) : null, edgePts: ev ? ev.edgePct : null, vig: dv.vigPct };
     }).filter(Boolean);
-    // Kalshi cross-market — moneyline only (game winner). Adds a second
-    // independent price per side and flags a guaranteed book+Kalshi arb via the
-    // same findArbitrage math, gated conservatively so 1¢-spread mids don't
-    // over-flag. Uses <0.99 (a 1%+ combined edge) to survive the exchange spread.
-    if (market === 'ml' && bets.length === 2 && _kalshi) {
+    // Kalshi cross-market — a second independent price per side + a guaranteed
+    // book+Kalshi arb (findArbitrage), gated <0.99 so 1¢-spread mids don't
+    // over-flag. ML reads the winner price directly; total/spread interpolate
+    // the exchange's strike ladder at the book's line. bets order per market:
+    // ml/spread = [away, home]; total = [over, under].
+    if (bets.length === 2 && _kalshi) {
       const K = _kalshi[g.away + '@' + g.home];
-      if (K && K.ml) {
-        const kp = [K.ml.away, K.ml.home];
-        bets.forEach((b, i) => { b.kp = kp[i]; b.kcents = Math.round(kp[i] * 100); b.xedge = +((kp[i] / b.bestProb - 1) * 100).toFixed(1); });
-        const cA = Math.min(bets[0].bestProb, kp[0]), cB = Math.min(bets[1].bestProb, kp[1]);
-        const sum = cA + cB, usedK = (kp[0] < bets[0].bestProb) || (kp[1] < bets[1].bestProb);
+      let kp0 = null, kp1 = null;
+      if (K) {
+        if (market === 'ml' && K.ml) { kp0 = K.ml.away; kp1 = K.ml.home; }
+        else if (market === 'total' && K.total) { const p = ladderProb(K.total, M.cons); if (p != null) { kp0 = p; kp1 = 1 - p; } }
+        else if (market === 'spread' && K.spread && M.cons) {
+          const homeLine = round05(M.cons.home);                 // e.g. -2.5 (home favoured by 2.5)
+          const favTeam = homeLine < 0 ? g.home : g.away, favStrike = Math.abs(homeLine);
+          const pFav = ladderProb(K.spread[favTeam], favStrike);  // P(favourite wins by > strike) = covers
+          if (pFav != null) { const pDog = 1 - pFav; if (favTeam === g.away) { kp0 = pFav; kp1 = pDog; } else { kp0 = pDog; kp1 = pFav; } }
+        }
+      }
+      if (kp0 != null && kp1 != null) {
+        const kps = [kp0, kp1];
+        bets.forEach((b, i) => { b.kp = kps[i]; b.kcents = Math.round(kps[i] * 100); b.xedge = +((kps[i] / b.bestProb - 1) * 100).toFixed(1); });
+        const cA = Math.min(bets[0].bestProb, kp0), cB = Math.min(bets[1].bestProb, kp1);
+        const sum = cA + cB, usedK = (kp0 < bets[0].bestProb) || (kp1 < bets[1].bestProb);
         const arb = (sum < 0.99 && usedK) ? +(((1 / sum) - 1) * 100).toFixed(1) : 0;
-        const bookSide = arb > 0 ? (bets[0].bestProb <= kp[0] ? 0 : 1) : -1;
+        const bookSide = arb > 0 ? (bets[0].bestProb <= kp0 ? 0 : 1) : -1;
         bets.forEach((b, i) => { b.arb = arb; b.arbLeg = (i === bookSide); });
       }
     }
