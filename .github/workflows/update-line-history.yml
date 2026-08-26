@@ -1,0 +1,43 @@
+# Snapshots opening game lines from data/lineup-feed.json into
+# data/line_history.json so the Betting Game Markets Edge Board can show line
+# movement (open→current) and flag sharp/steam moves. Reads the already-built
+# feed — no API calls, no credits.
+name: Update line history
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Hourly, year-round. Freezes each game+market's first-seen line as the
+    # "open" and rolls "cur" forward; only commits when something actually
+    # moved, so quiet hours are free. Off the hour (:47) to dodge congestion.
+    - cron: '47 * * * *'
+
+concurrency:
+  group: line-history
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  line-history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Snapshot opening lines
+        run: node scripts/snapshot-line-history.mjs --feed=data/lineup-feed.json --out=data/line_history.json
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/line_history.json; then
+            echo "No line-history changes."
+          else
+            git config user.name  "vault-bot"
+            git config user.email "vault-bot@users.noreply.github.com"
+            git add data/line_history.json
+            git commit -m "lines: snapshot game line movement [skip ci]"
+            git push
+          fi

@@ -39955,6 +39955,29 @@ window.VaultPropHistory = (function () {
       .then(j => { _kalshiTried = true; _kalshi = (j && j.games) ? j.games : {}; return _kalshi; });
   }
 
+  // Line-movement history (data/line_history.json), lazy + cached.
+  let _lineHist = null, _lineHistTried = false;
+  function loadLineHist() {
+    const base = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE) ? NFLVERSE_BASE : '/data';
+    return fetch(base + '/line_history.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
+      .then(j => { _lineHistTried = true; _lineHist = (j && j.games) ? j.games : {}; return _lineHist; });
+  }
+  // Open→current classification for a game market (null when no move / no data).
+  function moveTag(key, market) {
+    const BM = window.VaultBettingMath, h = _lineHist && _lineHist[key];
+    if (!BM || !h) return null;
+    const seg = market === 'ml' ? h.mlHome : h[market];
+    if (!seg || seg.open == null || seg.cur == null || seg.open === seg.cur) return null;
+    const mv = market === 'ml'
+      ? BM.lineMovement({ openOdds: seg.open, closeOdds: seg.cur })
+      : BM.lineMovement({ openLine: seg.open, closeLine: seg.cur, marketType: market });
+    if (!mv) return null;
+    const MAP = { steam_move: ['STEAM', 'steam'], sharp_action: ['SHARP', 'sharp'], reverse_line_movement: ['RLM', 'sharp'], minor_adjustment: ['·', 'flat'] };
+    const [tag, cls] = MAP[mv.classification] || ['·', 'flat'];
+    const fmt = v => market === 'ml' ? F().fmtOdds(v) : v;
+    return { tag, cls, from: fmt(seg.open), to: fmt(seg.cur) };
+  }
+
   // Fair + best-price EV for both sides of one game market (VaultBettingMath).
   // Moneyline bets are also enriched with Kalshi cross-market edge + arbitrage.
   function gameBets(g, market) {
@@ -40053,7 +40076,13 @@ window.VaultPropHistory = (function () {
     };
     const wp = wpA != null ? '<div class="gb-wp"><div class="gb-wbar"><i style="width:' + wpA + '%"></i></div><div class="gb-wl"><span><b>' + g.away + ' ' + wpA + '%</b> win prob</span><span><b>' + (100 - wpA) + '%</b> ' + g.home + '</span></div></div>' : '';
     const feat = '<div class="eb-feat"><div class="gb-ghead"><div class="gb-teams"><span class="bt-logo gb-lg" data-logo="' + g.away + '"></span><span class="gb-tn">' + g.away + '</span><span class="gb-at">@</span><span class="gb-tn">' + g.home + '</span><span class="bt-logo gb-lg" data-logo="' + g.home + '"></span></div><div class="gb-when">' + (g.slot || (g.commence ? new Date(g.commence).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '')) + '</div></div>'
-      + wp + '<div class="gb-mkts">' + mBlock('spread', 'Spread') + mBlock('total', 'Total') + mBlock('ml', 'Moneyline') + '</div></div>';
+      + wp + '<div class="gb-mkts">' + mBlock('spread', 'Spread') + mBlock('total', 'Total') + mBlock('ml', 'Moneyline') + '</div>'
+      + (_lineHist ? (() => {
+          const key = g.away + '@' + g.home;
+          const items = [['spread', 'Spread'], ['total', 'Total'], ['ml', 'ML']].map(([m, l]) => { const mt = moveTag(key, m); return mt ? '<span class="gb-mvi">' + l + ' <b>' + mt.from + '→' + mt.to + '</b> <span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span></span>' : ''; }).filter(Boolean).join('');
+          return '<div class="gb-mvstrip"><span class="gb-mvl">Line movement</span>' + (items || '<span class="gb-mvi mut">No movement since open</span>') + '</div>';
+        })() : '')
+      + '</div>';
     // board across every game+market, ranked by EV
     const allBets = withBets.flatMap(x => x.bets).sort((a, b) => (b.ev ?? -99) - (a.ev ?? -99));
     const mtag = m => m === 'ml' ? 'ML' : m === 'total' ? 'TOT' : 'SPR';
@@ -40065,14 +40094,16 @@ window.VaultPropHistory = (function () {
       + '<td style="text-align:right"><span class="eb-ev">' + (b.ev > 0 ? '+' : '') + b.ev + '%</span></td>'
       + '<td class="eb-fb"><span class="mut">fair</span> ' + fb.fmtOdds(b.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(b.bestPrice) + '</span></td>'
       + '<td class="gb-kalc">' + (b.kp != null ? b.kcents + '¢' + (b.xedge > 0 ? ' <span class="eb-best">+' + b.xedge + '%</span>' : '') : '<span class="mut">—</span>') + '</td>'
+      + '<td class="gb-move">' + (() => { const mt = moveTag(b.g.away + '@' + b.g.home, b.market); return mt ? '<span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span>' : '<span class="mut">—</span>'; })() + '</td>'
       + '<td class="gb-bk">' + (b.bestBook || '—') + '</td></tr>').join('');
     inner.innerHTML = '<div class="eb-wrap">' + feat
       + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Best value across every game</div><div class="eb-cn">' + allBets.length + ' priced bets · ranked by EV</div></div>'
-      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th><th>Game</th><th>Market</th><th>Pick</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Kalshi</th><th class="c">Book</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
+      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th><th>Game</th><th>Market</th><th>Pick</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Kalshi</th><th class="c">Move</th><th class="c">Book</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
     paintLogos('#bt-gv-inner');
     inner.querySelectorAll('tbody tr[data-gi]').forEach(tr => tr.onclick = () => { const gi = +tr.dataset.gi; if (gi >= 0) { gSel = gi; renderGamesBoard(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
-    // Kalshi loads once, then repaints so the cross-market column + arbs fill in.
+    // Kalshi + line history load once, then repaint so their columns fill in.
     if (!_kalshiTried) loadKalshi().then(() => { if (view === 'games' && gv === 'board') renderGamesBoard(); });
+    if (!_lineHistTried) loadLineHist().then(() => { if (view === 'games' && gv === 'board') renderGamesBoard(); });
   }
 
   function renderGamesCompare() {
@@ -40665,6 +40696,16 @@ window.VaultPropHistory = (function () {
 #page-betting .gb-arb{font-family:var(--bt-mono);font-size:9px;font-weight:700;letter-spacing:.05em;color:#0b131c;background:var(--bt-green);padding:2px 6px;border-radius:4px;margin-left:8px;white-space:nowrap}
 #page-betting .gb-arb.sm{background:color-mix(in srgb,var(--bt-green) 16%,transparent);color:var(--bt-green);border:1px solid color-mix(in srgb,var(--bt-green) 42%,transparent)}
 #page-betting .gb-kalc{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);text-align:center;white-space:nowrap}
+#page-betting .gb-move{text-align:center}
+#page-betting .gb-mv{font-family:var(--bt-mono);font-size:9px;font-weight:700;letter-spacing:.05em;padding:2px 6px;border-radius:4px}
+#page-betting .gb-mv.steam{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);color:var(--bt-gold);border:1px solid color-mix(in srgb,var(--bt-gold) 40%,transparent)}
+#page-betting .gb-mv.sharp{background:color-mix(in srgb,var(--bt-accent2) 14%,transparent);color:var(--bt-accent2);border:1px solid color-mix(in srgb,var(--bt-accent2) 36%,transparent)}
+#page-betting .gb-mv.flat{color:var(--bt-muted)}
+#page-betting .gb-mvstrip{padding:12px 18px;border-top:1px solid var(--bt-border);display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+#page-betting .gb-mvl{font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .gb-mvi{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);display:inline-flex;align-items:center;gap:6px}
+#page-betting .gb-mvi b{color:var(--bt-text)}
+#page-betting .gb-mvi.mut{color:var(--bt-muted)}
 `;
     document.head.appendChild(s);
   }
