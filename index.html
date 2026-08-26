@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-26T09:00', tag:'New', title:'See how the betting numbers are built',
+    items:[
+      'A new “Real data” badge on the Betting page opens a short, plain-English rundown of where every number comes from: real sportsbook lines only, fair prices with the book’s juice removed, edges from shopping the best price, and hit rates counted from actual NFL games.',
+      'No modeled or made-up lines sneak onto the Edge Board — so you can trust that what you’re seeing is the real market.',
+    ],
+  },
+  {
     ts:'2026-08-25T15:00', tag:'Fixed', title:'Draft card no longer says “Rebuild” in redraft leagues',
     items:[
       'A bottom-of-the-pack projected finish on your shareable draft card now reads “Longshot” in redraft and guillotine leagues, instead of “Rebuild” — there’s no future to build for in a single-season league.',
@@ -39689,6 +39696,16 @@ window.VaultPropHistory = (function () {
 #page-betting .bt-info{position:relative;display:inline-flex;align-items:center;gap:5px;font-family:var(--bt-mono);font-size:var(--t-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bt-gold);border:1px solid rgba(245,200,66,.32);background:rgba(245,200,66,.08);padding:5px 10px;border-radius:7px;cursor:help;white-space:nowrap}
 #page-betting .bt-info .tip{display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:40;width:min(300px,78vw);font-family:var(--font-sans);font-weight:400;font-size:var(--t-label);letter-spacing:0;line-height:1.5;text-transform:none;color:var(--bt-text2);background:var(--bt-s2);border:1px solid var(--bt-border2);border-radius:11px;padding:11px 13px;box-shadow:0 16px 38px -12px rgba(0,0,0,.7)}
 #page-betting .bt-info:hover .tip,#page-betting .bt-info:focus .tip,#page-betting .bt-info:focus-within .tip{display:block}
+/* Provenance / sourcing trust chip — green sibling of .bt-info. Says how the
+   data is BUILT (real lines, vig removed, real results). Deliberately makes no
+   "backtested" claim — that badge is earned once the banked snapshots validate. */
+#page-betting .bt-trust{color:var(--bt-green);border-color:color-mix(in srgb,var(--bt-green) 34%,transparent);background:color-mix(in srgb,var(--bt-green) 9%,transparent);cursor:help}
+#page-betting .bt-trust .tip{width:min(344px,82vw);white-space:normal}
+#page-betting .bt-prov-h{font-family:var(--bt-mono);font-size:var(--t-micro);letter-spacing:.08em;text-transform:uppercase;color:var(--bt-green);margin-bottom:8px}
+#page-betting .bt-prov-r{display:flex;gap:8px;align-items:flex-start;margin:8px 0}
+#page-betting .bt-prov-r .ck{color:var(--bt-green);flex:none;font-weight:800;line-height:1.5}
+#page-betting .bt-prov-r b{color:var(--bt-text);font-weight:600}
+#page-betting .bt-prov-f{margin-top:10px;padding-top:9px;border-top:1px solid var(--bt-border);font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.04em;color:var(--bt-faint)}
 #page-betting select.bt-in{cursor:pointer}
 #page-betting .bt-count{display:none}
 #page-betting .bt-view{display:none}#page-betting .bt-view.on{display:block}
@@ -39855,6 +39872,9 @@ window.VaultPropHistory = (function () {
   #page-betting #bt-infochip{flex:1 1 100%;order:-1;margin-bottom:2px}
   #page-betting #bt-infochip .bt-info{width:100%;justify-content:flex-start}
   #page-betting #bt-infochip .bt-info .tip{left:0;right:auto}
+  #page-betting #bt-trust{flex:1 1 100%;order:-2;margin-bottom:2px}
+  #page-betting #bt-trust .bt-info{width:100%;justify-content:flex-start}
+  #page-betting #bt-trust .bt-info .tip{left:0;right:auto}
   /* controls row → full-width dropdowns (nothing clips) */
   #page-betting #bt-controls{gap:9px}
   #page-betting #bt-mktwrap{flex:1 1 100%;min-width:0}
@@ -39910,6 +39930,7 @@ window.VaultPropHistory = (function () {
       <span class="bt-seg" id="bt-tfseg" style="display:none"></span>
       <span class="bt-tag" id="bt-tftag">GAME MARKETS</span>
       <span class="bt-spacer"></span>
+      <span id="bt-trust"></span>
       <span id="bt-infochip"></span>
       <span class="bt-count" id="bt-count"></span>
     </div>
@@ -40518,6 +40539,20 @@ window.VaultPropHistory = (function () {
     const t = infoText();
     el.innerHTML = t ? '<span class="bt-info" tabindex="0">ⓘ ' + t[0] + '<span class="tip">' + t[1] + '</span></span>' : '';
   }
+  /* Persistent provenance chip — same across every view. States, in plain
+     terms, WHY the numbers are trustworthy (how they're built), without ever
+     claiming "backtested"; that stronger badge waits on the banked snapshots. */
+  function renderTrust() {
+    const el = document.getElementById('bt-trust'); if (!el) return;
+    el.innerHTML = '<span class="bt-info bt-trust" tabindex="0">✓ Real data<span class="tip">'
+      + '<div class="bt-prov-h">How this data is built</div>'
+      + '<div class="bt-prov-r"><span class="ck">✓</span><div><b>Real sportsbook lines only.</b> The Edge Board ranks live book prices — never modeled or synthesized fills.</div></div>'
+      + '<div class="bt-prov-r"><span class="ck">✓</span><div><b>The house edge removed.</b> Fair value is the two-sided market consensus with the book&rsquo;s vig stripped out.</div></div>'
+      + '<div class="bt-prov-r"><span class="ck">✓</span><div><b>Edge = best price vs. fair.</b> We flag where a book pays more than that fair number, not a football prediction.</div></div>'
+      + '<div class="bt-prov-r"><span class="ck">✓</span><div><b>Real results.</b> Hit rates are counted from actual NFL game logs, not estimates.</div></div>'
+      + '<div class="bt-prov-f">Lines refreshed hourly &middot; ParlayAPI</div>'
+      + '</span></span>';
+  }
   /* Pick the market for a position with the MOST actual weekly props in the
      feed. Falls back to the first market in the list if no weekly data is
      loaded yet. Without this, switching to TE jumps to "Receptions" (the
@@ -40596,7 +40631,7 @@ window.VaultPropHistory = (function () {
   }
   function render() {
     document.getElementById('bt-tftag').textContent = view === 'games' ? 'GAME MARKETS · ' + GM_TABS.find(t => t[0] === curGM)[1].toUpperCase() : (tf === 'season' ? 'SEASON-LONG · ' + (MODEL.season || '') : 'WEEKLY · ' + (MODEL.hasLiveProps ? 'LIVE LINES' : 'PROJECTED'));
-    renderViewSel(); renderTfSel(); renderPosSeg(); renderMkts(); renderFilters(); renderInfo();
+    renderViewSel(); renderTfSel(); renderPosSeg(); renderMkts(); renderFilters(); renderInfo(); renderTrust();
     if (view === 'games') renderGames(); else renderProps();
     renderNote();
   }
