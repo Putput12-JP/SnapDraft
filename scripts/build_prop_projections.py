@@ -51,23 +51,23 @@ MARKETS = {
     # TD markets — rare counts, so the projection (λ) drives a POISSON tail, not
     # a Normal. Projected like a count; only the distribution/calibration differ.
     "pass_td":  {"kind": "poisson", "stat": "ptds",  "pos": ["QB"]},
-    # rush_td / rec_td are fit but HELD from the shipped model (see HOLD below):
-    # their calibration shows strong TD-persistence signal (recency-weighted goal-
-    # line backs hit the over 75-90% in dense, real out-of-sample bins). That may
-    # be a genuine soft-market edge OR overfitting; either way, shipping 0.85+
-    # rush-TD probabilities would flag huge edges against books that are very
-    # sharp on TD props. Hold until the banked prop_line_history snapshots let us
-    # check the tail against real closing prices, then re-enable.
+    # rush_td: HELD. The season-holdout backtest (scripts/backtest_prop_model.py)
+    # proved its confident tail does NOT transfer across seasons — out-of-sample,
+    # predicted 60-90% rush-TD games hit ~20-50%, negative skill overall. A rare
+    # event where a couple recent TDs spike a noisy projection.
     "rush_td":  {"kind": "poisson", "stat": "rtds",  "pos": ["RB", "QB", "WR"]},
+    # rec_td: SHIPS. Backtest = +8.7% out-of-sample log-loss skill and no
+    # overconfident tail (receiving TDs rarely produce a high, non-transferring λ).
     "rec_td":   {"kind": "poisson", "stat": "rectds","pos": ["WR", "TE", "RB"]},
-    # Anytime TD = scores ANY non-passing TD (rush or rec). λ = combined TD rate;
-    # P(anytime) = P(≥1) = 1 − e^(−λ). One-sided market (books/feed carry only the
-    # "Yes" price), so the de-vig Edge Board can't grade it — Vault's projection is
-    # the ONLY edge source, which is exactly why it's worth wiring.
+    # Anytime TD = any non-passing TD; λ = combined rush+rec TD rate, P = 1−e^(−λ).
+    # One-sided market (only Vault can grade it), BUT HELD: the backtest shows it's
+    # net-negative out-of-sample (overconfident above ~0.30). The rare-event
+    # projection can reliably flag who WON'T score, not who will. Needs a better
+    # projection (not the recency-weighted rate) before it's a real edge.
     "anytime_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE", "QB"]},
 }
 IS_COUNT = {"count", "poisson"}      # projected the same way (direct stat, shrunk)
-HOLD = {"rush_td", "rec_td"}         # fit + reported, but not written to the model
+HOLD = {"rush_td", "anytime_td"}     # fit + reported, but not written to the model
 
 MIN_PRIOR = 3          # need this many prior games before we score a projection
 LOOKBACK = 17          # trailing games considered (one season of memory)
