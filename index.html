@@ -39465,6 +39465,67 @@ window.VaultBettingMath = (function () {
 
 </script>
 <script>
+/* inlined prop-history.js ────────────────────────────────────────────────────
+   VaultPropHistory — per-player game logs + hit-rates for the Betting Edge
+   Board detail. Reads the weekly actuals already shipped in
+   data/nflverse_stats_<season>.json, joins a prop by normalized name, and
+   counts how often the player cleared a line. Real data only: no logs → null →
+   the panel shows its empty state. Gap: weekly rows carry `wk` but no opponent,
+   so no H2H split and bars are labelled by week until a schedule join is added. */
+window.VaultPropHistory = (function () {
+  'use strict';
+  const BASE = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE)
+    ? NFLVERSE_BASE
+    : (/github\.io|putput12-jp/i.test((window.location && window.location.hostname) || '')
+        ? 'https://putput12-jp.github.io/Vault-Fantasy/data' : '/data');
+  const FIELD = {
+    pass_yd: 'pyds', pass_td: 'ptds', pass_int: 'ints', pass_cmp: 'cmp', pass_att: 'att',
+    rush_yd: 'ryds', rush_td: 'rtds', rush_att: 'car',
+    rec_yd: 'recyds', rec: 'rec', rec_td: 'rectds',
+  };
+  const nkey = s => (typeof window.vaultNameKey === 'function')
+    ? window.vaultNameKey(s)
+    : String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+  const _file = {}, _index = {};
+  function load(season) {
+    if (!_file[season]) _file[season] = fetch(`${BASE}/nflverse_stats_${season}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    return _file[season];
+  }
+  async function index(season) {
+    if (season in _index) return _index[season];
+    const data = await load(season);
+    if (!data) { _index[season] = null; return null; }
+    const idx = {};
+    for (const nm in data) { const k = nkey(nm), e = data[nm]; if (!idx[k] || (e.weeks?.length || 0) > (idx[k].weeks?.length || 0)) idx[k] = e; }
+    _index[season] = idx; return idx;
+  }
+  async function gameLog(name, marketKey, opts) {
+    opts = opts || {};
+    const field = FIELD[marketKey]; if (!field) return null;
+    const seasons = opts.seasons || [2024, 2025];
+    const key = nkey(name), out = [];
+    for (const s of seasons) { const idx = await index(s); const p = idx && idx[key]; if (!p || !p.weeks) continue; for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field] }); }
+    return out;
+  }
+  function hitRates(gl, line, side) {
+    if (!gl || !gl.length) return { L5: null, L10: null, L20: null, SZN: null };
+    const over = side !== 'under';
+    const pct = arr => arr.length ? Math.round(arr.filter(g => over ? g.val >= line : g.val < line).length / arr.length * 100) : null;
+    const last = n => gl.slice(-n), latest = gl[gl.length - 1].season;
+    return { L5: pct(last(5)), L10: pct(last(10)), L20: pct(last(20)), SZN: pct(gl.filter(g => g.season === latest)) };
+  }
+  async function forProp(name, marketKey, line, side, opts) {
+    opts = opts || {};
+    const glAll = await gameLog(name, marketKey, opts);
+    if (!glAll || !glAll.length) return null;
+    const gl = opts.limit ? glAll.slice(-opts.limit) : glAll;
+    return { gl, glAll, heat: hitRates(glAll, Number(line), side), field: FIELD[marketKey], line: Number(line), side };
+  }
+  return { load, index, gameLog, hitRates, forProp, FIELD, BASE };
+})();
+
+</script>
+<script>
 /* inlined betting-app.js */
 /* ════════════════════════════════════════════════════════════════════════
    VAULT · BETTING, in-app tab (Game Markets + Player Props comparison grids)
@@ -39959,7 +40020,158 @@ window.VaultBettingMath = (function () {
   }
 
   /* ── PLAYER PROPS grid ────────────────────────────────────────────────── */
+  /* ══ Player Props · Edge Board ═══════════════════════════════════════════
+     Default props view: real-lines-only leaderboard ranked by best-price EV,
+     with a clickable featured detail (game-log chart + hit-rate heatmap from
+     VaultPropHistory). Legacy book-compare grid kept behind a sub-toggle. */
+  let pv = 'board';          // 'board' | 'compare'
+  let ebSel = null;          // selected prop key (id:market) for the detail
+  const WKEY = 'vault-bet-watch';
+  function _watchLoad() { try { return new Set(JSON.parse(localStorage.getItem(WKEY) || '[]')); } catch (e) { return new Set(); } }
+  const watch = _watchLoad();
+  function _watchSave() { try { localStorage.setItem(WKEY, JSON.stringify([...watch])); } catch (e) {} }
+  const propKey = r => (r.id || r.name) + ':' + r.market;
+  function _pvInner() { return document.getElementById('bt-pv-inner'); }
+
+  // Fair / EV for one real-line prop row (VaultBettingMath). Returns the better
+  // +EV side, or null when the market isn't a genuinely juiced two-way.
+  function rowFairEV(r) {
+    const BM = window.VaultBettingMath;
+    if (!BM || r.over == null || r.under == null) return null;
+    const dv = BM.devigTwoWay(r.over, r.under);
+    if (!dv || dv.vigPct <= 0) return null;
+    let bO = null, bU = null;
+    (r.quotes || []).forEach(q => {
+      const sameLine = r.kind === 'prob' || q.line == null || r.line == null || q.line === r.line;
+      if (!sameLine) return;
+      if (q.over != null && (bO == null || q.over > bO)) bO = q.over;
+      if (q.under != null && (bU == null || q.under > bU)) bU = q.under;
+    });
+    const evO = bO != null ? BM.findEdge(dv.over.fairProb, BM.americanToProb(bO)) : null;
+    const evU = bU != null ? BM.findEdge(dv.under.fairProb, BM.americanToProb(bU)) : null;
+    let side = 'over', ev = evO, fp = dv.over.fairProb, fa = dv.over.fairAmerican, bp = bO;
+    if (evU && (!evO || evU.edge > evO.edge)) { side = 'under'; ev = evU; fp = dv.under.fairProb; fa = dv.under.fairAmerican; bp = bU; }
+    return { side, fairProb: fp, fairAmerican: Math.round(fa), bestPrice: bp,
+      ev: ev ? +(ev.evPerDollar * 100).toFixed(1) : null, edgePts: ev ? ev.edgePct : null, vig: dv.vigPct };
+  }
+
+  // Real-line props for the active filters, each enriched with fair/EV; ranked
+  // by EV. "Real" = a live juiced two-way (not a synthesized/projected line).
+  function ebRows() {
+    const fb = F();
+    let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
+    if (mineOnly && MINE) rows = rows.filter(r => (r.id && MINE.pids.has(String(r.id))) || MINE.names.has(_nn(r.name)));
+    const out = [];
+    for (const r of rows) {
+      if (r.synthetic) continue;                 // never fabricate — real lines only
+      const fe = rowFairEV(r); if (!fe) continue;
+      out.push(Object.assign(r, { fe }));
+    }
+    out.sort((a, b) => (b.fe.ev ?? -99) - (a.fe.ev ?? -99));
+    return out;
+  }
+
   function renderProps() {
+    const host = document.getElementById('bt-v-props');
+    if (!host.querySelector('#bt-pv-inner')) host.innerHTML = '<div class="eb-pvbar" id="bt-pvbar"></div><div id="bt-pv-inner"></div>';
+    const bar = document.getElementById('bt-pvbar');
+    bar.innerHTML = '<div class="eb-seg"><button data-pv="board" class="' + (pv === 'board' ? 'on' : '') + '">Edge Board</button>'
+      + '<button data-pv="compare" class="' + (pv === 'compare' ? 'on' : '') + '">Compare books</button></div>';
+    bar.querySelectorAll('button').forEach(b => b.onclick = () => { pv = b.dataset.pv; renderProps(); });
+    if (pv === 'compare') return renderPropsCompare();
+    renderPropsBoard();
+  }
+
+  function renderPropsBoard() {
+    const fb = F(), m = fb.MARKET_BY_KEY[curMarket], col = POS_COLOR[curPos];
+    if (mineOnly && !MINE && !MINE_TRIED) { _pvInner().innerHTML = '<div class="bt-empty"><span class="spinner sm"></span><br>Reading your rosters…</div>'; mineLoad().then(renderProps); return; }
+    const rows = ebRows();
+    document.getElementById('bt-count').textContent = rows.length + ' live ' + (rows.length === 1 ? 'line' : 'lines');
+    if (!rows.length) {
+      _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No live lines</div><div class="eb-emt">No book is pricing '
+        + curPos + ' ' + (m.short || m.label || '') + ' yet</div><div class="eb-ems">Vault only shows props a sportsbook is actually offering — no modeled fill. Try another market, or check back once books post.</div></div>';
+      return;
+    }
+    if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
+    const head = '<thead><tr><th></th><th>Player</th><th>Pick</th><th class="r">Edge</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Hit% L10</th><th class="c">Watch</th></tr></thead>';
+    const body = rows.map((r, i) => {
+      const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+      const on = watch.has(propKey(r));
+      return '<tr class="' + (propKey(r) === ebSel ? 'sel' : '') + '" data-k="' + propKey(r) + '">'
+        + '<td class="eb-rk">' + (i + 1) + '</td>'
+        + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
+        + '<div><div class="eb-pn">' + r.name + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
+        + '<td><span class="eb-side ' + fe.side + '">' + fe.side.toUpperCase() + '</span> ' + (r.line != null ? r.line : '') + '</td>'
+        + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts > 0 ? '+' : '') + fe.edgePts + '</td>'
+        + '<td style="text-align:right"><span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span></td>'
+        + '<td class="eb-fb"><span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span></td>'
+        + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
+        + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
+    }).join('');
+    _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
+      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + rows.length + ' ranked by EV</div></div>'
+      + '<div class="eb-tscroll"><table class="eb-table">' + head + '<tbody id="eb-rows">' + body + '</tbody></table></div></div></div>';
+    paintHeadshots('#bt-pv-inner');
+    _pvInner().querySelectorAll('#eb-rows tr[data-k]').forEach(tr => tr.onclick = e => { if (e.target.closest('.eb-star')) return; ebSel = tr.dataset.k; renderPropsBoard(); });
+    _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); });
+    const selRow = rows.find(r => propKey(r) === ebSel) || rows[0];
+    renderPropDetail(selRow);
+    ebFillHits(rows);   // async hit% into the leaderboard cells
+  }
+
+  // Featured detail: header + tiles now, game-log chart + heatmap when history loads.
+  function renderPropDetail(r) {
+    const fb = F(), fe = r.fe, col = POS_COLOR[curPos], init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+    const on = watch.has(propKey(r));
+    const feat = document.getElementById('eb-feat'); if (!feat) return;
+    feat.innerHTML =
+      '<div class="eb-ftop"><div class="eb-fpl"><span class="bt-hs eb-fhs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
+      + '<div><div class="eb-fpn">' + r.name + '</div><div class="eb-fpm"><span class="eb-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span> '
+      + (r.team || '') + (r.opp ? ' · vs ' + r.opp : '') + '</div>'
+      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + fe.side.toUpperCase() + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b> → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b></div></div></div>'
+      + '<div class="eb-fbadge"><div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>'
+      + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button></div></div>'
+      + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
+      + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
+      + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv good">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</div></div>'
+      + '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + fe.vig + '%</div></div></div>'
+      + '<div class="eb-chart" id="eb-chart"><div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span><span class="eb-cl">loading…</span></div><div class="eb-bars"><span class="spinner sm"></span></div></div>'
+      + '<div class="eb-heat" id="eb-heat"></div>';
+    paintHeadshots('#eb-feat');
+    feat.querySelector('.eb-wbtn').onclick = () => { const k = propKey(r); watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); };
+    const PH = window.VaultPropHistory;
+    if (!PH) return;
+    PH.forProp(r.name, r.market, r.line, fe.side, { limit: 14 }).then(h => {
+      if (propKey(r) !== ebSel) return;   // selection moved on
+      const chart = document.getElementById('eb-chart'), heat = document.getElementById('eb-heat');
+      if (!chart) return;
+      if (!h || !h.gl.length) { chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log</span></div><div class="eb-noh">No weekly game log for this player yet.</div>'; return; }
+      const line = Number(r.line), max = Math.max(...h.gl.map(g => g.val), line) * 1.14, over = fe.side !== 'under';
+      const bars = h.gl.map(g => { const hit = over ? g.val >= line : g.val < line; return '<div class="eb-bar ' + (hit ? 'hit' : 'miss') + '"><span class="v">' + g.val + '</span><div class="b" style="height:' + (g.val / max * 100).toFixed(1) + '%"></div><span class="x">W' + g.wk + '</span></div>'; }).join('');
+      const lp = (1 - line / max) * 100;
+      chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · last ' + h.gl.length + '</span></span>'
+        + '<span class="eb-cl"><i class="hit"></i>Hit <i class="miss"></i>Miss</span></div>'
+        + '<div class="eb-bars">' + bars + '<div class="eb-line" style="top:' + lp + '%"></div><div class="eb-ltag" style="top:' + lp + '%">' + r.line + '</div></div>';
+      const H = h.heat, cell = (v, l) => { const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-red,#e23a4e)'; return '<div class="eb-hc" style="border-color:' + c + '"><div class="hv" style="color:' + c + '">' + (v == null ? '—' : v + '%') + '</div><div class="hl">' + l + '</div></div>'; };
+      heat.innerHTML = '<div class="eb-ht">Hit rate · ' + fe.side + ' ' + r.line + '</div><div class="eb-hrow">' + cell(H.L5, 'L5') + cell(H.L10, 'L10') + cell(H.L20, 'L20') + cell(H.SZN, 'SZN') + '</div>';
+    });
+  }
+
+  // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
+  function ebFillHits(rows) {
+    const PH = window.VaultPropHistory; if (!PH) return;
+    rows.forEach(r => {
+      PH.forProp(r.name, r.market, r.line, r.fe.side, { limit: 10 }).then(h => {
+        const td = _pvInner() && _pvInner().querySelector('[data-hitk="' + propKey(r) + '"]');
+        if (!td) return;
+        const v = h && h.heat ? h.heat.L10 : null;
+        const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-muted)';
+        td.innerHTML = v == null ? '<span class="mut">—</span>' : '<span style="color:' + c + ';font-weight:700">' + v + '%</span>';
+      });
+    });
+  }
+
+  function renderPropsCompare() {
     const fb = F(), m = fb.MARKET_BY_KEY[curMarket];
     let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
     let mineState = 'off';
@@ -40057,8 +40269,8 @@ window.VaultBettingMath = (function () {
       : mineState === 'fail' ? '<div class="bt-empty">Couldn\'t read your rosters.<br>Connect Sleeper on the Sync page, then reopen this tab.</div>'
       : mineState === 'on' ? '<div class="bt-empty">None of your rostered ' + curPos + 's have a ' + (m.label || 'line') + ' line.<br>Try another position or market.</div>'
       : '<div class="bt-empty">No players match these filters.</div>';
-    document.getElementById('bt-v-props').innerHTML = body;
-    paintHeadshots('#bt-v-props');
+    _pvInner().innerHTML = body;
+    paintHeadshots('#bt-pv-inner');
     document.getElementById('bt-count').textContent = rows.length + ' players · ' + books.length + ' books';
   }
 
@@ -40177,11 +40389,103 @@ window.VaultBettingMath = (function () {
   }
   function wire() { /* controls are wired by their own render functions */ }
 
+  /* Edge Board styles (scoped to #page-betting, themed via --bt-* vars). */
+  function injectEdgeStyles() {
+    if (document.getElementById('bt-edge-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'bt-edge-styles';
+    s.textContent = `
+#page-betting .eb-pvbar{margin-bottom:14px}
+#page-betting .eb-seg{display:inline-flex;background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:11px;padding:3px;gap:2px}
+#page-betting .eb-seg button{font-family:var(--font-sans);font-size:12.5px;font-weight:600;color:var(--bt-muted);background:none;border:none;padding:7px 15px;border-radius:8px;cursor:pointer}
+#page-betting .eb-seg button.on{background:var(--bt-s3);color:var(--bt-text)}
+#page-betting .eb-wrap{display:flex;flex-direction:column;gap:16px}
+#page-betting .eb-feat{background:linear-gradient(180deg,var(--bt-s2),var(--bt-s1));border:1px solid var(--bt-border2);border-radius:16px;overflow:hidden}
+#page-betting .eb-ftop{display:flex;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--bt-border);flex-wrap:wrap}
+#page-betting .eb-fpl{display:flex;gap:12px;align-items:center;min-width:0}
+#page-betting .eb-fhs,#page-betting .eb-hs{width:auto}
+#page-betting .eb-fhs{width:48px;height:48px;border-radius:12px;font-size:15px;flex:none}
+#page-betting .eb-fpn{font-size:18px;font-weight:800;letter-spacing:-.02em}
+#page-betting .eb-fpm{display:flex;align-items:center;gap:8px;margin-top:4px;font-family:var(--bt-mono);font-size:11.5px;color:var(--bt-muted)}
+#page-betting .eb-posb{font-family:var(--bt-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;border:1px solid}
+#page-betting .eb-pick{margin-top:7px;font-family:var(--bt-mono);font-size:12px;color:var(--bt-text2)}
+#page-betting .eb-pick b{color:var(--bt-text)}
+#page-betting .eb-fbadge{display:flex;flex-direction:column;align-items:flex-end;gap:9px;flex:none}
+#page-betting .eb-eb{display:inline-flex;flex-direction:column;align-items:flex-end;background:color-mix(in srgb,var(--bt-green) 12%,transparent);border:1px solid color-mix(in srgb,var(--bt-green) 40%,transparent);border-radius:12px;padding:8px 13px}
+#page-betting .eb-eb .v{font-family:var(--bt-mono);font-size:24px;font-weight:700;line-height:1;color:var(--bt-green)}
+#page-betting .eb-eb .l{font-family:var(--bt-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--bt-green);margin-top:4px}
+#page-betting .eb-wbtn{font-family:var(--font-sans);font-size:12.5px;font-weight:600;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2);border-radius:10px;padding:8px 14px;cursor:pointer}
+#page-betting .eb-wbtn.on{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);color:var(--bt-gold)}
+#page-betting .eb-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bt-border);border-bottom:1px solid var(--bt-border)}
+#page-betting .eb-tile{background:var(--bt-s1);padding:12px 15px}
+#page-betting .eb-tile .tl{font-family:var(--bt-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .eb-tile .tv{font-family:var(--bt-mono);font-size:18px;font-weight:700;margin-top:5px}
+#page-betting .eb-tile .tv.cy{color:var(--bt-accent2)} #page-betting .eb-tile .tv.good{color:var(--bt-green)}
+#page-betting .eb-chart{padding:14px 18px 6px}
+#page-betting .eb-csec{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+#page-betting .eb-ct{font-size:12.5px;font-weight:700} #page-betting .eb-ct .mut{color:var(--bt-muted);font-weight:400;font-family:var(--bt-mono);font-size:11px}
+#page-betting .eb-cl{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted)}
+#page-betting .eb-cl i{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px;vertical-align:middle}
+#page-betting .eb-cl i.hit{background:var(--bt-green)} #page-betting .eb-cl i.miss{background:#5a1620}
+#page-betting .eb-bars{display:flex;align-items:flex-end;gap:5px;height:140px;position:relative;overflow:visible;min-height:60px}
+#page-betting .eb-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;position:relative}
+#page-betting .eb-bar .b{width:100%;border-radius:3px 3px 2px 2px;min-height:3px}
+#page-betting .eb-bar.hit .b{background:linear-gradient(180deg,var(--bt-green),color-mix(in srgb,var(--bt-green) 60%,black))}
+#page-betting .eb-bar.miss .b{background:linear-gradient(180deg,#7d1f2b,#5a1620)}
+#page-betting .eb-bar .v{font-family:var(--bt-mono);font-size:8.5px;color:var(--bt-text2);position:absolute;top:-13px}
+#page-betting .eb-bar .x{font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted)}
+#page-betting .eb-line{position:absolute;left:0;right:0;border-top:1.5px dashed var(--bt-accent2);z-index:3}
+#page-betting .eb-ltag{position:absolute;right:0;transform:translateY(-50%);background:var(--bt-s3);border:1px solid var(--bt-border3);font-family:var(--bt-mono);font-size:9px;color:var(--bt-accent2);padding:1px 5px;border-radius:5px}
+#page-betting .eb-noh{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted);padding:20px 0}
+#page-betting .eb-heat{padding:12px 18px 16px;border-top:1px solid var(--bt-border)}
+#page-betting .eb-ht{font-family:var(--bt-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:10px}
+#page-betting .eb-hrow{display:flex;gap:6px}
+#page-betting .eb-hc{flex:1;text-align:center;border-radius:9px;padding:8px 0;border:1px solid var(--bt-border)}
+#page-betting .eb-hc .hv{font-family:var(--bt-mono);font-size:14px;font-weight:700}
+#page-betting .eb-hc .hl{font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px}
+#page-betting .eb-empty{padding:44px 22px;text-align:center}
+#page-betting .eb-emk{font-family:var(--bt-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .eb-emt{font-size:17px;font-weight:800;margin-top:10px}
+#page-betting .eb-ems{color:var(--bt-muted);font-size:12.5px;margin-top:8px;max-width:440px;margin-inline:auto;line-height:1.5}
+#page-betting .eb-board{background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:14px;overflow:hidden}
+#page-betting .eb-bh{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bt-border)}
+#page-betting .eb-t{font-size:14px;font-weight:800;letter-spacing:-.02em}
+#page-betting .eb-cn{font-family:var(--bt-mono);font-size:10.5px;color:var(--bt-muted)}
+#page-betting .eb-tscroll{overflow-x:auto}
+#page-betting .eb-table{width:100%;border-collapse:collapse;min-width:560px}
+#page-betting .eb-table thead th{font-family:var(--bt-mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--bt-muted);text-align:left;padding:9px 16px;font-weight:600;border-bottom:1px solid var(--bt-border)}
+#page-betting .eb-table thead th.r{text-align:right} #page-betting .eb-table thead th.c{text-align:center}
+#page-betting .eb-table tbody td{padding:10px 16px;border-bottom:1px solid var(--bt-border);vertical-align:middle;cursor:pointer}
+#page-betting .eb-table tbody tr:last-child td{border-bottom:none}
+#page-betting .eb-table tbody tr:hover td{background:var(--bt-s2)}
+#page-betting .eb-table tbody tr.sel td{background:color-mix(in srgb,var(--bt-accent2) 7%,transparent)}
+#page-betting .eb-table tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--bt-accent2)}
+#page-betting .eb-rk{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted);width:16px;text-align:right}
+#page-betting .eb-pl{display:flex;align-items:center;gap:9px}
+#page-betting .eb-hs{width:30px;height:30px;border-radius:8px;font-size:10px;flex:none}
+#page-betting .eb-pn{font-weight:700;font-size:13px;letter-spacing:-.01em}
+#page-betting .eb-ps{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);margin-top:1px}
+#page-betting .eb-side{font-family:var(--bt-mono);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
+#page-betting .eb-side.over{background:color-mix(in srgb,var(--bt-green) 15%,transparent);color:var(--bt-green)}
+#page-betting .eb-side.under{background:color-mix(in srgb,var(--bt-red,#e23a4e) 15%,transparent);color:var(--bt-red,#ff5a6e)}
+#page-betting .eb-m2{font-family:var(--bt-mono);font-size:13px;color:var(--bt-text2)}
+#page-betting .eb-ev{font-family:var(--bt-mono);font-weight:700;font-size:13.5px;color:var(--bt-green)}
+#page-betting .eb-fb{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);text-align:right}
+#page-betting .eb-fb .mut,#page-betting .eb-hit .mut{color:var(--bt-muted)}
+#page-betting .eb-best{color:var(--bt-accent2)}
+#page-betting .eb-hit{text-align:center;font-family:var(--bt-mono);font-size:12px}
+#page-betting .eb-star{background:none;border:1px solid var(--bt-border2);color:var(--bt-muted);width:32px;height:28px;border-radius:7px;cursor:pointer;font-size:14px;line-height:1}
+#page-betting .eb-star.on{color:var(--bt-gold);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
+`;
+    document.head.appendChild(s);
+  }
+
   /* ── entry ────────────────────────────────────────────────────────────── */
   async function initBetting() {
     const host = document.getElementById('page-betting');
     if (!host) return;
     injectStyles();
+    injectEdgeStyles();
     mineReset();
     if (BOOTED) { render(); return; }   // already rendered once; keep state
     if (LOADING) return; LOADING = true;
