@@ -142,7 +142,7 @@ def holdout(markets, since, test_from, use_calib=True):
                     continue
                 hist = list(prev_by.get((nm, pos), []))          # prior-season tail
 
-                if spec["kind"] in B.IS_COUNT:
+                if not B.is_usage(spec):
                     prior_vals = [v for v in B.market_series(hist, spec) if v is not None]
                     cur_series = B.market_series(cur_rows, spec)
                     for i in range(len(cur_series)):

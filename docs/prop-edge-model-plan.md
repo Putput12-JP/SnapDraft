@@ -151,12 +151,12 @@ scratch scripts in /scratchpad td_usage*.py):**
   same class of measured no-go as the rejected opponent adjustment.
 - **Air yards / wopr as the receiving volume was WORSE than raw targets** (0.268
   vs 0.251) — targets is the right usage signal for rec TDs.
-- **Real (small) win available:** rec_td improves ~4% with a targets×(TD/target)
-  usage projection. rec_td is already shipped and clears comfortably, and the
-  change means routing a Poisson market through the volume×efficiency path
-  (`is_usage(spec)` in build's projectFrom + eval_market + compute_priors, and the
-  JS `projectFrom`). Worth doing when touching that code; not worth core-projection
-  surgery on an already-good market on its own.
+- **rec_td usage projection — SHIPPED.** Routed rec_td through volume×efficiency
+  (targets × rec-TD-per-target) via `is_usage(spec)` (build eval_market +
+  compute_priors, JS `projectFrom`, both mirrored). Season-holdout log-loss skill
+  jumped **+8.7% → +19.1%**; the bake-off re-picked NBinom (r≈1.8) under the new
+  projection; A-grades pred .939/real .946. JS==Python exact (proj 0.32023 on a
+  synthetic input). rush_td/anytime_td deliberately do NOT get usage (goal-line).
 
 The genuine remaining lever for the held TD markets is **red-zone / goal-line
 data** (a new nflverse pull: rushes inside the 5/10, end-zone targets), not a

@@ -72,12 +72,14 @@ window.VaultPropModel = (function () {
   // Point projection for one market from a player's ordered weeks. null if the
   // player has fewer than min_prior usable games (→ caller falls back).
   function projectFrom(weeks, m, minPrior) {
-    if (m.kind === 'count' || m.kind === 'poisson') {   // direct-stat projection (poisson = λ)
+    // Direct recency-shrunk projection UNLESS the market declares usage fields
+    // (vol + eff_num) — yards always, and rec_td (targets × TD-rate) opts in.
+    if (!(m.vol && m.eff_num) && (m.kind === 'count' || m.kind === 'poisson')) {
       const s = m.stat_sum ? sumSeries(weeks, m.stat_sum) : series(weeks, m.stat);
       if (s.length < minPrior) return null;
       return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
     }
-    // yards = volume × efficiency, each shrunk to its own prior
+    // volume × efficiency, each shrunk to its own prior
     const vs = [], es = [];
     for (const w of weeks) {
       const vol = num(w[m.vol]), en = num(w[m.eff_num]);

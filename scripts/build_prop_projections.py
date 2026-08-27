@@ -58,7 +58,10 @@ MARKETS = {
     "rush_td":  {"kind": "poisson", "stat": "rtds",  "pos": ["RB", "QB", "WR"]},
     # rec_td: SHIPS. Backtest = +8.7% out-of-sample log-loss skill and no
     # overconfident tail (receiving TDs rarely produce a high, non-transferring λ).
-    "rec_td":   {"kind": "poisson", "stat": "rectds","pos": ["WR", "TE", "RB"]},
+    # USAGE-projected: λ = projected targets × projected (rec-TD per target),
+    # which beats the raw recency TD rate OOS (~+4% log-loss). Receiving TDs track
+    # opportunity; rushing TDs (goal-line) do not, so only rec_td gets vol/eff.
+    "rec_td":   {"kind": "poisson", "stat": "rectds", "vol": "tgt", "eff_num": "rectds", "pos": ["WR", "TE", "RB"]},
     # Anytime TD = any non-passing TD; λ = combined rush+rec TD rate, P = 1−e^(−λ).
     # One-sided market (only Vault can grade it), BUT HELD: the backtest shows it's
     # net-negative out-of-sample (overconfident above ~0.30). The rare-event
@@ -68,6 +71,13 @@ MARKETS = {
 }
 IS_COUNT = {"count", "poisson"}      # projected the same way (direct stat, shrunk)
 HOLD = {"rush_td", "anytime_td"}     # fit + reported, but not written to the model
+
+
+def is_usage(spec):
+    """A market projects via volume × efficiency (usage) iff it declares both.
+    Yards always; rec_td opts in (targets × TD-rate). Everything else is a direct
+    recency-shrunk projection of its own stat."""
+    return bool(spec.get("vol") and spec.get("eff_num"))
 
 MIN_PRIOR = 3          # need this many prior games before we score a projection
 LOOKBACK = 17          # trailing games considered (one season of memory)
@@ -169,12 +179,11 @@ def eval_market(mkt, spec, seq, half_life, k_vol, k_eff, priors):
     Returns (residuals, preds, actuals, baseline_preds).
     """
     resid, preds, actuals, base = [], [], [], []
-    kind = spec["kind"]
     for key, rows in seq.items():
         pos = key[1]
         if pos not in spec["pos"]:
             continue
-        if kind in IS_COUNT:
+        if not is_usage(spec):
             series = market_series(rows, spec)
             for i in range(len(series)):
                 if series[i] is None:
@@ -529,7 +538,7 @@ def compute_priors(seq):
     """Per-market league prior (mean per game) for volume, efficiency, direct."""
     pri = {}
     for mkt, spec in MARKETS.items():
-        if spec["kind"] in IS_COUNT:
+        if not is_usage(spec):
             vals = []
             for key, rows in seq.items():
                 if key[1] not in spec["pos"]:
