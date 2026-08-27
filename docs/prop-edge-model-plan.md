@@ -103,7 +103,39 @@ are the whole game.
 
 ---
 
-## #5 — Validate on CLV / log-loss, not calibration  ·  foundational, LOW-MED effort
+## #5 — Validate on CLV / log-loss, not calibration  ·  foundational  ·  IN PROGRESS
+
+**Shipped** (in `scripts/backtest_prop_model.py`):
+- Season-holdout now covers **yards markets too** (pass_yd/rush_yd/rec_yd were
+  silently skipped before — only count/poisson ran).
+- **Grade scoreboard**: buckets every out-of-sample pick by the Vault grade it
+  would have earned (favored side, confidence-shrunk by the player's game count,
+  scored vs a `--be` break-even), then reports REALIZED win% per grade, edge vs
+  break-even, per-leg ROI, monotonicity, and per-market A-grade clearance.
+  `python3 scripts/backtest_prop_model.py [--be=0.55]`.
+
+**Findings (2016→ holdout, 3-pick 55% BE):**
+- Grades are **monotonic** (A 71% > B 61% > C 60% > D 57% > F 52% realized) and
+  **A/B/C clear break-even** pooled — an A-grade pick returns ~+29% per leg.
+- Model is mildly **overconfident** (A predicted 75.2% → realized 71.1%, ~4pts),
+  consistent across ranges — the isotonic layer isn't fully honest in the middle.
+- **`rec` (receptions) A-grades are a TRAP**: realized 53.8% < 55% break-even.
+  The receptions grade overstates confidence at the top. (Fix belongs to #4 —
+  the count distribution/calibration; #5's job was to surface it, done.)
+- TD-market grades clear because the grade takes the FAVORED side, which for TDs
+  is usually the well-calibrated "under/no-TD" — legitimate for pickem.
+
+**Still to build (needs in-season data):**
+- **CLV harness**: `clv_harness()` is a stub. Extend
+  `scripts/snapshot-prop-history.mjs` to log per graded pick (side, line-at-grade,
+  closing line, result), then settle vs nflverse actuals and score whether we beat
+  the close. Untestable in the offseason (0 settled games); wire it now, it accrues
+  through the season.
+- **Multi-leg ROI sim**: current per-leg ROI assumes independent legs at fair
+  pickem odds. A true entry sim must group correlated same-game legs — optimistic
+  until then.
+
+Original scope:
 
 Calibration-on-average proves almost nothing (a model can be calibrated and have
 zero discrimination). Stand up the honest scoreboard first — it's the gate every

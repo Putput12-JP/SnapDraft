@@ -58,6 +58,22 @@ def calibrate(calib, p):
 
 POIS_K = None   # optional override of the shrink strength for poisson markets
 
+# ── Vault grade (mirror index.html vaultGrade / gradeLetter) ────────────────
+# Per-leg break-even for common pickem entries: p = (1/multiplier)^(1/picks).
+BE_PRESETS = [("2-pick power", 0.577), ("3-pick power", 0.550), ("4-pick power", 0.562),
+              ("5-pick power", 0.549), ("Flex / partial", 0.530), ("Even money", 0.500)]
+GRADE_K = 6     # confidence shrink toward a coin-flip: padj = .5 + (p-.5)*g/(g+K)
+
+
+def padj_of(pfav, games):
+    g = games if games else 0
+    return 0.5 + (pfav - 0.5) * (g / (g + GRADE_K))
+
+
+def grade_letter(padj, be):
+    m = padj - be
+    return "A" if m >= 0.05 else "B" if m >= 0.03 else "C" if m >= 0.01 else "D" if m >= -0.02 else "F"
+
 
 def fit_market(mkt, spec, train_seq, priors):
     """Fit projection hyperparams + distribution + calibration on train_seq only."""
@@ -95,9 +111,15 @@ def holdout(markets, since, test_from, use_calib=True):
     years = sorted(seasons)
     test_years = [y for y in years if y >= test_from and (y - 1) in seasons]
 
-    # collect out-of-sample (pred, hit) pairs per market across all test seasons
+    # per market: pooled (pred, hit) for calibration; graded (pred_over, games, hit_over)
+    # for the grade scoreboard (games drives the confidence shrink).
     pooled = {mk: [] for mk in markets}
-    lines_for = lambda spec: [0.5] if spec["kind"] == "poisson" else None
+    graded = {mk: [] for mk in markets}
+
+    def emit(mk, p, games, hit_over):
+        p = max(0.01, min(0.99, p))
+        pooled[mk].append((p, hit_over))
+        graded[mk].append((p, games, hit_over))
 
     for T in test_years:
         train_seq = {}
@@ -116,7 +138,6 @@ def holdout(markets, since, test_from, use_calib=True):
             # build per-player [T-1, T] chronological games; score only season-T games
             prevp = B.player_games(seasons[T - 1], T - 1)
             curp = B.player_games(seasons[T], T)
-            # index prev by (name,pos)
             prev_by = {}
             for (nm, pos, _), rows in prevp.items():
                 prev_by[(nm, pos)] = rows
@@ -124,10 +145,9 @@ def holdout(markets, since, test_from, use_calib=True):
                 if pos not in spec["pos"]:
                     continue
                 hist = list(prev_by.get((nm, pos), []))          # prior-season tail
-                # chronological season-T games
+
                 if spec["kind"] in B.IS_COUNT:
-                    prior_vals = [v for v in (
-                        B.market_series(hist, spec)) if v is not None]
+                    prior_vals = [v for v in B.market_series(hist, spec) if v is not None]
                     cur_series = B.market_series(cur_rows, spec)
                     for i in range(len(cur_series)):
                         if cur_series[i] is None:
@@ -138,20 +158,40 @@ def holdout(markets, since, test_from, use_calib=True):
                         lam = project(pv, priors[mk], hl, kv)
                         actual = cur_series[i]
                         if params["dist"] == "poisson":
-                            for line in lines_for(spec):
-                                raw = B.pois_over(lam, line)
-                                p = raw if not use_calib else calibrate(params["calib"], raw)
-                                p = max(0.01, min(0.99, p))
-                                pooled[mk].append((p, 1.0 if actual >= line else 0.0))
+                            raw = B.pois_over(lam, 0.5)
+                            p = raw if not use_calib else calibrate(params["calib"], raw)
+                            emit(mk, p, len(pv), 1.0 if actual >= 0.5 else 0.0)
                         else:
                             sd = B.sd_at(params["v0"], params["v1"], lam)
                             for g in (0.85, 1.0, 1.15):
                                 line = round(lam * g * 2) / 2 if params["count"] else lam * g
                                 raw = B.raw_prob_over(lam, sd, line, params["count"])
                                 p = raw if not use_calib else calibrate(params["calib"], raw)
-                                p = max(0.01, min(0.99, p))
-                                pooled[mk].append((p, 1.0 if actual >= line else 0.0))
-    return pooled
+                                emit(mk, p, len(pv), 1.0 if actual >= line else 0.0)
+                else:  # yards = volume x efficiency (previously skipped in holdout)
+                    vol_h = B.collect_series(hist, spec["vol"]); num_h = B.collect_series(hist, spec["eff_num"])
+                    vol_c = B.collect_series(cur_rows, spec["vol"]); num_c = B.collect_series(cur_rows, spec["eff_num"])
+                    base_pv = [v for v in vol_h if v is not None]
+                    base_pe = [num_h[j] / vol_h[j] for j in range(len(vol_h))
+                               if vol_h[j] and vol_h[j] > 0 and num_h[j] is not None]
+                    for i in range(len(vol_c)):
+                        if vol_c[i] is None or num_c[i] is None:
+                            continue
+                        pv = base_pv + [v for v in vol_c[:i] if v is not None]
+                        pe = base_pe + [num_c[j] / vol_c[j] for j in range(i)
+                                        if vol_c[j] and vol_c[j] > 0 and num_c[j] is not None]
+                        if len(pv) < B.MIN_PRIOR or len(pe) < B.MIN_PRIOR:
+                            continue
+                        proj = B.project_series(pv, priors[mk + "|vol"], hl, kv) * \
+                               B.project_series(pe, priors[mk + "|eff"], hl, ke)
+                        sd = B.sd_at(params["v0"], params["v1"], proj)
+                        actual = num_c[i]
+                        for g in (0.85, 1.0, 1.15):
+                            line = proj * g
+                            raw = B.raw_prob_over(proj, sd, line, False)
+                            p = raw if not use_calib else calibrate(params["calib"], raw)
+                            emit(mk, p, len(pv), 1.0 if actual >= line else 0.0)
+    return pooled, graded
 
 
 def reliability(pairs, edges=(0.0, 0.2, 0.35, 0.5, 0.6, 0.7, 0.8, 1.01)):
@@ -177,6 +217,30 @@ def metrics(pairs):
     return {"n": n, "brier": brier, "logloss": ll, "logloss_base": ll_base, "base_rate": base}
 
 
+def grade_scoreboard(graded_all, be):
+    """The scoreboard that matters for pickem: bucket every out-of-sample pick by
+    the Vault grade it WOULD have gotten (favored side, confidence-shrunk by the
+    player's game count, scored against break-even `be`), then report the REALIZED
+    win rate per grade. Answers: are grades monotonic (A>B>C), and does an A/B/C
+    actually clear break-even out-of-sample? Per-leg ROI assumes fair pickem odds
+    (payout 1/be on a win), so ROI = realized/be - 1; >0 means +EV for that entry."""
+    order = ["A", "B", "C", "D", "F"]
+    buckets = {L: [0, 0.0, 0.0] for L in order}   # [count, sum pfav, sum hit_fav]
+    for p, games, hit_over in graded_all:
+        pfav = max(p, 1 - p)
+        hit = hit_over if p >= 0.5 else 1.0 - hit_over
+        L = grade_letter(padj_of(pfav, games), be)
+        b = buckets[L]; b[0] += 1; b[1] += pfav; b[2] += hit
+    rows = []
+    for L in order:
+        n, sp, sh = buckets[L]
+        if not n:
+            rows.append((L, 0, None, None, None, None)); continue
+        pred, real = sp / n, sh / n
+        rows.append((L, n, pred, real, real - be, real / be - 1))
+    return rows
+
+
 def clv_harness():
     import json
     path = os.path.join(DATA, "prop_line_history.json")
@@ -197,9 +261,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", type=int, default=2016)
     ap.add_argument("--test-from", type=int, default=2022)
-    ap.add_argument("--markets", default="pass_td,rush_td,rec_td,anytime_td")
+    ap.add_argument("--markets", default="pass_yd,rush_yd,rec_yd,rec,pass_td,rush_td,rec_td,anytime_td")
     ap.add_argument("--no-calib", action="store_true", help="use raw distribution prob (skip isotonic) — tests whether calibration helps or overfits")
     ap.add_argument("--pois-k", type=int, default=0, help="override shrink strength for poisson markets")
+    ap.add_argument("--be", type=float, default=0.55, help="pickem break-even the grade scoreboard scores against (default 0.55 = 3-pick power)")
     args = ap.parse_args()
     if args.pois_k:
         globals()["POIS_K"] = args.pois_k
@@ -207,7 +272,7 @@ def main():
 
     print(f"[backtest] season-holdout · train<T, test T in [{args.test_from}..] · markets: {', '.join(markets)}"
           f"{' · RAW (no calibration)' if args.no_calib else ''}\n")
-    pooled = holdout(markets, args.since, args.test_from, use_calib=not args.no_calib)
+    pooled, graded = holdout(markets, args.since, args.test_from, use_calib=not args.no_calib)
 
     verdict = {}
     for mk in markets:
@@ -237,6 +302,38 @@ def main():
             verdict[mk] = (None, None, None, None, 0)
             print("   TAIL verdict: no held-out predictions ≥0.60 — no aggressive tail to worry about")
         print()
+
+    # ── GRADE SCOREBOARD ──────────────────────────────────────────────────
+    # The proof for the shipped Vault grade: does an A actually beat a C, and do
+    # the top grades clear break-even, on games the model never trained on?
+    be_name = next((nm for nm, v in BE_PRESETS if abs(v - args.be) < 1e-6), f"{args.be:.3f}")
+    all_graded = [t for mk in markets for t in graded[mk]]
+    print(f"── GRADE SCOREBOARD  ·  vs {be_name} break-even ({args.be:.0%})  ·  n={len(all_graded)} out-of-sample picks")
+    print(f"   {'grade':5s} {'n':>7s} {'pred':>7s} {'realized':>9s} {'vs BE':>8s} {'per-leg ROI':>12s}")
+    rows = grade_scoreboard(all_graded, args.be)
+    prev_real = None
+    monotonic = True
+    for L, n, pred, real, edge, roi in rows:
+        if not n:
+            print(f"   {L:5s} {n:>7d}       —"); continue
+        print(f"   {L:5s} {n:>7d} {pred:>7.3f} {real:>9.3f} {edge*100:>+7.1f}p {roi*100:>+11.1f}%")
+        if prev_real is not None and real - prev_real > 0.005:
+            monotonic = False
+        prev_real = real
+    playable = [r for r in rows if r[1] and r[0] in ("A", "B", "C")]
+    clears = all(r[3] >= args.be for r in playable) if playable else False
+    print(f"   → grades monotonic (A≥B≥C≥D≥F realized): {'YES ✓' if monotonic else 'NO ✗'}")
+    print(f"   → A/B/C clear the {args.be:.0%} break-even out-of-sample: {'YES ✓' if clears else 'NO ✗ (grade overstates confidence in the middle)'}")
+    # Per-market: pooling can hide a market whose A-grades are a trap (anytime_td).
+    print(f"\n   per market — does an A-grade pick clear {args.be:.0%}?  (realized win% on A picks)")
+    for mk in markets:
+        mrows = grade_scoreboard(graded[mk], args.be)
+        a = next((r for r in mrows if r[0] == "A"), None)
+        if not a or not a[1]:
+            print(f"     {mk:11s} A: no A-grade picks"); continue
+        ok = a[3] >= args.be
+        print(f"     {mk:11s} A: n={a[1]:6d}  realized {a[3]:.3f}  vs {args.be:.2f}  → {'clears ✓' if ok else 'TRAP ✗'}")
+    print()
 
     print("── CLV (go-forward) ─────────────────────────────────────────────")
     clv_harness()
