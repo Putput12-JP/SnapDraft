@@ -9,9 +9,10 @@
    Real data only: if a player has no weekly logs, every getter returns null and
    the caller shows the panel's empty state — nothing is invented.
 
-   Known gap: the weekly rows carry `wk` but no opponent, so there is no H2H
-   split and bars are labelled by week, not by opponent, until a schedule join
-   is added. See docs / the Betting redesign notes.
+   Weekly rows carry `opp` (opponent_team, from the nflverse stats feed), so the
+   Edge Board chart can split to a single head-to-head opponent. Rows from older
+   archives that predate the opponent backfill simply carry no `opp` and drop out
+   of an H2H filter.
    ──────────────────────────────────────────────────────────────────────────── */
 window.VaultPropHistory = (function () {
   'use strict';
@@ -61,7 +62,7 @@ window.VaultPropHistory = (function () {
   }
 
   // Chronological game log for a player+market across seasons (oldest → newest).
-  // Returns [{ season, wk, val }], or null if the market has no per-game field.
+  // Returns [{ season, wk, val, opp }], or null if the market has no per-game field.
   async function gameLog(name, marketKey, opts) {
     opts = opts || {};
     const field = FIELD[marketKey];
@@ -73,7 +74,7 @@ window.VaultPropHistory = (function () {
       const idx = await index(s);
       const p = idx && idx[key];
       if (!p || !p.weeks) continue;
-      for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field] });
+      for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field], opp: w.opp || null });
     }
     return out;
   }

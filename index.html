@@ -13264,6 +13264,16 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-26T17:30', tag:'Improved', title:'A cleaner, more trustworthy Betting tab',
+    items:[
+      'Betting now splits in two right from the top nav: hover Betting and pick Game Markets or Player Props.',
+      'Player Props is one screen now — the old “Edge Board” and “Compare books” tabs are merged. Click any prop and every sportsbook’s price sits right under the edge, all on the same line.',
+      'Fixed props where the price didn’t match the line: a book quoting a different number (say Under 1.5 instead of Under 0.5) is now clearly marked as its own line instead of being mistaken for the main one, so the edge you see is the edge you can actually bet.',
+      'The game-log chart on each prop now filters by Last 5, Last 10, Season, or head-to-head vs this week’s opponent.',
+      'Player props are always this week’s lines now — the Weekly / Season-Long switch is gone.',
+    ],
+  },
+  {
     ts:'2026-08-26T11:00', tag:'New', title:'Vault’s own projection now grades player props',
     items:[
       'Open any player prop and you’ll see a new “Vault edge” — our own projection, built from real NFL game logs, turned into the true chance a player goes over or under, then compared to the price you can actually bet.',

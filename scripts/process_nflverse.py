@@ -154,7 +154,11 @@ def process_stats(rows):
 
         pts = sf(row.get("fantasy_points_ppr") or row.get("fantasy_points"), 0)
         pts_std = sf(row.get("fantasy_points"), 0)
+        # opponent_team drives the Betting Edge Board's H2H chart split. Kept on
+        # every weekly row so the game log can be filtered to one opponent.
+        opp = (row.get("opponent_team") or "").upper() or None
         wk = {"wk": week, "pts": round(pts, 1)}
+        if opp: wk["opp"] = opp
 
         if pos == "QB":
             # NOTE: the new stats_player release renamed several columns vs the
