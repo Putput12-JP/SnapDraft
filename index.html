@@ -39744,7 +39744,7 @@ window.VaultPropModel = (function () {
     const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
     const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
-             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2 };
+             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
   }
   async function projectStat(name, marketKey, opts) { const r = await fairProbOver(name, marketKey, null, opts); return r ? r.proj : null; }
   function has(marketKey) { return params().then(P => !!(P && P.markets && P.markets[marketKey])); }
@@ -40704,6 +40704,7 @@ window.VaultPropModel = (function () {
           ? '<div class="eb-tile"><div class="tl">Model lean</div><div class="tv cy">' + ((r.proj - r.line) > 0 ? '+' : '') + (+(r.proj - r.line).toFixed(1)) + '</div><div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + r.proj + ' vs ' + r.line + '</div></div>'
           : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + (fe.vig == null ? '<span class="mut">—</span>' : fe.vig + '%') + '</div></div>')
       + '<div class="eb-tile" id="eb-vtile"><div class="tl">Vault edge</div><div class="tv"><span class="spinner xs"></span></div></div>'
+      + '<div class="eb-tile" id="eb-gtile"><div class="tl">Vault grade</div><div class="tv"><span class="spinner xs"></span></div></div>'
       + '</div>'
       + '<div class="eb-booksec">' + bookStrip(r, fe) + '</div>'
       + '<div class="eb-chart" id="eb-chart"><div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span><span class="eb-cl">loading…</span></div><div class="eb-bars"><span class="spinner sm"></span></div></div>'
@@ -40769,25 +40770,34 @@ window.VaultPropModel = (function () {
   // log fetch. Falls back to "—" when the player has no usable history yet.
   function ebFillVault(r, fe) {
     const PM = window.VaultPropModel, BM = window.VaultBettingMath;
+    const SS = 'font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px';
+    const setG = html => { const g = document.getElementById('eb-gtile'); if (g && propKey(r) === ebSel) g.innerHTML = '<div class="tl">Vault grade</div>' + html; };
     const tile = document.getElementById('eb-vtile');
     if (!tile) return;
-    if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; return; }
+    if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; setG('<div class="tv"><span class="mut">—</span></div>'); return; }
     PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
       const t = document.getElementById('eb-vtile');
       if (!t || propKey(r) !== ebSel) return;               // selection moved on
       if (!v || v.fairProb == null) {
         t.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'
-          + '<div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">no game log yet</div>';
+          + '<div class="ts" style="' + SS + '">no game log yet</div>';
+        setG('<div class="tv"><span class="mut">—</span></div><div class="ts" style="' + SS + '">no game log yet</div>');
         return;
       }
       const sideProb = fe.side === 'under' ? v.under : v.over;
       const mp = BM.americanToProb(fe.bestPrice);
       const ed = mp != null ? BM.findEdge(sideProb, mp) : null;
       const ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
-      const lean = +(v.proj - Number(r.line)).toFixed(1);
       t.innerHTML = '<div class="tl">Vault edge</div>'
         + '<div class="tv ' + (ev != null && ev > 0 ? 'good' : '') + '">' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%') + '</div>'
-        + '<div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%</div>';
+        + '<div class="ts" style="' + SS + '">proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%</div>';
+      // Vault grade tile — same confidence-tempered grade as the board column.
+      const g = vaultGrade(v.over, v.under, v.games);
+      if (!g) { setG('<div class="tv"><span class="mut">—</span></div>'); return; }
+      const cls = g.grade === 'A' ? 'a' : g.grade === 'B' ? 'b' : g.grade === 'C' ? 'c' : g.grade === 'D' ? 'd' : 'f';
+      const sd = g.side === 'over' ? 'Over' : 'Under';
+      setG('<div class="tv"><span class="eb-grade ' + cls + '"><span class="eb-gside">' + sd[0] + '</span>' + g.grade + '</span></div>'
+        + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(g.p * 100) + '% · ' + g.n + ' game' + (g.n === 1 ? '' : 's') + '</div>');
     });
   }
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
@@ -40844,7 +40854,7 @@ window.VaultPropModel = (function () {
           const mp = BM.americanToProb(r.fe.bestPrice);
           const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
           ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
-          g = vaultGrade(v.over, v.under, v.n);           // pickem confidence grade
+          g = vaultGrade(v.over, v.under, v.games);       // pickem confidence grade (player's own game count)
         }
         _vaultCache[k] = { ev, proj, g }; changed = true;
         const tv = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');

@@ -173,7 +173,7 @@ window.VaultPropModel = (function () {
     const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
     const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
-             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2 };
+             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
   }
 
   // just the point projection (for the Model Lean "Vault" number), no line
