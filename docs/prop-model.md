@@ -121,12 +121,36 @@ until `prop_model.json` lands, so a cold cache falls back to the Sleeper number.
 The JS math mirrors the Python exactly (verified: Ja'Marr Chase rec_yd → proj
 81.40, sd 51.36 in both).
 
+## Opponent / matchup adjustment — TESTED and REJECTED
+
+The weekly rows now carry `opp`, so we fit and backtested a defensive-matchup
+adjustment (multiply the projection by a shrunk per-defense allowed-factor). It
+**does not improve out-of-sample projection accuracy** and hurts most markets, so
+it is NOT applied:
+
+| Market | base RMSE → opp-adjusted | Δ |
+|---|---|---|
+| rush_yd | 27.69 → 27.62 | +0.27% (negligible) |
+| rush_att | 4.652 → 4.663 | −0.22% (hurts) |
+| rec_yd | 24.88 → 24.96 | −0.31% (hurts) |
+| rec | 1.897 → 1.901 | −0.19% (hurts) |
+
+Why: prior-season defense has ~zero correlation with current output (corr ≈ ±0.01
+— defenses turn over year to year); current-season-to-date defense has a weak
+positive signal only at the extremes (mostly rushing), but at the player-*game*
+level it is swamped by player variance, and the noise from estimating each
+defense's factor cancels any gain. Single-game DvP is one of the most overrated
+concepts in fantasy/betting, and the numbers here agree. Don't rebuild it without a
+materially better opponent signal.
+
+The `opts.oppMult` / `opts.envMult` hooks in `VaultPropModel.fairProbOver` remain
+as **no-ops** (default 1, nothing passes them) for a future, better matchup or
+game-environment model. The **environment** (Vegas total/spread) half was never
+fittable here anyway — no historical Vegas lines are shipped — so it belongs with
+the NFL game model if that gets built.
+
 ## Known limits / next phases
 
-- **Opponent (DvP) and game-environment (Vegas total)** adjustments are supported
-  as inference-time multipliers (`opts.oppMult`, `opts.envMult`) but are **not yet
-  applied** — the historical weekly rows carry no opponent, so their elasticities
-  aren't fit from tape. Applied conservatively at inference is the next step.
 - **pass_td / rec_td** ship (Poisson, validated). `rush_td` / `anytime_td` are
   HELD (failed the season-holdout) and need a usage-based rework before returning.
 - **Live validation**: the banked `data/prop_line_history.json` snapshots will,
