@@ -13267,9 +13267,12 @@ const VAULT_CHANGELOG = [
     ts:'2026-08-26T17:30', tag:'Improved', title:'A cleaner, more trustworthy Betting tab',
     items:[
       'Betting now splits in two right from the top nav: hover Betting and pick Game Markets or Player Props.',
-      'Player Props is one screen now — the old “Edge Board” and “Compare books” tabs are merged. Click any prop and every sportsbook’s price sits right under the edge, all on the same line.',
+      'Both boards are one screen now — the old “Edge Board” and “Compare books” tabs are merged. Every sportsbook’s price sits right under the edge (tap “Every book” on a game to expand it), all on the same line.',
       'Fixed props where the price didn’t match the line: a book quoting a different number (say Under 1.5 instead of Under 0.5) is now clearly marked as its own line instead of being mistaken for the main one, so the edge you see is the edge you can actually bet.',
-      'The game-log chart on each prop now filters by Last 5, Last 10, Season, or head-to-head vs this week’s opponent.',
+      'Preseason clean-up: player props now show real Week 1 lines and hide exhibition-game props, which price a starter who plays a series or two and don’t reflect the real season.',
+      'Tap any hit-rate box (L5 / L10 / L20 / Season / H2H) to filter the game-log chart to that window — including head-to-head vs this week’s opponent.',
+      'Sort the edges board by any column — player, pick, edge, EV, best price or lean.',
+      'Game Markets: the Spread / Total / Moneyline switch now filters the whole board to that market.',
       'Player props are always this week’s lines now — the Weekly / Season-Long switch is gone.',
     ],
   },
@@ -39168,6 +39171,16 @@ body .page,body .page.on{background:transparent!important}
       const block = tf === 'weekly' ? p.weekly : p.season;
       if (!block || !block.lines) continue;
       const wk = tf === 'weekly' ? p.weekly : null;
+      // Preseason: keep only REGULAR-SEASON props, drop exhibition-game ones. An
+      // exhibition prices a starter who plays a series or two, so its number
+      // (Geno 1+ pass TD at +383, not his ~-250 regular line) is misleading — but
+      // books already post plenty of Week 1 lines, and those are real. NFL
+      // preseason is August; the season opens in September, so a prop kicking off
+      // Sep 1 or later is a real-season line. In-season this drops nothing.
+      if (/^pre/i.test(model.season_type || '') && wk && wk.commence) {
+        const yr = Number(model.season) || new Date(wk.commence).getUTCFullYear();
+        if (new Date(wk.commence).getTime() < Date.UTC(yr, 8, 1)) continue;
+      }
       if (f.opp && (!wk || wk.opp !== f.opp)) continue;
       if (f.slot && (!wk || wk.slot !== f.slot)) continue;
       for (const mk in block.lines) {
@@ -39808,7 +39821,13 @@ window.VaultPropModel = (function () {
 #page-betting .bt-mkts button:hover{color:var(--bt-text);border-color:var(--bt-border3)}
 #page-betting .bt-mkts button.on{color:var(--on-primary);background:var(--bt-accent2);border-color:transparent;font-weight:700}
 #page-betting .bt-filters{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-#page-betting .bt-in{font-family:var(--bt-mono);font-size:var(--t-secondary);color:var(--bt-text);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:9px;padding:9px 13px;outline:none}
+#page-betting .bt-in{font-family:var(--font-sans);font-size:var(--t-secondary);color:var(--bt-text);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:9px;padding:9px 13px;outline:none}
+/* Team select + My Players toggle share the market-select's Vault look (sans,
+   custom caret) rather than the mono/native-caret input default. */
+#page-betting select#bt-team{-webkit-appearance:none;-moz-appearance:none;appearance:none;font-family:var(--font-sans)!important;font-weight:600;padding:9px 32px 9px 14px!important;cursor:pointer;background-color:var(--bt-s1)!important;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5l3.5 3.5 3.5-3.5' fill='none' stroke='%238a93a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")!important;background-repeat:no-repeat!important;background-position:right 12px center!important;background-size:11px!important}
+#page-betting select#bt-team:hover{border-color:var(--bt-border3)!important}
+#page-betting #bt-mine{font-family:var(--font-sans)!important;font-weight:600;padding:9px 15px!important;cursor:pointer;transition:border-color .15s ease,color .15s ease}
+#page-betting #bt-mine:hover{border-color:var(--bt-border3)!important;color:var(--bt-text)}
 /* Override the global input[type=...] !important rule so betting inputs follow the active theme. */
 #page-betting input.bt-in,#page-betting select.bt-in{background:var(--bt-s1)!important;border:1px solid var(--bt-border2)!important;color:var(--bt-text)!important;border-radius:9px!important}
 #page-betting .bt-in:focus{border-color:var(--bt-border3)!important}
@@ -40083,12 +40102,12 @@ window.VaultPropModel = (function () {
          + ' · ' + h + (m ? ':' + String(m).padStart(2, '0') : '') + ap + ' ET';
   }
   /* ══ Game Markets · Edge Board ═══════════════════════════════════════════
-     Featured game (win prob + spread/total/ML fair & EV) plus an EV-ranked
-     board of every priced bet across the slate. Real two-sided game lines only.
-     Legacy per-book compare cards kept behind a sub-toggle. Line-movement and
+     Featured game (win prob + spread/total/ML fair & EV, plus an "Every book"
+     price strip for the selected market) and an EV-ranked board of every priced
+     bet across the slate. Real two-sided game lines only. Line-movement and
      Kalshi columns arrive with their feeds. */
-  let gv = 'board';   // 'board' | 'compare'
   let gSel = 0;       // selected game index for the featured detail
+  let gbBooksOpen = false;   // featured game's "Every book" strip collapsed by default
 
   // Kalshi prediction-market prices (data/prediction_markets.json), lazy + cached.
   let _kalshi = null, _kalshiTried = false;
@@ -40104,6 +40123,31 @@ window.VaultPropModel = (function () {
     const base = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE) ? NFLVERSE_BASE : '/data';
     return fetch(base + '/line_history.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
       .then(j => { _lineHistTried = true; _lineHist = (j && j.games) ? j.games : {}; return _lineHist; });
+  }
+  // Vault game model (data/game_model.json): team power ratings → a projected
+  // spread/total/win%. CONTEXT ONLY — it matches the market but does not beat the
+  // close (measured; see docs/game-model.md), so it is never shown as a +EV edge,
+  // only as a labeled "Vault line" next to the market.
+  let _gmModel = null, _gmTried = false;
+  const _GM_ALIAS = { OAK: 'LV', SD: 'LAC', STL: 'LA', LAR: 'LA', WSH: 'WAS' };
+  const _gmTeam = t => { t = (t || '').toUpperCase(); return _GM_ALIAS[t] || t; };
+  function loadGameModel() {
+    const base = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE) ? NFLVERSE_BASE : '/data';
+    return fetch(base + '/game_model.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
+      .then(j => { _gmTried = true; _gmModel = (j && j.teams) ? j : null; return _gmModel; });
+  }
+  function _gmPhi(z) { return 0.5 * (1 + _bmErf(z / Math.SQRT2)); }
+  function _bmErf(x) { const s = x < 0 ? -1 : 1; x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return s * y; }
+  // Sync prediction from the loaded model. { homeSpread, total, homeWinPct } or null.
+  function gmPredict(away, home) {
+    const M = _gmModel; if (!M || !M.teams) return null;
+    const th = M.teams[_gmTeam(home)], ta = M.teams[_gmTeam(away)];
+    if (!th || !ta) return null;
+    const pm = th.rate - ta.rate + M.hfa;                    // home margin (+ = home favored)
+    const ph = M.base_pts + th.off - ta.def + M.hfa / 2, pa = M.base_pts + ta.off - th.def - M.hfa / 2;
+    return { margin: +pm.toFixed(1), homeSpread: +(-pm).toFixed(1), total: +(ph + pa).toFixed(1),
+             homePts: +ph.toFixed(1), awayPts: +pa.toFixed(1), homeWinPct: Math.round(_gmPhi(pm / M.sd_margin) * 100) };
   }
   // Open→current classification for a game market (null when no move / no data).
   function moveTag(key, market) {
@@ -40206,13 +40250,48 @@ window.VaultPropModel = (function () {
 
   function renderGames() {
     const host = document.getElementById('bt-v-games');
-    if (!host.querySelector('#bt-gv-inner')) host.innerHTML = '<div class="eb-pvbar" id="bt-gvbar"></div><div id="bt-gv-inner"></div>';
-    const bar = document.getElementById('bt-gvbar');
-    bar.innerHTML = '<div class="eb-seg"><button data-gv="board" class="' + (gv === 'board' ? 'on' : '') + '">Edge Board</button>'
-      + '<button data-gv="compare" class="' + (gv === 'compare' ? 'on' : '') + '">Compare books</button></div>';
-    bar.querySelectorAll('button').forEach(b => b.onclick = () => { gv = b.dataset.gv; renderGames(); });
-    if (gv === 'compare') return renderGamesCompare();
+    if (!host.querySelector('#bt-gv-inner')) host.innerHTML = '<div id="bt-gv-inner"></div>';
     renderGamesBoard();
+  }
+
+  /* Per-book price strip for ONE game's selected market, folded into the featured
+     card (what "Compare books" used to be). Two sides, each with a chip per book,
+     best price highlighted gold — the same idiom as the props "Every book" strip. */
+  function gameBooksBlock(g, gm) {
+    const fb = F(), M = g[gm];
+    if (!M || !M.quotes || !M.quotes.length) return '';
+    const books = gatherBooks(x => x[gm] && x[gm].quotes);
+    const qBy = {}; (M.quotes || []).forEach(q => qBy[q.book] = q);
+    const best = M.best || {};
+    let sides;
+    if (gm === 'total') {
+      const ln = M.cons != null ? M.cons : '';
+      sides = [{ lab: 'Over ' + ln, priceOf: q => q.over, bestBook: best.over && best.over.book },
+               { lab: 'Under ' + ln, priceOf: q => q.under, bestBook: best.under && best.under.book }];
+    } else if (gm === 'spread') {
+      const sa = M.cons ? round05(M.cons.away) : null, sh = M.cons ? round05(M.cons.home) : null;
+      sides = [{ lab: g.away + ' ' + sline(sa), priceOf: q => q.away && q.away.price, bestBook: best.away && best.away.book },
+               { lab: g.home + ' ' + sline(sh), priceOf: q => q.home && q.home.price, bestBook: best.home && best.home.book }];
+    } else {
+      sides = [{ lab: g.away + ' ML', priceOf: q => q.away, bestBook: best.away && best.away.book },
+               { lab: g.home + ' ML', priceOf: q => q.home, bestBook: best.home && best.home.book }];
+    }
+    const rowH = s => {
+      const chips = books.map(b => { const q = qBy[b]; const p = q ? s.priceOf(q) : null; if (p == null) return ''; const isBest = b === s.bestBook; return '<div class="eb-bk' + (isBest ? ' best' : '') + '" title="' + b + (isBest ? ' — best price' : '') + '"><div class="bk">' + b + '</div><div class="pr">' + fb.fmtOdds(p) + '</div></div>'; }).filter(Boolean).join('');
+      return chips ? '<div class="gb-bkside"><div class="gb-bklab">' + s.lab + '</div><div class="eb-bks">' + chips + '</div></div>' : '';
+    };
+    const body = sides.map(rowH).join('');
+    if (!body) return '';
+    const gmLabel = (GM_TABS.find(t => t[0] === gm) || ['', ''])[1];
+    // Collapsed by default (saves vertical space) with a best-price-per-side
+    // summary in the header; the header toggles the full grid open.
+    const bestChip = s => { const q = s.bestBook && qBy[s.bestBook]; const p = q ? s.priceOf(q) : null; return p != null ? '<b>' + s.lab + '</b> ' + fb.fmtOdds(p) : ''; };
+    const summary = sides.map(bestChip).filter(Boolean).join(' <span class="gb-bkdot">·</span> ');
+    const open = gbBooksOpen;
+    return '<div class="gb-books' + (open ? '' : ' collapsed') + '">'
+      + '<div class="eb-bks-h gb-bkstoggle"><span class="gb-chev">' + (open ? '▾' : '▸') + '</span> Every book · ' + gmLabel
+      + (open ? '<span class="mut"> · best price highlighted</span>' : '<span class="gb-bksum"> · ' + summary + '</span>') + '</div>'
+      + '<div class="gb-bkbody">' + body + '</div></div>';
   }
 
   function renderGamesBoard() {
@@ -40245,21 +40324,37 @@ window.VaultPropModel = (function () {
       return '<div class="gb-mkt"><div class="gb-mh">' + label + arbB + '</div>' + sidesH + '</div>';
     };
     const wp = wpA != null ? '<div class="gb-wp"><div class="gb-wbar"><i style="width:' + wpA + '%"></i></div><div class="gb-wl"><span><b>' + g.away + ' ' + wpA + '%</b> win prob</span><span><b>' + (100 - wpA) + '%</b> ' + g.home + '</span></div></div>' : '';
+    // Vault line (context, not an edge): our team-rating model's spread/total/win%
+    // next to the market. Labeled a model estimate; it matches but doesn't beat the
+    // close. GATED to the regular season — the model is fit on regular-season scoring,
+    // so its line is apples-to-oranges next to a preseason exhibition line (starters
+    // barely play, totals ~35 not ~45). Lights up in-season, like Model Lean.
+    const gp = (_gmModel && !/^pre/i.test(MODEL.season_type || '')) ? gmPredict(g.away, g.home) : null;
+    const vstrip = gp ? (() => {
+      const mkS = g.spread && g.spread.cons ? g.spread.cons.home : null;
+      const mkT = g.total && g.total.cons != null ? g.total.cons : null;
+      const sp = (n, mk) => '<span class="gb-vi">' + g.home + ' <b>' + (n > 0 ? '+' : '') + n + '</b>' + (mk != null ? ' <span class="mut">mkt ' + (mk > 0 ? '+' : '') + mk + '</span>' : '') + '</span>';
+      return '<div class="gb-vstrip"><span class="gb-vl" title="Vault’s team-rating model. Measured to match the market but not beat the closing line — shown as context, never a bet edge.">VAULT LINE<span class="gb-vsub">model est</span></span>'
+        + sp(gp.homeSpread, mkS)
+        + '<span class="gb-vi">Total <b>' + gp.total + '</b>' + (mkT != null ? ' <span class="mut">mkt ' + mkT + '</span>' : '') + '</span>'
+        + '<span class="gb-vi">' + g.home + ' <b>' + gp.homeWinPct + '%</b> win</span></div>';
+    })() : '';
     const feat = '<div class="eb-feat"><div class="gb-ghead"><div class="gb-teams"><span class="bt-logo gb-lg" data-logo="' + g.away + '"></span><span class="gb-tn">' + g.away + '</span><span class="gb-at">@</span><span class="gb-tn">' + g.home + '</span><span class="bt-logo gb-lg" data-logo="' + g.home + '"></span></div><div class="gb-when">' + (g.slot || (g.commence ? new Date(g.commence).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '')) + '</div></div>'
-      + wp + '<div class="gb-mkts">' + mBlock('spread', 'Spread') + mBlock('total', 'Total') + mBlock('ml', 'Moneyline') + '</div>'
+      + wp + vstrip + '<div class="gb-mkts">' + mBlock('spread', 'Spread') + mBlock('total', 'Total') + mBlock('ml', 'Moneyline') + '</div>'
+      + gameBooksBlock(g, curGM)
       + (_lineHist ? (() => {
           const key = g.away + '@' + g.home;
           const items = [['spread', 'Spread'], ['total', 'Total'], ['ml', 'ML']].map(([m, l]) => { const mt = moveTag(key, m); return mt ? '<span class="gb-mvi">' + l + ' <b>' + mt.from + '→' + mt.to + '</b> <span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span></span>' : ''; }).filter(Boolean).join('');
           return '<div class="gb-mvstrip"><span class="gb-mvl">Line movement</span>' + (items || '<span class="gb-mvi mut">No movement since open</span>') + '</div>';
         })() : '')
       + '</div>';
-    // board across every game+market, ranked by EV
-    const allBets = withBets.flatMap(x => x.bets).sort((a, b) => (b.ev ?? -99) - (a.ev ?? -99));
-    const mtag = m => m === 'ml' ? 'ML' : m === 'total' ? 'TOT' : 'SPR';
+    // board across every game, filtered to the selected market (Spread / Total /
+    // Moneyline), ranked by EV. The featured card above still shows all three.
+    const gmLabel = (GM_TABS.find(t => t[0] === curGM) || [, curGM])[1];
+    const allBets = withBets.flatMap(x => x.bets).filter(b => b.market === curGM).sort((a, b) => (b.ev ?? -99) - (a.ev ?? -99));
     const rowsH = allBets.map((b, i) => '<tr data-gi="' + withBets.findIndex(x => x.g === b.g) + '">'
       + '<td class="eb-rk">' + (i + 1) + '</td>'
       + '<td class="gb-gm">' + b.g.away + ' <span class="mut">@ ' + b.g.home + '</span></td>'
-      + '<td><span class="gb-tag">' + mtag(b.market) + '</span></td>'
       + '<td class="gb-pick">' + b.lab + (b.arb > 0 && b.arbLeg ? ' <span class="gb-arb sm" title="Guaranteed cross-venue arbitrage with Kalshi">ARB ' + b.arb + '%</span>' : '') + '</td>'
       + '<td style="text-align:right"><span class="eb-ev">' + (b.ev > 0 ? '+' : '') + b.ev + '%</span></td>'
       + '<td class="eb-fb"><span class="mut">fair</span> ' + fb.fmtOdds(b.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(b.bestPrice) + '</span></td>'
@@ -40267,100 +40362,15 @@ window.VaultPropModel = (function () {
       + '<td class="gb-move">' + (() => { const mt = moveTag(b.g.away + '@' + b.g.home, b.market); return mt ? '<span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span>' : '<span class="mut">—</span>'; })() + '</td>'
       + '<td class="gb-bk">' + (b.bestBook || '—') + '</td></tr>').join('');
     inner.innerHTML = '<div class="eb-wrap">' + feat
-      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Best value across every game</div><div class="eb-cn">' + allBets.length + ' priced bets · ranked by EV</div></div>'
-      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th><th>Game</th><th>Market</th><th>Pick</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Kalshi</th><th class="c">Move</th><th class="c">Book</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
+      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Best ' + gmLabel + ' value · every game</div><div class="eb-cn">' + (allBets.length ? allBets.length + ' priced bets · ranked by EV' : 'no ' + gmLabel.toLowerCase() + ' priced yet') + '</div></div>'
+      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th><th>Game</th><th>Pick</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Kalshi</th><th class="c">Move</th><th class="c">Book</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
     paintLogos('#bt-gv-inner');
     inner.querySelectorAll('tbody tr[data-gi]').forEach(tr => tr.onclick = () => { const gi = +tr.dataset.gi; if (gi >= 0) { gSel = gi; renderGamesBoard(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+    const gbTgl = inner.querySelector('.gb-bkstoggle'); if (gbTgl) gbTgl.onclick = () => { gbBooksOpen = !gbBooksOpen; renderGamesBoard(); };
     // Kalshi + line history load once, then repaint so their columns fill in.
-    if (!_kalshiTried) loadKalshi().then(() => { if (view === 'games' && gv === 'board') renderGamesBoard(); });
-    if (!_lineHistTried) loadLineHist().then(() => { if (view === 'games' && gv === 'board') renderGamesBoard(); });
-  }
-
-  function renderGamesCompare() {
-    const fb = F(), gm = curGM;
-    const isPre = /^pre/i.test(MODEL.season_type || '');
-    const books = gatherBooks(g => g[gm] && g[gm].quotes);
-    let rows = MODEL.games.slice();
-    // Always chronological — earliest kickoff first, so games read by day then
-    // start time (model is already date-sorted and pruned of finished games;
-    // re-sort here so it holds across re-renders). Undated games sort last.
-    rows.sort((a, b) => { const ta = a.commence ? Date.parse(a.commence) : Infinity, tb = b.commence ? Date.parse(b.commence) : Infinity; return ta - tb; });
-    const TN = fb.TEAMNAME || {}, fullName = c => TN[c] || c;
-    if (searchQ) { const q = searchQ.toLowerCase(); rows = rows.filter(g => (g.away + ' ' + g.home + ' ' + fullName(g.away) + ' ' + fullName(g.home)).toLowerCase().includes(q)); }
-    const gmLabel = (GM_TABS.find(t => t[0] === gm) || ['', ''])[1];
-    const card = g => {
-      const qBy = {}; (g[gm].quotes || []).forEach(q => qBy[q.book] = q);
-      const best = g[gm].best || {};
-      const ia = g.implied && g.implied.away, ih = g.implied && g.implied.home;
-      const wpA = (ia != null && ih != null && (ia + ih) > 0) ? Math.round(ia / (ia + ih) * 100) : null;
-      const row = (code, name, meta, priceOf, bestBook) => {
-        const bestPrice = (bestBook != null && qBy[bestBook]) ? priceOf(qBy[bestBook]) : null;
-        const cells = books.map(b => {
-          const q = qBy[b]; const p = q ? priceOf(q) : null;
-          if (p == null) return '<td><span class="bt-cell na">–</span></td>';
-          return '<td><span class="bt-cell' + (b === bestBook ? ' bt-bestcell' : '') + '"><span class="ln">' + fb.fmtOdds(p) + '</span></span></td>';
-        }).join('');
-        const badge = code ? '<span class="bt-sll" data-logo="' + code + '"></span>' : '<span class="bt-sll">' + name.charAt(0) + '</span>';
-        const bestCell = '<td><span class="bt-cell bt-bestcell"><span class="ln">' + (bestPrice != null ? fb.fmtOdds(bestPrice) : '—') + '</span><span class="pr">' + (bestBook || '—') + '</span></span></td>';
-        return '<tr><td class="side"><div class="bt-sl">' + badge + '<div><div class="bt-sn">' + name + '</div><div class="bt-smeta">' + meta + '</div></div></div></td>' + bestCell + cells + '</tr>';
-      };
-      let body;
-      if (gm === 'total') {
-        const ln = g.total.cons != null ? g.total.cons : '';
-        body = row(null, 'Over', 'Total ' + ln, q => q.over, best.over && best.over.book)
-             + row(null, 'Under', 'Total ' + ln, q => q.under, best.under && best.under.book);
-      } else if (gm === 'spread') {
-        const sa = g.spread.cons ? round05(g.spread.cons.away) : null, sh = g.spread.cons ? round05(g.spread.cons.home) : null;
-        body = row(g.away, fullName(g.away), 'Spread ' + sline(sa), q => q.away && q.away.price, best.away && best.away.book)
-             + row(g.home, fullName(g.home), 'Spread ' + sline(sh), q => q.home && q.home.price, best.home && best.home.book);
-      } else {
-        body = row(g.away, fullName(g.away), 'Moneyline', q => q.away, best.away && best.away.book)
-             + row(g.home, fullName(g.home), 'Moneyline', q => q.home, best.home && best.home.book);
-      }
-      const head = '<thead><tr><th class="lft">' + gmLabel + ' · ' + books.length + ' books</th><th class="bst">Best</th>' + books.map(b => '<th>' + b + '</th>').join('') + '</tr></thead>';
-      const wp = wpA != null ? '<div class="bt-wp"><div class="bt-wpl"><span>' + g.away + ' <b>' + wpA + '%</b></span><span>WIN PROB</span><span><b>' + (100 - wpA) + '%</b> ' + g.home + '</span></div><div class="bt-wbar"><i style="width:' + wpA + '%"></i></div></div>' : '';
-      const teamSide = (code, right) => '<div class="bt-team' + (right ? ' r' : '') + '"><span class="bt-logo" data-logo="' + code + '"></span><div><div class="bt-tn">' + fullName(code) + '</div><div class="bt-trow">' + ((code === g.away ? ia : ih) != null ? '<span class="imp">' + (code === g.away ? ia : ih) + '</span> imp' : code) + (g.sample ? ' · <span class="bt-pj">SAMPLE</span>' : '') + '</div></div></div>';
-      // Preseason: NFL slot labels (TNF/MNF/OTHER) are meaningless for exhibition
-      // games, so show the real weekday + date + kickoff instead and flag it.
-      const preTag = isPre ? '<span class="bt-pretag">PRESEASON</span>' : '';
-      const when = isPre ? preWhen(g.commence) : (g.slot || (g.sample ? 'Sample line' : 'Matchup'));
-      const header = '<div class="bt-gh">' + teamSide(g.away, false) +
-        '<div class="bt-center">' + preTag + '<div class="bt-when">' + when + '</div>' + wp + '</div>' +
-        teamSide(g.home, true) + '</div>';
-      if (isMobile()) {
-        let sides;
-        if (gm === 'total') {
-          const ln = g.total.cons != null ? g.total.cons : '—';
-          sides = [{ lab: 'Over', line: 'O ' + ln, priceOf: q => q.over, best: best.over && best.over.book },
-                   { lab: 'Under', line: 'U ' + ln, priceOf: q => q.under, best: best.under && best.under.book }];
-        } else if (gm === 'spread') {
-          const sa = g.spread.cons ? round05(g.spread.cons.away) : null, sh = g.spread.cons ? round05(g.spread.cons.home) : null;
-          sides = [{ lab: fullName(g.away), code: g.away, line: sline(sa), priceOf: q => q.away && q.away.price, best: best.away && best.away.book },
-                   { lab: fullName(g.home), code: g.home, line: sline(sh), priceOf: q => q.home && q.home.price, best: best.home && best.home.book }];
-        } else {
-          sides = [{ lab: fullName(g.away), code: g.away, line: '', priceOf: q => q.away, best: best.away && best.away.book },
-                   { lab: fullName(g.home), code: g.home, line: '', priceOf: q => q.home, best: best.home && best.home.book }];
-        }
-        const sideBox = s => {
-          const bp = (s.best != null && qBy[s.best]) ? s.priceOf(qBy[s.best]) : null;
-          const badge = s.code ? '<span class="bt-sll" data-logo="' + s.code + '"></span>' : '<span class="bt-sll">' + s.lab.charAt(0) + '</span>';
-          return '<div class="bt-side2"><div class="bt-side2-top">' + badge + '<span class="bt-side2-name">' + s.lab + '</span></div>' +
-            '<div class="bt-side2-line' + (s.line ? '' : ' ml') + '">' + (s.line || 'ML') + '</div>' +
-            '<div class="bt-side2-best">' + (bp != null ? '<b>' + fb.fmtOdds(bp) + '</b><span>' + (s.best || '') + '</span>' : '<b>—</b>') + '</div></div>';
-        };
-        const pair = '<div class="bt-mkt-pair">' + sides.map(sideBox).join('') + '</div>';
-        const avail = books.filter(b => qBy[b]);
-        const cmpRows = avail.map(b => { const q = qBy[b]; const p0 = sides[0].priceOf(q), p1 = sides[1].priceOf(q);
-          return '<div class="bt-cmprow"><span class="bk">' + b + '</span><span class="pc' + (b === sides[0].best ? ' best' : '') + '">' + (p0 != null ? fb.fmtOdds(p0) : '–') + '</span><span class="pc' + (b === sides[1].best ? ' best' : '') + '">' + (p1 != null ? fb.fmtOdds(p1) : '–') + '</span></div>'; }).join('');
-        const h0 = sides[0].code || sides[0].lab, h1 = sides[1].code || sides[1].lab;
-        const details = avail.length ? '<details class="bt-compare"><summary><span>Compare ' + avail.length + ' books</span><svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5l3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="bt-cmphead"><span class="bk">Book</span><span>' + h0 + '</span><span>' + h1 + '</span></div><div class="bt-cmplist">' + cmpRows + '</div></details>' : '';
-        return '<div class="bt-game">' + header + pair + details + '</div>';
-      }
-      return '<div class="bt-game">' + header +
-        '<div class="bt-cmpwrap"><table class="bt-cmp">' + head + '<tbody>' + body + '</tbody></table></div></div>';
-    };
-    document.getElementById('bt-gv-inner').innerHTML = rows.map(card).join('');
-    paintLogos('#bt-gv-inner');
+    if (!_kalshiTried) loadKalshi().then(() => { if (view === 'games') renderGamesBoard(); });
+    if (!_lineHistTried) loadLineHist().then(() => { if (view === 'games') renderGamesBoard(); });
+    if (!_gmTried) loadGameModel().then(() => { if (view === 'games') renderGamesBoard(); });
   }
 
   /* ── PLAYER PROPS grid ────────────────────────────────────────────────── */
@@ -40373,7 +40383,8 @@ window.VaultPropModel = (function () {
      reading the SAME consensus line the edge is computed on, so the two can no
      longer disagree. */
   let ebSel = null;          // selected prop key (id:market) for the detail
-  let ebRange = 'L10';       // game-log window: L5 | L10 | SZN | H2H
+  let ebRange = 'L10';       // game-log window: L5 | L10 | L20 | SZN | H2H
+  let ebSort = { key: 'ev', dir: -1 };   // leaderboard column sort
   const WKEY = 'vault-bet-watch';
   function _watchLoad() { try { return new Set(JSON.parse(localStorage.getItem(WKEY) || '[]')); } catch (e) { return new Set(); } }
   const watch = _watchLoad();
@@ -40438,7 +40449,11 @@ window.VaultPropModel = (function () {
   }
 
   function renderPropsBoard() {
-    const fb = F(), m = fb.MARKET_BY_KEY[curMarket], col = POS_COLOR[curPos];
+    const fb = F();
+    // Keep curMarket valid for the active position — a stale key (e.g. set
+    // directly without going through renderMkts) would leave m undefined.
+    if (!fb.MARKET_BY_KEY[curMarket] || !fb.marketsFor(curPos).some(x => x.key === curMarket)) curMarket = fb.marketsFor(curPos)[0].key;
+    const m = fb.MARKET_BY_KEY[curMarket], col = POS_COLOR[curPos];
     if (mineOnly && !MINE && !MINE_TRIED) { _pvInner().innerHTML = '<div class="bt-empty"><span class="spinner sm"></span><br>Reading your rosters…</div>'; mineLoad().then(renderProps); return; }
     // Anytime TD is ONE-SIDED (books/feed carry only a "Yes" price), so it can't
     // be de-vigged like the other markets — the ranked board above needs a two-
@@ -40453,6 +40468,15 @@ window.VaultPropModel = (function () {
         + curPos + ' ' + (m.short || m.label || '') + ' yet</div><div class="eb-ems">Vault only shows props a sportsbook is actually offering — no modeled fill. Try another market, or check back once books post.</div></div>';
       return;
     }
+    // Column sort (ebRows returns EV-desc; re-order per the clicked header).
+    const SK = ebSort.key, SD = ebSort.dir;
+    const sv = r => SK === 'name' ? r.name
+      : SK === 'line' ? (r.line ?? -Infinity)
+      : SK === 'edge' ? (r.fe.edgePts ?? -Infinity)
+      : SK === 'best' ? (r.fe.bestPrice ?? -Infinity)
+      : SK === 'lean' ? ((r.proj != null && r.line != null) ? (r.proj - r.line) : -Infinity)
+      : (r.fe.ev ?? -Infinity);
+    rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
     if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
     // Model Lean = projection − line, meaningful only when both are the same
     // timeframe. In preseason the props are preseason-game lines while the
@@ -40460,7 +40484,9 @@ window.VaultPropModel = (function () {
     // it entirely rather than show misleading numbers. Lights up in-season.
     const seasonReg = !/^pre/i.test(MODEL.season_type || '');
     const anyLean = seasonReg && rows.some(r => r.proj != null && r.line != null);
-    const head = '<thead><tr><th></th><th>Player</th><th>Pick</th><th class="r">Edge</th><th class="r">EV / $1</th><th class="r">Fair / Best</th>' + (anyLean ? '<th class="r">Lean</th>' : '') + '<th class="c">Hit% L10</th><th class="c">Watch</th></tr></thead>';
+    const car = k => ebSort.key === k ? '<span class="ebs-c">' + (ebSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
+    const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + (anyLean ? SC('Lean', 'lean', 'r') : '') + '<th class="c">Hit% L10</th><th class="c">Watch</th></tr></thead>';
     const body = rows.map((r, i) => {
       const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
@@ -40478,10 +40504,13 @@ window.VaultPropModel = (function () {
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
     }).join('');
+    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean' };
+    const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
     _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
-      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + rows.length + ' ranked by EV</div></div>'
+      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
       + '<div class="eb-tscroll"><table class="eb-table">' + head + '<tbody id="eb-rows">' + body + '</tbody></table></div></div></div>';
     paintHeadshots('#bt-pv-inner');
+    _pvInner().querySelectorAll('.eb-table thead th.ebs').forEach(th => th.onclick = () => { const k = th.dataset.sk; if (ebSort.key === k) ebSort.dir *= -1; else ebSort = { key: k, dir: k === 'name' ? 1 : -1 }; renderPropsBoard(); });
     _pvInner().querySelectorAll('#eb-rows tr[data-k]').forEach(tr => tr.onclick = e => { if (e.target.closest('.eb-star')) return; ebSel = tr.dataset.k; renderPropsBoard(); });
     _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); });
     const selRow = rows.find(r => propKey(r) === ebSel) || rows[0];
@@ -40512,20 +40541,24 @@ window.VaultPropModel = (function () {
     return '<div class="eb-bks-h">Every book · ' + side.toUpperCase() + (isProb ? '' : ' ' + cons) + '<span class="mut"> · best price highlighted</span></div><div class="eb-bks">' + chips + '</div>';
   }
 
-  // Filter a chronological game log (oldest→newest) to the active chart window.
-  function ebRangeGames(glAll, r) {
+  // Filter a chronological game log (oldest→newest) to a window. Defaults to the
+  // active chart window; pass a range to size any window (used to fill the
+  // hit-rate cells, which each represent one window).
+  function ebRangeGames(glAll, r, range) {
+    range = range || ebRange;
     if (!glAll || !glAll.length) return { gl: [], note: null };
-    if (ebRange === 'H2H') {
+    if (range === 'H2H') {
       const opp = (r.opp || '').toUpperCase();
       if (!opp) return { gl: [], note: 'No listed opponent for this game.' };
       const gl = glAll.filter(g => (g.opp || '').toUpperCase() === opp);
       return { gl, note: gl.length ? null : 'No games vs ' + opp + ' in the last two seasons.' };
     }
-    if (ebRange === 'SZN') {
+    if (range === 'SZN') {
       const latest = glAll[glAll.length - 1].season;
       return { gl: glAll.filter(g => g.season === latest), note: null };
     }
-    return { gl: glAll.slice(ebRange === 'L5' ? -5 : -10), note: null };
+    const n = range === 'L5' ? 5 : range === 'L20' ? 20 : 10;
+    return { gl: glAll.slice(-n), note: null };
   }
 
   // Featured detail: header + tiles + per-book strip now; game-log chart (with a
@@ -40559,33 +40592,43 @@ window.VaultPropModel = (function () {
     if (!PH) return;
     PH.forProp(r.name, r.market, r.line, fe.side, {}).then(h => {
       if (propKey(r) !== ebSel) return;   // selection moved on
-      // Chart repaints in place when the window toggle changes — the game log is
-      // fetched once and re-sliced, so switching L5/L10/Season/H2H never refetches.
+      // The game log is fetched once and re-sliced, so clicking a hit-rate cell
+      // (the window filter) never refetches. The hit-rate row IS the filter: each
+      // cell shows that window's hit% and drives the chart when clicked.
+      const WINS = [['L5', 'L5'], ['L10', 'L10'], ['L20', 'L20'], ['SZN', 'SZN'], ['H2H', 'H2H']];
+      const line = Number(r.line), over = fe.side !== 'under';
+      const hitPct = games => games.length ? Math.round(games.filter(g => over ? g.val >= line : g.val < line).length / games.length * 100) : null;
       const paint = () => {
         const chart = document.getElementById('eb-chart'), heat = document.getElementById('eb-heat');
         if (!chart) return;
-        const RANGES = [['L5', 'L5'], ['L10', 'L10'], ['SZN', 'Season'], ['H2H', 'H2H']];
-        const seg = '<span class="eb-rseg">' + RANGES.map(([k, l]) => '<button data-rg="' + k + '" class="' + (k === ebRange ? 'on' : '') + '">' + l + '</button>').join('') + '</span>';
-        const line = Number(r.line), over = fe.side !== 'under';
         if (!h || !h.glAll || !h.glAll.length) {
-          chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span>' + seg + '</div><div class="eb-noh">No weekly game log for this player yet.</div>';
+          chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span></div><div class="eb-noh">No weekly game log for this player yet.</div>';
         } else {
           const { gl, note } = ebRangeGames(h.glAll, r);
           if (!gl.length) {
-            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span>' + seg + '</div><div class="eb-noh">' + (note || 'No games in this window.') + '</div>';
+            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span></div><div class="eb-noh">' + (note || 'No games in this window.') + '</div>';
           } else {
             const max = Math.max(...gl.map(g => g.val), line) * 1.14;
             const bars = gl.map(g => { const hit = over ? g.val >= line : g.val < line; return '<div class="eb-bar ' + (hit ? 'hit' : 'miss') + '"><span class="v">' + g.val + '</span><div class="b" style="height:' + (g.val / max * 100).toFixed(1) + '%"></div><span class="x">' + (ebRange === 'H2H' ? '\'' + String(g.season).slice(-2) : 'W' + g.wk) + '</span></div>'; }).join('');
             const lp = (1 - line / max) * 100;
             const hitN = gl.filter(g => over ? g.val >= line : g.val < line).length;
-            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · ' + hitN + '/' + gl.length + ' ' + fe.side + '</span></span>' + seg + '</div>'
+            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · ' + ebRange + ' · ' + hitN + '/' + gl.length + ' ' + fe.side + '</span></span><span class="eb-cl"><i class="hit"></i>Hit <i class="miss"></i>Miss</span></div>'
               + '<div class="eb-bars">' + bars + '<div class="eb-line" style="top:' + lp + '%"></div><div class="eb-ltag" style="top:' + lp + '%">' + r.line + '</div></div>';
           }
         }
-        chart.querySelectorAll('.eb-rseg button').forEach(b => b.onclick = () => { ebRange = b.dataset.rg; paint(); });
-        // Heatmap is the fixed 4-window reference; it does not follow the toggle.
-        const H = h && h.heat, cell = (v, l) => { const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-red,#e23a4e)'; return '<div class="eb-hc" style="border-color:' + c + '"><div class="hv" style="color:' + c + '">' + (v == null ? '—' : v + '%') + '</div><div class="hl">' + l + '</div></div>'; };
-        if (heat && H) heat.innerHTML = '<div class="eb-ht">Hit rate · ' + fe.side + ' ' + r.line + '</div><div class="eb-hrow">' + cell(H.L5, 'L5') + cell(H.L10, 'L10') + cell(H.L20, 'L20') + cell(H.SZN, 'SZN') + '</div>';
+        // Hit-rate cells = the window filter. Each shows its window's hit%; the
+        // active one is highlighted; H2H is empty until the player has faced the
+        // opponent (usually only in-season).
+        if (heat) {
+          const glAll = h && h.glAll ? h.glAll : [];
+          const cells = WINS.map(([k, l]) => {
+            const v = glAll.length ? hitPct(ebRangeGames(glAll, r, k).gl) : null;
+            const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-red,#e23a4e)';
+            return '<div class="eb-hc' + (k === ebRange ? ' on' : '') + '" data-rg="' + k + '" style="border-color:' + c + '"><div class="hv" style="color:' + c + '">' + (v == null ? '—' : v + '%') + '</div><div class="hl">' + l + '</div></div>';
+          }).join('');
+          heat.innerHTML = '<div class="eb-ht">Hit rate · ' + fe.side + ' ' + r.line + '<span class="hint"> · tap to filter chart</span></div><div class="eb-hrow">' + cells + '</div>';
+          heat.querySelectorAll('.eb-hc[data-rg]').forEach(c => c.onclick = () => { ebRange = c.dataset.rg; paint(); });
+        }
       };
       paint();
     });
@@ -40717,8 +40760,11 @@ window.VaultPropModel = (function () {
   function setView(v) { view = v; render(); }
   function renderViewSel() {
     const w = document.getElementById('bt-viewseg');
-    if (isMobile()) { w.className = 'bt-selwrap'; w.innerHTML = selHTML('bt-viewsel', [['games', 'Game Markets'], ['props', 'Player Props']], view); w.querySelector('select').onchange = e => setView(e.target.value); }
-    else { w.className = 'bt-seg'; w.innerHTML = '<button data-v="games" class="' + (view === 'games' ? 'on' : '') + '">Game Markets</button><button data-v="props" class="' + (view === 'props' ? 'on' : '') + '">Player Props</button>'; w.querySelectorAll('button').forEach(b => b.onclick = () => setView(b.dataset.v)); }
+    // Desktop switches views from the nav dropdown (Betting → Game Markets /
+    // Player Props), so the in-page toggle only exists on mobile, where the
+    // bottom dock has no Betting dropdown.
+    if (isMobile()) { w.style.display = ''; w.className = 'bt-selwrap'; w.innerHTML = selHTML('bt-viewsel', [['games', 'Game Markets'], ['props', 'Player Props']], view); w.querySelector('select').onchange = e => setView(e.target.value); }
+    else { w.style.display = 'none'; w.className = ''; w.innerHTML = ''; }
   }
   function infoText() {
     if (view === 'games') {
@@ -40860,10 +40906,12 @@ window.VaultPropModel = (function () {
 #page-betting .eb-eb .l{font-family:var(--bt-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--bt-green);margin-top:4px}
 #page-betting .eb-wbtn{font-family:var(--font-sans);font-size:12.5px;font-weight:600;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2);border-radius:10px;padding:8px 14px;cursor:pointer}
 #page-betting .eb-wbtn.on{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);color:var(--bt-gold)}
-#page-betting .eb-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bt-border);border-bottom:1px solid var(--bt-border)}
-#page-betting .eb-tile{background:var(--bt-s1);padding:12px 15px}
-#page-betting .eb-tile .tl{font-family:var(--bt-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--bt-muted)}
-#page-betting .eb-tile .tv{font-family:var(--bt-mono);font-size:18px;font-weight:700;margin-top:5px}
+#page-betting .eb-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--bt-border);border-bottom:1px solid var(--bt-border)}
+#page-betting .eb-tile{background:var(--bt-s1);padding:11px 12px;min-width:0}
+#page-betting .eb-tile .tl{font-family:var(--bt-mono);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--bt-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .eb-tile .tv{font-family:var(--bt-mono);font-size:16px;font-weight:700;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .eb-tile .ts{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:640px){#page-betting .eb-tiles{grid-template-columns:repeat(3,1fr)}#page-betting .eb-tile .tv{font-size:14px}}
 #page-betting .eb-tile .tv.cy{color:var(--bt-accent2)} #page-betting .eb-tile .tv.good{color:var(--bt-green)}
 /* Every-book strip (folded-in Compare Books) */
 #page-betting .eb-booksec{padding:13px 18px;border-bottom:1px solid var(--bt-border)}
@@ -40878,11 +40926,19 @@ window.VaultPropModel = (function () {
 #page-betting .eb-bk.best .pr{color:var(--bt-gold)}
 #page-betting .eb-bk.off{border-style:dashed;border-color:color-mix(in srgb,var(--bt-alt) 45%,transparent)}
 #page-betting .eb-bk.off .ln{color:var(--bt-alt)}
-/* Game-log window filter (L5 / L10 / Season / H2H) */
-#page-betting .eb-rseg{display:inline-flex;background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:8px;padding:2px;gap:1px}
-#page-betting .eb-rseg button{font-family:var(--bt-mono);font-size:10px;font-weight:600;letter-spacing:.03em;color:var(--bt-muted);background:none;border:none;padding:4px 9px;border-radius:6px;cursor:pointer}
-#page-betting .eb-rseg button:hover{color:var(--bt-text)}
-#page-betting .eb-rseg button.on{background:var(--bt-s3);color:var(--bt-text)}
+/* Game-markets per-book strip (folded-in Compare Books, one market, two sides).
+   Collapsible: the header toggles .gb-bkbody; collapsed shows a best-price summary. */
+#page-betting .gb-books{padding:13px 18px;border-bottom:1px solid var(--bt-border)}
+#page-betting .gb-bkstoggle{cursor:pointer;user-select:none;display:flex;align-items:center;gap:2px;margin-bottom:0}
+#page-betting .gb-books:not(.collapsed) .gb-bkstoggle{margin-bottom:2px}
+#page-betting .gb-chev{display:inline-block;width:11px;color:var(--bt-muted);font-size:9px}
+#page-betting .gb-bksum{font-family:var(--font-sans);font-weight:400;letter-spacing:0;text-transform:none;color:var(--bt-text2)}
+#page-betting .gb-bksum b{font-family:var(--bt-mono);font-weight:700;color:var(--bt-text)}
+#page-betting .gb-bkdot{color:var(--bt-faint)}
+#page-betting .gb-books.collapsed .gb-bkbody{display:none}
+#page-betting .gb-bkside{margin-top:9px}
+#page-betting .gb-bkside:first-of-type{margin-top:2px}
+#page-betting .gb-bklab{font-family:var(--bt-mono);font-size:11px;font-weight:700;color:var(--bt-text2);margin-bottom:6px}
 #page-betting .eb-chart{padding:14px 18px 6px}
 #page-betting .eb-csec{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
 #page-betting .eb-ct{font-size:12.5px;font-weight:700} #page-betting .eb-ct .mut{color:var(--bt-muted);font-weight:400;font-family:var(--bt-mono);font-size:11px}
@@ -40901,8 +40957,13 @@ window.VaultPropModel = (function () {
 #page-betting .eb-noh{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted);padding:20px 0}
 #page-betting .eb-heat{padding:12px 18px 16px;border-top:1px solid var(--bt-border)}
 #page-betting .eb-ht{font-family:var(--bt-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:10px}
+#page-betting .eb-ht .hint{color:var(--bt-faint);letter-spacing:.06em}
 #page-betting .eb-hrow{display:flex;gap:6px}
-#page-betting .eb-hc{flex:1;text-align:center;border-radius:9px;padding:8px 0;border:1px solid var(--bt-border)}
+/* Hit-rate cells double as the game-log window filter — click to re-slice the
+   chart. Active cell reads as a selected tab (tint + accent underline). */
+#page-betting .eb-hc{flex:1;text-align:center;border-radius:9px;padding:8px 0;border:1px solid var(--bt-border);cursor:pointer;transition:background .15s ease,box-shadow .15s ease}
+#page-betting .eb-hc:hover{background:var(--bt-s2)}
+#page-betting .eb-hc.on{background:var(--bt-s3);box-shadow:inset 0 -2px 0 var(--bt-accent2)}
 #page-betting .eb-hc .hv{font-family:var(--bt-mono);font-size:14px;font-weight:700}
 #page-betting .eb-hc .hl{font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px}
 #page-betting .eb-empty{padding:44px 22px;text-align:center}
@@ -40917,6 +40978,10 @@ window.VaultPropModel = (function () {
 #page-betting .eb-table{width:100%;border-collapse:collapse;min-width:560px}
 #page-betting .eb-table thead th{font-family:var(--bt-mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--bt-muted);text-align:left;padding:9px 16px;font-weight:600;border-bottom:1px solid var(--bt-border)}
 #page-betting .eb-table thead th.r{text-align:right} #page-betting .eb-table thead th.c{text-align:center}
+#page-betting .eb-table thead th.ebs{cursor:pointer;user-select:none;white-space:nowrap}
+#page-betting .eb-table thead th.ebs:hover{color:var(--bt-text)}
+#page-betting .eb-table thead th.ebs.on{color:var(--bt-text)}
+#page-betting .eb-table thead th .ebs-c{color:var(--bt-accent2);font-size:8px}
 #page-betting .eb-table tbody td{padding:10px 16px;border-bottom:1px solid var(--bt-border);vertical-align:middle;cursor:pointer}
 #page-betting .eb-table tbody tr:last-child td{border-bottom:none}
 #page-betting .eb-table tbody tr:hover td{background:var(--bt-s2)}
@@ -40982,6 +41047,14 @@ window.VaultPropModel = (function () {
 #page-betting .gb-mvi{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);display:inline-flex;align-items:center;gap:6px}
 #page-betting .gb-mvi b{color:var(--bt-text)}
 #page-betting .gb-mvi.mut{color:var(--bt-muted)}
+/* Vault line strip — model estimate next to the market (steel/accent2, NOT gold:
+   gold reads as "value/best price" and this is context, not an edge). */
+#page-betting .gb-vstrip{padding:11px 18px;border-top:1px solid var(--bt-border);display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:color-mix(in srgb,var(--bt-accent2) 6%,transparent)}
+#page-betting .gb-vl{font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--bt-accent2);font-weight:700;display:inline-flex;flex-direction:column;line-height:1.25;cursor:help}
+#page-betting .gb-vsub{font-size:8px;letter-spacing:.1em;color:var(--bt-muted);font-weight:400}
+#page-betting .gb-vi{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);display:inline-flex;align-items:center;gap:6px}
+#page-betting .gb-vi b{color:var(--bt-text)}
+#page-betting .gb-vi .mut{color:var(--bt-muted)}
 `;
     document.head.appendChild(s);
   }
