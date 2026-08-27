@@ -217,6 +217,64 @@ def metrics(pairs):
     return {"n": n, "brier": brier, "logloss": ll, "logloss_base": ll_base, "base_rate": base}
 
 
+def _logit(p):
+    p = min(max(p, 1e-6), 1 - 1e-6); return math.log(p / (1 - p))
+
+
+def _sig(x):
+    return 1 / (1 + math.exp(-max(-60, min(60, x))))
+
+
+def shrink_prob(p, w):
+    """Temperature scaling toward 0.5 (the pickem/market-neutral prior). w<1
+    pulls probabilities toward a coin-flip: this is 'shrink the model toward the
+    market' for flat pickem lines, where the posted line implies ~50%."""
+    return _sig(w * _logit(p))
+
+
+def fit_temperature(pairs):
+    """Fit w minimizing log-loss of shrink_prob(p, w) over (p, hit) pairs.
+    Coarse-then-fine 1-D search; w in (0, 1.8]. w<1 = model is overconfident."""
+    if len(pairs) < 200:
+        return 1.0
+    def ll(w):
+        s = 0.0
+        for p, h in pairs:
+            q = min(max(shrink_prob(p, w), 1e-6), 1 - 1e-6)
+            s += -(h * math.log(q) + (1 - h) * math.log(1 - q))
+        return s / len(pairs)
+    lo, hi = 0.2, 1.8
+    for _ in range(40):                     # ternary search
+        m1, m2 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
+        if ll(m1) < ll(m2):
+            hi = m2
+        else:
+            lo = m1
+    return round((lo + hi) / 2, 3)
+
+
+def temperature_report(pooled):
+    """Fit temperature per market and report the HONEST out-of-sample gain via
+    2-fold CV (fit w on one half of the OOS pairs, score the other). A w<1 that
+    lowers held-out log-loss = the model was overconfident and the shrink helps."""
+    out = {}
+    for mk, pairs in pooled.items():
+        if len(pairs) < 400:
+            out[mk] = (1.0, 0.0, 0.0); continue
+        A = pairs[0::2]; Bf = pairs[1::2]
+        wA, wB = fit_temperature(A), fit_temperature(Bf)
+        def mll(prs, w):
+            return statistics.fmean(
+                -(h * math.log(min(max(shrink_prob(p, w), 1e-6), 1 - 1e-6)) +
+                  (1 - h) * math.log(1 - min(max(shrink_prob(p, w), 1e-6), 1 - 1e-6)))
+                for p, h in prs)
+        base = (mll(A, 1.0) + mll(Bf, 1.0)) / 2                 # no shrink
+        cv = (mll(Bf, wA) + mll(A, wB)) / 2                     # cross-fitted
+        w_all = fit_temperature(pairs)                          # ship this one
+        out[mk] = (w_all, base, cv)
+    return out
+
+
 def grade_scoreboard(graded_all, be):
     """The scoreboard that matters for pickem: bucket every out-of-sample pick by
     the Vault grade it WOULD have gotten (favored side, confidence-shrunk by the
@@ -334,6 +392,28 @@ def main():
         ok = a[3] >= args.be
         print(f"     {mk:11s} A: n={a[1]:6d}  realized {a[3]:.3f}  vs {args.be:.2f}  → {'clears ✓' if ok else 'TRAP ✗'}")
     print()
+
+    # ── #3 MARKET SHRINK (temperature scaling) ────────────────────────────
+    # Pull each market's probs toward 0.5 (the pickem/market-neutral prior) by a
+    # fitted w. Reported with honest 2-fold CV: does a w<1 lower HELD-OUT log-loss?
+    print("── MARKET SHRINK (#3 temperature)  ·  w<1 ⇒ model overconfident, shrink helps")
+    print(f"   {'market':11s} {'w':>6s} {'logloss base':>13s} {'→ shrunk(CV)':>13s} {'gain':>8s}")
+    temps = temperature_report(pooled)
+    for mk in markets:
+        w, base, cv = temps.get(mk, (1.0, 0.0, 0.0))
+        if base == 0.0:
+            print(f"   {mk:11s} {w:>6.2f}   (too few points)"); continue
+        gain = (base - cv) / base * 100 if base else 0
+        print(f"   {mk:11s} {w:>6.2f} {base:>13.4f} {cv:>13.4f} {gain:>+7.2f}%")
+    # Re-grade with the shrink applied to see the effect on the scoreboard.
+    shrunk = [(shrink_prob(p, temps.get(mk, (1.0,))[0]), n, h)
+              for mk in markets for (p, n, h) in graded[mk]]
+    srows = grade_scoreboard(shrunk, args.be)
+    a0 = next((r for r in rows if r[0] == "A"), None)
+    a1 = next((r for r in srows if r[0] == "A"), None)
+    if a0 and a1 and a0[1] and a1[1]:
+        print(f"   A-grade after shrink: n {a0[1]}→{a1[1]}, predicted {a0[2]:.3f}→{a1[2]:.3f}, "
+              f"realized {a0[3]:.3f}→{a1[3]:.3f} (shrink pulls the CLAIM toward the truth)\n")
 
     print("── CLV (go-forward) ─────────────────────────────────────────────")
     clv_harness()

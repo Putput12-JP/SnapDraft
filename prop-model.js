@@ -114,6 +114,13 @@ window.VaultPropModel = (function () {
     if (sd <= 0) return proj >= L ? 1 : 0;
     return 1 - normCdf((L - proj) / sd);
   }
+  // #3 market shrink: temperature scaling toward 0.5 (the pickem/market prior).
+  // w<1 pulls an overconfident prob toward a coin-flip; w≈1 (yards) is a no-op.
+  function shrinkProb(p, w) {
+    if (!w || w === 1) return p;
+    p = Math.min(Math.max(p, 1e-6), 1 - 1e-6);
+    return 1 / (1 + Math.exp(-w * Math.log(p / (1 - p))));
+  }
   // Poisson tail: P(X >= ceil(line)) for a .5 line = 1 - P(X <= floor(line)).
   function poisOver(lam, line) {
     if (lam <= 0) return 0;
@@ -171,7 +178,7 @@ window.VaultPropModel = (function () {
     const L = num(line);
     if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
     const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
-    const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
+    const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
   }

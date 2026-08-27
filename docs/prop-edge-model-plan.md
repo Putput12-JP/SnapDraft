@@ -81,6 +81,28 @@ Validate: after shrink, no single-line edge should exceed a sane cap
 
 ---
 
+## #3 — Shrink the model toward the market  ·  DONE (temperature form)
+
+Shipped as **per-market temperature scaling** toward 0.5 (the pickem/market-neutral
+prior). `build_prop_projections.py` fits a `shrink` w per market on the walk-forward
+calibrated probs (`fit_shrink`), writes it into `prop_model.json`; the JS serving
+applies `over = shrinkProb(calibrate(...), w)` in `prop-model.js` + the inline copy.
+`backtest_prop_model.py` validates it with 2-fold CV on the season-holdout.
+
+**Findings:** the **yards markets are already well-calibrated** (w≈1.0, ~0% CV gain) —
+they need no shrink, and get none. The overconfident markets are **count/TD**: `rec`
+(w≈0.70, the #5 trap), and the already-held `rush_td`/`anytime_td`. After shrink the
+pooled A-grade goes from pred .752/real .714 to pred .734/real .737 — essentially
+calibrated. Live check: a rec over-prob of 0.415 → 0.440 (pulled toward the coin-flip).
+
+**Caveats / follow-on:**
+- The shipped w is fit on the build's walk-forward (mild leakage → conservative,
+  under-shrinks vs the season-holdout's w=0.55 for rec). Safe direction. If we want
+  the fuller correction, fit w via a proper holdout in the build.
+- This is shrink toward 0.5, which equals the market only for FLAT pickem lines. True
+  shrink toward a priced book's de-vig prob still needs in-season odds (with CLV) —
+  deferred. For the Texas/Underdog use case, 0.5 IS the market, so this is the right form.
+
 ## #4 — Fix the distributions  ·  MED impact, MED effort
 
 The Normal/Poisson tails are wrong exactly where lines sit.

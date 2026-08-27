@@ -344,6 +344,77 @@ def r2(preds, actuals):
     return 1 - sse / sst if sst > 0 else None
 
 
+# ── #3 market shrink: temperature scaling toward 0.5 (pickem/market prior) ──
+def _logit(p):
+    p = min(max(p, 1e-6), 1 - 1e-6); return math.log(p / (1 - p))
+
+
+def _sig(x):
+    return 1 / (1 + math.exp(-max(-60, min(60, x))))
+
+
+def shrink_prob(p, w):
+    return _sig(w * _logit(p))
+
+
+def apply_calib(calib, p):
+    """Piecewise-linear isotonic apply (mirror of the JS calibrate())."""
+    if not calib:
+        return p
+    if p <= calib[0][0]:
+        return calib[0][1]
+    if p >= calib[-1][0]:
+        return calib[-1][1]
+    for i in range(len(calib) - 1):
+        x0, y0 = calib[i]; x1, y1 = calib[i + 1]
+        if x0 <= p <= x1:
+            t = 0 if x1 == x0 else (p - x0) / (x1 - x0)
+            return y0 + t * (y1 - y0)
+    return p
+
+
+def fit_temperature(pairs):
+    """w minimizing log-loss of shrink_prob(p, w); w<1 ⇒ probs too extreme."""
+    if len(pairs) < 300:
+        return 1.0
+    def ll(w):
+        s = 0.0
+        for p, h in pairs:
+            q = min(max(shrink_prob(p, w), 1e-6), 1 - 1e-6)
+            s += -(h * math.log(q) + (1 - h) * math.log(1 - q))
+        return s / len(pairs)
+    lo, hi = 0.2, 1.8
+    for _ in range(40):
+        m1, m2 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
+        if ll(m1) < ll(m2):
+            hi = m2
+        else:
+            lo = m1
+    return round((lo + hi) / 2, 3)
+
+
+def fit_shrink(spec, preds, actuals, entry):
+    """Fit the market-shrink temperature on the walk-forward (game-level OOS)
+    calibrated probs, at the same lines the board serves at. w≈1 = already
+    calibrated (yards); w<1 = overconfident (count/TD) — pull toward the market."""
+    pairs = []
+    if spec["kind"] == "poisson":
+        calib = entry["calib"]
+        for lam, act in zip(preds, actuals):
+            p = min(max(apply_calib(calib, pois_over(lam, 0.5)), 0.01), 0.99)
+            pairs.append((p, 1.0 if act >= 0.5 else 0.0))
+    else:
+        v0, v1, calib = entry["sd_v0"], entry["sd_v1"], entry["calib"]
+        count = spec["kind"] == "count"
+        for pred, act in zip(preds, actuals):
+            sd = sd_at(v0, v1, pred)
+            for g in (0.85, 1.0, 1.15):
+                line = round(pred * g * 2) / 2 if count else pred * g
+                p = min(max(apply_calib(calib, raw_prob_over(pred, sd, line, count)), 0.01), 0.99)
+                pairs.append((p, 1.0 if act >= line else 0.0))
+    return fit_temperature(pairs)
+
+
 def compute_priors(seq):
     """Per-market league prior (mean per game) for volume, efficiency, direct."""
     pri = {}
@@ -432,11 +503,15 @@ def main():
             calib = fit_calibration(best["preds"], best["actuals"], v0, v1, count)
             entry["dist"] = "normal"; entry["sd_v0"] = v0; entry["sd_v1"] = v1; entry["calib"] = calib
             dist_desc = f"sd²={v0:.1f}+{v1:.3f}·μ"
+        # #3 market shrink: pull overconfident probs toward the market/coin-flip.
+        # Fit on the walk-forward calibrated probs; w≈1 = already honest (yards),
+        # w<1 = overconfident (count/TD). Served as over = shrink_prob(cal, w).
+        entry["shrink"] = fit_shrink(spec, best["preds"], best["actuals"], entry)
         lift = (best["base_rmse"] - best["rmse"]) / best["base_rmse"] * 100 if best["base_rmse"] else 0
         held = " [HELD]" if mkt in HOLD else ""
         print(f"[prop-model] {mkt:9s} n={best['n']:6d} hl={best['hl']} kv={best['k_vol']} ke={best['k_eff']} "
               f"| RMSE {best['rmse']:.2f} vs base {best['base_rmse']:.2f} ({lift:+.1f}%) | R2 {best['r2']:.3f} "
-              f"| {dist_desc} | calib {len(calib)}pt{held}")
+              f"| {dist_desc} | calib {len(calib)}pt | shrink {entry['shrink']}{held}")
         if mkt in HOLD:
             continue                      # fit + reported above, but not shipped
         model["markets"][mkt] = entry

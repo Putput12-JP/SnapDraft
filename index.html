@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T19:15', tag:'Improved', title:'More honest Vault grades on noisy markets',
+    items:[
+      'Vault’s grades and edges are now pulled back on the markets where the projection tends to run hot — receptions and touchdown props especially. When the model has been overconfident historically, its number gets nudged toward a coin flip, so a grade you see is one the results actually back up.',
+      'Markets that were already accurate (passing, rushing and receiving yards) are unchanged.',
+    ],
+  },
+  {
     ts:'2026-08-27T18:30', tag:'Improved', title:'Grades that match how you actually play',
     items:[
       'The Vault grade is now scored against your entry’s break-even — the win rate a pick has to clear to profit. A 3-pick power play needs about 55% per leg; even money needs 50%.',
@@ -39711,6 +39718,8 @@ window.VaultPropModel = (function () {
   }
   const normCdf = z => 0.5 * (1 + erf(z / Math.SQRT2));
   function rawOver(proj, sd, line, count) { const L = count ? line - 0.5 : line; if (sd <= 0) return proj >= L ? 1 : 0; return 1 - normCdf((L - proj) / sd); }
+  // #3 market shrink: temperature scaling toward 0.5 (pickem/market prior). w<1 pulls an overconfident prob toward a coin-flip; w≈1 (yards) is a no-op.
+  function shrinkProb(p, w) { if (!w || w === 1) return p; p = Math.min(Math.max(p, 1e-6), 1 - 1e-6); return 1 / (1 + Math.exp(-w * Math.log(p / (1 - p)))); }
   function poisOver(lam, line) { if (lam <= 0) return 0; const k = Math.floor(line); let term = Math.exp(-lam), acc = term; for (let i = 1; i <= k; i++) { term *= lam / i; acc += term; } return Math.max(0, 1 - Math.min(acc, 1)); }
   function calibrate(calib, p) {
     if (!calib || !calib.length) return p;
@@ -39750,7 +39759,7 @@ window.VaultPropModel = (function () {
     const L = num(line);
     if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
     const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
-    const cal = clamp(calibrate(m.calib, raw), 0.01, 0.99);
+    const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
   }
