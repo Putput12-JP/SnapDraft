@@ -13264,6 +13264,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T18:30', tag:'Improved', title:'Grades that match how you actually play',
+    items:[
+      'The Vault grade is now scored against your entry’s break-even — the win rate a pick has to clear to profit. A 3-pick power play needs about 55% per leg; even money needs 50%.',
+      'New “Grade vs” picker on the Player Props board: choose your entry (2–5 pick power, flex, or even money) and every grade re-scores instantly. Higher-payout entries need better picks, so more of them grade a low letter — that’s the point.',
+      'A grade now means “+EV for the way you’re playing it,” not a generic bar. Your choice is remembered.',
+    ],
+  },
+  {
     ts:'2026-08-27T17:00', tag:'New', title:'Vault grade — confidence for pickem plays',
     items:[
       'Player Props now has a Vault grade column, built for pickem apps (Underdog, PrizePicks) where you just pick more or less and there’s no price to shop.',
@@ -40476,7 +40484,17 @@ window.VaultPropModel = (function () {
   let ebRange = 'L10';       // game-log window: L5 | L10 | L20 | SZN | H2H
   let ebSort = { key: 'ev', dir: -1 };   // leaderboard column sort
   const _hitCache = {};      // propKey → L10 hit% (async-filled; lets the Hit% column sort)
-  const _vaultCache = {};    // propKey → {ev,proj} from Vault's OWN projection (async-filled; lets the Vault-edge column show + sort)
+  const _vaultCache = {};    // propKey → {ev,proj,g} from Vault's OWN projection (async-filled; lets the Vault-edge column show + sort)
+  // Pickem break-even: the win rate a pick must clear to profit, which depends
+  // on the ENTRY (a 3-pick power play needs ~55% per leg; even money needs 50%).
+  // The Vault grade is scored against this, so it means "+EV for how you play",
+  // not a generic bar. Per-leg break-evens: p = (1/multiplier)^(1/picks).
+  const BE_PRESETS = [
+    ['2-pick power', 0.577], ['3-pick power', 0.550], ['4-pick power', 0.562],
+    ['5-pick power', 0.549], ['Flex / partial', 0.530], ['Even money', 0.500],
+  ];
+  const BEKEY = 'vault-bet-be';
+  let betBE = (() => { try { const v = parseFloat(localStorage.getItem(BEKEY)); return v > 0 && v < 1 ? v : 0.55; } catch (e) { return 0.55; } })();
   const WKEY = 'vault-bet-watch';
   function _watchLoad() { try { return new Set(JSON.parse(localStorage.getItem(WKEY) || '[]')); } catch (e) { return new Set(); } }
   const watch = _watchLoad();
@@ -40627,9 +40645,14 @@ window.VaultPropModel = (function () {
     const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge', grade: 'Vault grade' };
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
     _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
-      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
+      + '<div class="eb-board"><div class="eb-bh"><div><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
+      + '<label class="eb-be" title="Vault grade is scored against this break-even. Pick the pickem entry you play — a 3-pick power play needs ~55% per leg to profit.">Grade vs <select id="eb-be-sel" class="bt-in">'
+      + BE_PRESETS.map(([lab, be]) => '<option value="' + be + '"' + (Math.abs(be - betBE) < 1e-6 ? ' selected' : '') + '>' + lab + ' · ' + Math.round(be * 100) + '%</option>').join('')
+      + '</select></label></div>'
       + '<div class="eb-tscroll"><table class="eb-table">' + head + '<tbody id="eb-rows">' + body + '</tbody></table></div></div></div>';
     paintHeadshots('#bt-pv-inner');
+    const beSel = _pvInner().querySelector('#eb-be-sel');
+    if (beSel) beSel.onchange = () => { const v = parseFloat(beSel.value); if (v > 0 && v < 1) { betBE = v; try { localStorage.setItem(BEKEY, betBE); } catch (e) {} renderPropsBoard(); } };
     _pvInner().querySelectorAll('.eb-table thead th.ebs').forEach(th => th.onclick = () => { const k = th.dataset.sk; if (ebSort.key === k) ebSort.dir *= -1; else ebSort = { key: k, dir: k === 'name' ? 1 : -1 }; renderPropsBoard(); });
     _pvInner().querySelectorAll('#eb-rows tr[data-k]').forEach(tr => tr.onclick = e => { if (e.target.closest('.eb-star')) return; ebSel = tr.dataset.k; renderPropsBoard(); });
     _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); });
@@ -40794,10 +40817,10 @@ window.VaultPropModel = (function () {
       // Vault grade tile — same confidence-tempered grade as the board column.
       const g = vaultGrade(v.over, v.under, v.games);
       if (!g) { setG('<div class="tv"><span class="mut">—</span></div>'); return; }
-      const cls = g.grade === 'A' ? 'a' : g.grade === 'B' ? 'b' : g.grade === 'C' ? 'c' : g.grade === 'D' ? 'd' : 'f';
+      const letter = gradeLetter(g.padj, betBE), cls = letter.toLowerCase();
       const sd = g.side === 'over' ? 'Over' : 'Under';
-      setG('<div class="tv"><span class="eb-grade ' + cls + '"><span class="eb-gside">' + sd[0] + '</span>' + g.grade + '</span></div>'
-        + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(g.p * 100) + '% · ' + g.n + ' game' + (g.n === 1 ? '' : 's') + '</div>');
+      setG('<div class="tv"><span class="eb-grade ' + cls + '"><span class="eb-gside">' + sd[0] + '</span>' + letter + '</span></div>'
+        + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(g.p * 100) + '% · vs ' + Math.round(betBE * 100) + '% BE</div>');
     });
   }
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
@@ -40819,18 +40842,25 @@ window.VaultPropModel = (function () {
     const p = Math.max(over, under), side = over >= under ? 'over' : 'under';
     const K = 6, g = n != null ? n : 0;
     const padj = 0.5 + (p - 0.5) * (g / (g + K));
-    const grade = padj >= 0.60 ? 'A' : padj >= 0.565 ? 'B' : padj >= 0.535 ? 'C' : padj >= 0.515 ? 'D' : 'F';
-    return { grade, side, p, padj, n: g };
+    return { side, p, padj, n: g };   // letter is derived later, against the active break-even
+  }
+  // Letter from the confidence-adjusted win prob vs the ENTRY's break-even.
+  // A–C clear the bar with room, D is a near-break-even coin toss, F is a losing
+  // pick for that entry. Scored on margin over break-even, not an absolute %, so
+  // the grade tracks whatever pickem entry the user actually plays.
+  function gradeLetter(padj, be) {
+    const m = padj - be;
+    return m >= 0.05 ? 'A' : m >= 0.03 ? 'B' : m >= 0.01 ? 'C' : m >= -0.02 ? 'D' : 'F';
   }
   // Grade cell: letter coloured by strength, with the side Vault leans (O/U).
   // Title carries the raw hit% and sample size so the shrink is transparent.
   function gradeCellHTML(c) {
     if (!c) return '<span class="mut">·</span>';
     if (!c.g) return '<span class="mut">—</span>';
-    const g = c.g, cls = g.grade === 'A' ? 'a' : g.grade === 'B' ? 'b' : g.grade === 'C' ? 'c' : g.grade === 'D' ? 'd' : 'f';
+    const g = c.g, letter = gradeLetter(g.padj, betBE), cls = letter.toLowerCase();
     const sd = g.side === 'over' ? 'O' : 'U';
-    const tip = 'Vault ' + sd + ' ' + Math.round(g.p * 100) + '% · ' + g.n + ' game' + (g.n === 1 ? '' : 's') + ' of history';
-    return '<span class="eb-grade ' + cls + '" title="' + tip + '"><span class="eb-gside">' + sd + '</span>' + g.grade + '</span>';
+    const tip = 'Vault ' + sd + ' ' + Math.round(g.p * 100) + '% · ' + g.n + ' game' + (g.n === 1 ? '' : 's') + ' of history · vs ' + Math.round(betBE * 100) + '% break-even';
+    return '<span class="eb-grade ' + cls + '" title="' + tip + '"><span class="eb-gside">' + sd + '</span>' + letter + '</span>';
   }
 
   // Fill the Vault-edge column from Vault's OWN projection (VaultPropModel):
@@ -41177,6 +41207,8 @@ window.VaultPropModel = (function () {
 #page-betting .eb-bh{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bt-border)}
 #page-betting .eb-t{font-size:14px;font-weight:800;letter-spacing:-.02em}
 #page-betting .eb-cn{font-family:var(--bt-mono);font-size:10.5px;color:var(--bt-muted)}
+#page-betting .eb-be{display:inline-flex;align-items:center;gap:6px;font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);white-space:nowrap}
+#page-betting .eb-be select{font-size:11px;padding:4px 6px}
 #page-betting .eb-tscroll{overflow-x:auto}
 #page-betting .eb-table{width:100%;border-collapse:collapse;min-width:560px}
 #page-betting .eb-table thead th{font-family:var(--bt-mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--bt-muted);text-align:left;padding:9px 16px;font-weight:600;border-bottom:1px solid var(--bt-border)}
