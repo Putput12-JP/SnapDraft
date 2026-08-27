@@ -13264,6 +13264,15 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T12:00', tag:'Fixed', title:'Every player prop shows up now',
+    items:[
+      'Player Props was hiding most lines — you might have seen one QB’s passing yards when a book was actually pricing all of them. Now every real line a book is offering shows on the board.',
+      'The board no longer needs a two-sided sportsbook price to list a line. Pick’em-style lines (PrizePicks, Underdog) now appear too, tagged “PICK”, with the best price shown and a “—” where a sportsbook edge would go.',
+      'Even on those pick’em lines, the detail card still grades them against Vault’s own projection, so you get a Vault opinion where the book gives you none.',
+      'Fixed a preseason quirk that mislabeled real Week 1 props as exhibition games and dropped them — Vault now dates each prop by the actual matchup, not the feed’s posting time.',
+    ],
+  },
+  {
     ts:'2026-08-26T17:30', tag:'Improved', title:'A cleaner, more trustworthy Betting tab',
     items:[
       'Betting now splits in two right from the top nav: hover Betting and pick Game Markets or Player Props.',
@@ -39100,6 +39109,11 @@ body .page,body .page.on{background:transparent!important}
       hasLiveGames: !!hasFeedGames,
       gamesSample,
       teams, players, games,
+      // Full, unclustered games board. `games` above is trimmed to the upcoming
+      // slate (in preseason that's the EXHIBITION cluster, with zero Week-1
+      // games), so it can't be used to date real regular-season props. Keep the
+      // raw list so realGameCommence() can find a prop's true Week-1 kickoff.
+      _allGames: hasFeedGames ? feed.vegas_games.slice() : [],
       _cfg: cfg,
     };
   }
@@ -39160,6 +39174,34 @@ body .page,body .page.on{background:transparent!important}
     return out;
   }
 
+  /* Resolve a player's REAL kickoff from the games board by team+opponent.
+     ParlayAPI stamps PrizePicks props with the board_time (when the line was
+     posted), not the game's kickoff — so a Week-1 line routinely carries an
+     August date. The games board is the trustworthy clock. Returns the earliest
+     regular-season (Sept 1+) kickoff for the matchup, or null if the two teams
+     have no regular-season game (i.e. the prop is a genuine exhibition line).
+     Memoized on the model. */
+  function realGameCommence(model, team, opp) {
+    if (!team || !opp) return null;
+    if (!model._regPairKick) {
+      const yr = Number(model.season) || new Date().getUTCFullYear();
+      const sept1 = Date.UTC(yr, 8, 1);   // month 8 = September
+      const map = {};
+      // Use the FULL board (_allGames), not model.games — the latter is trimmed
+      // to the upcoming slate, which in preseason is the exhibition cluster with
+      // no Week-1 games at all.
+      for (const g of (model._allGames || model.games || [])) {
+        if (!g || !g.commence || g.sample) continue;
+        const t = Date.parse(g.commence);
+        if (isNaN(t) || t < sept1) continue;             // regular-season kickoffs only
+        const key = [g.home, g.away].sort().join('|');
+        if (!map[key] || t < Date.parse(map[key])) map[key] = g.commence;
+      }
+      model._regPairKick = map;
+    }
+    return model._regPairKick[[team, opp].sort().join('|')] || null;
+  }
+
   /* ── flatten props to one row per (player, market) ────────────────────── */
   function propRows(model, f) {
     f = f || {};
@@ -39174,12 +39216,22 @@ body .page,body .page.on{background:transparent!important}
       // Preseason: keep only REGULAR-SEASON props, drop exhibition-game ones. An
       // exhibition prices a starter who plays a series or two, so its number
       // (Geno 1+ pass TD at +383, not his ~-250 regular line) is misleading — but
-      // books already post plenty of Week 1 lines, and those are real. NFL
-      // preseason is August; the season opens in September, so a prop kicking off
-      // Sep 1 or later is a real-season line. In-season this drops nothing.
-      if (/^pre/i.test(model.season_type || '') && wk && wk.commence) {
-        const yr = Number(model.season) || new Date(wk.commence).getUTCFullYear();
-        if (new Date(wk.commence).getTime() < Date.UTC(yr, 8, 1)) continue;
+      // books already post plenty of Week 1 lines, and those are real.
+      //
+      // Do NOT trust the prop's own commence for this: ParlayAPI surfaces the
+      // PrizePicks board_time (when the line posted), not kickoff, so real Week-1
+      // lines carry an August date and this gate used to delete ~all of them
+      // (every starting-QB pass-yards line, etc.). Trust the games board instead —
+      // if the player's team+opp resolve to a real regular-season game, it's a
+      // real line; only drop when we can't (a true exhibition matchup). In-season
+      // this drops nothing.
+      if (/^pre/i.test(model.season_type || '') && wk) {
+        const gc = realGameCommence(model, p.team, wk.opp);   // real kickoff from the board
+        const eff = gc || wk.commence;
+        if (eff) {
+          const yr = Number(model.season) || new Date(eff).getUTCFullYear();
+          if (new Date(eff).getTime() < Date.UTC(yr, 8, 1)) continue;
+        }
       }
       if (f.opp && (!wk || wk.opp !== f.opp)) continue;
       if (f.slot && (!wk || wk.slot !== f.slot)) continue;
@@ -40426,8 +40478,28 @@ window.VaultPropModel = (function () {
       ev: ev ? +(ev.evPerDollar * 100).toFixed(1) : null, edgePts: ev ? ev.edgePct : null, vig: dv.vigPct };
   }
 
-  // Real-line props for the active filters, each enriched with fair/EV; ranked
-  // by EV. "Real" = a live juiced two-way (not a synthesized/projected line).
+  // Reference "fe" for a real line we CAN'T de-vig — a flat pickem line. DFS
+  // books (PrizePicks/Underdog) price over and under even, so there's no vig to
+  // strip and no computable EV. The line is still real and bettable, and the
+  // user wants to SEE it (Underdog lists every QB; so should we), so we surface
+  // it with the best offered price and null everywhere a de-vigged number would
+  // go: it sorts below every priced edge and renders EV/Edge/Fair as "—".
+  function pickemFE(r) {
+    const M = F().MARKET_BY_KEY[r.market]; if (!M || M.kind === 'prob') return null;
+    const atLine = (r.quotes || []).filter(q => q.line == null || r.line == null || q.line === r.line);
+    let bO = null, boBook = null, bU = null, buBook = null;
+    atLine.forEach(q => {
+      if (q.over != null && (bO == null || q.over > bO)) { bO = q.over; boBook = q.book; }
+      if (q.under != null && (bU == null || q.under > bU)) { bU = q.under; buBook = q.book; }
+    });
+    const side = bO != null ? 'over' : (bU != null ? 'under' : 'over');
+    const bp = side === 'over' ? bO : bU, bk = side === 'over' ? boBook : buBook;
+    return { side, pickem: true, fairProb: null, fairAmerican: null, bestPrice: bp, bestBook: bk, ev: null, edgePts: null, vig: null };
+  }
+
+  // Real-line props for the active filters, each enriched with fair/EV. De-vig-
+  // gable juiced two-ways rank first (by EV); flat pickem lines follow as plain
+  // reference (fe.pickem, no EV). "Real" = a live book line, not a synth/projected.
   function ebRows() {
     const fb = F();
     let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
@@ -40435,10 +40507,12 @@ window.VaultPropModel = (function () {
     const out = [];
     for (const r of rows) {
       if (r.synthetic) continue;                 // never fabricate — real lines only
-      const fe = rowFairEV(r); if (!fe) continue;
+      const fe = rowFairEV(r) || pickemFE(r); if (!fe) continue;
       out.push(Object.assign(r, { fe }));
     }
-    out.sort((a, b) => (b.fe.ev ?? -99) - (a.fe.ev ?? -99));
+    // priced edges (real EV) first, ranked by EV; pickem lines (ev null) after,
+    // in propRows order — no ranking signal, just a reference list.
+    out.sort((a, b) => (b.fe.ev ?? -Infinity) - (a.fe.ev ?? -Infinity));
     return out;
   }
 
@@ -40492,14 +40566,15 @@ window.VaultPropModel = (function () {
       const on = watch.has(propKey(r));
       const lean = anyLean && r.proj != null && r.line != null ? +(r.proj - r.line).toFixed(1) : null;
       const leanAgree = lean != null && ((fe.side === 'over' && lean > 0) || (fe.side === 'under' && lean < 0));
+      const mut = '<span class="mut">—</span>';
       return '<tr class="' + (propKey(r) === ebSel ? 'sel' : '') + '" data-k="' + propKey(r) + '">'
         + '<td class="eb-rk">' + (i + 1) + '</td>'
         + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
         + '<div><div class="eb-pn">' + r.name + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
-        + '<td><span class="eb-side ' + fe.side + '">' + fe.side.toUpperCase() + '</span> ' + (r.line != null ? r.line : '') + '</td>'
-        + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts > 0 ? '+' : '') + fe.edgePts + '</td>'
-        + '<td style="text-align:right"><span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span></td>'
-        + '<td class="eb-fb"><span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span></td>'
+        + '<td>' + (fe.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + fe.side + '">' + fe.side.toUpperCase() + '</span>') + ' ' + (r.line != null ? r.line : '') + '</td>'
+        + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts == null ? mut : (fe.edgePts > 0 ? '+' : '') + fe.edgePts) + '</td>'
+        + '<td style="text-align:right">' + (fe.ev == null ? mut : '<span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span>') + '</td>'
+        + '<td class="eb-fb">' + (fe.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>') + '</td>'
         + (anyLean ? '<td class="eb-lean" style="text-align:right">' + (lean == null ? '<span class="mut">—</span>' : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + (lean > 0 ? '+' : '') + lean + '</span>') + '</td>' : '')
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
@@ -40571,15 +40646,17 @@ window.VaultPropModel = (function () {
       '<div class="eb-ftop"><div class="eb-fpl"><span class="bt-hs eb-fhs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
       + '<div><div class="eb-fpn">' + r.name + '</div><div class="eb-fpm"><span class="eb-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span> '
       + (r.team || '') + (r.opp ? ' · vs ' + r.opp : '') + '</div>'
-      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + fe.side.toUpperCase() + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b> → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b></div></div></div>'
-      + '<div class="eb-fbadge"><div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>'
+      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + (fe.pickem ? 'PICK' : fe.side.toUpperCase()) + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b>' + (fe.fairAmerican == null ? '' : ' → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b>') + '</div></div></div>'
+      + '<div class="eb-fbadge">' + (fe.ev == null
+          ? '<div class="eb-eb"><span class="v">' + fb.fmtOdds(fe.bestPrice) + '</span><span class="l">pickem line</span></div>'
+          : '<div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>')
       + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button></div></div>'
       + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
-      + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv good">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</div></div>'
+      + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv good">' + (fe.ev == null ? '<span class="mut">—</span>' : (fe.ev > 0 ? '+' : '') + fe.ev + '%') + '</div></div>'
       + ((!/^pre/i.test(MODEL.season_type || '') && r.proj != null && r.line != null)
           ? '<div class="eb-tile"><div class="tl">Model lean</div><div class="tv cy">' + ((r.proj - r.line) > 0 ? '+' : '') + (+(r.proj - r.line).toFixed(1)) + '</div><div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + r.proj + ' vs ' + r.line + '</div></div>'
-          : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + fe.vig + '%</div></div>')
+          : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + (fe.vig == null ? '<span class="mut">—</span>' : fe.vig + '%') + '</div></div>')
       + '<div class="eb-tile" id="eb-vtile"><div class="tl">Vault edge</div><div class="tv"><span class="spinner xs"></span></div></div>'
       + '</div>'
       + '<div class="eb-booksec">' + bookStrip(r, fe) + '</div>'
@@ -40995,6 +41072,7 @@ window.VaultPropModel = (function () {
 #page-betting .eb-side{font-family:var(--bt-mono);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
 #page-betting .eb-side.over{background:color-mix(in srgb,var(--bt-green) 15%,transparent);color:var(--bt-green)}
 #page-betting .eb-side.under{background:color-mix(in srgb,var(--bt-red,#e23a4e) 15%,transparent);color:var(--bt-red,#ff5a6e)}
+#page-betting .eb-side.pick{background:color-mix(in srgb,var(--bt-muted) 18%,transparent);color:var(--bt-muted)}
 #page-betting .eb-m2{font-family:var(--bt-mono);font-size:13px;color:var(--bt-text2)}
 #page-betting .eb-ev{font-family:var(--bt-mono);font-weight:700;font-size:13.5px;color:var(--bt-green)}
 #page-betting .eb-fb{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);text-align:right}
