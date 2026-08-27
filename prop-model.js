@@ -114,6 +114,21 @@ window.VaultPropModel = (function () {
     if (sd <= 0) return proj >= L ? 1 : 0;
     return 1 - normCdf((L - proj) / sd);
   }
+  // #4 alt distributions (chosen per market at build time).
+  function nbOver(mean, line, r) {                 // Negative Binomial P(X >= ceil(line))
+    if (!(mean > 0) || !(r > 0)) return 0;
+    const m = Math.ceil(line); if (m <= 0) return 1;
+    const p = r / (r + mean); let term = Math.pow(p, r), cdf = term;
+    for (let k = 1; k < m; k++) { term *= (k - 1 + r) / k * (1 - p); cdf += term; }
+    return Math.max(0, 1 - Math.min(cdf, 1));
+  }
+  function lognormOver(proj, sd, line) {           // log-normal P(Y > line)
+    if (proj <= 0) return 0;
+    if (line <= 0) return 1;
+    const s2 = Math.log(1 + (sd * sd) / (proj * proj));
+    if (s2 <= 0) return proj > line ? 1 : 0;
+    return 1 - normCdf((Math.log(line) - (Math.log(proj) - s2 / 2)) / Math.sqrt(s2));
+  }
   // #3 market shrink: temperature scaling toward 0.5 (the pickem/market prior).
   // w<1 pulls an overconfident prob toward a coin-flip; w≈1 (yards) is a no-op.
   function shrinkProb(p, w) {
@@ -172,12 +187,19 @@ window.VaultPropModel = (function () {
     if (proj == null) return null;
     proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
 
-    const poisson = m.kind === 'poisson';
+    // #4: the distribution is chosen per market at build time (m.dist). Fall back
+    // to kind for pre-#4 model files.
+    const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');
     const count = m.kind === 'count';
-    const sd = poisson ? Math.sqrt(proj) : sdAt(m, proj);   // Poisson sd = √λ (info only)
+    const sd = dist === 'poisson' ? Math.sqrt(Math.max(proj, 0))
+             : dist === 'nbinom' ? Math.sqrt(Math.max(proj, 0) + proj * proj / (m.nb_r || 1e6))
+             : sdAt(m, proj);                          // info only
     const L = num(line);
     if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
-    const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
+    const raw = dist === 'poisson' ? poisOver(proj, L)
+              : dist === 'nbinom' ? nbOver(proj, L, m.nb_r)
+              : dist === 'lognormal' ? lognormOver(proj, sd, L)
+              : rawOver(proj, sd, L, count);
     const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };

@@ -272,6 +272,73 @@ def pois_over(lam, line):
     return max(0.0, 1 - pois_cdf(lam, k))
 
 
+# ── #4 alt distributions (chosen per market by a build-time bake-off) ────────
+def nb_over(mean, line, r):
+    """P(X >= ceil(line)) for a Negative Binomial with the given mean and
+    dispersion r (var = mean + mean²/r; large r ⇒ Poisson). Overdispersion
+    fattens the tail — the right shape for receptions / rush attempts."""
+    if mean <= 0:
+        return 0.0
+    m = math.ceil(line)
+    if m <= 0:
+        return 1.0
+    p = r / (r + mean)
+    term = p ** r
+    cdf = term
+    for k in range(1, m):
+        term *= (k - 1 + r) / k * (1 - p)
+        cdf += term
+    return max(0.0, 1.0 - min(cdf, 1.0))
+
+
+def fit_nb_r(means, actuals):
+    """MLE of the shared dispersion r given per-game means."""
+    pairs = [(m, k) for m, k in zip(means, actuals) if m and m > 0 and k is not None]
+    if len(pairs) < 300:
+        return 1e6
+    def nll(r):
+        s = 0.0
+        for mean, k in pairs:
+            p = r / (r + mean)
+            s -= (math.lgamma(k + r) - math.lgamma(r) - math.lgamma(k + 1)
+                  + r * math.log(p) + (k * math.log(1 - p) if k > 0 else 0.0))
+        return s
+    best = (1e6, 1e18); r = 0.3
+    while r <= 300:
+        v = nll(r)
+        if v < best[1]:
+            best = (r, v)
+        r *= 1.25
+    return round(best[0], 3)
+
+
+def lognorm_over(proj, sd, line):
+    """P(Y > line) with Y log-normal (mean=proj, sd=sd) — right-skewed, ≥0."""
+    if proj <= 0:
+        return 0.0
+    if line <= 0:
+        return 1.0
+    s2 = math.log(1 + (sd * sd) / (proj * proj))
+    if s2 <= 0:
+        return 1.0 if proj > line else 0.0
+    return 1 - phi_cdf((math.log(line) - (math.log(proj) - s2 / 2)) / math.sqrt(s2))
+
+
+def prob_fn_for(entry):
+    """Return a (proj, line) -> raw P(over) closure for a market's chosen dist."""
+    d = entry["dist"]
+    if d == "poisson":
+        return lambda proj, line: pois_over(proj, line)
+    if d == "nbinom":
+        r = entry["nb_r"]
+        return lambda proj, line: nb_over(proj, line, r)
+    if d == "lognormal":
+        v0, v1 = entry["sd_v0"], entry["sd_v1"]
+        return lambda proj, line: lognorm_over(proj, sd_at(v0, v1, proj), line)
+    v0, v1, count = entry["sd_v0"], entry["sd_v1"], entry.get("count", False)
+    return lambda proj, line: raw_prob_over(proj, sd_at(v0, v1, proj), line, count)
+
+
 def fit_calibration_poisson(preds, actuals, bins=20):
     """Isotonic calibration for a Poisson market over the real TD lines (0.5/1.5/2.5)."""
     pairs = []
@@ -335,6 +402,59 @@ def fit_calibration(preds, actuals, v0, v1, count, bins=20):
     return _pav_bins(pairs, bins)
 
 
+def _lines_for(kind, proj, grid=(0.5, 0.7, 0.85, 1.0, 1.15, 1.3, 1.5)):
+    if kind == "poisson":
+        return [0.5, 1.5, 2.5]
+    if kind == "count":
+        return [round(proj * g * 2) / 2 for g in grid]
+    return [proj * g for g in grid]
+
+
+def fit_calibration_fn(preds, actuals, prob_fn, kind, bins=20):
+    """Isotonic calibration for ANY distribution: build (raw_p, hit) pairs from
+    the given prob_fn over realistic lines, then PAV-shrink."""
+    pairs = []
+    for proj, actual in zip(preds, actuals):
+        for line in _lines_for(kind, proj):
+            pairs.append((prob_fn(proj, line), 1.0 if actual >= line else 0.0))
+    return _pav_bins(pairs, bins)
+
+
+def _dist_logloss(preds, actuals, prob_fn, kind):
+    """Raw (pre-calibration) log-loss over the standard bet lines — the bake-off
+    metric for choosing a market's distribution by shape fit."""
+    s, n = 0.0, 0
+    for proj, actual in zip(preds, actuals):
+        for line in _lines_for(kind, proj, grid=(0.85, 1.0, 1.15)):
+            p = min(max(prob_fn(proj, line), 1e-6), 1 - 1e-6)
+            h = 1.0 if actual >= line else 0.0
+            s += -(h * math.log(p) + (1 - h) * math.log(1 - p)); n += 1
+    return s / n if n else 1e9
+
+
+def choose_dist(spec, preds, actuals):
+    """Pick the distribution that fits this market's tape best OUT-OF-SAMPLE
+    (walk-forward raw log-loss). Candidates by kind: yards → Normal|log-normal,
+    count → Normal|NBinom, TD/poisson → Poisson|NBinom. Returns (name, extra)."""
+    kind = spec["kind"]
+    if kind == "yards":
+        v0, v1 = fit_sd(preds, actuals)
+        cands = [("normal", {"sd_v0": v0, "sd_v1": v1, "count": False}),
+                 ("lognormal", {"sd_v0": v0, "sd_v1": v1})]
+    elif kind == "count":
+        v0, v1 = fit_sd(preds, actuals)
+        cands = [("normal", {"sd_v0": v0, "sd_v1": v1, "count": True}),
+                 ("nbinom", {"nb_r": fit_nb_r(preds, actuals)})]
+    else:
+        cands = [("poisson", {}), ("nbinom", {"nb_r": fit_nb_r(preds, actuals)})]
+    best = None
+    for name, extra in cands:
+        ll = _dist_logloss(preds, actuals, prob_fn_for({"dist": name, **extra}), kind)
+        if best is None or ll < best[2] - 1e-4:   # tie → first candidate (the incumbent)
+            best = (name, extra, ll)
+    return best[0], best[1]
+
+
 def r2(preds, actuals):
     if len(actuals) < 2:
         return None
@@ -394,24 +514,14 @@ def fit_temperature(pairs):
 
 
 def fit_shrink(spec, preds, actuals, entry):
-    """Fit the market-shrink temperature on the walk-forward (game-level OOS)
-    calibrated probs, at the same lines the board serves at. w≈1 = already
-    calibrated (yards); w<1 = overconfident (count/TD) — pull toward the market."""
+    """Fit the market-shrink temperature on the walk-forward calibrated probs of
+    the market's CHOSEN distribution. w≈1 = already calibrated; w<1 = overconfident."""
+    pf, calib = prob_fn_for(entry), entry["calib"]
     pairs = []
-    if spec["kind"] == "poisson":
-        calib = entry["calib"]
-        for lam, act in zip(preds, actuals):
-            p = min(max(apply_calib(calib, pois_over(lam, 0.5)), 0.01), 0.99)
-            pairs.append((p, 1.0 if act >= 0.5 else 0.0))
-    else:
-        v0, v1, calib = entry["sd_v0"], entry["sd_v1"], entry["calib"]
-        count = spec["kind"] == "count"
-        for pred, act in zip(preds, actuals):
-            sd = sd_at(v0, v1, pred)
-            for g in (0.85, 1.0, 1.15):
-                line = round(pred * g * 2) / 2 if count else pred * g
-                p = min(max(apply_calib(calib, raw_prob_over(pred, sd, line, count)), 0.01), 0.99)
-                pairs.append((p, 1.0 if act >= line else 0.0))
+    for proj, act in zip(preds, actuals):
+        for line in _lines_for(spec["kind"], proj, grid=(0.85, 1.0, 1.15)):
+            p = min(max(apply_calib(calib, pf(proj, line)), 0.01), 0.99)
+            pairs.append((p, 1.0 if act >= line else 0.0))
     return fit_temperature(pairs)
 
 
@@ -493,20 +603,18 @@ def main():
             "rmse": round(best["rmse"], 3), "r2": round(best["r2"], 4), "n": best["n"],
             "base_rmse": round(best["base_rmse"], 3),
         }
-        if spec["kind"] == "poisson":
-            calib = fit_calibration_poisson(best["preds"], best["actuals"])
-            entry["dist"] = "poisson"; entry["calib"] = calib
-            dist_desc = f"λ̄={statistics.fmean(best['preds']):.2f} (poisson)"
-        else:
-            count = spec["kind"] == "count"
-            v0, v1 = fit_sd(best["preds"], best["actuals"])
-            calib = fit_calibration(best["preds"], best["actuals"], v0, v1, count)
-            entry["dist"] = "normal"; entry["sd_v0"] = v0; entry["sd_v1"] = v1; entry["calib"] = calib
-            dist_desc = f"sd²={v0:.1f}+{v1:.3f}·μ"
+        # #4: pick the distribution that fits this market's tape best out-of-
+        # sample (bake-off), fit its params, then calibrate + shrink under it.
+        dist, extra = choose_dist(spec, best["preds"], best["actuals"])
+        entry["dist"] = dist; entry.update(extra)
+        entry["calib"] = fit_calibration_fn(best["preds"], best["actuals"], prob_fn_for(entry), spec["kind"])
+        dist_desc = {"poisson": f"λ̄={statistics.fmean(best['preds']):.2f} poisson",
+                     "nbinom": f"nbinom r={entry.get('nb_r')}",
+                     "lognormal": f"log-normal sd²={entry.get('sd_v0',0):.1f}+{entry.get('sd_v1',0):.3f}·μ",
+                     "normal": f"normal sd²={entry.get('sd_v0',0):.1f}+{entry.get('sd_v1',0):.3f}·μ"}[dist]
         # #3 market shrink: pull overconfident probs toward the market/coin-flip.
-        # Fit on the walk-forward calibrated probs; w≈1 = already honest (yards),
-        # w<1 = overconfident (count/TD). Served as over = shrink_prob(cal, w).
         entry["shrink"] = fit_shrink(spec, best["preds"], best["actuals"], entry)
+        calib = entry["calib"]
         lift = (best["base_rmse"] - best["rmse"]) / best["base_rmse"] * 100 if best["base_rmse"] else 0
         held = " [HELD]" if mkt in HOLD else ""
         print(f"[prop-model] {mkt:9s} n={best['n']:6d} hl={best['hl']} kv={best['k_vol']} ke={best['k_eff']} "

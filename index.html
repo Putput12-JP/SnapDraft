@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T20:00', tag:'Improved', title:'Sharper projections for receptions and rushing props',
+    items:[
+      'Vault now models each stat with the shape that fits it best — receptions and rush attempts as bursty, boom-or-bust counts, and rushing/receiving yards with their long upside tail, instead of forcing everything into one bell curve.',
+      'The payoff shows up in receptions especially: top-graded reception picks that used to quietly miss now hit at the rate the grade implies. Passing-yards and touchdown markets were already accurate and are unchanged.',
+    ],
+  },
+  {
     ts:'2026-08-27T19:15', tag:'Improved', title:'More honest Vault grades on noisy markets',
     items:[
       'Vault’s grades and edges are now pulled back on the markets where the projection tends to run hot — receptions and touchdown props especially. When the model has been overconfident historically, its number gets nudged toward a coin flip, so a grade you see is one the results actually back up.',
@@ -39718,6 +39725,9 @@ window.VaultPropModel = (function () {
   }
   const normCdf = z => 0.5 * (1 + erf(z / Math.SQRT2));
   function rawOver(proj, sd, line, count) { const L = count ? line - 0.5 : line; if (sd <= 0) return proj >= L ? 1 : 0; return 1 - normCdf((L - proj) / sd); }
+  // #4 alt distributions (chosen per market at build time).
+  function nbOver(mean, line, r) { if (!(mean > 0) || !(r > 0)) return 0; const m = Math.ceil(line); if (m <= 0) return 1; const p = r / (r + mean); let term = Math.pow(p, r), cdf = term; for (let k = 1; k < m; k++) { term *= (k - 1 + r) / k * (1 - p); cdf += term; } return Math.max(0, 1 - Math.min(cdf, 1)); }
+  function lognormOver(proj, sd, line) { if (proj <= 0) return 0; if (line <= 0) return 1; const s2 = Math.log(1 + (sd * sd) / (proj * proj)); if (s2 <= 0) return proj > line ? 1 : 0; return 1 - normCdf((Math.log(line) - (Math.log(proj) - s2 / 2)) / Math.sqrt(s2)); }
   // #3 market shrink: temperature scaling toward 0.5 (pickem/market prior). w<1 pulls an overconfident prob toward a coin-flip; w≈1 (yards) is a no-op.
   function shrinkProb(p, w) { if (!w || w === 1) return p; p = Math.min(Math.max(p, 1e-6), 1 - 1e-6); return 1 / (1 + Math.exp(-w * Math.log(p / (1 - p)))); }
   function poisOver(lam, line) { if (lam <= 0) return 0; const k = Math.floor(line); let term = Math.exp(-lam), acc = term; for (let i = 1; i <= k; i++) { term *= lam / i; acc += term; } return Math.max(0, 1 - Math.min(acc, 1)); }
@@ -39753,12 +39763,17 @@ window.VaultPropModel = (function () {
     let proj = projectFrom(weeks, m, minPrior);
     if (proj == null) return null;
     proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
-    const poisson = m.kind === 'poisson';
+    const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');   // #4 per-market distribution
     const count = m.kind === 'count';
-    const sd = poisson ? Math.sqrt(proj) : sdAt(m, proj);
+    const sd = dist === 'poisson' ? Math.sqrt(Math.max(proj, 0))
+             : dist === 'nbinom' ? Math.sqrt(Math.max(proj, 0) + proj * proj / (m.nb_r || 1e6))
+             : sdAt(m, proj);
     const L = num(line);
     if (L == null) return { proj: round(proj, 2), sd: round(sd, 2), fairProb: null, over: null };
-    const raw = poisson ? poisOver(proj, L) : rawOver(proj, sd, L, count);
+    const raw = dist === 'poisson' ? poisOver(proj, L)
+              : dist === 'nbinom' ? nbOver(proj, L, m.nb_r)
+              : dist === 'lognormal' ? lognormOver(proj, sd, L)
+              : rawOver(proj, sd, L, count);
     const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };

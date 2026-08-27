@@ -90,15 +90,10 @@ def fit_market(mkt, spec, train_seq, priors):
             best = {"hl": hl, "kv": kv, "ke": ke, "rmse": rm, "preds": preds, "actuals": actuals}
     if not best:
         return None
-    if spec["kind"] == "poisson":
-        calib = B.fit_calibration_poisson(best["preds"], best["actuals"])
-        params = {"dist": "poisson", "hl": best["hl"], "kv": best["kv"], "ke": best["ke"], "calib": calib}
-    else:
-        count = spec["kind"] == "count"
-        v0, v1 = B.fit_sd(best["preds"], best["actuals"])
-        calib = B.fit_calibration(best["preds"], best["actuals"], v0, v1, count)
-        params = {"dist": "normal", "count": count, "v0": v0, "v1": v1,
-                  "hl": best["hl"], "kv": best["kv"], "ke": best["ke"], "calib": calib}
+    # #4: pick the distribution the same way production does, then calibrate under it.
+    dist, extra = B.choose_dist(spec, best["preds"], best["actuals"])
+    params = {"dist": dist, "hl": best["hl"], "kv": best["kv"], "ke": best["ke"], **extra}
+    params["calib"] = B.fit_calibration_fn(best["preds"], best["actuals"], B.prob_fn_for(params), spec["kind"])
     return params
 
 
@@ -134,6 +129,7 @@ def holdout(markets, since, test_from, use_calib=True):
             if not params:
                 continue
             hl, kv, ke = params["hl"], params["kv"], params["ke"]
+            pf = B.prob_fn_for(params)                 # #4: the chosen distribution
 
             # build per-player [T-1, T] chronological games; score only season-T games
             prevp = B.player_games(seasons[T - 1], T - 1)
@@ -157,17 +153,10 @@ def holdout(markets, since, test_from, use_calib=True):
                             continue
                         lam = project(pv, priors[mk], hl, kv)
                         actual = cur_series[i]
-                        if params["dist"] == "poisson":
-                            raw = B.pois_over(lam, 0.5)
+                        for line in B._lines_for(spec["kind"], lam, grid=(0.85, 1.0, 1.15)):
+                            raw = pf(lam, line)
                             p = raw if not use_calib else calibrate(params["calib"], raw)
-                            emit(mk, p, len(pv), 1.0 if actual >= 0.5 else 0.0)
-                        else:
-                            sd = B.sd_at(params["v0"], params["v1"], lam)
-                            for g in (0.85, 1.0, 1.15):
-                                line = round(lam * g * 2) / 2 if params["count"] else lam * g
-                                raw = B.raw_prob_over(lam, sd, line, params["count"])
-                                p = raw if not use_calib else calibrate(params["calib"], raw)
-                                emit(mk, p, len(pv), 1.0 if actual >= line else 0.0)
+                            emit(mk, p, len(pv), 1.0 if actual >= line else 0.0)
                 else:  # yards = volume x efficiency (previously skipped in holdout)
                     vol_h = B.collect_series(hist, spec["vol"]); num_h = B.collect_series(hist, spec["eff_num"])
                     vol_c = B.collect_series(cur_rows, spec["vol"]); num_c = B.collect_series(cur_rows, spec["eff_num"])
@@ -184,11 +173,9 @@ def holdout(markets, since, test_from, use_calib=True):
                             continue
                         proj = B.project_series(pv, priors[mk + "|vol"], hl, kv) * \
                                B.project_series(pe, priors[mk + "|eff"], hl, ke)
-                        sd = B.sd_at(params["v0"], params["v1"], proj)
                         actual = num_c[i]
-                        for g in (0.85, 1.0, 1.15):
-                            line = proj * g
-                            raw = B.raw_prob_over(proj, sd, line, False)
+                        for line in B._lines_for(spec["kind"], proj, grid=(0.85, 1.0, 1.15)):
+                            raw = pf(proj, line)
                             p = raw if not use_calib else calibrate(params["calib"], raw)
                             emit(mk, p, len(pv), 1.0 if actual >= line else 0.0)
     return pooled, graded
@@ -215,6 +202,63 @@ def metrics(pairs):
     base = statistics.fmean(h for _, h in pairs)
     ll_base = -(base * math.log(base) + (1 - base) * math.log(1 - base)) if 0 < base < 1 else 0
     return {"n": n, "brier": brier, "logloss": ll, "logloss_base": ll_base, "base_rate": base}
+
+
+# ── #4 alternative distributions (Negative Binomial for counts, log-normal for
+# yards). Measured against the shipped Poisson/Normal before anything ships. ──
+def nb_over(lam, line, r):
+    """P(X >= ceil(line)) for a Negative Binomial with mean lam, dispersion r
+    (var = lam + lam²/r; r→∞ recovers Poisson). Overdispersion fattens the tail
+    the right way for TD counts, which Poisson's var=mean understates."""
+    if lam <= 0:
+        return 0.0
+    m = math.ceil(line)
+    if m <= 0:
+        return 1.0
+    p = r / (r + lam)
+    term = p ** r          # P(X=0)
+    cdf = term
+    for k in range(1, m):   # P(X<=m-1) via the NB recurrence
+        term *= (k - 1 + r) / k * (1 - p)
+        cdf += term
+    return max(0.0, 1.0 - min(cdf, 1.0))
+
+
+def fit_nb_r(lams, actuals):
+    """MLE of the shared dispersion r given per-game means lam_i. Coarse log-grid
+    then it's smooth enough; large r ⇒ ~Poisson (not overdispersed)."""
+    pairs = [(l, k) for l, k in zip(lams, actuals) if l and l > 0 and k is not None]
+    if len(pairs) < 300:
+        return 1e6
+    def nll(r):
+        s = 0.0
+        for lam, k in pairs:
+            p = r / (r + lam)
+            s -= (math.lgamma(k + r) - math.lgamma(r) - math.lgamma(k + 1)
+                  + r * math.log(p) + (k * math.log(1 - p) if k > 0 else 0.0))
+        return s
+    best = (1e6, 1e18); r = 0.3
+    while r <= 300:
+        v = nll(r)
+        if v < best[1]:
+            best = (r, v)
+        r *= 1.25
+    return round(best[0], 3)
+
+
+def lognorm_over(proj, sd, line):
+    """P(Y > line) modeling Y as log-normal with mean=proj, sd=sd. Right-skewed,
+    non-negative — a better shape for yardage than a symmetric Normal."""
+    if proj <= 0:
+        return 0.0
+    if line <= 0:
+        return 1.0
+    s2 = math.log(1 + (sd * sd) / (proj * proj))     # underlying-normal variance
+    if s2 <= 0:
+        return 1.0 if proj > line else 0.0
+    m = math.log(proj) - s2 / 2
+    z = (math.log(line) - m) / math.sqrt(s2)
+    return 1 - 0.5 * (1 + math.erf(z / math.sqrt(2)))
 
 
 def _logit(p):
@@ -299,6 +343,65 @@ def grade_scoreboard(graded_all, be):
     return rows
 
 
+def _wf_preds(mk, spec, seq, priors):
+    """Walk-forward (proj, actual) pairs at the best-RMSE hyperparams — the raw
+    material for comparing distributions on the same projections."""
+    best = None
+    for hl in [2.5, 4, 6, 9]:
+        for kv in [2, 4, 8]:
+            for ke in ([6, 12, 24] if spec["kind"] == "yards" else [0]):
+                resid, preds, actuals, _ = B.eval_market(mk, spec, seq, hl, kv, ke, priors)
+                if len(preds) < 300:
+                    continue
+                rm = B.rmse(resid)
+                if best is None or rm < best[0]:
+                    best = (rm, preds, actuals)
+    return (best[1], best[2]) if best else (None, None)
+
+
+def dist_compare(markets, since):
+    """#4: does a better-shaped distribution fit the tape better OUT-OF-SAMPLE?
+    Raw (pre-calibration) log-loss, so we're testing the SHAPE, not the isotonic
+    layer that can paper over it. Counts/TDs: current vs Negative Binomial.
+    Yards: Normal vs log-normal."""
+    seq = {}
+    for yr, players in B.load_seasons(since).items():
+        seq.update(B.player_games(players, yr))
+    priors = B.compute_priors(seq)
+    clamp = lambda p: max(0.01, min(0.99, p))
+    print("── #4 DISTRIBUTION SHAPE (raw log-loss, walk-forward; lower = better fit)")
+    print(f"   {'market':11s} {'current':>10s} {'→ alt':>10s} {'alt':>16s}   verdict")
+    for mk in markets:
+        spec = B.MARKETS[mk]
+        preds, actuals = _wf_preds(mk, spec, seq, priors)
+        if not preds:
+            print(f"   {mk:11s}  too few points"); continue
+        A, Bp = [], []
+        if spec["kind"] == "yards":
+            v0, v1 = B.fit_sd(preds, actuals); alt = "log-normal"
+            for proj, act in zip(preds, actuals):
+                sd = B.sd_at(v0, v1, proj)
+                for g in (0.85, 1.0, 1.15):
+                    line = proj * g
+                    A.append((clamp(B.raw_prob_over(proj, sd, line, False)), 1.0 if act >= line else 0.0))
+                    Bp.append((clamp(lognorm_over(proj, sd, line)), 1.0 if act >= line else 0.0))
+        else:
+            r = fit_nb_r(preds, actuals); alt = f"NBinom r={r:g}"
+            pois = spec["kind"] == "poisson"
+            if not pois:
+                v0, v1 = B.fit_sd(preds, actuals)
+            for proj, act in zip(preds, actuals):
+                lines = [0.5] if pois else [round(proj * g * 2) / 2 for g in (0.85, 1.0, 1.15)]
+                for line in lines:
+                    cur = B.pois_over(proj, line) if pois else B.raw_prob_over(proj, B.sd_at(v0, v1, proj), line, True)
+                    A.append((clamp(cur), 1.0 if act >= line else 0.0))
+                    Bp.append((clamp(nb_over(proj, line, r)), 1.0 if act >= line else 0.0))
+        ma, mb = metrics(A), metrics(Bp)
+        d = ma["logloss"] - mb["logloss"]
+        verdict = f"ALT better by {d*100:+.2f}%pt" if d > 0.0005 else ("~ same" if abs(d) <= 0.0005 else "keep current")
+        print(f"   {mk:11s} {ma['logloss']:>10.4f} {mb['logloss']:>10.4f} {alt:>16s}   {verdict}")
+
+
 def clv_harness():
     import json
     path = os.path.join(DATA, "prop_line_history.json")
@@ -323,7 +426,12 @@ def main():
     ap.add_argument("--no-calib", action="store_true", help="use raw distribution prob (skip isotonic) — tests whether calibration helps or overfits")
     ap.add_argument("--pois-k", type=int, default=0, help="override shrink strength for poisson markets")
     ap.add_argument("--be", type=float, default=0.55, help="pickem break-even the grade scoreboard scores against (default 0.55 = 3-pick power)")
+    ap.add_argument("--compare-dist", action="store_true", help="#4: compare Negative-Binomial (counts/TDs) / log-normal (yards) vs the shipped distributions, then exit")
     args = ap.parse_args()
+    if args.compare_dist:
+        mks = [m.strip() for m in args.markets.split(",") if m.strip() in B.MARKETS]
+        dist_compare(mks, args.since)
+        return
     if args.pois_k:
         globals()["POIS_K"] = args.pois_k
     markets = [m.strip() for m in args.markets.split(",") if m.strip() in B.MARKETS]

@@ -103,24 +103,31 @@ calibrated. Live check: a rec over-prob of 0.415 → 0.440 (pulled toward the co
   shrink toward a priced book's de-vig prob still needs in-season odds (with CLV) —
   deferred. For the Texas/Underdog use case, 0.5 IS the market, so this is the right form.
 
-## #4 — Fix the distributions  ·  MED impact, MED effort
+## #4 — Fix the distributions  ·  DONE (per-market bake-off)
 
-The Normal/Poisson tails are wrong exactly where lines sit.
+Shipped as an automatic **per-market distribution bake-off** in the build
+(`choose_dist`): each market picks Normal / log-normal / Poisson / Negative-Binomial
+by out-of-sample raw log-loss, then calibration + shrink fit under the winner.
+`prob_fn_for` dispatches; JS serving (`prop-model.js` + inline) mirrors it with
+`nbOver`/`lognormOver`, reading `m.dist`. The season-holdout uses the same
+selection, so the grade scoreboard reflects it.
 
-- **Counts/TDs → Negative Binomial.** TD counts are overdispersed; `sd = √λ`
-  understates spread → overconfident tails (the exact failure the backtest caught
-  when it pulled anytime-TD). Fit a dispersion `r` per market; tail becomes the
-  NB CDF. Should let held-out TD markets (`pass_td`, `rec_td`) re-clear the
-  backtest that rush/anytime failed.
-- **Yards → log-normal or gamma.** Right-skewed, bust-prone (near-zero games).
-  Replace `rawOver` with a log-normal tail (fit σ on log-stat) or gamma. Keep the
-  isotonic layer *after* the parametric tail — but refit it, and **guard the
-  sparse extreme buckets** (monotone isotonic overfits there; the memory flags
-  this). Consider min-count-per-knot or a Beta-binomial smooth.
+**What won (measured, not assumed):** pass_yd/pass_att/pass_cmp → Normal (passing is
+symmetric; alts lost); rush_yd/rec_yd → log-normal (right-skewed); rec/rush_att →
+Negative-Binomial (overdispersed, r≈10.7/4.4); all TD markets → Poisson.
 
-Validate: per-market reliability curve (predicted vs empirical hit rate) on the
-season holdout, bucketed by line location (below/at/above projection). The tails
-are the whole game.
+**Key findings:**
+- NB-for-TDs was WRONG — TD counts aren't overdispersed (NB fit r≈240 ≈ Poisson).
+  The held TD markets' overconfidence is projection-side, so #4 does NOT un-hold
+  them. Confirmed the memory.
+- **`rec` #5 trap fixed:** A-grades 0.538 (< 55% BE) → **0.659** OOS.
+- **A-grade calibration pred .752/real .714 → pred .856/real .856 — perfect.**
+- **#3 shrink is now ~a no-op** (all w≈1.0, rec 0.94 vs 0.55): the right distribution
+  is the real fix; temperature was the crude patch. Kept as a harmless safety net.
+
+Follow-on (not blocking): gamma as a third yards candidate; per-line-location
+reliability; usage-based TD projection is the separate lever for un-holding
+rush/anytime TD.
 
 ---
 
