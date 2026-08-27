@@ -3,10 +3,17 @@
    VAULT · PICK'EM PROPS  →  vegas_player_props
    ────────────────────────────────────────────────────────────────────────
    Free, keyless player-prop feed for the Betting tab. Pulls PrizePicks
-   pick'em lines (and, best-effort, Underdog), resolves each player to its
-   Sleeper id, maps PrizePicks stat types to Vault's market keys, and merges
-   the result into data/lineup-feed.json under `vegas_player_props` — the exact
-   shape betting-data.js already consumes. No API key, no credits.
+   pick'em lines (via partner-api.prizepicks.com — the public api host is
+   Cloudflare-blocked) AND Underdog Fantasy over/under lines, resolves each
+   player to its Sleeper id, maps each book's stat types to Vault's market
+   keys, and merges the result into data/lineup-feed.json under
+   `vegas_player_props` — the exact shape betting-data.js already consumes.
+   No API key, no credits.
+
+   Both books are hit DIRECTLY here, so for PrizePicks / Underdog lines this
+   job is authoritative and fresher than ParlayAPI's mirror of them: on a
+   market ParlayAPI already carries, we upsert the direct quote and correct a
+   stale headline line rather than only gap-filling (see mergeFeed).
 
    Cell shape written (matches betting-data.js):
      lines[marketKey] = {
@@ -48,8 +55,16 @@ const FEED     = ARG.feed     || 'data/lineup-feed.json';
 const LEAGUE   = String(ARG.league || 9);            // 9 = NFL on PrizePicks
 const PP_FIX   = ARG['pp-fixture'] || null;
 const SL_FIX   = ARG['sleeper-fixture'] || null;
+const UD_FIX   = ARG['ud-fixture'] || null;
+const NO_UD    = !!ARG['no-underdog'];
+const NO_PP    = !!ARG['no-prizepicks'];
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+// api.prizepicks.com/projections is Cloudflare-blocked (403) for keyless
+// server-side callers. partner-api.prizepicks.com serves the same JSON:API
+// board and is still reachable, so we hit that host instead.
+const PP_HOST = ARG['pp-host'] || 'partner-api.prizepicks.com';
+
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
 const log = (...a) => console.log('[pickem]', ...a);
 
 /* ── identity helpers (mirror betting-data.js normName) ───────────────── */
@@ -143,7 +158,7 @@ async function loadPrizePicks() {
   } else {
     raw = [];
     for (let page = 1; page <= 12; page++) {
-      const url = `https://api.prizepicks.com/projections?league_id=${LEAGUE}&per_page=250&single_stat=true&page=${page}`;
+      const url = `https://${PP_HOST}/projections?league_id=${LEAGUE}&per_page=250&single_stat=true&page=${page}`;
       let j;
       try { j = await getJSON(url, `prizepicks p${page}`); }
       catch (e) { log('fetch failed:', e.message); if (page === 1) firstPageError = e; break; }
@@ -151,8 +166,12 @@ async function loadPrizePicks() {
       const data = j.data || [];
       const totalPages = j.meta && j.meta.total_pages;
       if (!data.length) break;
-      if (totalPages && page >= totalPages) break;
-      await new Promise(r => setTimeout(r, 350)); // be polite
+      // partner-api returns the whole board on page 1 with no pagination meta —
+      // paging further just refetches the same rows (and risks a 429). Stop
+      // after the first page unless the host actually advertises more pages.
+      if (!totalPages) break;
+      if (page >= totalPages) break;
+      await new Promise(r => setTimeout(r, 1200)); // be polite (partner-api throttles fast)
     }
   }
   // Surface a hard failure (Cloudflare block, network) by re-throwing — the
@@ -246,16 +265,147 @@ function buildProps(pp, sl) {
   return { props: out, stats: { players: matched, unmatched, lines, events: events.size } };
 }
 
+/* ── Underdog Fantasy ───────────────────────────────────────────────────
+   Keyless board feed: ONE call to /beta/v5/over_under_lines returns every
+   sport flattened into parallel arrays (players, appearances, games,
+   over_under_lines). We keep NFL game-level lines (drop the season-long and
+   in-period splits), map Underdog stat keys to Vault market keys, resolve each
+   player to a Sleeper id, and emit the same cell shape as PrizePicks.
+
+   ParlayAPI only mirrors Underdog for TD markets, so without this Underdog's
+   yardage lines never reach the tab — leaving every QB yardage prop single-
+   source (PrizePicks only) with nothing to cross-check a bad line against. */
+const UD_STAT_MAP = {
+  passing_yds: 'pass_yd', passing_tds: 'pass_td', passing_comps: 'pass_cmp',
+  passing_att: 'pass_att', passing_ints: 'pass_int', passing_long: 'long_pass',
+  passing_and_rushing_yds: 'pass_rush_yd',
+  rushing_yds: 'rush_yd', rushing_tds: 'rush_td', rushing_att: 'rush_att',
+  rushing_long: 'long_rush',
+  receiving_yds: 'rec_yd', receiving_tds: 'rec_td', receptions: 'rec',
+  receiving_long: 'long_rec',
+  rushing_and_receiving_yds: 'rush_rec_yd', rush_rec_yds: 'rush_rec_yd',
+  field_goals_made: 'fg_made', kicking_points: 'kick_pts',
+  tackles: 'tackles', sacks: 'sacks',
+};
+const udAmerican = s => { const n = parseInt(s, 10); return Number.isFinite(n) ? n : null; };
+
+async function loadUnderdog() {
+  let j;
+  if (UD_FIX) { j = readFixture(UD_FIX); }
+  else {
+    const r = await fetch('https://api.underdogfantasy.com/beta/v5/over_under_lines', {
+      headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Accept-Language': 'en-US,en;q=0.9' },
+    });
+    if (!r.ok) throw new Error(`underdog HTTP ${r.status}`);
+    j = await r.json();
+  }
+  const players = Object.fromEntries((j.players || []).map(p => [p.id, p]));
+  const apps    = Object.fromEntries((j.appearances || []).map(a => [a.id, a]));
+  // team_id → abbr from each game's "AWAY @ HOME" title (Underdog only exposes
+  // team UUIDs on the player; the abbr is what the Sleeper resolver needs).
+  const teamAbbr = {};
+  for (const g of [...(j.games || []), ...(j.solo_games || [])]) {
+    const m = String(g.abbreviated_title || '').match(/([A-Z]{2,3})\s*@\s*([A-Z]{2,3})/);
+    if (m) { if (g.away_team_id) teamAbbr[g.away_team_id] = m[1]; if (g.home_team_id) teamAbbr[g.home_team_id] = m[2]; }
+  }
+  const lines = [];
+  for (const l of j.over_under_lines || []) {
+    if (l.line_type && l.line_type !== 'balanced') continue;   // skip boosted/special
+    const as = l.over_under && l.over_under.appearance_stat; if (!as) continue;
+    const stat = as.stat || '';
+    if (/^(season_|period_)/.test(stat)) continue;             // game lines only
+    const market = UD_STAT_MAP[stat]; if (!market) continue;
+    const app = apps[as.appearance_id]; if (!app) continue;
+    const player = players[app.player_id]; if (!player || player.sport_id !== 'NFL') continue;
+    const opts = l.options || [];
+    const over  = opts.find(o => o.choice === 'higher' || o.choice === 'over');
+    const under = opts.find(o => o.choice === 'lower'  || o.choice === 'under');
+    lines.push({
+      name: `${player.first_name || ''} ${player.last_name || ''}`.trim(),
+      team: teamAbbr[player.team_id] || null,
+      pos: player.position_name || null,
+      market,
+      line: l.stat_value != null ? Number(l.stat_value) : null,
+      over:  over  ? udAmerican(over.american_price)  : null,
+      under: under ? udAmerican(under.american_price) : null,
+    });
+  }
+  return { lines };
+}
+
+function buildUnderdog(ud, sl) {
+  const out = {}; const seen = new Set();
+  let matched = 0, unmatched = 0, count = 0;
+  for (const row of ud.lines) {
+    if (row.line == null) continue;
+    const hit = resolveSleeper(sl, row.name, row.team);
+    if (!hit) { unmatched++; continue; }
+    const id = hit.id;
+    const dedupe = id + '|' + row.market;
+    if (seen.has(dedupe)) continue;          // one representative line per market
+    seen.add(dedupe);
+    if (!out[id]) out[id] = { name: row.name || null, team: hit.team || row.team || null, pos: hit.pos || row.pos || null, lines: {}, opp: null, commence: null };
+    out[id].lines[row.market] = {
+      line: row.line, over: row.over, under: row.under, book: 'Underdog Fantasy',
+      quotes: [{ book: 'Underdog Fantasy', line: row.line, over: row.over, under: row.under }],
+      best: { over: null, under: null },
+      pickem: true,
+    };
+    count++;
+  }
+  matched = Object.keys(out).length;
+  return { props: out, stats: { players: matched, unmatched, lines: count } };
+}
+
+/* line-first best price for a side (mirrors src-vegas.mjs bestSide): a lower
+   line is strictly better for an OVER, a higher line for an UNDER; price only
+   breaks a tie. Recomputed after upserting a keyless quote. */
+function bestSide(quotes, side) {
+  const better = side === 'over' ? (a, b) => a < b : (a, b) => a > b;
+  return quotes.reduce((best, q) => {
+    if (q[side] == null) return best;
+    const cand = { book: q.book, price: q[side], line: q.line ?? null };
+    if (!best) return cand;
+    if (cand.line != null && best.line != null && cand.line !== best.line)
+      return better(cand.line, best.line) ? cand : best;
+    return cand.price > best.price ? cand : best;
+  }, null);
+}
+
 /* ── merge into feed ──────────────────────────────────────────────────────
    MERGE, don't replace. ParlayAPI (run by build-lineup-feed.mjs every 6h) is
-   the richer source — it returns PrizePicks AND other books with real
-   two-sided prices. This hourly keyless job runs more often, so we let it
-   keep things fresh by FILLING GAPS only: players or markets the richer feed
-   doesn't already cover. We never overwrite an existing priced line with the
-   keyless line. That way both jobs run at full cadence without fighting over
-   `vegas_player_props` (the flip-flop that would otherwise alternate the tab
-   between rich ParlayAPI odds and bare PrizePicks lines every :17).         */
-function mergeFeed(props, stats) {
+   the richer source for two-sided BOOK prices, but it MIRRORS PrizePicks /
+   Underdog lines and can serve them stale (that mirror is how Drake Maye's
+   pass-yds line got stuck at 169.5 when the real PrizePicks/Underdog line was
+   229.5). This hourly keyless job hits PrizePicks and Underdog DIRECTLY, so
+   for those two books it is the authoritative, fresher source. Policy:
+
+     • market missing            → add the keyless cell (gap-fill, as before)
+     • market present            → UPSERT this book's quote into the cell:
+         - replace/insert the same-book quote with the fresh line + prices
+         - if the cell's headline book IS this book, refresh cell.line too
+           (this is what corrects a stale mirrored line)
+         - recompute best over/under across the cell's quotes
+       Other books' quotes are never dropped, so nothing flip-flops between
+       rich ParlayAPI odds and bare keyless lines — we only correct the number
+       and add the missing cross-check quote.                                */
+function upsertQuote(cell, fresh, book) {
+  cell.quotes = cell.quotes || [];
+  const q = { book, line: fresh.line ?? null, over: fresh.over ?? null, under: fresh.under ?? null };
+  const i = cell.quotes.findIndex(x => x.book === book);
+  if (i >= 0) cell.quotes[i] = q; else cell.quotes.push(q);
+  // headline book is this book → its direct line is authoritative
+  if (cell.book === book && fresh.line != null) {
+    cell.line = fresh.line;
+    if (fresh.over != null) cell.over = fresh.over;
+    if (fresh.under != null) cell.under = fresh.under;
+  }
+  cell.best = cell.best || {};
+  cell.best.over  = bestSide(cell.quotes, 'over');
+  cell.best.under = bestSide(cell.quotes, 'under');
+}
+
+function mergeFeed(sources, stats) {
   if (!existsSync(FEED)) { log('feed not found, nothing to merge:', FEED); return false; }
   const feed = JSON.parse(readFileSync(FEED, 'utf8'));
   const existing = feed.vegas_player_props || {};
@@ -266,18 +416,23 @@ function mergeFeed(props, stats) {
     return false;
   }
 
-  let addedPlayers = 0, addedMarkets = 0, kept = 0;
-  for (const id in props) {
-    const pp = props[id];
-    if (!existing[id]) { existing[id] = pp; addedPlayers++; continue; }
-    const cur = existing[id];
-    // backfill identity / matchup if the richer feed left any of it blank
-    cur.name = cur.name || pp.name; cur.team = cur.team || pp.team; cur.pos = cur.pos || pp.pos;
-    cur.opp = cur.opp || pp.opp; cur.commence = cur.commence || pp.commence;
-    cur.lines = cur.lines || {};
-    for (const mk in (pp.lines || {})) {
-      if (cur.lines[mk]) { kept++; continue; }   // richer source already has this market — keep it
-      cur.lines[mk] = pp.lines[mk]; addedMarkets++;
+  let addedPlayers = 0, addedMarkets = 0, refreshed = 0;
+  for (const { props, book } of sources) {
+    for (const id in (props || {})) {
+      const src = props[id];
+      if (!existing[id]) { existing[id] = src; addedPlayers++; continue; }
+      const cur = existing[id];
+      // backfill identity / matchup if the richer feed left any of it blank
+      cur.name = cur.name || src.name; cur.team = cur.team || src.team; cur.pos = cur.pos || src.pos;
+      cur.opp = cur.opp || src.opp; cur.commence = cur.commence || src.commence;
+      cur.lines = cur.lines || {};
+      for (const mk in (src.lines || {})) {
+        if (!cur.lines[mk]) { cur.lines[mk] = src.lines[mk]; addedMarkets++; continue; }
+        // market already present — upsert this book's fresh, direct quote so a
+        // stale mirrored line self-corrects and the cross-check quote appears
+        upsertQuote(cur.lines[mk], src.lines[mk], book);
+        refreshed++;
+      }
     }
   }
 
@@ -286,9 +441,10 @@ function mergeFeed(props, stats) {
   // Only claim 'prizepicks' as the headline source when nothing richer set one.
   if (!feed.vegas_meta.props_source || feed.vegas_meta.props_source === 'none') feed.vegas_meta.props_source = 'prizepicks';
   feed.vegas_meta.props_players = Object.keys(existing).length;
-  feed.vegas_meta.props_pp_filled = addedPlayers + addedMarkets;   // what THIS run contributed
+  feed.vegas_meta.props_pp_filled = addedPlayers + addedMarkets;   // new cells this run
+  feed.vegas_meta.props_pp_refreshed = refreshed;                  // same-book lines corrected
   feed.vegas_meta.props_pp_generated = new Date().toISOString();
-  const summary = `+${addedPlayers} players, +${addedMarkets} markets (kept ${kept} from richer feed) — ${had} → ${Object.keys(existing).length}`;
+  const summary = `+${addedPlayers} players, +${addedMarkets} markets, ~${refreshed} refreshed — ${had} → ${Object.keys(existing).length}`;
   if (DRY) { log('DRY — would merge:', summary); return true; }
   writeFileSync(FEED, JSON.stringify(feed));
   log(`merged into ${FEED}: ${summary}`);
@@ -300,11 +456,35 @@ function mergeFeed(props, stats) {
   try {
     const sl = await loadSleeperMap();
     log('sleeper map:', Object.keys(sl.map).length, 'names');
-    const pp = await loadPrizePicks();
-    log('prizepicks:', Object.keys(pp.players).length, 'players,', pp.projections.length, 'projections');
-    const { props, stats } = buildProps(pp, sl);
-    log(`mapped: ${stats.players} players, ${stats.lines} lines, ${stats.events} event-days, ${stats.unmatched} unmatched names`);
-    mergeFeed(props, stats);
+
+    const sources = [];
+    let totalPlayers = 0;
+
+    // PrizePicks (partner-api) — soft-fail so an Underdog-only run still works
+    if (!NO_PP) {
+      try {
+        const pp = await loadPrizePicks();
+        log('prizepicks:', Object.keys(pp.players).length, 'players,', pp.projections.length, 'projections');
+        const { props, stats } = buildProps(pp, sl);
+        log(`  → mapped ${stats.players} players, ${stats.lines} lines, ${stats.unmatched} unmatched`);
+        sources.push({ props, book: 'PrizePicks' });
+        totalPlayers += stats.players;
+      } catch (e) { log('prizepicks skipped:', e.message); }
+    }
+
+    // Underdog Fantasy — soft-fail so a PrizePicks-only run still works
+    if (!NO_UD) {
+      try {
+        const ud = await loadUnderdog();
+        log('underdog:', ud.lines.length, 'nfl game lines');
+        const { props, stats } = buildUnderdog(ud, sl);
+        log(`  → mapped ${stats.players} players, ${stats.lines} lines, ${stats.unmatched} unmatched`);
+        sources.push({ props, book: 'Underdog Fantasy' });
+        totalPlayers += stats.players;
+      } catch (e) { log('underdog skipped:', e.message); }
+    }
+
+    mergeFeed(sources, { players: totalPlayers });
   } catch (e) {
     log('ERROR:', e.message);
     process.exit(0); // never fail the workflow / never wipe the feed on error

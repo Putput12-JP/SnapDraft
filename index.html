@@ -13264,6 +13264,20 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T21:30', tag:'Improved', title:'More books on props, and a flag for lines we can’t confirm',
+    items:[
+      'Player Props now pulls Underdog lines directly alongside PrizePicks, so many more props show a second book to compare — and the best price is shopped across both.',
+      'When only one book is posting a number and Vault’s projection screams a huge edge, that’s exactly when a stale or mistyped line fakes an edge that isn’t there. Those now show an amber “⚠ unverified” instead of a confident green number, and they no longer sort to the top of the board.',
+      'Once a second book confirms the same line, the edge grades normally again.',
+    ],
+  },
+  {
+    ts:'2026-08-27T20:45', tag:'Improved', title:'Better receiving-touchdown projections',
+    items:[
+      'Vault now projects a player’s receiving-TD chances from how the ball actually comes their way — their target volume and how often those targets turn into scores — instead of just their recent touchdown streak. It reads truer week to week, since targets are far steadier than the touchdowns themselves.',
+    ],
+  },
+  {
     ts:'2026-08-27T20:00', tag:'Improved', title:'Sharper projections for receptions and rushing props',
     items:[
       'Vault now models each stat with the shape that fits it best — receptions and rush attempts as bursty, boom-or-bust counts, and rushing/receiving yards with their long upside tail, instead of forcing everything into one bell curve.',
@@ -39699,7 +39713,8 @@ window.VaultPropModel = (function () {
   function sumSeries(weeks, fields) { const out = []; for (const w of weeks) { const vals = fields.map(f => num(w[f])); if (vals.every(v => v == null)) continue; out.push(vals.reduce((a, v) => a + (v || 0), 0)); } return out; }
   function _marketKeyOf(m) { const k = Object.keys(m.prior)[0] || ''; return k.includes('|') ? k.split('|')[0] : k; }
   function projectFrom(weeks, m, minPrior) {
-    if (m.kind === 'count' || m.kind === 'poisson') {
+    // Direct projection unless the market declares usage fields (vol+eff_num) — yards always, rec_td opts in (targets × TD-rate).
+    if (!(m.vol && m.eff_num) && (m.kind === 'count' || m.kind === 'poisson')) {
       const s = m.stat_sum ? sumSeries(weeks, m.stat_sum) : series(weeks, m.stat);
       if (s.length < minPrior) return null;
       return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
@@ -40632,7 +40647,7 @@ window.VaultPropModel = (function () {
       : SK === 'best' ? (r.fe.bestPrice ?? -Infinity)
       : SK === 'lean' ? ((r.proj != null && r.line != null) ? (r.proj - r.line) : -Infinity)
       : SK === 'hit' ? (_hitCache[propKey(r)] ?? -Infinity)
-      : SK === 'vault' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].ev != null) ? _vaultCache[propKey(r)].ev : -Infinity)
+      : SK === 'vault' ? (() => { const c = _vaultCache[propKey(r)]; if (!c || c.ev == null) return -Infinity; return c.unv ? Math.min(c.ev, 0) : c.ev; })()
       : SK === 'grade' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].g) ? _vaultCache[propKey(r)].g.padj : -Infinity)
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
@@ -40835,9 +40850,11 @@ window.VaultPropModel = (function () {
       const mp = BM.americanToProb(fe.bestPrice);
       const ed = mp != null ? BM.findEdge(sideProb, mp) : null;
       const ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+      const unv = edgeUnverified(r, sideProb, ev);
+      const nB = lineTrust(r).books;
       t.innerHTML = '<div class="tl">Vault edge</div>'
-        + '<div class="tv ' + (ev != null && ev > 0 ? 'good' : '') + '">' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%') + '</div>'
-        + '<div class="ts" style="' + SS + '">proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%</div>';
+        + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (unv ? ' ⚠' : '')) + '</div>'
+        + '<div class="ts" style="' + SS + '">' + (unv ? 'unverified · ' + (nB === 1 ? 'single-book line' : 'books disagree') : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%') + '</div>';
       // Vault grade tile — same confidence-tempered grade as the board column.
       const g = vaultGrade(v.over, v.under, v.games);
       if (!g) { setG('<div class="tv"><span class="mut">—</span></div>'); return; }
@@ -40847,12 +40864,41 @@ window.VaultPropModel = (function () {
         + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(g.p * 100) + '% · vs ' + Math.round(betBE * 100) + '% BE</div>');
     });
   }
+  // ── phantom-edge guard ────────────────────────────────────────────────
+  // A single-source line (only one book quotes it) that Vault's projection
+  // disagrees with by a lot is the classic bad-data trap: a stale or typo'd
+  // line manufactures a giant fake edge (Drake Maye 169.5 when the real line
+  // was 229.5 → a phantom +65% "over 83%"). We only trust a strong edge when a
+  // SECOND book corroborates the number; otherwise we flag it "unverified" and
+  // keep it from topping the board.
+  function lineTrust(r) {
+    if (!r || r.synthetic) return { books: 0, corrob: false };   // synth jitter isn't a market
+    const seen = new Map();                                       // book → its line
+    for (const q of (r.quotes || [])) if (q && q.book && q.line != null && !seen.has(q.book)) seen.set(q.book, q.line);
+    const books = seen.size;
+    if (books < 2) return { books, corrob: false };
+    const lines = [...seen.values()];
+    const spread = Math.max(...lines) - Math.min(...lines);
+    const tol = Math.max(1.5, 0.06 * Math.abs(r.line || 0));      // books "agree" within ~6% / 1.5 units
+    return { books, corrob: spread <= tol, spread };
+  }
+  // A positive edge is "unverified" when the line lacks a corroborating second
+  // book AND the call is strong (extreme model prob, or a big EV) — exactly the
+  // shape a bad line produces. Modest edges on thin lines are left alone.
+  function edgeUnverified(r, sideProb, ev) {
+    if (ev == null || ev <= 0) return false;
+    if (lineTrust(r).corrob) return false;
+    return (sideProb != null && sideProb >= 0.75) || ev >= 20;
+  }
+
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
   // Vault-edge cell: undefined cache = still loading (·); ev null = no usable
-  // projection (—); else the signed EV%, green when positive.
+  // projection (—); else the signed EV%, green when positive. An unverified
+  // edge (single-book line) shows amber with a caret and never green.
   function vaultCellHTML(c) {
     if (!c) return '<span class="mut">·</span>';
     if (c.ev == null) return '<span class="mut">—</span>';
+    if (c.unv) return '<span title="Single-book line — no second book to confirm this number, so the edge is unverified" style="color:var(--bt-gold);font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%<span style="font-size:9px;opacity:.8"> ⚠</span></span>';
     return '<span style="color:' + (c.ev > 0 ? 'var(--bt-green)' : 'var(--bt-muted)') + ';font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%</span>';
   }
 
@@ -40901,16 +40947,17 @@ window.VaultPropModel = (function () {
       if (k in _vaultCache) return null;                 // already resolved — body rendered it
       if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null }; changed = true; return null; }
       return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
-        let ev = null, proj = null, g = null;
+        let ev = null, proj = null, g = null, unv = false;
         if (v && v.proj != null) {
           proj = v.proj;
           const sideProb = r.fe.side === 'under' ? v.under : v.over;
           const mp = BM.americanToProb(r.fe.bestPrice);
           const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
           ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+          unv = edgeUnverified(r, sideProb, ev);          // single-book line → don't trust a strong edge
           g = vaultGrade(v.over, v.under, v.games);       // pickem confidence grade (player's own game count)
         }
-        _vaultCache[k] = { ev, proj, g }; changed = true;
+        _vaultCache[k] = { ev, proj, g, unv }; changed = true;
         const tv = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
         if (tv) tv.innerHTML = vaultCellHTML(_vaultCache[k]);
         const tg = _pvInner() && _pvInner().querySelector('[data-vg="' + k + '"]');
