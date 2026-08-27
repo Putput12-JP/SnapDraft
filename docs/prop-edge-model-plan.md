@@ -126,8 +126,41 @@ Negative-Binomial (overdispersed, r≈10.7/4.4); all TD markets → Poisson.
   is the real fix; temperature was the crude patch. Kept as a harmless safety net.
 
 Follow-on (not blocking): gamma as a third yards candidate; per-line-location
-reliability; usage-based TD projection is the separate lever for un-holding
-rush/anytime TD.
+reliability.
+
+---
+
+## Usage-based TD projection  ·  INVESTIGATED → NO-GO for the held markets
+
+Hypothesis: project TDs from stable usage (carries/targets × TD-rate-per-use),
+like the yards markets, instead of the noisy recency TD rate — to un-hold
+rush_td / anytime_td. **Measured (walk-forward OOS log-loss, since 2016;
+scratch scripts in /scratchpad td_usage*.py):**
+
+| market | direct (current) | usage | verdict |
+|---|---|---|---|
+| rush_td | 0.330 | 0.355 (carries×rate) | usage WORSE |
+| anytime_td | 0.394 | 0.394 (rush-direct + rec-usage) | tie |
+| rec_td | 0.262 | **0.251** (targets×rate) | usage better (+4%) |
+
+- **rush_td / anytime_td can't be usage-fixed with our data.** Rush TDs are
+  goal-line events; nflverse weekly rows have `car`/`tgt`/`ays`/`wopr` but **no
+  red-zone / goal-line splits**, and total carries don't predict goal-line looks.
+  Heavier regression of the raw TD rate also loses (kv 2→4→8 = 0.330→0.345→0.367),
+  so the current projection is already optimal. **They stay HELD.** This is the
+  same class of measured no-go as the rejected opponent adjustment.
+- **Air yards / wopr as the receiving volume was WORSE than raw targets** (0.268
+  vs 0.251) — targets is the right usage signal for rec TDs.
+- **Real (small) win available:** rec_td improves ~4% with a targets×(TD/target)
+  usage projection. rec_td is already shipped and clears comfortably, and the
+  change means routing a Poisson market through the volume×efficiency path
+  (`is_usage(spec)` in build's projectFrom + eval_market + compute_priors, and the
+  JS `projectFrom`). Worth doing when touching that code; not worth core-projection
+  surgery on an already-good market on its own.
+
+The genuine remaining lever for the held TD markets is **red-zone / goal-line
+data** (a new nflverse pull: rushes inside the 5/10, end-zone targets), not a
+reshuffle of box-score totals. That's the only thing that would move them.
 
 ---
 
