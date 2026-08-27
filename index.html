@@ -13264,6 +13264,15 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T17:00', tag:'New', title:'Vault grade — confidence for pickem plays',
+    items:[
+      'Player Props now has a Vault grade column, built for pickem apps (Underdog, PrizePicks) where you just pick more or less and there’s no price to shop.',
+      'The grade is Vault’s confidence in a pick: it shows the side Vault leans (O/U) and an A–F letter from how strongly its projection favors that side.',
+      'It’s honest about small samples — a big projected edge on a player with barely any game history gets pulled toward a coin flip, so a thin “A” can’t masquerade as a lock. Hover the grade to see the raw hit% and how many games back it.',
+      'Sort by it to line up Vault’s most confident, best-supported picks first.',
+    ],
+  },
+  {
     ts:'2026-08-27T16:15', tag:'New', title:'Vault edge, right on the props board',
     items:[
       'Player Props now has a Vault edge column: how Vault’s own projection prices each line versus the book’s best price, as a +/- percentage — the same number that was only in the detail card before.',
@@ -40582,6 +40591,7 @@ window.VaultPropModel = (function () {
       : SK === 'lean' ? ((r.proj != null && r.line != null) ? (r.proj - r.line) : -Infinity)
       : SK === 'hit' ? (_hitCache[propKey(r)] ?? -Infinity)
       : SK === 'vault' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].ev != null) ? _vaultCache[propKey(r)].ev : -Infinity)
+      : SK === 'grade' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].g) ? _vaultCache[propKey(r)].g.padj : -Infinity)
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
     if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
@@ -40593,7 +40603,7 @@ window.VaultPropModel = (function () {
     const anyLean = seasonReg && rows.some(r => r.proj != null && r.line != null);
     const car = k => ebSort.key === k ? '<span class="ebs-c">' + (ebSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
     const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
-    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + SC('Vault edge', 'vault', 'r') + (anyLean ? SC('Lean', 'lean', 'r') : '') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th></tr></thead>';
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + (anyLean ? SC('Lean', 'lean', 'r') : '') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th></tr></thead>';
     const body = rows.map((r, i) => {
       const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
@@ -40609,11 +40619,12 @@ window.VaultPropModel = (function () {
         + '<td style="text-align:right">' + (fe.ev == null ? mut : '<span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span>') + '</td>'
         + '<td class="eb-fb">' + (fe.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>') + '</td>'
         + '<td class="eb-vault" data-vk="' + propKey(r) + '" style="text-align:right">' + vaultCellHTML(_vaultCache[propKey(r)]) + '</td>'
+        + '<td class="eb-gradecell" data-vg="' + propKey(r) + '" style="text-align:center">' + gradeCellHTML(_vaultCache[propKey(r)]) + '</td>'
         + (anyLean ? '<td class="eb-lean" style="text-align:right">' + (lean == null ? '<span class="mut">—</span>' : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + (lean > 0 ? '+' : '') + lean + '</span>') + '</td>' : '')
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
     }).join('');
-    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge' };
+    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge', grade: 'Vault grade' };
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
     _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
       + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
@@ -40788,6 +40799,30 @@ window.VaultPropModel = (function () {
     return '<span style="color:' + (c.ev > 0 ? 'var(--bt-green)' : 'var(--bt-muted)') + ';font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%</span>';
   }
 
+  // Vault's confidence on a PICK, for pickem play (no price to shop — you just
+  // pick more/less). Grades the calibrated hit probability on Vault's favored
+  // side, but shrinks it toward a coin-flip when the sample is thin, so a
+  // 3-game +65% doesn't outrank a 40-game +6%. p_adj = 0.5 + (p-0.5)·n/(n+K):
+  // a Bayesian pull toward 50% that fades as the game count grows (K=6).
+  function vaultGrade(over, under, n) {
+    if (over == null || under == null) return null;
+    const p = Math.max(over, under), side = over >= under ? 'over' : 'under';
+    const K = 6, g = n != null ? n : 0;
+    const padj = 0.5 + (p - 0.5) * (g / (g + K));
+    const grade = padj >= 0.60 ? 'A' : padj >= 0.565 ? 'B' : padj >= 0.535 ? 'C' : padj >= 0.515 ? 'D' : 'F';
+    return { grade, side, p, padj, n: g };
+  }
+  // Grade cell: letter coloured by strength, with the side Vault leans (O/U).
+  // Title carries the raw hit% and sample size so the shrink is transparent.
+  function gradeCellHTML(c) {
+    if (!c) return '<span class="mut">·</span>';
+    if (!c.g) return '<span class="mut">—</span>';
+    const g = c.g, cls = g.grade === 'A' ? 'a' : g.grade === 'B' ? 'b' : g.grade === 'C' ? 'c' : g.grade === 'D' ? 'd' : 'f';
+    const sd = g.side === 'over' ? 'O' : 'U';
+    const tip = 'Vault ' + sd + ' ' + Math.round(g.p * 100) + '% · ' + g.n + ' game' + (g.n === 1 ? '' : 's') + ' of history';
+    return '<span class="eb-grade ' + cls + '" title="' + tip + '"><span class="eb-gside">' + sd + '</span>' + g.grade + '</span>';
+  }
+
   // Fill the Vault-edge column from Vault's OWN projection (VaultPropModel):
   // fair prob on the pick side → edge vs the best book price → EV%. Async (needs
   // a game-log fetch), so results cache in _vaultCache; already-cached rows are
@@ -40800,20 +40835,23 @@ window.VaultPropModel = (function () {
     const ps = rows.map(r => {
       const k = propKey(r);
       if (k in _vaultCache) return null;                 // already resolved — body rendered it
-      if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null }; changed = true; return null; }
+      if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null }; changed = true; return null; }
       return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
-        let ev = null, proj = null;
+        let ev = null, proj = null, g = null;
         if (v && v.proj != null) {
           proj = v.proj;
           const sideProb = r.fe.side === 'under' ? v.under : v.over;
           const mp = BM.americanToProb(r.fe.bestPrice);
           const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
           ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+          g = vaultGrade(v.over, v.under, v.n);           // pickem confidence grade
         }
-        _vaultCache[k] = { ev, proj }; changed = true;
-        const td = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
-        if (td) td.innerHTML = vaultCellHTML(_vaultCache[k]);
-      }).catch(() => { _vaultCache[k] = { ev: null, proj: null }; });
+        _vaultCache[k] = { ev, proj, g }; changed = true;
+        const tv = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
+        if (tv) tv.innerHTML = vaultCellHTML(_vaultCache[k]);
+        const tg = _pvInner() && _pvInner().querySelector('[data-vg="' + k + '"]');
+        if (tg) tg.innerHTML = gradeCellHTML(_vaultCache[k]);
+      }).catch(() => { _vaultCache[k] = { ev: null, proj: null, g: null }; });
     }).filter(Boolean);
     if (ps.length) Promise.all(ps).then(() => { if (changed && ebSort.key === 'vault') renderPropsBoard(); });
   }
@@ -41151,6 +41189,13 @@ window.VaultPropModel = (function () {
 #page-betting .eb-side.over{background:color-mix(in srgb,var(--bt-green) 15%,transparent);color:var(--bt-green)}
 #page-betting .eb-side.under{background:color-mix(in srgb,var(--bt-red,#e23a4e) 15%,transparent);color:var(--bt-red,#ff5a6e)}
 #page-betting .eb-side.pick{background:color-mix(in srgb,var(--bt-muted) 18%,transparent);color:var(--bt-muted)}
+#page-betting .eb-grade{display:inline-flex;align-items:center;gap:3px;font-family:var(--bt-mono);font-size:13px;font-weight:800;padding:2px 7px;border-radius:5px;line-height:1}
+#page-betting .eb-grade .eb-gside{font-size:9px;font-weight:700;opacity:.7}
+#page-betting .eb-grade.a{background:color-mix(in srgb,var(--bt-green) 18%,transparent);color:var(--bt-green)}
+#page-betting .eb-grade.b{background:color-mix(in srgb,var(--bt-green) 12%,transparent);color:var(--bt-green)}
+#page-betting .eb-grade.c{background:color-mix(in srgb,var(--bt-gold) 16%,transparent);color:var(--bt-gold)}
+#page-betting .eb-grade.d{background:color-mix(in srgb,var(--bt-muted) 16%,transparent);color:var(--bt-muted)}
+#page-betting .eb-grade.f{background:color-mix(in srgb,var(--bt-red,#e23a4e) 14%,transparent);color:var(--bt-red,#ff5a6e)}
 #page-betting .eb-m2{font-family:var(--bt-mono);font-size:13px;color:var(--bt-text2)}
 #page-betting .eb-ev{font-family:var(--bt-mono);font-weight:700;font-size:13.5px;color:var(--bt-green)}
 #page-betting .eb-fb{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);text-align:right}
