@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T15:30', tag:'Improved', title:'Sort the betting boards by any column',
+    items:[
+      'Player Props: the Hit% L10 column is now sortable — tap it to rank every line by how often the player has cleared it lately.',
+      'Game Markets: tap any column header (Game, Pick, EV, Fair / Best, Kalshi, Book) to sort the board by it, same as Player Props. Tap again to flip the direction.',
+    ],
+  },
+  {
     ts:'2026-08-27T12:00', tag:'Fixed', title:'Every player prop shows up now',
     items:[
       'Player Props was hiding most lines — you might have seen one QB’s passing yards when a book was actually pricing all of them. Now every real line a book is offering shows on the board.',
@@ -40160,6 +40167,7 @@ window.VaultPropModel = (function () {
      Kalshi columns arrive with their feeds. */
   let gSel = 0;       // selected game index for the featured detail
   let gbBooksOpen = false;   // featured game's "Every book" strip collapsed by default
+  let gmSort = { key: 'ev', dir: -1 };   // game-markets board column sort
 
   // Kalshi prediction-market prices (data/prediction_markets.json), lazy + cached.
   let _kalshi = null, _kalshiTried = false;
@@ -40403,7 +40411,16 @@ window.VaultPropModel = (function () {
     // board across every game, filtered to the selected market (Spread / Total /
     // Moneyline), ranked by EV. The featured card above still shows all three.
     const gmLabel = (GM_TABS.find(t => t[0] === curGM) || [, curGM])[1];
-    const allBets = withBets.flatMap(x => x.bets).filter(b => b.market === curGM).sort((a, b) => (b.ev ?? -99) - (a.ev ?? -99));
+    // Column sort (defaults to EV-desc; re-order per the clicked header).
+    const GK = gmSort.key, GD = gmSort.dir;
+    const gmv = b => GK === 'game' ? (b.g.away || '')
+      : GK === 'pick' ? (b.lab || '')
+      : GK === 'best' ? (b.bestPrice ?? -Infinity)
+      : GK === 'kalshi' ? (b.xedge != null ? b.xedge : (b.kcents != null ? -1e6 + b.kcents : -Infinity))
+      : GK === 'book' ? (b.bestBook || '')
+      : (b.ev ?? -Infinity);
+    const allBets = withBets.flatMap(x => x.bets).filter(b => b.market === curGM)
+      .sort((a, b) => (GK === 'game' || GK === 'pick' || GK === 'book') ? GD * gmv(a).localeCompare(gmv(b)) : GD * (gmv(a) - gmv(b)));
     const rowsH = allBets.map((b, i) => '<tr data-gi="' + withBets.findIndex(x => x.g === b.g) + '">'
       + '<td class="eb-rk">' + (i + 1) + '</td>'
       + '<td class="gb-gm">' + b.g.away + ' <span class="mut">@ ' + b.g.home + '</span></td>'
@@ -40413,10 +40430,15 @@ window.VaultPropModel = (function () {
       + '<td class="gb-kalc">' + (b.kp != null ? b.kcents + '¢' + (b.xedge > 0 ? ' <span class="eb-best">+' + b.xedge + '%</span>' : '') : '<span class="mut">—</span>') + '</td>'
       + '<td class="gb-move">' + (() => { const mt = moveTag(b.g.away + '@' + b.g.home, b.market); return mt ? '<span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span>' : '<span class="mut">—</span>'; })() + '</td>'
       + '<td class="gb-bk">' + (b.bestBook || '—') + '</td></tr>').join('');
+    const GSORTLBL = { game: 'game', pick: 'pick', ev: 'EV', best: 'best price', kalshi: 'Kalshi', book: 'book' };
+    const gcar = k => gmSort.key === k ? '<span class="ebs-c">' + (gmSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
+    const GSC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (gmSort.key === key ? ' on' : '') + '" data-gk="' + key + '">' + label + gcar(key) + '</th>';
+    const gcn = allBets.length ? allBets.length + ' priced bets · sorted by ' + (GSORTLBL[gmSort.key] || 'EV') + (gmSort.dir < 0 ? ' ↓' : ' ↑') : 'no ' + gmLabel.toLowerCase() + ' priced yet';
     inner.innerHTML = '<div class="eb-wrap">' + feat
-      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Best ' + gmLabel + ' value · every game</div><div class="eb-cn">' + (allBets.length ? allBets.length + ' priced bets · ranked by EV' : 'no ' + gmLabel.toLowerCase() + ' priced yet') + '</div></div>'
-      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th><th>Game</th><th>Pick</th><th class="r">EV / $1</th><th class="r">Fair / Best</th><th class="c">Kalshi</th><th class="c">Move</th><th class="c">Book</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
+      + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Best ' + gmLabel + ' value · every game</div><div class="eb-cn">' + gcn + '</div></div>'
+      + '<div class="eb-tscroll"><table class="eb-table"><thead><tr><th></th>' + GSC('Game', 'game') + GSC('Pick', 'pick') + GSC('EV / $1', 'ev', 'r') + GSC('Fair / Best', 'best', 'r') + GSC('Kalshi', 'kalshi', 'c') + '<th class="c">Move</th>' + GSC('Book', 'book', 'c') + '</tr></thead><tbody>' + rowsH + '</tbody></table></div></div></div>';
     paintLogos('#bt-gv-inner');
+    inner.querySelectorAll('.eb-table thead th.ebs').forEach(th => th.onclick = () => { const k = th.dataset.gk; if (gmSort.key === k) gmSort.dir *= -1; else gmSort = { key: k, dir: (k === 'game' || k === 'pick' || k === 'book') ? 1 : -1 }; renderGamesBoard(); });
     inner.querySelectorAll('tbody tr[data-gi]').forEach(tr => tr.onclick = () => { const gi = +tr.dataset.gi; if (gi >= 0) { gSel = gi; renderGamesBoard(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
     const gbTgl = inner.querySelector('.gb-bkstoggle'); if (gbTgl) gbTgl.onclick = () => { gbBooksOpen = !gbBooksOpen; renderGamesBoard(); };
     // Kalshi + line history load once, then repaint so their columns fill in.
@@ -40437,6 +40459,7 @@ window.VaultPropModel = (function () {
   let ebSel = null;          // selected prop key (id:market) for the detail
   let ebRange = 'L10';       // game-log window: L5 | L10 | L20 | SZN | H2H
   let ebSort = { key: 'ev', dir: -1 };   // leaderboard column sort
+  const _hitCache = {};      // propKey → L10 hit% (async-filled; lets the Hit% column sort)
   const WKEY = 'vault-bet-watch';
   function _watchLoad() { try { return new Set(JSON.parse(localStorage.getItem(WKEY) || '[]')); } catch (e) { return new Set(); } }
   const watch = _watchLoad();
@@ -40549,6 +40572,7 @@ window.VaultPropModel = (function () {
       : SK === 'edge' ? (r.fe.edgePts ?? -Infinity)
       : SK === 'best' ? (r.fe.bestPrice ?? -Infinity)
       : SK === 'lean' ? ((r.proj != null && r.line != null) ? (r.proj - r.line) : -Infinity)
+      : SK === 'hit' ? (_hitCache[propKey(r)] ?? -Infinity)
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
     if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
@@ -40560,7 +40584,7 @@ window.VaultPropModel = (function () {
     const anyLean = seasonReg && rows.some(r => r.proj != null && r.line != null);
     const car = k => ebSort.key === k ? '<span class="ebs-c">' + (ebSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
     const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
-    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + (anyLean ? SC('Lean', 'lean', 'r') : '') + '<th class="c">Hit% L10</th><th class="c">Watch</th></tr></thead>';
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + (anyLean ? SC('Lean', 'lean', 'r') : '') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th></tr></thead>';
     const body = rows.map((r, i) => {
       const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
@@ -40579,7 +40603,7 @@ window.VaultPropModel = (function () {
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
     }).join('');
-    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean' };
+    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate' };
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
     _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
       + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
@@ -40747,15 +40771,20 @@ window.VaultPropModel = (function () {
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
   function ebFillHits(rows) {
     const PH = window.VaultPropHistory; if (!PH) return;
-    rows.forEach(r => {
-      PH.forProp(r.name, r.market, r.line, r.fe.side, { limit: 10 }).then(h => {
-        const td = _pvInner() && _pvInner().querySelector('[data-hitk="' + propKey(r) + '"]');
-        if (!td) return;
-        const v = h && h.heat ? h.heat.L10 : null;
-        const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-muted)';
-        td.innerHTML = v == null ? '<span class="mut">—</span>' : '<span style="color:' + c + ';font-weight:700">' + v + '%</span>';
-      });
-    });
+    let changed = false;
+    const ps = rows.map(r => PH.forProp(r.name, r.market, r.line, r.fe.side, { limit: 10 }).then(h => {
+      const k = propKey(r);
+      const v = h && h.heat ? h.heat.L10 : null;
+      if (_hitCache[k] !== v) { _hitCache[k] = v; changed = true; }
+      const td = _pvInner() && _pvInner().querySelector('[data-hitk="' + k + '"]');
+      if (!td) return;
+      const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-muted)';
+      td.innerHTML = v == null ? '<span class="mut">—</span>' : '<span style="color:' + c + ';font-weight:700">' + v + '%</span>';
+    }).catch(() => {}));
+    // If the board is sorted by Hit% and this pass filled in new values, re-sort
+    // once. The guard (changed) can't loop: the re-render's fill finds every
+    // value already cached, so nothing changes and it stops.
+    Promise.all(ps).then(() => { if (changed && ebSort.key === 'hit') renderPropsBoard(); });
   }
 
   // ══ Anytime TD · Vault-only board ════════════════════════════════════════
