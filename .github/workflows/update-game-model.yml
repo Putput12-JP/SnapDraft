@@ -1,0 +1,44 @@
+# Refits the Vault NFL game model (team power ratings → projected spread / total /
+# win%) from nflverse game scores and writes data/game_model.json. Pure stdlib,
+# no API key. Ratings only change when new games are played, so this refits
+# weekly during the season.
+name: Update game model
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Weekly, Wednesday 15:40 UTC — after the week's games are final and
+    # nflverse has updated games.csv. Off-hour; commits only when ratings change.
+    - cron: '40 15 * * 3'
+
+concurrency:
+  group: game-model
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  game-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install requests
+        run: pip install requests
+
+      - name: Fit NFL game model
+        run: python3 scripts/build_game_model.py
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/game_model.json; then
+            echo "No game-model changes."
+          else
+            git config user.name  "vault-bot"
+            git config user.email "vault-bot@users.noreply.github.com"
+            git add data/game_model.json
+            git commit -m "betting: refit Vault NFL game model [skip ci]"
+            git push
+          fi
