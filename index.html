@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T16:15', tag:'New', title:'Vault edge, right on the props board',
+    items:[
+      'Player Props now has a Vault edge column: how Vault’s own projection prices each line versus the book’s best price, as a +/- percentage — the same number that was only in the detail card before.',
+      'Sort by it to put Vault’s biggest disagreements with the market at the top. A “—” means Vault doesn’t have enough game history on that player yet.',
+    ],
+  },
+  {
     ts:'2026-08-27T15:30', tag:'Improved', title:'Sort the betting boards by any column',
     items:[
       'Player Props: the Hit% L10 column is now sortable — tap it to rank every line by how often the player has cleared it lately.',
@@ -40460,6 +40467,7 @@ window.VaultPropModel = (function () {
   let ebRange = 'L10';       // game-log window: L5 | L10 | L20 | SZN | H2H
   let ebSort = { key: 'ev', dir: -1 };   // leaderboard column sort
   const _hitCache = {};      // propKey → L10 hit% (async-filled; lets the Hit% column sort)
+  const _vaultCache = {};    // propKey → {ev,proj} from Vault's OWN projection (async-filled; lets the Vault-edge column show + sort)
   const WKEY = 'vault-bet-watch';
   function _watchLoad() { try { return new Set(JSON.parse(localStorage.getItem(WKEY) || '[]')); } catch (e) { return new Set(); } }
   const watch = _watchLoad();
@@ -40573,6 +40581,7 @@ window.VaultPropModel = (function () {
       : SK === 'best' ? (r.fe.bestPrice ?? -Infinity)
       : SK === 'lean' ? ((r.proj != null && r.line != null) ? (r.proj - r.line) : -Infinity)
       : SK === 'hit' ? (_hitCache[propKey(r)] ?? -Infinity)
+      : SK === 'vault' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].ev != null) ? _vaultCache[propKey(r)].ev : -Infinity)
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
     if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
@@ -40584,7 +40593,7 @@ window.VaultPropModel = (function () {
     const anyLean = seasonReg && rows.some(r => r.proj != null && r.line != null);
     const car = k => ebSort.key === k ? '<span class="ebs-c">' + (ebSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
     const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
-    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + (anyLean ? SC('Lean', 'lean', 'r') : '') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th></tr></thead>';
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + SC('Vault edge', 'vault', 'r') + (anyLean ? SC('Lean', 'lean', 'r') : '') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th></tr></thead>';
     const body = rows.map((r, i) => {
       const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
@@ -40599,11 +40608,12 @@ window.VaultPropModel = (function () {
         + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts == null ? mut : (fe.edgePts > 0 ? '+' : '') + fe.edgePts) + '</td>'
         + '<td style="text-align:right">' + (fe.ev == null ? mut : '<span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span>') + '</td>'
         + '<td class="eb-fb">' + (fe.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>') + '</td>'
+        + '<td class="eb-vault" data-vk="' + propKey(r) + '" style="text-align:right">' + vaultCellHTML(_vaultCache[propKey(r)]) + '</td>'
         + (anyLean ? '<td class="eb-lean" style="text-align:right">' + (lean == null ? '<span class="mut">—</span>' : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + (lean > 0 ? '+' : '') + lean + '</span>') + '</td>' : '')
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
     }).join('');
-    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate' };
+    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge' };
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
     _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
       + '<div class="eb-board"><div class="eb-bh"><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
@@ -40614,7 +40624,8 @@ window.VaultPropModel = (function () {
     _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); });
     const selRow = rows.find(r => propKey(r) === ebSel) || rows[0];
     renderPropDetail(selRow);
-    ebFillHits(rows);   // async hit% into the leaderboard cells
+    ebFillHits(rows);      // async hit% into the leaderboard cells
+    ebFillVaultCol(rows);  // async Vault-edge (own projection) into its column
   }
 
   /* Per-book price strip for ONE prop, on the pick side. Consensus-line books
@@ -40769,6 +40780,44 @@ window.VaultPropModel = (function () {
     });
   }
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
+  // Vault-edge cell: undefined cache = still loading (·); ev null = no usable
+  // projection (—); else the signed EV%, green when positive.
+  function vaultCellHTML(c) {
+    if (!c) return '<span class="mut">·</span>';
+    if (c.ev == null) return '<span class="mut">—</span>';
+    return '<span style="color:' + (c.ev > 0 ? 'var(--bt-green)' : 'var(--bt-muted)') + ';font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%</span>';
+  }
+
+  // Fill the Vault-edge column from Vault's OWN projection (VaultPropModel):
+  // fair prob on the pick side → edge vs the best book price → EV%. Async (needs
+  // a game-log fetch), so results cache in _vaultCache; already-cached rows are
+  // rendered straight from the body and skipped here. Mirrors ebFillHits: if the
+  // board is sorted by Vault edge and this pass filled new values, re-sort once
+  // (the guard can't loop — the re-render finds everything cached).
+  function ebFillVaultCol(rows) {
+    const PM = window.VaultPropModel, BM = window.VaultBettingMath;
+    let changed = false;
+    const ps = rows.map(r => {
+      const k = propKey(r);
+      if (k in _vaultCache) return null;                 // already resolved — body rendered it
+      if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null }; changed = true; return null; }
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
+        let ev = null, proj = null;
+        if (v && v.proj != null) {
+          proj = v.proj;
+          const sideProb = r.fe.side === 'under' ? v.under : v.over;
+          const mp = BM.americanToProb(r.fe.bestPrice);
+          const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
+          ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+        }
+        _vaultCache[k] = { ev, proj }; changed = true;
+        const td = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
+        if (td) td.innerHTML = vaultCellHTML(_vaultCache[k]);
+      }).catch(() => { _vaultCache[k] = { ev: null, proj: null }; });
+    }).filter(Boolean);
+    if (ps.length) Promise.all(ps).then(() => { if (changed && ebSort.key === 'vault') renderPropsBoard(); });
+  }
+
   function ebFillHits(rows) {
     const PH = window.VaultPropHistory; if (!PH) return;
     let changed = false;
