@@ -29,31 +29,30 @@ opportunity. The plan fixes that from cheapest to hardest.
 
 ---
 
-## #2 — Opponent + game environment  ·  HIGH impact, MED effort  ·  DO FIRST
+## #2 — Opponent + game environment  ·  RE-SCOPED (most of it is already settled)
 
-`fairProbOver` already accepts `oppMult`/`envMult` and defaults them to 1, so
-the whole path is stubbed and inert. Props are matchup- and total-dominated; this
-is the single largest *known* signal currently ignored, and it's the one the
-market prices heavily (so ignoring it makes us disagree with the market in
-predictable, wrong ways — the worst kind).
+**Read before doing anything here.** The naive version of this — a per-defense
+DvP multiplier on the point projection — was already built and **backtested and
+rejected** (commit `2365a5d`; see the prop-projection memory): it does NOT improve
+out-of-sample projection RMSE (rush_yd +0.27% best; HURTS rush_att/rec_yd/rec),
+because prior-season defense correlation is ≈±0.01 (defenses turn over) and
+single-game DvP is swamped by player-game variance. `oppMult`/`envMult` are
+no-ops on purpose. **Do not re-run that test.** And env from Vegas total/spread
+was never fittable from tape (no historical Vegas lines) — it belongs with the
+NFL game model, not here.
 
-Steps:
-1. **Opponent (DvP):** build per-defense multipliers by position × market from
-   nflverse (yards/TD allowed vs league baseline, last ~10–17 games, opponent-
-   adjusted so we don't double-count schedule). New
-   `scripts/build_dvp_multipliers.py` → `data/dvp_multipliers.json`. Load in the
-   Edge Board and pass `oppMult` per row from the prop's `opp`.
-2. **Environment (total/spread):** map the game's Vegas total + spread (already
-   in `vegas_games`) to a volume/scoring multiplier. High total → more plays and
-   scoring; big favorite → run-tilt (RB volume up, pass down); big dog → pass
-   volume up. Pass `envMult`.
-3. **Cap the multipliers** (e.g. 0.85–1.15) so a thin DvP sample can't swing a
-   projection wildly — same shrink discipline as everywhere else.
+What's actually left that isn't settled:
+1. **Env via the game model, forward-only.** Once the NFL game-rating model
+   produces per-game implied totals/spreads, pass a capped `envMult` (high total
+   → more volume/scoring) and validate on **forward CLV**, not historical RMSE
+   (which can't see Vegas). This is the only honest path for environment.
+2. **DvP only at the extremes, on probability not the point.** The rejected test
+   moved the point projection. A narrower bet: a tiny tilt to the tail
+   probability for the few defenses that are outliers on the current season to
+   date, applied to P(over) not `proj`. Low expected value given the ±0.01 base
+   correlation; only worth it if #5's scoreboard shows a matchup-conditioned edge.
 
-Validate: the projection's out-of-sample MAE and log-loss vs the closing line
-must *improve* with the multipliers on. If not, ship them off (the memory's
-opponent-adjustment result — "REJECTED, no OOS gain" — was for a different model;
-re-test here, don't assume).
+Net: **#2 is mostly closed.** The real levers are #3 and #4. Reprioritize.
 
 ---
 
@@ -158,14 +157,17 @@ saying so.
 
 ---
 
-## Sequence
+## Sequence (revised after #5 findings)
 
-1. **#5 scoreboard** (log-loss + CLV harness) — cheap, and nothing else can be
-   judged without it.
-2. **#2 opponent + environment** — biggest signal, immediately testable on #5.
-3. **#3 market shrink** — kills the mirage edges; needs #5 to set the blend weight.
-4. **#4 distributions** — refits under the new scoreboard; unlocks the held-out
-   TD markets.
+1. **#5 scoreboard** — grade scoreboard + yards holdout DONE (5a5ab64). CLV
+   outcome-settling still pending in-season data.
+2. **#3 market shrink** — now the highest-value lever: blend model toward the
+   market prior so the +65%/+262% mirages collapse. Uses #5 to set the weight.
+3. **#4 distributions** — neg-binomial TDs, log-normal yards, and specifically
+   fix the **`rec` grade trap** #5 surfaced (receptions A-grades realize 53.8% <
+   55%). Refit + re-score against the scoreboard.
+4. **#2 environment** — forward-only, via the NFL game model, validated on CLV.
+   Opponent-DvP on the projection is already rejected; don't redo it.
 
 Everything model-side edits both `prop-model.js` and its inline copy in
 `index.html`, and reruns `build_prop_projections.py` → `data/prop_model.json`.
