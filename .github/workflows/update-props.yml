@@ -32,6 +32,10 @@ jobs:
         run: |
           node scripts/fetch-pickem-props.mjs --feed=data/lineup-feed.json
 
+      - name: Score Best Bets → merge feed
+        run: |
+          node scripts/build_best_bets.mjs --feed=data/lineup-feed.json
+
       - name: Commit if changed
         run: |
           if git diff --quiet -- data/lineup-feed.json; then
