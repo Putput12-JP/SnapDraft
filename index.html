@@ -13264,6 +13264,22 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T23:30', tag:'New', title:'Track your picks and see if the grades actually cash',
+    items:[
+      'Open any prop and hit “＋ Track pick” to log it — Vault records the side and grade it gave you.',
+      'Once the game is played, Vault settles the pick against the real result automatically (no manual entry), and the new “My Picks” view shows your record, win rate versus your break-even, and units won or lost.',
+      'The part that matters: your results broken down by grade, so you can see whether your A-grades really cash more than your C-grades on your own bets.',
+    ],
+  },
+  {
+    ts:'2026-08-27T23:15', tag:'New', title:'Sleeper lines added to the props board',
+    items:[
+      'Player Props now pulls Sleeper’s pick’em lines directly, alongside PrizePicks and Underdog — so most props show three books to compare instead of one or two, and the best price is shopped across all three.',
+      'More books means the “unverified” flag on lonely, one-book lines fires far less often: when three apps agree on a number, you can trust the edge.',
+      'Sleeper only posts player props (no game spreads or totals), so the Game Markets tab is unchanged.',
+    ],
+  },
+  {
     ts:'2026-08-27T22:15', tag:'New', title:'Injury flags on the props board',
     items:[
       'Player props now show a player’s current injury status right on the card — an amber “Q” for questionable, red for doubtful or out — pulled live from the latest reports.',
@@ -40548,6 +40564,50 @@ window.VaultPropModel = (function () {
   const propKey = r => (r.id || r.name) + ':' + r.market;
   function _pvInner() { return document.getElementById('bt-pv-inner'); }
 
+  // ── results tracking: log the picks you take, auto-settle vs actuals ──────
+  // Records a pick on Vault's graded side so the dashboard can answer the only
+  // question that matters — "does my A actually win?" — on YOUR real picks.
+  const PKEY = 'vault-bet-picks';
+  function picksLoad() { try { return JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch (e) { return []; } }
+  function picksSave(a) { try { localStorage.setItem(PKEY, JSON.stringify(a)); } catch (e) {} }
+  let propsView = 'board';   // 'board' | 'results'
+  const pickKey = r => propKey(r) + ':' + (MODEL.season || '') + 'w' + (MODEL.week || '');
+  function pickLogged(r) { return picksLoad().some(p => p.k === pickKey(r)); }
+  function logPick(r) {
+    const picks = picksLoad(); const k = pickKey(r);
+    if (picks.some(p => p.k === k)) { return; }
+    const c = _vaultCache[propKey(r)], g = c && c.g;
+    picks.push({
+      k, id: r.id || null, name: r.name, pos: r.pos, team: r.team || null,
+      market: r.market, marketLabel: r.marketLabel, line: r.line,
+      side: g ? g.side : (r.fe && r.fe.side) || 'over',
+      grade: g ? gradeLetter(g.padj, betBE) : null,
+      vaultEV: c && c.ev != null ? c.ev : null,
+      season: MODEL.season, week: MODEL.week, opp: r.opp || null, ts: Date.now(),
+    });
+    picksSave(picks);
+  }
+  function unlogPick(r) { picksSave(picksLoad().filter(p => p.k !== pickKey(r))); }
+  // Settle any pick whose game has been played, against nflverse actuals.
+  async function settlePicks(picks) {
+    const PH = window.VaultPropHistory; if (!PH) return picks;
+    let changed = false;
+    for (const p of picks) {
+      if (p.result) continue;
+      try {
+        const h = await PH.forProp(p.name, p.market, p.line, p.side, {});
+        const gm = h && h.glAll && h.glAll.find(x => String(x.season) === String(p.season) && String(x.wk) === String(p.week));
+        if (gm && gm.val != null) {
+          p.actual = gm.val;
+          p.result = ((p.side !== 'under') ? gm.val >= p.line : gm.val < p.line) ? 'W' : 'L';
+          changed = true;
+        }
+      } catch (e) {}
+    }
+    if (changed) picksSave(picks);
+    return picks;
+  }
+
   // Tier-2 context: current injury status (live, from Sleeper via _pfRosterMeta,
   // keyed by pid). The projection is pure box-score history — it has no idea a
   // player is Out or limited — so we surface the designation and let the user
@@ -40656,6 +40716,7 @@ window.VaultPropModel = (function () {
 
   function renderPropsBoard() {
     const fb = F();
+    if (propsView === 'results') return renderResults();
     // Keep curMarket valid for the active position — a stale key (e.g. set
     // directly without going through renderMkts) would leave m undefined.
     if (!fb.MARKET_BY_KEY[curMarket] || !fb.marketsFor(curPos).some(x => x.key === curMarket)) curMarket = fb.marketsFor(curPos)[0].key;
@@ -40720,13 +40781,16 @@ window.VaultPropModel = (function () {
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
     _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
       + '<div class="eb-board"><div class="eb-bh"><div><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
-      + '<label class="eb-be" title="Vault grade is scored against this break-even. Pick the pickem entry you play — a 3-pick power play needs ~55% per leg to profit.">Grade vs <select id="eb-be-sel" class="bt-in">'
+      + '<div class="eb-bh-r"><label class="eb-be" title="Vault grade is scored against this break-even. Pick the pickem entry you play — a 3-pick power play needs ~55% per leg to profit.">Grade vs <select id="eb-be-sel" class="bt-in">'
       + BE_PRESETS.map(([lab, be]) => '<option value="' + be + '"' + (Math.abs(be - betBE) < 1e-6 ? ' selected' : '') + '>' + lab + ' · ' + Math.round(be * 100) + '%</option>').join('')
-      + '</select></label></div>'
+      + '</select></label>'
+      + '<button class="eb-mypicks" id="eb-mypicks" title="Your logged picks + realized results by grade">My Picks' + (picksLoad().length ? ' <b>' + picksLoad().length + '</b>' : '') + '</button></div></div>'
       + '<div class="eb-tscroll"><table class="eb-table">' + head + '<tbody id="eb-rows">' + body + '</tbody></table></div></div></div>';
     paintHeadshots('#bt-pv-inner');
     const beSel = _pvInner().querySelector('#eb-be-sel');
     if (beSel) beSel.onchange = () => { const v = parseFloat(beSel.value); if (v > 0 && v < 1) { betBE = v; try { localStorage.setItem(BEKEY, betBE); } catch (e) {} renderPropsBoard(); } };
+    const mpBtn = _pvInner().querySelector('#eb-mypicks');
+    if (mpBtn) mpBtn.onclick = () => { propsView = 'results'; renderPropsBoard(); };
     _pvInner().querySelectorAll('.eb-table thead th.ebs').forEach(th => th.onclick = () => { const k = th.dataset.sk; if (ebSort.key === k) ebSort.dir *= -1; else ebSort = { key: k, dir: k === 'name' ? 1 : -1 }; renderPropsBoard(); });
     _pvInner().querySelectorAll('#eb-rows tr[data-k]').forEach(tr => tr.onclick = e => { if (e.target.closest('.eb-star')) return; ebSel = tr.dataset.k; renderPropsBoard(); });
     _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); });
@@ -40734,6 +40798,63 @@ window.VaultPropModel = (function () {
     renderPropDetail(selRow);
     ebFillHits(rows);      // async hit% into the leaderboard cells
     ebFillVaultCol(rows);  // async Vault-edge (own projection) into its column
+  }
+
+  // ── My Picks / results dashboard ─────────────────────────────────────────
+  // The payoff of the whole grade: does an A actually win, on YOUR real picks?
+  // Auto-settles played games vs nflverse actuals, then breaks record + units
+  // down by grade (units at the active entry's break-even: win = 1/BE−1, loss −1).
+  function renderResults() {
+    const picks = picksLoad();
+    const G = ['A', 'B', 'C', 'D', 'F'];
+    const draw = () => {
+      const settled = picks.filter(p => p.result);
+      const pend = picks.length - settled.length;
+      const W = settled.filter(p => p.result === 'W').length, L = settled.length - W;
+      const wr = settled.length ? W / settled.length : null;
+      const roi = (w, n) => n ? (w * (1 / betBE - 1) - (n - w)) / n : null;   // units per pick at BE
+      const overall = roi(W, settled.length);
+      const byG = G.map(g => {
+        const s = settled.filter(p => (p.grade || 'F') === g);
+        const w = s.filter(p => p.result === 'W').length;
+        return { g, n: s.length, w, wr: s.length ? w / s.length : null, roi: roi(w, s.length) };
+      });
+      const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+      const uSign = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + 'u';
+      const uCls = v => v == null ? '' : v > 0 ? 'good' : v < 0 ? 'bad' : '';
+      const rowsH = picks.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).map(p => {
+        const res = p.result ? '<span class="mp-res ' + (p.result === 'W' ? 'w' : 'l') + '">' + p.result + '</span>'
+          : '<span class="mp-res pend">pending</span>';
+        const gl = p.grade ? '<span class="eb-grade ' + p.grade.toLowerCase() + '"><span class="eb-gside">' + (p.side === 'over' ? 'O' : 'U') + '</span>' + p.grade + '</span>' : '—';
+        return '<tr><td>' + p.name + ' <span class="mut">' + (p.marketLabel || p.market) + '</span></td>'
+          + '<td>' + (p.side === 'over' ? 'Over' : 'Under') + ' ' + p.line + '</td>'
+          + '<td class="c">' + gl + '</td>'
+          + '<td class="c">Wk ' + (p.week || '?') + '</td>'
+          + '<td class="c">' + (p.actual != null ? p.actual : '') + ' ' + res + '</td>'
+          + '<td class="c"><button class="mp-del" data-k="' + p.k + '" title="Remove">✕</button></td></tr>';
+      }).join('');
+      _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-board">'
+        + '<div class="eb-bh"><div><div class="eb-t">My Picks · results</div><div class="eb-cn">'
+        + (picks.length ? settled.length + ' settled · ' + pend + ' pending' : 'no picks logged yet') + '</div></div>'
+        + '<button class="eb-mypicks" id="eb-backboard">← Board</button></div>'
+        + (picks.length ? (
+          '<div class="mp-cards">'
+          + '<div class="mp-card"><div class="tl">Record</div><div class="tv">' + W + '–' + L + (pend ? ' <span class="mut">(' + pend + ' pend)</span>' : '') + '</div></div>'
+          + '<div class="mp-card"><div class="tl">Win rate</div><div class="tv ' + (wr != null && wr >= betBE ? 'good' : '') + '">' + pct(wr) + '</div><div class="ts">need ' + Math.round(betBE * 100) + '% to profit</div></div>'
+          + '<div class="mp-card"><div class="tl">Units</div><div class="tv ' + uCls(overall) + '">' + uSign(overall) + '</div><div class="ts">at your entry break-even</div></div>'
+          + '</div>'
+          + '<div class="eb-tscroll"><table class="eb-table mp-grade"><thead><tr><th>Grade</th><th class="r">Picks</th><th class="r">Win%</th><th class="r">Units</th></tr></thead><tbody>'
+          + byG.map(b => '<tr><td><span class="eb-grade ' + b.g.toLowerCase() + '">' + b.g + '</span></td><td class="r">' + b.n + '</td><td class="r">' + pct(b.wr) + '</td><td class="r ' + uCls(b.roi) + '">' + uSign(b.roi) + '</td></tr>').join('')
+          + '</tbody></table></div>'
+          + '<div class="eb-tscroll"><table class="eb-table mp-list"><thead><tr><th>Pick</th><th>Side/Line</th><th class="c">Grade</th><th class="c">Week</th><th class="c">Result</th><th></th></tr></thead><tbody>' + rowsH + '</tbody></table></div>'
+        ) : '<div class="eb-feat eb-empty"><div class="eb-emk">No picks logged</div><div class="eb-emt">Open a prop and hit “＋ Track pick” to log it. Vault settles it against the real result and shows whether your A-grades actually cash.</div></div>')
+        + '</div></div>';
+      const back = _pvInner().querySelector('#eb-backboard');
+      if (back) back.onclick = () => { propsView = 'board'; renderPropsBoard(); };
+      _pvInner().querySelectorAll('.mp-del').forEach(b => b.onclick = () => { picksSave(picksLoad().filter(p => p.k !== b.dataset.k)); renderResults(); });
+    };
+    draw();
+    if (picks.some(p => !p.result)) settlePicks(picks).then(() => { if (propsView === 'results') draw(); });
   }
 
   /* Per-book price strip for ONE prop, on the pick side. Consensus-line books
@@ -40793,7 +40914,8 @@ window.VaultPropModel = (function () {
       + '<div class="eb-fbadge">' + (fe.ev == null
           ? '<div class="eb-eb"><span class="v">' + fb.fmtOdds(fe.bestPrice) + '</span><span class="l">pickem line</span></div>'
           : '<div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>')
-      + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button></div></div>'
+      + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button>'
+      + '<button class="eb-logbtn ' + (pickLogged(r) ? 'on' : '') + '" id="eb-logpick">' + (pickLogged(r) ? '✓ Tracking' : '＋ Track pick') + '</button></div></div>'
       + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv good">' + (fe.ev == null ? '<span class="mut">—</span>' : (fe.ev > 0 ? '+' : '') + fe.ev + '%') + '</div></div>'
@@ -40808,6 +40930,8 @@ window.VaultPropModel = (function () {
       + '<div class="eb-heat" id="eb-heat"></div>';
     paintHeadshots('#eb-feat');
     feat.querySelector('.eb-wbtn').onclick = () => { const k = propKey(r); watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); };
+    const logBtn = feat.querySelector('#eb-logpick');
+    if (logBtn) logBtn.onclick = () => { pickLogged(r) ? unlogPick(r) : logPick(r); renderPropsBoard(); };
     ebFillVault(r, fe);
     const PH = window.VaultPropHistory;
     if (!PH) return;
@@ -41246,6 +41370,24 @@ window.VaultPropModel = (function () {
 #page-betting .eb-eb{display:inline-flex;flex-direction:column;align-items:flex-end;background:color-mix(in srgb,var(--bt-green) 12%,transparent);border:1px solid color-mix(in srgb,var(--bt-green) 40%,transparent);border-radius:12px;padding:8px 13px}
 #page-betting .eb-eb .v{font-family:var(--bt-mono);font-size:24px;font-weight:700;line-height:1;color:var(--bt-green)}
 #page-betting .eb-eb .l{font-family:var(--bt-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--bt-green);margin-top:4px}
+#page-betting .eb-bh-r{display:flex;align-items:center;gap:10px}
+#page-betting .eb-mypicks{font-family:var(--bt-mono);font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+#page-betting .eb-mypicks b{color:var(--accent2, var(--bt-green))}
+#page-betting .eb-logbtn{font-family:var(--font-sans);font-size:12.5px;font-weight:600;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2);border-radius:10px;padding:8px 14px;cursor:pointer;margin-left:8px}
+#page-betting .eb-logbtn.on{background:color-mix(in srgb,var(--bt-green) 14%,transparent);border-color:color-mix(in srgb,var(--bt-green) 42%,transparent);color:var(--bt-green)}
+#page-betting .mp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--bt-border);border-bottom:1px solid var(--bt-border)}
+#page-betting .mp-card{background:var(--bt-s2);padding:14px 16px}
+#page-betting .mp-card .tl{font-family:var(--bt-mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .mp-card .tv{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:3px}
+#page-betting .mp-card .tv.good{color:var(--bt-green)}#page-betting .mp-card .tv.bad{color:var(--bt-red,#ff5a6e)}
+#page-betting .mp-card .ts{font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px}
+#page-betting .mp-grade td.good,#page-betting .mp-list td.good{color:var(--bt-green)}
+#page-betting .mp-grade td.bad,#page-betting .mp-list td.bad{color:var(--bt-red,#ff5a6e)}
+#page-betting .mp-res{font-family:var(--bt-mono);font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px}
+#page-betting .mp-res.w{background:color-mix(in srgb,var(--bt-green) 18%,transparent);color:var(--bt-green)}
+#page-betting .mp-res.l{background:color-mix(in srgb,var(--bt-red,#e23a4e) 16%,transparent);color:var(--bt-red,#ff5a6e)}
+#page-betting .mp-res.pend{color:var(--bt-muted)}
+#page-betting .mp-del{background:none;border:none;color:var(--bt-muted);cursor:pointer;font-size:13px}#page-betting .mp-del:hover{color:var(--bt-red,#ff5a6e)}
 #page-betting .eb-wbtn{font-family:var(--font-sans);font-size:12.5px;font-weight:600;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2);border-radius:10px;padding:8px 14px;cursor:pointer}
 #page-betting .eb-wbtn.on{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);color:var(--bt-gold)}
 #page-betting .eb-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--bt-border);border-bottom:1px solid var(--bt-border)}
