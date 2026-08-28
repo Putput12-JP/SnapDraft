@@ -2,18 +2,23 @@
 /* ════════════════════════════════════════════════════════════════════════
    VAULT · PICK'EM PROPS  →  vegas_player_props
    ────────────────────────────────────────────────────────────────────────
-   Free, keyless player-prop feed for the Betting tab. Pulls PrizePicks
-   pick'em lines (via partner-api.prizepicks.com — the public api host is
-   Cloudflare-blocked) AND Underdog Fantasy over/under lines, resolves each
-   player to its Sleeper id, maps each book's stat types to Vault's market
-   keys, and merges the result into data/lineup-feed.json under
-   `vegas_player_props` — the exact shape betting-data.js already consumes.
-   No API key, no credits.
+   Free, keyless player-prop feed for the Betting tab. Pulls three DFS pick'em
+   boards DIRECTLY:
+     • PrizePicks     (partner-api.prizepicks.com — the public api host is
+                       Cloudflare-blocked)
+     • Underdog       (api.underdogfantasy.com over/under lines)
+     • Sleeper        (api.sleeper.com native pick'em — priced, native ids)
+   Resolves each player to its Sleeper id (Sleeper's board already carries it),
+   maps each book's stat types to Vault's market keys, and merges the result
+   into data/lineup-feed.json under `vegas_player_props` — the exact shape
+   betting-data.js already consumes. No API key, no credits. (Sleeper posts no
+   game spreads/totals/moneylines — its board is player props only — so the
+   game-markets tab stays on ParlayAPI / the Odds API / ESPN.)
 
-   Both books are hit DIRECTLY here, so for PrizePicks / Underdog lines this
-   job is authoritative and fresher than ParlayAPI's mirror of them: on a
-   market ParlayAPI already carries, we upsert the direct quote and correct a
-   stale headline line rather than only gap-filling (see mergeFeed).
+   All three books are hit DIRECTLY here, so this job is authoritative and
+   fresher than ParlayAPI's mirror of them: on a market ParlayAPI already
+   carries, we upsert the direct quote and correct a stale headline line
+   rather than only gap-filling (see mergeFeed).
 
    Cell shape written (matches betting-data.js):
      lines[marketKey] = {
@@ -56,8 +61,10 @@ const LEAGUE   = String(ARG.league || 9);            // 9 = NFL on PrizePicks
 const PP_FIX   = ARG['pp-fixture'] || null;
 const SL_FIX   = ARG['sleeper-fixture'] || null;
 const UD_FIX   = ARG['ud-fixture'] || null;
+const SLN_FIX  = ARG['sleeper-lines-fixture'] || null;
 const NO_UD    = !!ARG['no-underdog'];
 const NO_PP    = !!ARG['no-prizepicks'];
+const NO_SL    = !!ARG['no-sleeper'];
 
 // api.prizepicks.com/projections is Cloudflare-blocked (403) for keyless
 // server-side callers. partner-api.prizepicks.com serves the same JSON:API
@@ -132,6 +139,7 @@ async function loadSleeperMap() {
     : await getJSON('https://api.sleeper.app/v1/players/nfl', 'sleeper');
   const map = {};        // normName -> {id,team,pos}
   const byNameTeam = {}; // normName+team -> {id,team,pos}  (disambiguates dup names)
+  const byId = {};       // sleeperId -> {id,name,team,pos}  (Sleeper lines carry native ids)
   for (const id in all) {
     const p = all[id];
     if (!p || !['QB', 'RB', 'WR', 'TE', 'K', 'LB', 'DB', 'DL'].includes(p.position)) continue;
@@ -141,8 +149,9 @@ async function loadSleeperMap() {
     const rec = { id, team, pos: p.position };
     if (!map[key]) map[key] = rec;
     if (team) byNameTeam[key + ':' + team] = rec;
+    byId[id] = { id, name: nm.trim(), team, pos: p.position };
   }
-  return { map, byNameTeam };
+  return { map, byNameTeam, byId };
 }
 function resolveSleeper(sl, name, team) {
   const key = normName(name); if (!key) return null;
@@ -357,6 +366,91 @@ function buildUnderdog(ud, sl) {
   return { props: out, stats: { players: matched, unmatched, lines: count } };
 }
 
+/* ── Sleeper (native pick'em) ───────────────────────────────────────────
+   /lines/available returns EVERY sport's over/under pick'em lines flat. The
+   NFL slice (sport:"nfl") is player props only — Sleeper posts no game
+   spreads/totals/moneylines, so this adds a third BOOK to the props tab, not
+   the game-markets tab. Two things make it the cleanest source:
+     • subject_id IS the Sleeper player id — no name resolution, no dup-name
+       mismatch (the one failure mode PrizePicks/Underdog can hit).
+     • each side carries a payout_multiplier (decimal odds), so unlike flat
+       pick'em these quotes are PRICED — real over/under American odds.
+   Sleeper prices every line (no flat "standard" line), and a player+market can
+   carry alt lines; we keep the one whose over/under payouts are most balanced,
+   which is the primary line (alts are lopsided by design).                  */
+const SLEEPER_STAT_MAP = {
+  passing_yards: 'pass_yd', rushing_yards: 'rush_yd', receiving_yards: 'rec_yd',
+  receptions: 'rec', passing_touchdowns: 'pass_td', interceptions: 'pass_int',
+  // anytime_touchdowns is intentionally excluded — the Anytime TD board uses a
+  // separate prob-based cell shape, not a line-based quote.
+};
+// decimal payout multiplier → American odds (dec is the total-return multiple).
+function decToAmerican(dec) {
+  const d = Number(dec);
+  if (!Number.isFinite(d) || d <= 1) return null;
+  return d >= 2 ? Math.round((d - 1) * 100) : -Math.round(100 / (d - 1));
+}
+
+async function loadSleeperLines() {
+  let arr;
+  if (SLN_FIX) { arr = readFixture(SLN_FIX); }
+  else {
+    const r = await fetch('https://api.sleeper.com/lines/available?dynamic=true&include_preseason=true', {
+      headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Accept-Language': 'en-US,en;q=0.9' },
+    });
+    if (!r.ok) throw new Error(`sleeper-lines HTTP ${r.status}`);
+    arr = await r.json();
+  }
+  if (!Array.isArray(arr)) return { lines: [] };
+  const lines = [];
+  for (const l of arr) {
+    const over = (l.options || []).find(o => o.outcome === 'over');
+    const under = (l.options || []).find(o => o.outcome === 'under');
+    const o = over || under || (l.options || [])[0]; if (!o) continue;
+    if (o.sport !== 'nfl') continue;                     // nfl = game props (nfl_szn = season-long)
+    if (o.subject_type !== 'player') continue;
+    const market = SLEEPER_STAT_MAP[o.wager_type]; if (!market) continue;
+    const pid = o.subject_id; if (!pid) continue;
+    const line = o.outcome_value != null ? Number(o.outcome_value) : null; if (line == null) continue;
+    const om = over ? Number(over.payout_multiplier) : null;
+    const um = under ? Number(under.payout_multiplier) : null;
+    lines.push({
+      pid: String(pid), market, line,
+      over: decToAmerican(om), under: decToAmerican(um),
+      team: (o.subject_team || '').toUpperCase() || null,
+      pos: (o.subject_position || '').toUpperCase() || null,
+      balance: (om != null && um != null) ? Math.abs(om - um) : Infinity,  // primary line = most balanced
+    });
+  }
+  return { lines };
+}
+
+function buildSleeper(sln, sl) {
+  const out = {};
+  const best = new Map();       // id|market → chosen row (most balanced payouts)
+  let matched = 0, unknown = 0, count = 0;
+  for (const row of sln.lines) {
+    const ident = sl.byId[row.pid];
+    if (!ident) { unknown++; continue; }                 // id not in the Sleeper player map (rare)
+    const key = row.pid + '|' + row.market;
+    const cur = best.get(key);
+    if (!cur || row.balance < cur.balance) best.set(key, { row, ident });
+  }
+  for (const { row, ident } of best.values()) {
+    const id = ident.id;
+    if (!out[id]) out[id] = { name: ident.name || null, team: ident.team || row.team || null, pos: ident.pos || row.pos || null, lines: {}, opp: null, commence: null };
+    out[id].lines[row.market] = {
+      line: row.line, over: row.over, under: row.under, book: 'Sleeper',
+      quotes: [{ book: 'Sleeper', line: row.line, over: row.over, under: row.under }],
+      best: { over: null, under: null },
+      pickem: true,
+    };
+    count++;
+  }
+  matched = Object.keys(out).length;
+  return { props: out, stats: { players: matched, unmatched: unknown, lines: count } };
+}
+
 /* line-first best price for a side (mirrors src-vegas.mjs bestSide): a lower
    line is strictly better for an OVER, a higher line for an UNDER; price only
    breaks a tie. Recomputed after upserting a keyless quote. */
@@ -482,6 +576,19 @@ function mergeFeed(sources, stats) {
         sources.push({ props, book: 'Underdog Fantasy' });
         totalPlayers += stats.players;
       } catch (e) { log('underdog skipped:', e.message); }
+    }
+
+    // Sleeper (native pick'em) — priced quotes, resolved by native player id.
+    // Replaces ParlayAPI's thin/stale "Sleeper" mirror with the direct board.
+    if (!NO_SL) {
+      try {
+        const sln = await loadSleeperLines();
+        log('sleeper:', sln.lines.length, 'nfl player lines');
+        const { props, stats } = buildSleeper(sln, sl);
+        log(`  → mapped ${stats.players} players, ${stats.lines} lines, ${stats.unmatched} unknown-id`);
+        sources.push({ props, book: 'Sleeper' });
+        totalPlayers += stats.players;
+      } catch (e) { log('sleeper skipped:', e.message); }
     }
 
     mergeFeed(sources, { players: totalPlayers });
