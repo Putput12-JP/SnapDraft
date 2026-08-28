@@ -1,0 +1,56 @@
+name: Update Analytics Summary
+
+# Pulls GA4 into data/analytics_summary.json for the admin dashboard (analytics.html).
+# Inert until two repo secrets are set (see scripts/build_analytics_summary.py):
+#   GA4_PROPERTY_ID  — numeric GA4 property id
+#   GA4_SA_JSON      — service-account key JSON with Viewer on that property
+# Without them the script exits 0 and writes nothing, so this cron is a harmless
+# no-op until you activate it.
+
+on:
+  schedule:
+    - cron: '40 8 * * *'   # daily ~08:40 UTC (GA4 Data API is ~1 day latent anyway)
+  workflow_dispatch:
+
+concurrency:
+  group: analytics-summary
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install GA4 client
+        run: pip install --quiet google-analytics-data
+
+      - name: Build analytics summary
+        env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_SA_JSON: ${{ secrets.GA4_SA_JSON }}
+        run: python3 scripts/build_analytics_summary.py
+
+      - name: Commit updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Rebase in case another data cron pushed while we ran.
+          git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+          git add data/analytics_summary.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit (unconfigured or unchanged)."
+          else
+            git commit -m "data: refresh GA4 analytics summary"
+            git push
+          fi
