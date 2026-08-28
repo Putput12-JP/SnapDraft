@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-28T16:30', tag:'Fixed', title:'Player Props board no longer looks empty after tapping a Best Bet',
+    items:[
+      'Tapping a Best Bet drops that player’s name into the search box. Switching to another position now clears that search automatically, so the board fills back up instead of looking like no lines exist.',
+      'When a search or filter genuinely hides every line, the board now says so — “no matches for your filters,” with a one-tap Clear filters button — instead of the misleading “no book is pricing this yet.”',
+    ],
+  },
+  {
     ts:'2026-08-28T12:15', tag:'New', title:'Vault Best Bets — the top picks of the slate',
     items:[
       'The Betting tab now leads with Vault Best Bets: the model’s top prop picks, ranked by confidence-adjusted value on lines at least two books agree on. Tap any pick to jump straight to it on the board.',
@@ -40741,8 +40748,25 @@ window.VaultPropModel = (function () {
     const rows = ebRows();
     document.getElementById('bt-count').textContent = rows.length + ' live ' + (rows.length === 1 ? 'line' : 'lines');
     if (!rows.length) {
+      const mLbl = m.short || m.label || '';
+      // Distinguish "no book prices this" from "your own filters hid everything".
+      // A leftover name search — e.g. one a Best Bets tap dropped in — survives
+      // position/market changes and silently empties the board, so blaming the
+      // books here ("No book is pricing …") reads as a broken app. When a filter
+      // is active, say so and offer to clear it before falling back to that copy.
+      const activeFilter = searchQ || teamFilter || mineOnly;
+      if (activeFilter) {
+        const what = searchQ ? '“' + searchQ + '”' : (teamFilter ? teamFilter : 'your players');
+        _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No matches for ' + what + '</div>'
+          + '<div class="eb-emt">No ' + curPos + ' ' + mLbl + ' line matches your current filters</div>'
+          + '<div class="eb-ems">There may be plenty of ' + curPos + ' ' + mLbl + ' lines — a filter is hiding them.</div>'
+          + '<button class="bt-in" id="eb-clearf" style="margin-top:12px;cursor:pointer">Clear filters</button></div>';
+        const cb = document.getElementById('eb-clearf');
+        if (cb) cb.onclick = () => { searchQ = ''; teamFilter = ''; mineOnly = false; const sb = document.getElementById('bt-search'); if (sb) sb.value = ''; render(); };
+        return;
+      }
       _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No live lines</div><div class="eb-emt">No book is pricing '
-        + curPos + ' ' + (m.short || m.label || '') + ' yet</div><div class="eb-ems">Vault only shows props a sportsbook is actually offering — no modeled fill. Try another market, or check back once books post.</div></div>';
+        + curPos + ' ' + mLbl + ' yet</div><div class="eb-ems">Vault only shows props a sportsbook is actually offering — no modeled fill. Try another market, or check back once books post.</div></div>';
       return;
     }
     // Column sort (ebRows returns EV-desc; re-order per the clicked header).
@@ -41283,6 +41307,14 @@ window.VaultPropModel = (function () {
     for (const m of mks) { const n = counts[m.key] || 0; if (n > bestN) { bestN = n; best = m.key; } }
     return best;
   }
+  // Drop a lingering name search + sync the input. A player-name filter (often
+  // left behind by a Best Bets tap) is meaningless once you switch to another
+  // position, where it just empties the board.
+  function clearNameSearch() {
+    if (!searchQ) return;
+    searchQ = '';
+    const sb = document.getElementById('bt-search'); if (sb) sb.value = '';
+  }
   function renderPosSeg() {
     const seg = document.getElementById('bt-posseg');
     if (view !== 'props') { seg.style.display = 'none'; return; }
@@ -41290,11 +41322,11 @@ window.VaultPropModel = (function () {
     if (isMobile()) {
       seg.className = 'bt-selwrap';
       seg.innerHTML = selHTML('bt-possel', [['QB', 'QB'], ['RB', 'RB'], ['WR', 'WR'], ['TE', 'TE']], curPos);
-      seg.querySelector('select').onchange = e => { curPos = e.target.value; curMarket = bestMarketFor(curPos); renderPosSeg(); renderMkts(); renderProps(); };
+      seg.querySelector('select').onchange = e => { curPos = e.target.value; curMarket = bestMarketFor(curPos); clearNameSearch(); renderPosSeg(); renderMkts(); renderProps(); };
     } else {
       seg.className = 'bt-pos';
       seg.innerHTML = ['QB', 'RB', 'WR', 'TE'].map(p => { const on = p === curPos, c = POS_COLOR[p]; return '<button data-p="' + p + '" style="' + (on ? 'color:var(--on-primary);background:' + c + ';border-color:transparent' : 'color:' + c) + '">' + p + '</button>'; }).join('');
-      seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; curMarket = bestMarketFor(curPos); renderPosSeg(); renderMkts(); renderProps(); });
+      seg.querySelectorAll('button').forEach(b => b.onclick = () => { curPos = b.dataset.p; curMarket = bestMarketFor(curPos); clearNameSearch(); renderPosSeg(); renderMkts(); renderProps(); });
     }
   }
   function renderMkts() {
