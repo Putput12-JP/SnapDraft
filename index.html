@@ -39196,6 +39196,7 @@ body .page,body .page.on{background:transparent!important}
       // games), so it can't be used to date real regular-season props. Keep the
       // raw list so realGameCommence() can find a prop's true Week-1 kickoff.
       _allGames: hasFeedGames ? feed.vegas_games.slice() : [],
+      best_bets: feed ? (feed.best_bets || null) : null,   // precomputed top picks (build_best_bets.mjs)
       _cfg: cfg,
     };
   }
@@ -40227,6 +40228,7 @@ window.VaultPropModel = (function () {
       <select id="bt-team" class="bt-in" style="display:none"></select>
       <button id="bt-mine" class="bt-in" style="cursor:pointer;display:none">My Players</button>
     </div>
+    <div id="bt-bestbets"></div>
     <div class="bt-view on" id="bt-v-games"></div>
     <div class="bt-view" id="bt-v-props"></div>
     <div class="bt-note" id="bt-note"></div>`;
@@ -41337,8 +41339,99 @@ window.VaultPropModel = (function () {
     document.getElementById('bt-v-props').classList.toggle('on', view === 'props');
     document.getElementById('bt-tftag').textContent = view === 'games' ? 'GAME MARKETS · ' + GM_TABS.find(t => t[0] === curGM)[1].toUpperCase() : 'WEEKLY · ' + (MODEL.hasLiveProps ? 'LIVE LINES' : 'PROJECTED');
     renderViewSel(); renderPosSeg(); renderMkts(); renderFilters(); renderInfo(); renderTrust();
+    renderBestBets();
     if (view === 'games') renderGames(); else renderProps();
     renderNote();
+  }
+
+  /* ══ Best Bets hero ══════════════════════════════════════════════════════
+     Vault's top precomputed props of the slate (build_best_bets.mjs → feed
+     best_bets), shown above both views. A separate, clearly-labeled "Model
+     leans" strip carries game-market context (empty while the game model is in
+     its offseason gate). A card jumps to that prop on the board. */
+  function renderBestBets() {
+    injectBestBetStyles();
+    const host = document.getElementById('bt-bestbets'); if (!host) return;
+    const bb = MODEL && MODEL.best_bets;
+    const props = (bb && bb.props) || [];
+    const leans = (bb && bb.game_leans) || [];
+    if (!props.length && !leans.length) { host.innerHTML = ''; return; }
+    const POS = { QB: 'var(--bt-qb,#ff6680)', RB: 'var(--bt-rb,#37d6a3)', WR: 'var(--bt-wr,#5b9dff)', TE: 'var(--bt-te,#ffb545)' };
+    const attr = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const card = b => {
+      const col = POS[b.pos] || 'var(--bt-muted)';
+      const init = b.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+      const price = (b.price > 0 ? '+' : '') + b.price;
+      const sideLbl = b.side === 'under' ? 'Under' : 'Over';
+      return '<button class="bb-card" data-bb-name="' + attr(b.name) + '" data-bb-pos="' + (b.pos || '') + '" data-bb-mkt="' + b.market + '">'
+        + '<span class="bb-grade g' + (b.grade || '').toLowerCase() + '">' + (b.grade || '') + '</span>'
+        + '<span class="bb-hs" data-hs="' + (F().headshotFor(b.id, b.name) || '') + '" style="color:' + col + '">' + init + '</span>'
+        + '<span class="bb-body">'
+        +   '<span class="bb-nm">' + b.name + '</span>'
+        +   '<span class="bb-pick">' + sideLbl + ' <b>' + b.line + '</b> ' + b.marketLabel + '</span>'
+        +   '<span class="bb-meta">' + (b.team || '') + (b.opp ? ' vs ' + b.opp : '') + ' · ' + b.book + ' ' + price + '</span>'
+        + '</span>'
+        + '<span class="bb-ev">+' + b.ev + '%<span>EV</span></span>'
+        + '</button>';
+    };
+    let html = '<div class="bb-wrap"><div class="bb-head"><span class="bb-title">' + reIcon('star', { size: 13 }) + ' Vault Best Bets</span>'
+      + '<span class="bb-sub">Top ' + props.length + ' by confidence-adjusted value · ≥2 books</span></div>'
+      + '<div class="bb-cards">' + props.map(card).join('') + '</div>';
+    if (leans.length) {
+      html += '<div class="bb-leans"><span class="bb-ll" title="Model context, not an edge — the game model matches the market without beating it">Model leans</span>'
+        + leans.map(l => '<span class="bb-lean">' + l.side + ' ' + (l.type === 'total' ? l.market_line : '') + ' <small>' + l.game + ' · ' + l.lean + (l.type === 'spread' ? 'pt' : '') + '</small></span>').join('') + '</div>';
+    }
+    html += '</div>';
+    host.innerHTML = html;
+    // paint headshots (paintHeadshots keys on .bt-hs; our avatars are .bb-hs)
+    host.querySelectorAll('.bb-hs[data-hs]').forEach(av => {
+      const u = av.dataset.hs; if (!u) return;
+      const img = document.createElement('img'); img.src = u; img.loading = 'lazy';
+      img.onerror = () => img.remove();
+      img.onload = () => { [...av.childNodes].forEach(n => { if (n.nodeType === 3) n.remove(); }); };
+      av.appendChild(img);
+    });
+    host.querySelectorAll('.bb-card').forEach(el => el.onclick = () => {
+      view = 'props';
+      const p = el.dataset.bbPos; if (p && ['QB', 'RB', 'WR', 'TE'].includes(p)) curPos = p;
+      const mk = el.dataset.bbMkt; if (mk) curMarket = mk;
+      searchQ = el.dataset.bbName;
+      const sb = document.getElementById('bt-search'); if (sb) sb.value = searchQ;
+      render();
+    });
+  }
+  function injectBestBetStyles() {
+    if (document.getElementById('bt-bb-styles')) return;
+    const s = document.createElement('style'); s.id = 'bt-bb-styles';
+    s.textContent = `
+#page-betting #bt-bestbets:empty{display:none}
+#page-betting .bb-wrap{background:linear-gradient(180deg,color-mix(in srgb,var(--bt-gold) 9%,var(--bt-s2)),var(--bt-s1));border:1px solid color-mix(in srgb,var(--bt-gold) 30%,var(--bt-border2));border-radius:16px;padding:13px 15px;margin-bottom:16px}
+#page-betting .bb-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px;flex-wrap:wrap}
+#page-betting .bb-title{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-sans);font-size:14px;font-weight:800;letter-spacing:-.01em;color:var(--bt-gold)}
+#page-betting .bb-title svg{stroke:var(--bt-gold)}
+#page-betting .bb-sub{font-family:var(--bt-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .bb-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px}
+#page-betting .bb-card{display:flex;align-items:center;gap:11px;text-align:left;background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:13px;padding:11px 13px;cursor:pointer;transition:border-color .15s ease,transform var(--dur-release,.5s) var(--ease-spring,ease)}
+#page-betting .bb-card:hover{border-color:color-mix(in srgb,var(--bt-gold) 45%,transparent)}
+#page-betting .bb-card:active{transform:scale(.985)}
+#page-betting .bb-grade{font-family:var(--bt-mono);font-size:12px;font-weight:800;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}
+#page-betting .bb-grade.ga{background:color-mix(in srgb,var(--bt-green) 20%,transparent);color:var(--bt-green)}
+#page-betting .bb-grade.gb{background:color-mix(in srgb,var(--bt-accent2,#5b9dff) 20%,transparent);color:var(--bt-accent2,#5b9dff)}
+#page-betting .bb-hs{width:34px;height:34px;border-radius:9px;background:var(--bt-s3);border:1px solid var(--bt-border2);display:flex;align-items:center;justify-content:center;font:800 11px var(--font-sans);flex:none;position:relative;overflow:hidden}
+#page-betting .bb-hs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
+#page-betting .bb-body{display:flex;flex-direction:column;min-width:0;flex:1}
+#page-betting .bb-nm{font-weight:700;font-size:13.5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .bb-pick{font-family:var(--bt-mono);font-size:12px;color:var(--bt-text2);margin-top:2px}
+#page-betting .bb-pick b{color:var(--bt-text)}
+#page-betting .bb-meta{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .bb-ev{display:flex;flex-direction:column;align-items:center;font-family:var(--bt-mono);font-size:14px;font-weight:700;color:var(--bt-green);flex:none}
+#page-betting .bb-ev span{font-size:8px;letter-spacing:.12em;color:var(--bt-green);opacity:.8;margin-top:1px}
+#page-betting .bb-leans{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:11px;padding-top:10px;border-top:1px solid var(--bt-border)}
+#page-betting .bb-ll{font-family:var(--bt-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--bt-faint);cursor:help}
+#page-betting .bb-lean{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2)}
+#page-betting .bb-lean small{color:var(--bt-muted)}
+`;
+    document.head.appendChild(s);
   }
   function wire() { /* controls are wired by their own render functions */ }
 
