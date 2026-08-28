@@ -53,6 +53,8 @@ const SEASONS = [2024, 2025];                 // log window (mirror prop-model.j
 const BE_REF = 0.524;                         // standard -110 book break-even (entry-agnostic bar)
 const MIN_GAMES = 8;                          // enough log to trust the projection
 const PRICE_MIN = -250, PRICE_MAX = 200;      // bettable band: no -300 chalk, no lottery longshots
+const GAMES = 17;                             // season → per-game (workbook projection)
+const WB_WEIGHT = 0.5;                         // how much the role-aware workbook proj pulls the log proj
 const log = (...a) => console.log('[best-bets]', ...a);
 
 /* ── data-key helpers (mirror the app) ─────────────────────────────────── */
@@ -131,11 +133,23 @@ function calibrate(calib, p) {
   for (let i = 0; i < calib.length - 1; i++) { const [x0, y0] = calib[i], [x1, y1] = calib[i + 1]; if (p >= x0 && p <= x1) { const t = x1 === x0 ? 0 : (p - x0) / (x1 - x0); return y0 + t * (y1 - y0); } }
   return p;
 }
-function fairProbOver(PM, name, marketKey, line) {
+function fairProbOver(PM, name, marketKey, line, wbProj) {
   const m = PM.markets[marketKey]; if (!m) return null;
   const minPrior = (PM.meta && PM.meta.min_prior) || 3;
   const weeks = weeksFor(name); if (!weeks.length) return null;
-  const proj = projectFrom(weeks, m, minPrior); if (proj == null) return null;
+  const logProj = projectFrom(weeks, m, minPrior); if (logProj == null) return null;
+  // The log projection is backward-looking on game logs — it can't see a team
+  // change or a new role (a traded RB1 still carries his old committee usage).
+  // Blend toward the role-aware workbook projection when we have one, so a
+  // stale-usage number gets pulled toward the player's actual expected level.
+  // BUT the workbook (a spreadsheet) carries placeholder/garbage values for some
+  // player-markets (a rushing QB with 5.5 season rush yds), and blending toward
+  // those invents fake edges. Only blend when the workbook value is plausible
+  // for this line — within [0.3x, 3x] of it — else trust the log model alone.
+  const Lp = num(line);
+  const wbOk = wbProj != null && Number.isFinite(wbProj) && Lp != null && Math.abs(Lp) > 0
+    && wbProj >= 0.3 * Math.abs(Lp) && wbProj <= 3 * Math.abs(Lp);
+  const proj = wbOk ? (1 - WB_WEIGHT) * logProj + WB_WEIGHT * wbProj : logProj;
   const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');
   const count = m.kind === 'count';
   const sd = dist === 'poisson' ? Math.sqrt(Math.max(proj, 0))
@@ -147,7 +161,7 @@ function fairProbOver(PM, name, marketKey, line) {
             : dist === 'lognormal' ? lognormOver(proj, sd, L)
             : rawOver(proj, sd, L, count);
   const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
-  return { proj: round(proj, 2), over: round(cal, 4), under: round(1 - cal, 4), games: weeks.length };
+  return { proj: round(proj, 2), logProj: round(logProj, 2), wbProj: wbOk ? round(wbProj, 2) : null, over: round(cal, 4), under: round(1 - cal, 4), games: weeks.length };
 }
 
 /* ── grade / trust / pricing (mirror index.html) ───────────────────────── */
@@ -223,7 +237,11 @@ function scoreProps(feed, PM) {
       const quotes = (cell.quotes || []).filter(q => q && q.line != null);
       if (quotes.length < 2) continue;                     // need corroboration to even consider
       const line = num(cell.line); if (line == null) continue;
-      const v = fairProbOver(PM, p.name, mk, line);
+      // role-aware workbook projection (season total → per-game), if we have one
+      const wbId = feed.vegas_players && feed.vegas_players[id];
+      const wbSeason = wbId && wbId.season && num(wbId.season[mk]);
+      const wbProj = wbSeason != null ? wbSeason / GAMES : null;
+      const v = fairProbOver(PM, p.name, mk, line, wbProj);
       if (!v || v.games < MIN_GAMES) continue;
       scored++;
       const g = vaultGrade(v.over, v.under, v.games);
@@ -243,7 +261,8 @@ function scoreProps(feed, PM) {
         market: mk, marketLabel: MKT_LABEL[mk] || mk, line, side,
         book: bs.book, price: bs.price,
         ev: round(ev * 100, 1),                            // % EV per $1 at best price
-        proj: v.proj, prob: round(g.padj, 3), rawProb: round(sideProb, 3),
+        proj: v.proj, logProj: v.logProj, wbProj: v.wbProj, // blended / raw-log / role-aware
+        prob: round(g.padj, 3), rawProb: round(sideProb, 3),
         grade: letter, books: trust.books, games: v.games,
       });
     }
