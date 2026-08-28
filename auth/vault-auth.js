@@ -300,11 +300,7 @@
       auth.onAuthStateChanged(function (u) {
         if (u) {
           try { localStorage.setItem('vf-auth-uid', u.uid); } catch (e) {}
-          initialSync(u.uid).then(function () {
-            // Let the app re-hydrate anything derived from synced keys (e.g.
-            // ESPN leagues restored from users/{uid}/kv on a fresh device).
-            try { window.dispatchEvent(new CustomEvent('vault-sync-ready')); } catch (e) {}
-          }).catch(function (err) {
+          initialSync(u.uid).catch(function (err) {
             console.warn('[VaultAuth] sync failed:', err && err.message);
           });
         } else {

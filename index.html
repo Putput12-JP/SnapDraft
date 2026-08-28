@@ -13264,6 +13264,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-27T22:15', tag:'New', title:'Injury flags on the props board',
+    items:[
+      'Player props now show a player’s current injury status right on the card — an amber “Q” for questionable, red for doubtful or out — pulled live from the latest reports.',
+      'Vault’s projection assumes a healthy player, so a flag is your cue to discount it: a questionable star can still be graded highly on paper while his real workload is in doubt.',
+    ],
+  },
+  {
     ts:'2026-08-27T21:30', tag:'Improved', title:'More books on props, and a flag for lines we can’t confirm',
     items:[
       'Player Props now pulls Underdog lines directly alongside PrizePicks, so many more props show a second book to compare — and the best price is shopped across both.',
@@ -40541,6 +40548,34 @@ window.VaultPropModel = (function () {
   const propKey = r => (r.id || r.name) + ':' + r.market;
   function _pvInner() { return document.getElementById('bt-pv-inner'); }
 
+  // Tier-2 context: current injury status (live, from Sleeper via _pfRosterMeta,
+  // keyed by pid). The projection is pure box-score history — it has no idea a
+  // player is Out or limited — so we surface the designation and let the user
+  // discount. Loaded lazily; re-renders the board once it lands.
+  let _betInjTried = false;
+  function betInjFor(r) {
+    const meta = window._pfRosterMeta;
+    if (!meta && !_betInjTried && window._pfEnsureRosterMeta) {
+      _betInjTried = true;
+      window._pfEnsureRosterMeta().then(() => { if (view === 'props') renderProps(); });
+    }
+    const d = meta && meta.inj && r && r.id ? meta.inj[r.id] : null;
+    if (!d) return null;
+    const raw = (d[1] || d[0] || '').trim();
+    if (!raw) return null;
+    const u = raw.toLowerCase();
+    if (/out|injured reserve|^ir$|pup|nfi|inactive|susp|^na$|dnr|^cov$/.test(u)) return { code: 'OUT', sev: 'out', label: raw };
+    if (/doubt/.test(u)) return { code: 'DTFL', sev: 'out', label: raw };
+    if (/question/.test(u)) return { code: 'Q', sev: 'q', label: raw };
+    return { code: raw.slice(0, 3).toUpperCase(), sev: 'q', label: raw };
+  }
+  function injBadge(r) {
+    const inj = betInjFor(r);
+    if (!inj) return '';
+    return '<span class="eb-inj ' + inj.sev + '" title="' + inj.label
+      + ' — Vault’s projection assumes full health; discount a limited or inactive player">' + inj.code + '</span>';
+  }
+
   // Fair / EV for one real-line prop row (VaultBettingMath). Returns the better
   // +EV side, or null when the market isn't a genuinely juiced two-way.
   //
@@ -40670,7 +40705,7 @@ window.VaultPropModel = (function () {
       return '<tr class="' + (propKey(r) === ebSel ? 'sel' : '') + '" data-k="' + propKey(r) + '">'
         + '<td class="eb-rk">' + (i + 1) + '</td>'
         + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
-        + '<div><div class="eb-pn">' + r.name + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
+        + '<div><div class="eb-pn">' + r.name + injBadge(r) + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
         + '<td>' + (fe.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + fe.side + '">' + fe.side.toUpperCase() + '</span>') + ' ' + (r.line != null ? r.line : '') + '</td>'
         + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts == null ? mut : (fe.edgePts > 0 ? '+' : '') + fe.edgePts) + '</td>'
         + '<td style="text-align:right">' + (fe.ev == null ? mut : '<span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span>') + '</td>'
@@ -40752,7 +40787,7 @@ window.VaultPropModel = (function () {
     const feat = document.getElementById('eb-feat'); if (!feat) return;
     feat.innerHTML =
       '<div class="eb-ftop"><div class="eb-fpl"><span class="bt-hs eb-fhs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
-      + '<div><div class="eb-fpn">' + r.name + '</div><div class="eb-fpm"><span class="eb-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span> '
+      + '<div><div class="eb-fpn">' + r.name + injBadge(r) + '</div><div class="eb-fpm"><span class="eb-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span> '
       + (r.team || '') + (r.opp ? ' · vs ' + r.opp : '') + '</div>'
       + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + (fe.pickem ? 'PICK' : fe.side.toUpperCase()) + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b>' + (fe.fairAmerican == null ? '' : ' → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b>') + '</div></div></div>'
       + '<div class="eb-fbadge">' + (fe.ev == null
@@ -41041,7 +41076,7 @@ window.VaultPropModel = (function () {
         const evTxt = g.ev == null ? '<span class="mut">—</span>' : '<span class="eb-ev">' + (g.ev > 0 ? '+' : '') + g.ev + '%</span>';
         return '<tr data-k="' + propKey(r) + '"><td class="eb-rk">' + (i + 1) + '</td>'
           + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
-          + '<div><div class="eb-pn">' + r.name + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
+          + '<div><div class="eb-pn">' + r.name + injBadge(r) + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
           + '<td style="text-align:right">' + (g.vp == null ? '<span class="mut">—</span>' : '<b>' + Math.round(g.vp * 100) + '%</b>') + '</td>'
           + '<td style="text-align:right">' + (r.over != null ? fb.fmtOdds(r.over) : (g.yes != null ? Math.round(g.yes * 100) + '%' : '—')) + '</td>'
           + '<td style="text-align:right">' + evTxt + '</td>'
@@ -41200,6 +41235,9 @@ window.VaultPropModel = (function () {
 #page-betting .eb-fhs,#page-betting .eb-hs{width:auto}
 #page-betting .eb-fhs{width:48px;height:48px;border-radius:12px;font-size:15px;flex:none}
 #page-betting .eb-fpn{font-size:18px;font-weight:800;letter-spacing:-.02em}
+#page-betting .eb-inj{display:inline-block;margin-left:6px;font-family:var(--bt-mono);font-size:9px;font-weight:800;letter-spacing:.02em;padding:1px 5px;border-radius:4px;vertical-align:middle;cursor:help}
+#page-betting .eb-inj.out{background:color-mix(in srgb,var(--bt-red,#e23a4e) 20%,transparent);color:var(--bt-red,#ff5a6e)}
+#page-betting .eb-inj.q{background:color-mix(in srgb,var(--bt-gold) 20%,transparent);color:var(--bt-gold)}
 #page-betting .eb-fpm{display:flex;align-items:center;gap:8px;margin-top:4px;font-family:var(--bt-mono);font-size:11.5px;color:var(--bt-muted)}
 #page-betting .eb-posb{font-family:var(--bt-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;border:1px solid}
 #page-betting .eb-pick{margin-top:7px;font-family:var(--bt-mono);font-size:12px;color:var(--bt-text2)}

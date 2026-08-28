@@ -1023,6 +1023,26 @@ def main():
         # league ids — which would bury the known-good list behind mostly non-qualifying ones.
         state["chain"] = known
 
+    if args.reset_corpus:
+        if args.rebuild_only:
+            ap.error("--reset-corpus with --rebuild-only would rebuild from an empty corpus")
+        # Reuse the OLD ingested ids as the fresh frontier. They are already known to be
+        # completed, in-range, real redraft seasons, so the re-crawl goes straight at them
+        # instead of re-discovering them through thousands of non-qualifying leagues.
+        # NEWEST FIRST. `ingested` is stored sorted ascending, and Sleeper league ids are
+        # time-ordered, so draining it as-is rebuilds 2023 first — the thinnest and least
+        # useful season. Sort numerically (the ids differ in digit length, so a string sort
+        # puts 2022 ahead of 2024) to match the crawler's existing newest-first intent.
+        known = sorted(state.get("ingested", []),
+                       key=lambda x: int(x) if str(x).isdigit() else 0, reverse=True)
+        log(f"reset: discarding {len(corpus['teams'])} team records; re-seeding the frontier "
+            f"with the {len(known)} league ids already known to qualify")
+        state, corpus = new_state(), {"teams": []}
+        # These go on `chain`, not `frontier`: crawl() drains chain first, and
+        # seed_frontier_into() re-sorts the frontier and floods it with ~28k banked ADP
+        # league ids — which would bury the known-good list behind mostly non-qualifying ones.
+        state["chain"] = known
+
     if not args.rebuild_only:
         t0 = time.time()
         crawl(state, corpus, args.league_budget, log, max_seconds=args.max_seconds)
