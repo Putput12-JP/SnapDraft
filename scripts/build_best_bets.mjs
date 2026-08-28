@@ -46,7 +46,7 @@ const ARG = Object.fromEntries(process.argv.slice(2).map(a => {
   const m = a.match(/^--([^=]+)(?:=(.*))?$/); return m ? [m[1], m[2] ?? true] : [a, true];
 }));
 const DRY   = !!ARG.dry;
-const TOP   = Number(ARG.top || 3);
+const TOP   = Number(ARG.top || 4);
 const LEANS = Number(ARG.leans || 3);
 const FEED  = ARG.feed || resolve(ROOT, 'data/lineup-feed.json');
 const SEASONS = [2024, 2025];                 // log window (mirror prop-model.js default)
