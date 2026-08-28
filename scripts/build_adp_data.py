@@ -50,14 +50,60 @@ TEAM_SIZES = [8, 10, 12, 14]
 USER_AGENT = "Vault-Fantasy/1.0 (+https://putput12-jp.github.io/Vault-Fantasy)"
 
 
+# Transient HTTP statuses worth retrying: rate-limit + server errors.
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 5          # total attempts = 1 + MAX_RETRIES
+BACKOFF_BASE = 2.0       # seconds; grows 2, 4, 8, 16, 32 (capped)
+BACKOFF_CAP = 60.0
+
+
+def fetch_json(url, timeout=60, retries=MAX_RETRIES):
+    """GET a URL and parse JSON, retrying transient errors with backoff.
+
+    FantasyCalc (and the enrich sources) rate-limit us with HTTP 429 when 24
+    combos are fetched back-to-back. Retry 429/5xx with exponential backoff,
+    honoring Retry-After when the server sends it, so a brief spike no longer
+    fails the whole build.
+    """
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            if e.code not in RETRY_STATUSES or attempt == retries:
+                raise
+            wait = _retry_after(e) or min(BACKOFF_BASE * (2 ** attempt), BACKOFF_CAP)
+            print(f"  → {e.code} {e.reason}; retry {attempt + 1}/{retries} in {wait:.0f}s",
+                  file=sys.stderr, flush=True)
+            time.sleep(wait)
+        except (urllib.error.URLError, TimeoutError) as e:
+            # Connection reset / DNS blip / read timeout — also transient.
+            if attempt == retries:
+                raise
+            wait = min(BACKOFF_BASE * (2 ** attempt), BACKOFF_CAP)
+            print(f"  → {e}; retry {attempt + 1}/{retries} in {wait:.0f}s",
+                  file=sys.stderr, flush=True)
+            time.sleep(wait)
+
+
+def _retry_after(err):
+    """Parse a Retry-After header (delta-seconds only) from an HTTPError."""
+    try:
+        val = err.headers.get('Retry-After')
+        if val and val.strip().isdigit():
+            return min(float(val.strip()), BACKOFF_CAP)
+    except Exception:
+        pass
+    return None
+
+
 def fetch_values(is_dynasty, num_qbs, num_teams, ppr, timeout=60):
     """Fetch values from FantasyCalc for a specific combo."""
     ppr_str = str(ppr) if isinstance(ppr, int) else f"{ppr:g}"
     url = f"{API_BASE}?isDynasty={'true' if is_dynasty else 'false'}&numQbs={num_qbs}&numTeams={num_teams}&ppr={ppr_str}"
     print(f"  GET {url}", flush=True)
-    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode('utf-8'))
+    return fetch_json(url, timeout=timeout)
 
 
 def normalize_name(name):
@@ -139,9 +185,7 @@ FFC_FMT = {'standard': 'standard', 'ppr': 'ppr', 'halfppr': 'half-ppr'}
 def fetch_ffc(ffc_slug, teams, year, timeout=60):
     url = f"{FFC_API}/{ffc_slug}?teams={teams}&year={year}"
     print(f"  GET {url}", flush=True)
-    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode('utf-8'))
+    return fetch_json(url, timeout=timeout)
 
 
 def enrich_ffc(transformed, format_key, teams):
@@ -427,15 +471,39 @@ def main():
         for t in TEAM_SIZES:
             combos.append((args.format, t))
 
-    results = []
-    for fk, teams in combos:
+    def run_combo(fk, teams):
         try:
-            status, size = build_one(fk, teams, args.out_dir)
-            results.append((fk, teams, status, size))
+            return build_one(fk, teams, args.out_dir)
         except Exception as e:
             print(f"  → ERROR: {e}", file=sys.stderr, flush=True)
-            results.append((fk, teams, 'err', 0))
+            return ('err', 0)
+
+    # First pass. fetch_json already retries transient 429/5xx per request, so
+    # anything still 'err' here means the source stayed unhappy through the
+    # whole backoff — worth one more full sweep after a longer cooldown.
+    status_by = {}
+    size_by = {}
+    for fk, teams in combos:
+        status, size = run_combo(fk, teams)
+        status_by[(fk, teams)] = status
+        size_by[(fk, teams)] = size
         time.sleep(args.sleep)
+
+    failed = [c for c in combos if status_by[c] == 'err']
+    if failed:
+        cooldown = 30.0
+        print(f"\n{len(failed)} combo(s) failed the first pass; "
+              f"cooling down {cooldown:.0f}s then retrying them once.",
+              file=sys.stderr, flush=True)
+        time.sleep(cooldown)
+        for fk, teams in failed:
+            status, size = run_combo(fk, teams)
+            status_by[(fk, teams)] = status
+            size_by[(fk, teams)] = size
+            time.sleep(args.sleep)
+
+    results = [(fk, teams, status_by[(fk, teams)], size_by[(fk, teams)])
+               for fk, teams in combos]
 
     print("\n" + "=" * 60)
     print("SUMMARY (source: FantasyCalc — real Sleeper/MFL/Fleaflicker trades)")
@@ -443,16 +511,32 @@ def main():
     print(f"{'Format':<12}{'Teams':<8}{'Status':<10}{'KB':<8}")
     total_kb = 0
     ok_count = 0
+    err_count = 0
     for fk, teams, status, kb in results:
         marker = '✓' if status == 'ok' else ('-' if status == 'skip' else '✗')
         print(f"{fk:<12}{teams:<8}{marker} {status:<8}{kb:<8.1f}")
         total_kb += kb
         if status == 'ok':
             ok_count += 1
+        elif status == 'err':
+            err_count += 1
     print(f"\nGenerated {ok_count}/{len(results)} files · {total_kb:.1f} KB total")
 
-    if any(r[2] == 'err' for r in results):
+    # Don't discard 22 good files because a flaky third-party API 429'd one or
+    # two combos: the workflow's commit step only runs if this exits 0. Fail
+    # the build only when nothing was produced, or a large share still errored
+    # after retries (a real outage, not a transient blip).
+    if ok_count == 0:
+        print("FATAL: no ADP files generated.", file=sys.stderr, flush=True)
         sys.exit(1)
+    if err_count > max(2, len(results) // 4):
+        print(f"FATAL: {err_count} combos failed after retries "
+              f"(threshold {max(2, len(results) // 4)}).", file=sys.stderr, flush=True)
+        sys.exit(1)
+    if err_count:
+        print(f"NOTE: {err_count} combo(s) failed transiently; committing the "
+              f"{ok_count} good file(s) and leaving stale files for the rest.",
+              file=sys.stderr, flush=True)
 
 
 if __name__ == '__main__':
