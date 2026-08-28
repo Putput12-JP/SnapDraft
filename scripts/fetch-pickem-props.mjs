@@ -140,6 +140,8 @@ async function loadSleeperMap() {
   const map = {};        // normName -> {id,team,pos}
   const byNameTeam = {}; // normName+team -> {id,team,pos}  (disambiguates dup names)
   const byId = {};       // sleeperId -> {id,name,team,pos}  (Sleeper lines carry native ids)
+  const depth = {};      // sleeperId -> [depth_chart_order, active] — the "will they play" signal
+  const INACTIVE = /inactive|physically unable|injured reserve|\bpup\b|\bir\b|suspend|^out$|\bna\b|not active/i;
   for (const id in all) {
     const p = all[id];
     if (!p || !['QB', 'RB', 'WR', 'TE', 'K', 'LB', 'DB', 'DL'].includes(p.position)) continue;
@@ -150,8 +152,15 @@ async function loadSleeperMap() {
     if (!map[key]) map[key] = rec;
     if (team) byNameTeam[key + ':' + team] = rec;
     byId[id] = { id, name: nm.trim(), team, pos: p.position };
+    // depth-chart order (1 = starter) + active flag, for the Best Bets starter
+    // gate. Only skill positions the props tab covers; keeps the map small.
+    if (['QB', 'RB', 'WR', 'TE'].includes(p.position) && team) {
+      const dco = Number.isFinite(p.depth_chart_order) ? p.depth_chart_order : null;
+      const active = p.active !== false && !INACTIVE.test(p.status || p.injury_status || '');
+      depth[id] = [dco, active ? 1 : 0];
+    }
   }
-  return { map, byNameTeam, byId };
+  return { map, byNameTeam, byId, depth };
 }
 function resolveSleeper(sl, name, team) {
   const key = normName(name); if (!key) return null;
@@ -499,7 +508,7 @@ function upsertQuote(cell, fresh, book) {
   cell.best.under = bestSide(cell.quotes, 'under');
 }
 
-function mergeFeed(sources, stats) {
+function mergeFeed(sources, stats, depth) {
   if (!existsSync(FEED)) { log('feed not found, nothing to merge:', FEED); return false; }
   const feed = JSON.parse(readFileSync(FEED, 'utf8'));
   const existing = feed.vegas_player_props || {};
@@ -531,6 +540,7 @@ function mergeFeed(sources, stats) {
   }
 
   feed.vegas_player_props = existing;
+  if (depth && Object.keys(depth).length) feed.vegas_depth = depth;   // [dco, active] per skill-player id
   feed.vegas_meta = feed.vegas_meta || {};
   // Only claim 'prizepicks' as the headline source when nothing richer set one.
   if (!feed.vegas_meta.props_source || feed.vegas_meta.props_source === 'none') feed.vegas_meta.props_source = 'prizepicks';
@@ -591,7 +601,7 @@ function mergeFeed(sources, stats) {
       } catch (e) { log('sleeper skipped:', e.message); }
     }
 
-    mergeFeed(sources, { players: totalPlayers });
+    mergeFeed(sources, { players: totalPlayers }, sl.depth);
   } catch (e) {
     log('ERROR:', e.message);
     process.exit(0); // never fail the workflow / never wipe the feed on error

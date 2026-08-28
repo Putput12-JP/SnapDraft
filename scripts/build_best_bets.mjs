@@ -201,9 +201,22 @@ function scoreProps(feed, PM) {
   const isPre = /^pre/i.test(feed.season_type || '');
   const yr = Number(feed.season) || new Date().getUTCFullYear();
   const regCutoff = Date.UTC(yr, 8, 1);   // Sep 1
+  // Starter gate: a backup who won't see the field is never a best bet, however
+  // good his historical projection looks (a QB2's pass line, a 4th RB's carries).
+  // depth_chart_order 1 = starter; the per-position ceiling keeps genuine
+  // committee/rotation players (RB2, WR3) while cutting deep backups.
+  const depth = feed.vegas_depth || {};
+  const DEPTH_MAX = { QB: 1, RB: 2, WR: 3, TE: 2 };
+  let benchskip = 0;
   for (const id in props) {
     const p = props[id];
     if (isPre && p.commence) { const t = new Date(p.commence).getTime(); if (Number.isFinite(t) && t < regCutoff) { preskip++; continue; } }
+    const dep = depth[id];   // [depth_chart_order, active]
+    if (dep) {
+      if (dep[1] === 0) { benchskip++; continue; }                                 // inactive / out
+      const cap = DEPTH_MAX[p.pos];
+      if (cap != null && dep[0] != null && dep[0] > cap) { benchskip++; continue; } // buried on the depth chart
+    }
     for (const mk in (p.lines || {})) {
       if (!PM.markets[mk]) continue;                       // modeled markets only
       const cell = p.lines[mk];
@@ -244,7 +257,7 @@ function scoreProps(feed, PM) {
   // not one player's whole card. (Full ranked pool is still counted.)
   const seenPlayer = new Set(), list = [];
   for (const c of cands) { if (seenPlayer.has(c.id)) continue; seenPlayer.add(c.id); list.push(c); if (list.length >= TOP) break; }
-  return { list, scored, gated, preskip, total: cands.length };
+  return { list, scored, gated, preskip, benchskip, total: cands.length };
 }
 
 /* ── game leans (CONTEXT only; empty while the model is gated) ──────────── */
@@ -286,7 +299,7 @@ function gameLeans(feed) {
 
     const props = scoreProps(feed, PM);
     const leans = gameLeans(feed);
-    log(`props: ${props.total} qualified of ${props.scored} scored (${props.gated} gated) → top ${props.list.length}`);
+    log(`props: ${props.total} qualified of ${props.scored} scored (${props.gated} gated, ${props.benchskip} benched) → top ${props.list.length}`);
     log(`game leans: ${leans.gated ? leans.gated : props.total >= 0 ? leans.list.length : 0}${leans.gated ? ' (empty)' : ''}`);
     for (const b of props.list) log(`  • ${b.name} ${b.marketLabel} ${b.side.toUpperCase()} ${b.line} @ ${b.book} ${b.price > 0 ? '+' : ''}${b.price} — ${b.grade}, ${b.ev}% EV, ${b.books} books, ${b.games}g`);
 
