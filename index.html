@@ -13264,6 +13264,15 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-28T18:45', tag:'Improved', title:'Tap a prop to expand it right on the board',
+    items:[
+      'The Player Props board now opens each pick in place — tap a row and its full breakdown (game log vs the line, hit-rate splits, every book’s price, and Vault’s read) slides open right underneath it. Tap again to close. No more jumping between the list and a separate panel up top.',
+      'The board opens with the top edge already expanded, so the best play is in front of you the moment you land.',
+      'New Projection column shows Vault’s own number next to the line at a glance (e.g. 78.4 vs 74.5), green when the projection backs the pick. It lights up in-season.',
+      'Rebuilt for phones: the board trims to the essentials — player, pick, EV, and grade — and the expanded card carries the full detail, so you get the whole story without pinching and side-scrolling.',
+    ],
+  },
+  {
     ts:'2026-08-28T16:30', tag:'Fixed', title:'Player Props board no longer looks empty after tapping a Best Bet',
     items:[
       'Tapping a Best Bet drops that player’s name into the search box. Switching to another position now clears that search automatically, so the board fills back up instead of looking like no lines exist.',
@@ -40559,7 +40568,8 @@ window.VaultPropModel = (function () {
      Books toggle is gone: the per-book comparison now lives inside the detail,
      reading the SAME consensus line the edge is computed on, so the two can no
      longer disagree. */
-  let ebSel = null;          // selected prop key (id:market) for the detail
+  let ebSel = null;          // expanded prop key (id:market) — the inline-open row
+  let ebInit = false;        // has the board default-expanded its top row once
   let ebRange = 'L10';       // game-log window: L5 | L10 | L20 | SZN | H2H
   let ebSort = { key: 'ev', dir: -1 };   // leaderboard column sort
   const _hitCache = {};      // propKey → L10 hit% (async-filled; lets the Hit% column sort)
@@ -40781,7 +40791,11 @@ window.VaultPropModel = (function () {
       : SK === 'grade' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].g) ? _vaultCache[propKey(r)].g.padj : -Infinity)
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
-    if (!rows.some(r => propKey(r) === ebSel)) ebSel = propKey(rows[0]);
+    // Accordion: default-expand the top edge on first open, but respect an
+    // intentional collapse (ebSel null) afterwards. Only auto-collapse when the
+    // open row is filtered/sorted away entirely.
+    if (!ebInit) { ebInit = true; ebSel = propKey(rows[0]); }
+    else if (ebSel != null && !rows.some(r => propKey(r) === ebSel)) ebSel = null;
     // Model Lean = projection − line, meaningful only when both are the same
     // timeframe. In preseason the props are preseason-game lines while the
     // projection is full-season weekly, so the lean is apples-to-oranges — hide
@@ -40790,14 +40804,18 @@ window.VaultPropModel = (function () {
     const anyLean = seasonReg && rows.some(r => r.proj != null && r.line != null);
     const car = k => ebSort.key === k ? '<span class="ebs-c">' + (ebSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
     const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
-    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + (anyLean ? SC('Lean', 'lean', 'r') : '') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th></tr></thead>';
+    // Column count for the inline detail row's colspan: rank + player + pick +
+    // edge + ev + fair/best + [proj] + vault edge + vault grade + hit + watch + chevron.
+    const nCols = 11 + (anyLean ? 1 : 0);
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + (anyLean ? SC('Proj', 'lean', 'r') : '') + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th><th class="c eb-chevh"></th></tr></thead>';
     const body = rows.map((r, i) => {
       const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
       const lean = anyLean && r.proj != null && r.line != null ? +(r.proj - r.line).toFixed(1) : null;
       const leanAgree = lean != null && ((fe.side === 'over' && lean > 0) || (fe.side === 'under' && lean < 0));
       const mut = '<span class="mut">—</span>';
-      return '<tr class="' + (propKey(r) === ebSel ? 'sel' : '') + '" data-k="' + propKey(r) + '">'
+      const isOpen = propKey(r) === ebSel;
+      const tr = '<tr class="' + (isOpen ? 'sel exp' : '') + '" data-k="' + propKey(r) + '">'
         + '<td class="eb-rk">' + (i + 1) + '</td>'
         + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
         + '<div><div class="eb-pn">' + r.name + injBadge(r) + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
@@ -40805,15 +40823,20 @@ window.VaultPropModel = (function () {
         + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts == null ? mut : (fe.edgePts > 0 ? '+' : '') + fe.edgePts) + '</td>'
         + '<td style="text-align:right">' + (fe.ev == null ? mut : '<span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span>') + '</td>'
         + '<td class="eb-fb">' + (fe.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>') + '</td>'
+        + (anyLean ? '<td class="eb-proj" style="text-align:right">' + (r.proj == null || r.line == null ? mut : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + r.proj + '<span class="pjx">vs ' + r.line + '</span></span>') + '</td>' : '')
         + '<td class="eb-vault" data-vk="' + propKey(r) + '" style="text-align:right">' + vaultCellHTML(_vaultCache[propKey(r)]) + '</td>'
         + '<td class="eb-gradecell" data-vg="' + propKey(r) + '" style="text-align:center">' + gradeCellHTML(_vaultCache[propKey(r)]) + '</td>'
-        + (anyLean ? '<td class="eb-lean" style="text-align:right">' + (lean == null ? '<span class="mut">—</span>' : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + (lean > 0 ? '+' : '') + lean + '</span>') + '</td>' : '')
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
-        + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td></tr>';
+        + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td>'
+        + '<td class="eb-chevc"><span class="eb-chev">▸</span></td></tr>';
+      // Inline detail: an accordion drawer that opens right under the tapped row,
+      // spanning every column. renderPropDetail fills #eb-feat after innerHTML.
+      const drawer = isOpen ? '<tr class="eb-drow"><td colspan="' + nCols + '"><div class="eb-dwrap"><div class="eb-feat" id="eb-feat"></div></div></td></tr>' : '';
+      return tr + drawer;
     }).join('');
     const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge', grade: 'Vault grade' };
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
-    _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-feat" id="eb-feat"></div>'
+    _pvInner().innerHTML = '<div class="eb-wrap">'
       + '<div class="eb-board"><div class="eb-bh"><div><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
       + '<div class="eb-bh-r"><label class="eb-be" title="Vault grade is scored against this break-even. Pick the pickem entry you play — a 3-pick power play needs ~55% per leg to profit.">Grade vs <select id="eb-be-sel" class="bt-in">'
       + BE_PRESETS.map(([lab, be]) => '<option value="' + be + '"' + (Math.abs(be - betBE) < 1e-6 ? ' selected' : '') + '>' + lab + ' · ' + Math.round(be * 100) + '%</option>').join('')
@@ -40826,10 +40849,11 @@ window.VaultPropModel = (function () {
     const mpBtn = _pvInner().querySelector('#eb-mypicks');
     if (mpBtn) mpBtn.onclick = () => { propsView = 'results'; renderPropsBoard(); };
     _pvInner().querySelectorAll('.eb-table thead th.ebs').forEach(th => th.onclick = () => { const k = th.dataset.sk; if (ebSort.key === k) ebSort.dir *= -1; else ebSort = { key: k, dir: k === 'name' ? 1 : -1 }; renderPropsBoard(); });
-    _pvInner().querySelectorAll('#eb-rows tr[data-k]').forEach(tr => tr.onclick = e => { if (e.target.closest('.eb-star')) return; ebSel = tr.dataset.k; renderPropsBoard(); });
+    // Tap a row to expand its detail inline; tap the open row again to collapse.
+    _pvInner().querySelectorAll('#eb-rows tr[data-k]').forEach(tr => tr.onclick = e => { if (e.target.closest('.eb-star')) return; const k = tr.dataset.k; ebSel = (ebSel === k) ? null : k; renderPropsBoard(); });
     _pvInner().querySelectorAll('.eb-star').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.w; watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); });
-    const selRow = rows.find(r => propKey(r) === ebSel) || rows[0];
-    renderPropDetail(selRow);
+    const selRow = ebSel ? rows.find(r => propKey(r) === ebSel) : null;
+    if (selRow) renderPropDetail(selRow);
     ebFillHits(rows);      // async hit% into the leaderboard cells
     ebFillVaultCol(rows);  // async Vault-edge (own projection) into its column
   }
@@ -41686,6 +41710,43 @@ window.VaultPropModel = (function () {
 #page-betting .gb-vi{font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2);display:inline-flex;align-items:center;gap:6px}
 #page-betting .gb-vi b{color:var(--bt-text)}
 #page-betting .gb-vi .mut{color:var(--bt-muted)}
+/* ── Inline accordion detail row ─────────────────────────────────────────── */
+#page-betting .eb-proj{font-family:var(--bt-mono);font-size:12.5px}
+#page-betting .eb-proj .pjx{display:block;font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted);margin-top:1px;letter-spacing:.02em}
+#page-betting .eb-chevh{width:26px}
+#page-betting .eb-chevc{text-align:center;width:26px}
+#page-betting .eb-chev{display:inline-block;color:var(--bt-muted);font-size:10px;transition:transform .3s cubic-bezier(.22,.61,.36,1),color .15s ease}
+#page-betting .eb-table tbody tr.exp .eb-chev{transform:rotate(90deg);color:var(--bt-accent2)}
+#page-betting .eb-table tbody tr.exp td{background:color-mix(in srgb,var(--bt-accent2) 9%,transparent)}
+#page-betting .eb-table tbody tr.exp td:first-child{box-shadow:inset 3px 0 0 var(--bt-accent2)}
+#page-betting .eb-drow>td{padding:0;background:var(--bt-s1);cursor:default;border-bottom:1px solid var(--bt-border)}
+#page-betting .eb-table tbody tr.eb-drow:hover>td{background:var(--bt-s1)}
+#page-betting .eb-dwrap{padding:0 10px 12px}
+#page-betting .eb-drow .eb-feat{animation:ebFeatIn .3s cubic-bezier(.22,.61,.36,1) both}
+@keyframes ebFeatIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#page-betting .eb-drow .eb-feat{animation:none}#page-betting .eb-chev{transition:none}}
+/* ── Mobile: collapse the board to the essentials; the drawer carries the rest ─ */
+@media(max-width:600px){
+  #page-betting .eb-table{min-width:0}
+  #page-betting .eb-table thead th,#page-betting .eb-table tbody td{padding:10px 9px}
+  #page-betting .eb-table thead th:first-child,
+  #page-betting .eb-table tbody td.eb-rk,
+  #page-betting .eb-table thead th[data-sk="edge"],
+  #page-betting .eb-table tbody td.eb-m2,
+  #page-betting .eb-table thead th[data-sk="best"],
+  #page-betting .eb-table tbody td.eb-fb,
+  #page-betting .eb-table thead th[data-sk="lean"],
+  #page-betting .eb-table tbody td.eb-proj,
+  #page-betting .eb-table thead th[data-sk="vault"],
+  #page-betting .eb-table tbody td.eb-vault,
+  #page-betting .eb-table thead th[data-sk="hit"],
+  #page-betting .eb-table tbody td.eb-hit,
+  #page-betting .eb-table thead th:nth-last-child(2),
+  #page-betting .eb-table tbody tr[data-k] td:nth-last-child(2){display:none}
+  #page-betting .eb-dwrap{padding:0 5px 10px}
+  #page-betting .eb-ftop{padding:14px 14px}
+  #page-betting .eb-booksec,#page-betting .eb-chart,#page-betting .eb-heat{padding-left:14px;padding-right:14px}
+}
 `;
     document.head.appendChild(s);
   }
