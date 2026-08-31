@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Vault Telemetry</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<!-- Reuse the app's Firebase auth so the page can gate to the admin account.
+     NB: data/analytics_summary.json is a public file (public-feed model), so this
+     gate is a UX guard, not a security boundary. -->
+<script src="auth/firebase-config.js"></script>
+<script src="auth/vault-auth.js"></script>
+
+<style>
+  :root{
+    --bg:#f3f4f7; --panel:#fff; --panel-2:#f8f9fb; --raised:#fff;
+    --border:#e4e7ee; --border-2:#eef0f5;
+    --ink:#171a21; --ink-2:#3b4150; --muted:#697084; --faint:#9aa0b0;
+    --accent:#2f6fed; --accent-2:#0891b2;
+    --good:#12a150; --good-soft:rgba(18,161,80,.12);
+    --warn:#c2740a; --crit:#dc2947; --crit-soft:rgba(220,41,71,.12);
+    --grid:rgba(20,24,34,.07); --track:#eceef3;
+    --shadow:0 1px 2px rgba(20,24,34,.05),0 8px 24px -12px rgba(20,24,34,.14);
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --display:"Sora",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#0e0f13; --panel:#16181f; --panel-2:#1b1e27; --raised:#1e222c;
+    --border:#262a34; --border-2:#20242d;
+    --ink:#e7e9ee; --ink-2:#c3c7d1; --muted:#8b909c; --faint:#616776;
+    --accent:#5b8def; --accent-2:#38bdf8;
+    --good:#34d399; --good-soft:rgba(52,211,153,.14);
+    --warn:#fbbf24; --crit:#fb7185; --crit-soft:rgba(251,113,133,.15);
+    --grid:rgba(255,255,255,.06); --track:#232733;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -14px rgba(0,0,0,.6);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0e0f13; --panel:#16181f; --panel-2:#1b1e27; --raised:#1e222c;
+    --border:#262a34; --border-2:#20242d;
+    --ink:#e7e9ee; --ink-2:#c3c7d1; --muted:#8b909c; --faint:#616776;
+    --accent:#5b8def; --accent-2:#38bdf8;
+    --good:#34d399; --good-soft:rgba(52,211,153,.14);
+    --warn:#fbbf24; --crit:#fb7185; --crit-soft:rgba(251,113,133,.15);
+    --grid:rgba(255,255,255,.06); --track:#232733;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 32px -14px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum"}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 64px}
+
+  .topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:6px 2px 22px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .mark{width:30px;height:30px;border-radius:8px;flex:none;
+    background:linear-gradient(150deg,var(--accent),var(--accent-2));display:grid;place-items:center;
+    color:#fff;font-family:var(--display);font-weight:700;font-size:16px;box-shadow:0 2px 10px -2px var(--accent)}
+  .brand h1{font-family:var(--display);font-weight:600;font-size:16px;margin:0;letter-spacing:-.01em}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .spacer{flex:1}
+  .status{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;
+    letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border-radius:999px;font-weight:500}
+  .status.live{color:var(--good);background:var(--good-soft);border:1px solid color-mix(in srgb,var(--good) 34%,transparent)}
+  .status.sample{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid color-mix(in srgb,var(--warn) 34%,transparent)}
+  .status .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:15px 16px 12px;
+    position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .kpi .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .kpi .val{font-family:var(--mono);font-weight:600;font-size:26px;letter-spacing:-.02em;margin-top:7px}
+  .kpi .foot{display:flex;align-items:center;gap:7px;margin-top:6px}
+  .delta{font-family:var(--mono);font-size:11.5px;font-weight:500;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px}
+  .delta.up{color:var(--good);background:var(--good-soft)}
+  .delta.down{color:var(--crit);background:var(--crit-soft)}
+  .delta.flat{color:var(--muted);background:var(--track)}
+  .kpi .vs{font-size:11px;color:var(--faint)}
+  .kpi .spark{position:absolute;right:0;bottom:0;width:92px;height:36px;opacity:.85}
+
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-top:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:17px 18px;box-shadow:var(--shadow)}
+  .card h2{font-family:var(--display);font-weight:600;font-size:14.5px;margin:0;letter-spacing:-.01em}
+  .card .cap{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0}
+  .chead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+  .chead .r{text-align:right}
+  .chead .big{font-family:var(--mono);font-weight:600;font-size:19px}
+  .full{grid-column:1/-1}
+
+  .chart{width:100%;height:190px;display:block}
+  .xlabels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:8px}
+
+  .funnel{display:flex;flex-direction:column;gap:11px}
+  .fstep{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline}
+  .fstep .name{font-size:13px;color:var(--ink-2);font-weight:500}
+  .fstep .figs{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  .fstep .figs b{color:var(--ink);font-weight:600}
+  .fbar{grid-column:1/-1;height:10px;border-radius:6px;background:var(--track);overflow:hidden;margin-top:3px}
+  .fbar>span{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .fdrop{grid-column:1/-1;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:1px}
+  .fdrop b{color:var(--crit)}
+
+  .events{display:flex;flex-direction:column;gap:2px}
+  .evrow{display:grid;grid-template-columns:160px 1fr auto auto;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-2)}
+  .evrow:last-child{border-bottom:0}
+  .evrow .ename{font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .evtrack{height:8px;border-radius:5px;background:var(--track);overflow:hidden}
+  .evtrack>span{display:block;height:100%;border-radius:5px;background:var(--accent);opacity:.9}
+  .evrow .ecount{font-family:var(--mono);font-size:12.5px;font-weight:600;text-align:right;min-width:52px}
+  .evrow .edelta{font-family:var(--mono);font-size:11px;text-align:right;min-width:46px}
+  .edelta.up{color:var(--good)} .edelta.down{color:var(--crit)} .edelta.flat{color:var(--faint)}
+
+  .split{display:flex;gap:20px;align-items:center}
+  .legend{display:flex;flex-direction:column;gap:10px;flex:1}
+  .legrow{display:flex;align-items:center;gap:9px;font-size:13px}
+  .legrow .sw{width:10px;height:10px;border-radius:3px;flex:none}
+  .legrow .lname{color:var(--ink-2)}
+  .legrow .lval{margin-left:auto;font-family:var(--mono);font-weight:600;font-size:12.5px}
+  .legrow .lpct{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:38px;text-align:right}
+
+  /* share loop */
+  .loop{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .loopnode{text-align:center;flex:1;min-width:96px}
+  .loopnode .n{font-family:var(--mono);font-weight:600;font-size:24px}
+  .loopnode .l{font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+  .looparrow{font-family:var(--mono);color:var(--faint);font-size:18px;flex:none}
+  .loopnote{margin-top:14px;font-size:12.5px;color:var(--muted)}
+  .loopnote b{color:var(--ink-2)}
+
+  .foot-note{margin-top:28px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
+  .foot-note code{font-family:var(--mono);font-size:11.5px;background:var(--panel-2);border:1px solid var(--border);padding:1px 6px;border-radius:5px;color:var(--ink-2)}
+
+  /* gate */
+  #gate{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:50;text-align:center;padding:24px}
+  #gate .g{max-width:340px}
+  #gate h2{font-family:var(--display);font-size:18px;margin:0 0 8px}
+  #gate p{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+  #gate a{display:inline-block;font-family:var(--sans);font-weight:600;font-size:13px;color:#fff;
+    background:var(--accent);text-decoration:none;padding:9px 16px;border-radius:9px}
+  .gspin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--track);border-top-color:var(--accent);
+    animation:gspin .7s linear infinite;margin:0 auto 14px}
+  @keyframes gspin{to{transform:rotate(360deg)}}
+  #app{display:none}
+
+  @media (max-width:920px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+  @media (max-width:520px){.kpis{grid-template-columns:1fr}.evrow{grid-template-columns:120px 1fr auto}.evrow .edelta{display:none}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="g">
+    <div class="gspin" id="gate-spin"></div>
+    <h2 id="gate-title">Checking access…</h2>
+    <p id="gate-msg">Verifying your Vault account.</p>
+    <a id="gate-link" href="login.html" style="display:none">Sign in</a>
+  </div>
+</div>
+
+<div id="app">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark">V</div>
+        <div>
+          <h1>Vault Telemetry</h1>
+          <div class="sub" id="src-line">vaultfantasy.com · GA4 G-E2XHWWQDEQ</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <span class="status sample" id="status"><span class="dot"></span><span id="status-txt">Loading…</span></span>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="chead">
+          <div><h2>Sessions</h2><p class="cap">Daily · last 30 days</p></div>
+          <div class="r"><div class="big" id="ses-total">—</div><span class="delta up" id="ses-delta">—</span></div>
+        </div>
+        <svg class="chart" id="area" viewBox="0 0 720 190" preserveAspectRatio="none"></svg>
+        <div class="xlabels" id="xlabels"></div>
+      </div>
+
+      <div class="card">
+        <div class="chead"><div><h2>Activation funnel</h2><p class="cap">Visitor → Sleeper write</p></div></div>
+        <div class="funnel" id="funnel"></div>
+      </div>
+
+      <div class="card">
+        <div class="chead"><div><h2>Top events</h2><p class="cap">Custom events · 30d</p></div></div>
+        <div class="events" id="events"></div>
+      </div>
+
+      <div class="card">
+        <div class="chead"><div><h2>Devices</h2><p class="cap">Session share</p></div></div>
+        <div class="split">
+          <svg id="donut" width="132" height="132" viewBox="0 0 132 132"></svg>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+
+      <div class="card full">
+        <div class="chead"><div><h2>Share loop</h2><p class="cap">The acquisition engine · cards shared → new visitors</p></div></div>
+        <div class="loop" id="loop"></div>
+        <div class="loopnote" id="loopnote"></div>
+      </div>
+    </div>
+
+    <div class="foot-note" id="foot"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const ADMIN_EMAILS = ["jacob12putman@gmail.com"];
+
+// ---------- sample fallback (same schema as data/analytics_summary.json) ----------
+function sampleData(){
+  const rand=(s=>()=>(s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff)(42);
+  const daily=[]; let v=640;
+  for(let i=0;i<30;i++){ v+=9+(rand()-.5)*150; const wk=(i%7>=5)?1.18:1;
+    const d=new Date(); d.setDate(d.getDate()-(29-i));
+    daily.push({date:d.toISOString().slice(0,10),sessions:Math.max(1,Math.round(v*wk)),users:Math.round(v*wk*0.72)}); }
+  return {
+    generated_at:null, range_days:30, configured:false,
+    kpis:{
+      active_users:{value:4812,delta_pct:14.2}, sessions:{value:19340,delta_pct:9.6},
+      drafts_connected:{value:1207,delta_pct:22.8}, sleeper_writes:{value:1120,delta_pct:8.0},
+      landings_from_share:{value:430,delta_pct:51.0}
+    },
+    sessions_daily:daily,
+    events:[
+      {name:"league_viewed",n:6180,delta_pct:11}, {name:"trade_idea_applied",n:2640,delta_pct:18},
+      {name:"season_sim_run",n:1980,delta_pct:6}, {name:"draft_connected",n:1207,delta_pct:23},
+      {name:"sleeper_write",n:1120,delta_pct:8}, {name:"share_card_created",n:910,delta_pct:41},
+      {name:"landing_from_share",n:430,delta_pct:51}, {name:"sleeper_connected",n:1990,delta_pct:12}
+    ],
+    devices:[{name:"Mobile",v:11220},{name:"Desktop",v:6890},{name:"Tablet",v:1230}],
+    funnel:[
+      {name:"Visited Vault",n:14210},{name:"Viewed a league",n:6180},
+      {name:"Used an engine (trade / sim)",n:3540},{name:"Connected Sleeper",n:1990},
+      {name:"Pushed a write to Sleeper",n:1120}
+    ],
+    share:{created:910,landings:430,landings_per_100:47.3}
+  };
+}
+
+// ---------- render ----------
+const $=id=>document.getElementById(id);
+const nf=n=>(n==null?"—":Number(n).toLocaleString());
+function deltaCls(d){ return d==null?"flat":d>0?"up":d<0?"down":"flat"; }
+function deltaTxt(d){ if(d==null)return "· ·"; const a=d>0?"▲":d<0?"▼":"•"; return a+" "+Math.abs(d).toFixed(1)+"%"; }
+
+function sparkPath(data,dir){
+  if(!data||data.length<2) return "";
+  const w=92,h=36,pad=3,mn=Math.min(...data),mx=Math.max(...data),rg=(mx-mn)||1;
+  const pts=data.map((v,i)=>[pad+i*(w-pad*2)/(data.length-1),h-pad-((v-mn)/rg)*(h-pad*2)]);
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const area=line+` L${pts[pts.length-1][0].toFixed(1)} ${h} L${pts[0][0].toFixed(1)} ${h} Z`;
+  const col=dir==="down"?"var(--crit)":"var(--accent)", gid="g"+Math.random().toString(36).slice(2,7);
+  return `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${col}" stop-opacity=".28"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+function render(D){
+  // status badge
+  const st=$("status"), stt=$("status-txt");
+  if(D.configured){ st.className="status live";
+    const when=D.generated_at?new Date(D.generated_at).toLocaleDateString(undefined,{month:"short",day:"numeric"}):"today";
+    stt.textContent="Live · updated "+when;
+  } else { st.className="status sample"; stt.textContent="Sample data"; }
+
+  // KPIs
+  const sesSeries=D.sessions_daily.map(d=>d.sessions).slice(-14);
+  const usrSeries=D.sessions_daily.map(d=>d.users).slice(-14);
+  const K=[
+    {lab:"Active users",  v:nf(D.kpis.active_users.value),       d:D.kpis.active_users.delta_pct,       spark:usrSeries},
+    {lab:"Sessions",      v:nf(D.kpis.sessions.value),           d:D.kpis.sessions.delta_pct,           spark:sesSeries},
+    {lab:"Drafts connected", v:nf(D.kpis.drafts_connected.value), d:D.kpis.drafts_connected.delta_pct,  spark:null},
+    {lab:"Sleeper writes", v:nf(D.kpis.sleeper_writes.value),    d:D.kpis.sleeper_writes.delta_pct,     spark:null},
+    {lab:"Landings / share", v:nf(D.kpis.landings_from_share.value), d:D.kpis.landings_from_share.delta_pct, spark:null},
+  ];
+  $("kpis").innerHTML=K.map(k=>`
+    <div class="kpi">
+      <div class="lab">${k.lab}</div>
+      <div class="val">${k.v}</div>
+      <div class="foot"><span class="delta ${deltaCls(k.d)}">${deltaTxt(k.d)}</span><span class="vs">vs prev</span></div>
+      ${k.spark?`<svg class="spark" viewBox="0 0 92 36" preserveAspectRatio="none">${sparkPath(k.spark,deltaCls(k.d))}</svg>`:""}
+    </div>`).join("");
+
+  // area chart
+  renderArea(D.sessions_daily);
+  const total=D.sessions_daily.reduce((a,b)=>a+b.sessions,0);
+  $("ses-total").textContent=nf(total);
+  const sd=$("ses-delta"), dd=D.kpis.sessions.delta_pct;
+  sd.className="delta "+deltaCls(dd); sd.textContent=deltaTxt(dd)+" vs prev 30d";
+  const xl=$("xlabels"), N=D.sessions_daily.length;
+  xl.innerHTML=""; [0,Math.floor(N*0.25),Math.floor(N*0.5),Math.floor(N*0.75),N-1].forEach(i=>{
+    const d=D.sessions_daily[i]; if(!d)return; const s=document.createElement("span");
+    s.textContent=new Date(d.date).toLocaleDateString(undefined,{month:"short",day:"numeric"}); xl.appendChild(s);
+  });
+
+  // funnel
+  const top=D.funnel[0].n||1;
+  $("funnel").innerHTML=D.funnel.map((s,i)=>{
+    const pct=s.n/top*100, fromPrev=i?(D.funnel[i-1].n?s.n/D.funnel[i-1].n*100:0):100, drop=i?100-fromPrev:0;
+    return `<div class="fstep">
+      <div class="name">${s.name}</div>
+      <div class="figs"><b>${nf(s.n)}</b> · ${pct.toFixed(0)}%</div>
+      <div class="fbar"><span style="width:${pct.toFixed(1)}%"></span></div>
+      ${i?`<div class="fdrop">${fromPrev.toFixed(0)}% continued · <b>${drop.toFixed(0)}% drop</b></div>`:""}
+    </div>`;
+  }).join("");
+
+  // events
+  const emx=Math.max(...D.events.map(e=>e.n),1);
+  $("events").innerHTML=D.events.map(e=>`
+    <div class="evrow">
+      <div class="ename">${e.name}</div>
+      <div class="evtrack"><span style="width:${(e.n/emx*100).toFixed(1)}%"></span></div>
+      <div class="ecount">${nf(e.n)}</div>
+      <div class="edelta ${deltaCls(e.delta_pct)}">${e.delta_pct==null?"·":(e.delta_pct>0?"+":"")+e.delta_pct+"%"}</div>
+    </div>`).join("");
+
+  // devices
+  renderDonut(D.devices);
+
+  // share loop
+  const sh=D.share||{created:0,landings:0,landings_per_100:null};
+  $("loop").innerHTML=`
+    <div class="loopnode"><div class="n">${nf(D.events.find(e=>e.name==="share_card_created")?.n ?? sh.created)}</div><div class="l">Cards shared</div></div>
+    <div class="looparrow">→</div>
+    <div class="loopnode"><div class="n">${nf(sh.landings)}</div><div class="l">Landings from share</div></div>
+    <div class="looparrow">→</div>
+    <div class="loopnode"><div class="n">${nf(D.kpis.drafts_connected.value)}</div><div class="l">Drafts connected (30d)</div></div>`;
+  $("loopnote").innerHTML = sh.landings!=null && sh.created
+    ? `<b>${sh.landings_per_100!=null?sh.landings_per_100:"—"}</b> visitors returned per 100 cards shared. Every shared card prints <b>VAULTFANTASY.COM/FREE</b> and carries a tagged link, so link-clicks and typed visits both count here.`
+    : `No share landings recorded in this window yet.`;
+
+  // footer
+  $("foot").innerHTML = D.configured
+    ? `Live GA4 pull, refreshed nightly (~1 day latent). Source: <code>data/analytics_summary.json</code>.`
+    : `Showing sample data. Add the <code>GA4_PROPERTY_ID</code> and <code>GA4_SA_JSON</code> repo secrets to activate the nightly GA4 pull.`;
+}
+
+function renderArea(daily){
+  const svg=$("area"),W=720,H=190,pad={l:6,r:6,t:14,b:8};
+  const data=daily.map(d=>d.sessions); if(!data.length)return;
+  const mx=Math.max(...data)*1.12||1;
+  const X=i=>pad.l+i*(W-pad.l-pad.r)/(data.length-1||1), Y=v=>H-pad.b-(v/mx)*(H-pad.t-pad.b);
+  let grid=""; for(let g=0;g<4;g++){const y=pad.t+g*(H-pad.t-pad.b)/3;grid+=`<line x1="0" x2="${W}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--grid)"/>`;}
+  const pts=data.map((v,i)=>[X(i),Y(v)]);
+  let d="M"+pts[0][0].toFixed(1)+" "+pts[0][1].toFixed(1);
+  for(let i=1;i<pts.length;i++){const[x0,y0]=pts[i-1],[x1,y1]=pts[i],cx=(x0+x1)/2;d+=` C${cx.toFixed(1)} ${y0.toFixed(1)} ${cx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;}
+  const area=d+` L${pts[pts.length-1][0].toFixed(1)} ${H-pad.b} L${pts[0][0].toFixed(1)} ${H-pad.b} Z`;
+  const last=pts[pts.length-1];
+  svg.innerHTML=`<defs><linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="var(--accent)" stop-opacity=".26"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<path d="${area}" fill="url(#areaG)"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3.6" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
+}
+
+function renderDonut(devices){
+  const svg=$("donut"),total=devices.reduce((a,d)=>a+d.v,0)||1;
+  const cols=["var(--accent)","var(--accent-2)","var(--muted)","var(--faint)"];
+  const cx=66,cy=66,r=48,sw=18; let a0=-Math.PI/2,out="";
+  devices.forEach((d,i)=>{const frac=d.v/total,a1=a0+frac*Math.PI*2;
+    const x0=cx+r*Math.cos(a0),y0=cy+r*Math.sin(a0),x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1),large=frac>.5?1:0;
+    out+=`<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="${cols[i%cols.length]}" stroke-width="${sw}"/>`;a0=a1;});
+  out+=`<text x="66" y="62" text-anchor="middle" fill="var(--ink)" font-family="var(--mono)" font-weight="600" font-size="17">${(total/1000).toFixed(1)}k</text>
+        <text x="66" y="78" text-anchor="middle" fill="var(--muted)" font-family="var(--mono)" font-size="9">SESSIONS</text>`;
+  svg.innerHTML=out;
+  $("legend").innerHTML=devices.map((d,i)=>`
+    <div class="legrow"><span class="sw" style="background:${cols[i%cols.length]}"></span>
+    <span class="lname">${d.name}</span><span class="lval">${nf(d.v)}</span>
+    <span class="lpct">${(d.v/total*100).toFixed(0)}%</span></div>`).join("");
+}
+
+async function loadAndRender(){
+  let D;
+  try{
+    const res=await fetch("data/analytics_summary.json",{cache:"no-store"});
+    if(res.ok){ const j=await res.json(); if(j&&j.configured&&Array.isArray(j.sessions_daily)&&j.sessions_daily.length) D=j; }
+  }catch(e){/* fall through to sample */}
+  render(D||sampleData());
+}
+
+// ---------- admin gate ----------
+function showApp(){ $("gate").style.display="none"; $("app").style.display="block"; loadAndRender(); }
+function denyAccess(signedIn){
+  $("gate-spin").style.display="none";
+  $("gate-title").textContent = signedIn ? "Not authorized" : "Sign in required";
+  $("gate-msg").textContent = signedIn
+    ? "This account doesn't have access to Vault analytics."
+    : "Sign in with the Vault admin account to view analytics.";
+  const a=$("gate-link"); a.style.display="inline-block"; a.textContent=signedIn?"Switch account":"Sign in";
+}
+
+(function gate(){
+  if(!window.VaultAuth || !VaultAuth.configured){ denyAccess(false); return; }
+  if(!VaultAuth.configured()){ denyAccess(false); return; }
+  VaultAuth.ready().then(function(auth){
+    auth.onAuthStateChanged(function(u){
+      if(u && u.email && ADMIN_EMAILS.includes(u.email.toLowerCase())) showApp();
+      else denyAccess(!!u);
+    });
+  }).catch(function(){ denyAccess(false); });
+})();
+</script>
+</body>
+</html>
