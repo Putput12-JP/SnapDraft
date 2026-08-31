@@ -13334,9 +13334,9 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
-    ts:'2026-09-01T04:00', tag:'Fixed', title:'Draft Buddy report card shows your real draft',
+    ts:'2026-09-01T04:00', tag:'Improved', title:'Your Draft Buddy pops your full draft recap card',
     items:[
-      'The post-draft “report card” now fills in with your actual team: your Steal of the Draft (the pick that fell furthest past his price), your real Upside / Floor / Risk / Situational grades, and your true positional mix versus the rest of the league — instead of placeholder numbers.',
+      'Tapping “See my report card” from the Draft Buddy shield now opens your real, shareable Draft Recap — grade, full starting lineup with headshots and per-player grades, and the outlook strip — the same polished card as the draft-complete screen, ready to share.',
     ],
   },
   {
@@ -47670,6 +47670,12 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 .vbud-scrim.show{display:flex;animation:vbud-fade .25s ease}
 @keyframes vbud-fade{from{opacity:0}to{opacity:1}}
 .vbud-rc{width:600px;max-width:100%;background:linear-gradient(180deg,var(--s2),var(--s1));border:1px solid var(--border2);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);overflow:hidden;animation:vbud-panin .35s var(--ease-out)}
+/* DVR variant: hosts the shareable VaultDraftRecap card (16:9) instead of the
+   inline rings/mix, so the shield pops the same card as the draft-complete modal. */
+.vbud-rc-dvr{width:760px}
+.vbud-dvrhost{padding:16px 16px 4px}
+.vbud-dvrhost .dvr-card,.vbud-dvrhost .dvr-card-skel{width:100%;height:auto}
+.vbud-dvrfail{padding:40px 20px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:12.5px}
 .vbud-rchd{position:relative;padding:20px 22px 16px;text-align:center;background:radial-gradient(400px 200px at 50% -20%,rgba(61,204,122,.16),transparent 70%)}
 .vbud-rchand{width:52px;height:52px;margin:0 auto 6px}.vbud-rchand img{width:100%;height:100%}
 .vbud-rck{font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
@@ -47719,35 +47725,10 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
 </div>
 
 <div class="vbud-scrim" id="vbud-scrim">
-  <div class="vbud-rc">
-    <div class="vbud-rchd">
-      <div class="vbud-rchand" id="vbud-rc-hand"></div>
-      <div class="vbud-rck">Draft complete · your buddy graded it</div>
-      <div class="vbud-rcring"><span class="g" id="vbud-rc-letter">A−<small id="vbud-rc-score">91 / 100</small></span></div>
-      <div class="vbud-rcstrat">◆ <span id="vbud-rc-strat">Robust RB</span></div>
-    </div>
-    <div class="vbud-rcbody">
-      <div class="vbud-steal"><div><div class="stk">Steal of the draft</div><div class="stn" id="vbud-rc-steal">—</div></div><div class="stv" id="vbud-rc-stealv">best value pick</div></div>
-      <div class="vbud-rcgrid">
-        <div>
-          <div class="vbud-rcsect">Team 4-factor</div>
-          <div class="vbud-rings">
-            <div class="vbud-ring2"><div class="rr" style="color:var(--te);background:conic-gradient(var(--te) 0 82%,var(--s4) 82%)">8.2</div><div class="rlbl">Upside</div></div>
-            <div class="vbud-ring2"><div class="rr" style="color:var(--rb);background:conic-gradient(var(--rb) 0 86%,var(--s4) 86%)">8.6</div><div class="rlbl">Floor</div></div>
-            <div class="vbud-ring2"><div class="rr" style="color:var(--red);background:conic-gradient(var(--red) 0 50%,var(--s4) 50%)">5.0</div><div class="rlbl">Risk</div></div>
-            <div class="vbud-ring2"><div class="rr" style="color:var(--wr);background:conic-gradient(var(--wr) 0 80%,var(--s4) 80%)">8.0</div><div class="rlbl">Situ</div></div>
-          </div>
-        </div>
-        <div>
-          <div class="vbud-rcsect">Positional mix vs league</div>
-          <div class="vbud-mixrow"><span class="ml">QB</span><div class="vbud-mixbar"><div class="fillb" style="width:13%;background:var(--qb)"></div><div class="lgtick" style="left:9%"></div></div><span class="mv">13% · lg 9%</span></div>
-          <div class="vbud-mixrow"><span class="ml">RB</span><div class="vbud-mixbar"><div class="fillb" style="width:44%;background:var(--rb)"></div><div class="lgtick" style="left:30%"></div></div><span class="mv">44% · lg 30%</span></div>
-          <div class="vbud-mixrow"><span class="ml">WR</span><div class="vbud-mixbar"><div class="fillb" style="width:31%;background:var(--wr)"></div><div class="lgtick" style="left:34%"></div></div><span class="mv">31% · lg 34%</span></div>
-          <div class="vbud-mixrow"><span class="ml">TE</span><div class="vbud-mixbar"><div class="fillb" style="width:12%;background:var(--te)"></div><div class="lgtick" style="left:12%"></div></div><span class="mv">12% · lg 12%</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="vbud-rcfoot"><button class="primary">⤓ Share image</button><button>Compare league</button><button class="ghost" id="vbud-rc-close">Close</button></div>
+  <div class="vbud-rc vbud-rc-dvr">
+    <div class="vbud-rchand" id="vbud-rc-hand"></div>
+    <div class="vbud-dvrhost" id="vbud-rc-card"><div class="dvr-card-skel skel"></div></div>
+    <div class="vbud-rcfoot"><button class="primary" id="vbud-rc-share">⤓ Share image</button><button class="ghost" id="vbud-rc-close">Close</button></div>
   </div>
 </div>
 
@@ -47936,61 +47917,21 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   function showPanel(){ panel.classList.remove('closing'); panel.classList.add('show'); }
   function closeAll(){ panel.classList.add('closing'); setTimeout(function(){panel.classList.remove('show','closing');},300); pill.classList.remove('show'); minimized=false; fab.classList.add('bob'); }
   function react(txt){ var b=document.createElement('div'); b.className='vbud-nudge'; b.style.right='90px'; b.style.bottom='20px'; b.innerHTML='<small>Draft Buddy</small>'+txt; root.appendChild(b); pop(); setTimeout(function(){b.remove();},3000); }
-  // Paint one 4-factor ring: value 0-10 → conic fill + coloured number.
-  function _rcRing(rr, val, col){
-    if(!rr) return;
-    var v=Math.max(0,Math.min(10, +val||0)), pct=Math.round(v*10);
-    rr.textContent=v.toFixed(1); rr.style.color=col;
-    rr.style.background='conic-gradient('+col+' 0 '+pct+'%,var(--s4) '+pct+'%)';
+  // Pop the shareable Draft Recap card (VaultDraftRecap) — the same graded canvas
+  // the draft-complete modal and Share button use, with the full starting lineup +
+  // headshots + outlook strip — rather than an inline summary.
+  function openReport(){
+    scrim.classList.add('show');
+    var host=document.getElementById('vbud-rc-card'); if(!host) return;
+    if(window.VaultDraftRecap && VaultDraftRecap.previewInto){
+      if(!host.querySelector('canvas')) host.innerHTML='<div class="dvr-card-skel skel"></div>';
+      VaultDraftRecap.previewInto(host).then(function(ok){
+        if(!ok && host.isConnected && !host.querySelector('canvas')) host.innerHTML='<div class="vbud-dvrfail">Your draft grade isn’t ready yet — give it a second and reopen.</div>';
+      }).catch(function(){ if(host.isConnected) host.innerHTML='<div class="vbud-dvrfail">Couldn’t build your card right now.</div>'; });
+    } else { host.innerHTML='<div class="vbud-dvrfail">Draft recap isn’t available.</div>'; }
   }
-  // Fill the report card with the SAME real data the Draft Grade card uses:
-  // team 4-factor from dvTeamGrade, the steal from dvPickScore (biggest value vs
-  // price), and positional mix from the live draftState. Falls back gracefully so
-  // a not-yet-gradeable roster just keeps the neutral defaults instead of erroring.
-  function fillReportCard(){
-    try{
-      var tg=(typeof dvTeamGrade==='function')?dvTeamGrade():null, f=tg&&tg.factors;
-      var rings=scrim.querySelectorAll('.vbud-rings .rr');
-      if(f && rings.length>=4){
-        _rcRing(rings[0], f.upside,      'var(--te)');   // Upside
-        _rcRing(rings[1], f.floor,       'var(--rb)');   // Floor
-        _rcRing(rings[2], f.risk,        'var(--red)');  // Risk (higher = riskier)
-        _rcRing(rings[3], f.situational, 'var(--wr)');   // Situational
-      }
-      var roster=(typeof getMyRoster==='function')?getMyRoster().filter(function(p){return p&&p.name;}):[];
-      // Steal of the draft = my pick that fell furthest past his price (dvPickScore.delta).
-      var best=null;
-      roster.forEach(function(p){
-        var d=(typeof draftState!=='undefined')&&draftState[p.name]; var overall=d&&d.pickNo; if(!overall) return;
-        var g=null; try{ g=(typeof dvPickScore==='function')&&dvPickScore(p.name,p.pos,overall); }catch(e){}
-        if(g&&g.delta!=null&&(!best||g.delta>best.delta)) best={name:p.name,delta:g.delta};
-      });
-      var stealEl=document.getElementById('vbud-rc-steal'), stealV=document.getElementById('vbud-rc-stealv');
-      if(stealEl){
-        if(best&&best.delta>=2){ stealEl.textContent=best.name; if(stealV) stealV.textContent='+'+best.delta+' picks of value'; }
-        else if(roster.length){
-          var top=roster.slice().sort(function(a,b){return ((typeof getPlayerValue==='function'&&getPlayerValue(b.name))||0)-((typeof getPlayerValue==='function'&&getPlayerValue(a.name))||0);})[0];
-          stealEl.textContent=top?top.name:'—'; if(stealV) stealV.textContent='best value pick';
-        }
-      }
-      // Positional mix (skill only): my share vs the league-wide share from draftState.
-      var mine={QB:0,RB:0,WR:0,TE:0}, myTot=0;
-      roster.forEach(function(p){ if(mine[p.pos]!=null){ mine[p.pos]++; myTot++; } });
-      var lgc={QB:0,RB:0,WR:0,TE:0}, lgTot=0;
-      if(typeof draftState!=='undefined'){
-        Object.keys(draftState).forEach(function(n){ var d=draftState[n]; if(!d||d.teamIdx<0) return; var pos=((typeof findPlayer==='function'&&findPlayer(n))||{}).pos; if(lgc[pos]!=null){ lgc[pos]++; lgTot++; } });
-      }
-      var rows=scrim.querySelectorAll('.vbud-mixrow'), POSK=['QB','RB','WR','TE'], PC={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
-      Array.prototype.forEach.call(rows,function(row,i){ var pos=POSK[i]; if(!pos) return;
-        var mp=myTot?Math.round(mine[pos]/myTot*100):0, lp=lgTot?Math.round(lgc[pos]/lgTot*100):0;
-        var fb=row.querySelector('.fillb'), tick=row.querySelector('.lgtick'), mv=row.querySelector('.mv');
-        if(fb){ fb.style.width=mp+'%'; fb.style.background=PC[pos]; }
-        if(tick) tick.style.left=lp+'%';
-        if(mv) mv.textContent=mp+'% · lg '+lp+'%';
-      });
-    }catch(e){ console.warn('[vbud] report card fill failed', e); }
-  }
-  function openReport(){ var g=liveGrade(); document.getElementById('vbud-rc-letter').firstChild.textContent=g; document.getElementById('vbud-rc-strat').textContent=strat?STRATS[strat].name:'Robust RB'; fillReportCard(); scrim.classList.add('show'); }
+  var _rcShareBtn=document.getElementById('vbud-rc-share');
+  if(_rcShareBtn) _rcShareBtn.onclick=function(ev){ try{ if(window.VaultDraftRecap && VaultDraftRecap.share) VaultDraftRecap.share(ev); }catch(e){} };
   document.getElementById('vbud-rc-close').onclick=function(){scrim.classList.remove('show');};
   scrim.onclick=function(e){if(e.target===scrim)scrim.classList.remove('show');};
 
