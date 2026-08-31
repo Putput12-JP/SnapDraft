@@ -47,7 +47,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Rebase in case another data cron pushed while we ran.
           git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
-          git add data/analytics_summary.json
+          # Unconfigured runs write no file, so tolerate a missing pathspec.
+          git add data/analytics_summary.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No changes to commit (unconfigured or unchanged)."
           else
