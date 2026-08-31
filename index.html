@@ -10775,6 +10775,19 @@ async function syncEspnDraft(){
     window._activeDraft = { id:espnDraftLid, name:(lg.name||'ESPN')+' · Draft', type:dtype, season:String(year),
       status: dd.inProgress ? 'drafting' : (dd.drafted ? 'complete' : 'pre_draft'), pickTimer:0, pickTimerType:'',
       teams:NUM_TEAMS, rounds:NUM_ROUNDS, picksCount:madePicks.length, lastPickedAt:0, platform:'espn' };
+    // Persist the FRESH draft status onto the league object. vpRestoreEspnLeagues
+    // rehydrates the league's status from localStorage and never refreshes it, so a
+    // league connected pre-draft stayed 'pre_draft' forever — which is why a
+    // finished ESPN draft still showed "UPCOMING" in the connect modal. Mirror what
+    // a fresh vpMapEspnLeague connect would compute: a completed draft this season
+    // reads 'in_season' (the modal maps that to DONE, and it won't get archived the
+    // way a raw 'complete' would); a live draft reads 'drafting'. Only write on an
+    // actual change to avoid needless persistence.
+    const _lgStatus = dd.inProgress ? 'drafting' : (dd.drafted ? 'in_season' : 'pre_draft');
+    if (lg.status !== _lgStatus){
+      lg.status = _lgStatus;
+      try { vpSaveEspnLeagues(); } catch(e){}
+    }
     // Re-derive Dynasty/Redraft now that the authoritative ESPN flags are set.
     // connectEspnDraft runs _dvAutoMode (via showPage) BEFORE this sync populates
     // _activeDraft/_draftIsDynasty, so without this the mode stuck on the stale
@@ -13320,6 +13333,14 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-31T23:30', tag:'Fixed', title:'ESPN polish: finished drafts, League rank, and a nav glitch',
+    items:[
+      'A finished ESPN draft no longer shows as “Upcoming” in the draft connect list — once Vault has synced it, it reads as done.',
+      'On the League page, your team is now marked (YOU) and “Your power rank” fills in for ESPN leagues, instead of showing a dash.',
+      'Fixed the top navigation highlight bleeding across “Draft Vault” and “Season Sim” — the pill now sits on just the tab you’re on.',
+    ],
+  },
   {
     ts:'2026-08-31T22:15', tag:'Fixed', title:'Your ESPN team now loads across the whole app',
     items:[
@@ -18681,6 +18702,11 @@ async function renderTeamsFromLeague(leagueId) {
     // context (not just the dynasty flag) is what lets _lgValOf — and through it
     // the Grades tab — price the same league the same way.
     const _lgObj = myTeamsData.find(l=>l.league_id===leagueId);
+    // "My team" owner id. ESPN rosters carry owner_id 'espn_owner_'+teamId and have
+    // no Sleeper myTeamsUserId, so match the ESPN team the user picked — otherwise
+    // isMe is never true and "Your power rank" / the YOU badge come up blank.
+    const _lgMyOwner = (_lgObj && typeof vpPlat==='function' && vpPlat(_lgObj)==='espn')
+      ? ('espn_owner_' + espnSelectedTeam(leagueId)) : myTeamsUserId;
     const _lgCtx = fcCtxForLeague(_lgObj);
     const _lgRedraft = _lgCtx ? !_lgCtx.dyn : false;
     window._lgValCtx = _lgCtx;
@@ -18709,7 +18735,7 @@ async function renderTeamsFromLeague(leagueId) {
     const teamData = (rosters||[]).map((r, i) => {
       const ownerId = r.owner_id;
       const name = userMap[ownerId] || `Team ${i+1}`;
-      const isMe = ownerId === myTeamsUserId;
+      const isMe = ownerId === _lgMyOwner;
       // Dedup by PID, Sleeper can list same player in both players[] and reserve[]
       const playerIds = [...new Set([...(r.players||[]), ...(r.reserve||[])].map(String))];
       const roster = playerIds.map(pid => {
@@ -38578,6 +38604,12 @@ body .page,body .page.on{background:transparent!important}
       const rosters = ctx.rosters || [], users = ctx.users || [];
       if (!rosters.length){ E.innerHTML = emptyHtml(); return; }
       const userMap = buildUserMap(users);
+      // ESPN "my team" owner id (see renderTeamsFromLeague) — ESPN owners are
+      // 'espn_owner_'+teamId, never a Sleeper myTeamsUserId, so resolve the picked team.
+      const _stLid = (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || window._currentLeagueId || '';
+      const _stLg = _stLid ? (myTeamsData||[]).find(l=>l.league_id===_stLid) : null;
+      const _stMyOwner = (_stLg && typeof vpPlat==='function' && vpPlat(_stLg)==='espn')
+        ? ('espn_owner_' + espnSelectedTeam(_stLid)) : myTeamsUserId;
 
       let list = (rosters||[]).map((r,i)=>{
         const ownerId = r.owner_id;
@@ -38586,7 +38618,7 @@ body .page,body .page.on{background:transparent!important}
         const pf=(s.fpts||0)+(s.fpts_decimal||0)/100, pa=(s.fpts_against||0)+(s.fpts_against_decimal||0)/100;
         const pids = [...new Set([...(r.players||[]),...(r.reserve||[])].map(String))];
         const rv = pids.reduce((a,pid)=>{ const n=globalPidToName[String(pid)]; return a+(n?val(n):0); },0);
-        return { ownerId, idx:i, name:userMap[ownerId]||`Team ${i+1}`, isMe: ownerId===myTeamsUserId, w,l,t,pf,pa,rv, g:w+l+t, color:teamColor(i) };
+        return { ownerId, idx:i, name:userMap[ownerId]||`Team ${i+1}`, isMe: ownerId===_stMyOwner, w,l,t,pf,pa,rv, g:w+l+t, color:teamColor(i) };
       });
       list.sort((a,b)=> (b.w-a.w) || (b.pf-a.pf));
 
@@ -45308,7 +45340,14 @@ function _ssInjectNav(){
   btn.id='nb-seasonsim'; btn.textContent='Season Sim';
   btn.onclick=()=>window.showPage('seasonsim');
   const after=document.getElementById('nb-draft');
-  if(after) after.insertAdjacentElement('afterend',btn); else nav.appendChild(btn);
+  // nb-draft gets wrapped in the Draft Vault dropdown (.dv-dd-wrap) by a separate
+  // late injector. If that ran first, inserting `afterend` of nb-draft would drop
+  // Season Sim INSIDE the wrapper — and the nav pill measures the strip's direct
+  // child (the wrapper), so it would span Draft Vault + Season Sim (the "nav
+  // bleed"). Anchor to the wrapper when present so Season Sim is always a direct
+  // nav child, race-proof in either injection order.
+  const anchor = after ? (after.closest('.dv-dd-wrap') || after) : null;
+  if(anchor) anchor.insertAdjacentElement('afterend',btn); else nav.appendChild(btn);
 }
 
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',()=>{ _ssInjectPage();_ssInjectNav(); }); }
