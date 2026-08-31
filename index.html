@@ -13334,6 +13334,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T05:00', tag:'Fixed', title:'Clearer lineup status for ESPN & Yahoo leagues',
+    items:[
+      'When an ESPN or Yahoo league has a roster issue, Lineup Command and Waiver Command now point you to that league’s app to fix it instead of telling you to open Sleeper.',
+      'Vault’s one-tap IR/stash fixes only show on Sleeper leagues, where Vault can actually make the change — read-only leagues just tell you to resolve it natively.',
+      'A set lineup now reads “Optimal” instead of “Best ball,” which was easy to misread as the league’s format.',
+    ],
+  },
+  {
     ts:'2026-09-01T04:00', tag:'Improved', title:'Your Draft Buddy pops your full draft recap card',
     items:[
       'Tapping “See my report card” from the Draft Buddy shield now opens your real, shareable Draft Recap — grade, full starting lineup with headshots and per-player grades, and the outlook strip — the same polished card as the draft-complete screen, ready to share.',
@@ -21944,13 +21952,28 @@ async function _pfWriteWithBackoff(fn, onWait){
   }
 }
 
+// Platform label + write capability for a league id, so blocked-league copy
+// names the right app (ESPN/Yahoo/Sleeper) and Vault only offers its own
+// one-tap fixes on platforms it can actually write to.
+function _lcCaps(lid){
+  try {
+    const lg = (Array.isArray(myTeamsData)?myTeamsData:[]).find(l => l && l.league_id === lid);
+    return lg && typeof pfPlatformCaps==='function' ? pfPlatformCaps(lg) : null;
+  } catch(e){ return null; }
+}
+
 // Blocked-league detail: what's wrong and where to fix it. When the block is
 // purely an IR problem Vault can resolve, offer a one-click Fix from Vault.
 function _lcIssuesHtml(issues, fixPlan, stashPlan, lid){
   const rows = issues.map(i => `<div style="display:flex;gap:9px;padding:5px 0;font-size:12.5px;line-height:1.45"><span style="color:var(--qb);flex-shrink:0">⚠</span><span>${i}</span></div>`).join('');
-  const canFix = fixPlan && fixPlan.fixable;
-  const canStash = stashPlan && stashPlan.feasible;
   lid = lid || (fixPlan && fixPlan.leagueId);
+  // Vault's one-tap IR/stash fixes are Sleeper writes — never offer them on a
+  // read-only platform (ESPN/Yahoo), where the user resolves it natively.
+  const caps = _lcCaps(lid);
+  const writable = !caps || caps.write;
+  const app = (caps && caps.label) || 'Sleeper';
+  const canFix = writable && fixPlan && fixPlan.fixable;
+  const canStash = writable && stashPlan && stashPlan.feasible;
   const footer = canStash
     ? _lcStashHtml(stashPlan, lid, _lcStashSelection(stashPlan, lid))
     : canFix
@@ -21958,12 +21981,14 @@ function _lcIssuesHtml(issues, fixPlan, stashPlan, lid){
         <span style="font-size:11.5px;color:var(--muted);line-height:1.5">Vault can clear this by moving ${fixPlan.moves.length} player${fixPlan.moves.length!==1?'s':''} off IR onto your bench.</span>
         <button onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())" style="padding:7px 15px;border-radius:8px;background:rgba(61,204,122,0.16);border:1px solid rgba(61,204,122,0.4);color:var(--rb);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">⚡ Fix from Vault</button>
       </div>`
-    : `<div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">Sleeper rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the Sleeper app, then hit Refresh.</div>`;
+    : writable
+    ? `<div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">${app} rejects lineup changes while the roster is invalid, so Vault won't push to this league yet. Resolve the issues in the ${app} app, then hit Refresh.</div>`
+    : `<div style="margin-top:10px;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);font-size:11.5px;color:var(--muted);line-height:1.5">Vault reads this league but sets lineups in ${app}. Resolve the roster issue in the ${app} app, then hit Refresh.</div>`;
   // .lc-det keeps this pinned in view on phones — the table it lives in is
   // min-width:640px and scrolls horizontally, which would otherwise push the
   // action button off-screen.
   return `<div class="lc-det"><div style="border:1px solid rgba(255,102,128,0.25);border-radius:10px;overflow:hidden;margin-top:6px">
-    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--qb)">Roster issues${(canFix||canStash)?'':' — fix in the Sleeper app'}</div>
+    <div style="padding:7px 12px;background:rgba(255,102,128,0.07);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--qb)">Roster issues${(canFix||canStash)?'':` — fix in the ${app} app`}</div>
     <div style="padding:4px 12px 8px">${rows}</div>
   </div>
   ${footer}</div>`;
@@ -22224,7 +22249,15 @@ async function renderLineupCommand(){
   // exclude read-only ESPN/Yahoo gains, which the user acts on natively.
   const optAll = actionable.filter(r => (r.d.caps ? r.d.caps.write : true));
   const optAllGain = optAll.reduce((s,r)=>s+r.lc.gain,0);
-  const anyBlocked = rows.some(r => r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed);
+  const blockedRows = rows.filter(r => r.issues.length && r.lc && r.lc.gain > 0.1 && r.lc.changed);
+  const anyBlocked = blockedRows.length > 0;
+  // Split the blocked set by whether Vault can act (Sleeper) vs. hands off
+  // natively (ESPN/Yahoo), so the banner names the right app and only promises
+  // one-tap fixes where they actually exist.
+  const anyBlockedWritable = blockedRows.some(r => (r.d.caps ? r.d.caps.write : true));
+  const blockedReadonlyApps = [...new Set(blockedRows
+    .filter(r => r.d.caps && !r.d.caps.write)
+    .map(r => r.d.caps.label))];
 
   const optimizedCount = rows.filter(r => { const empty=!r.lc||(r.d.myStartable||[]).length===0; const hg=!empty&&r.lc.gain>0.1&&r.lc.changed; return !empty && !hg; }).length;
   const blockedCount = rows.filter(r => { const empty=!r.lc||(r.d.myStartable||[]).length===0; const hg=!empty&&r.lc.gain>0.1&&r.lc.changed; return hg && r.issues.length>0; }).length;
@@ -22254,7 +22287,9 @@ async function renderLineupCommand(){
       // Read-only platform: same optimizer output, action handed off natively.
       ? (act
         ? `<a class="cx-btn outline sm" href="${pfManageUrl(d.lg)}" target="_blank" rel="noopener" title="Set this lineup in ${caps.label}" onclick="event.stopPropagation()">Open in ${caps.label}</a>`
-        : `<span class="cx-mut" style="font-size:12px">${empty?'—':'Best ball'}</span>`)
+        : blocked
+        ? `<a class="cx-btn outline sm" href="${pfManageUrl(d.lg)}" target="_blank" rel="noopener" title="Resolve the roster issue in ${caps.label}" onclick="event.stopPropagation()">Open in ${caps.label}</a>`
+        : `<span class="cx-mut" style="font-size:12px">${empty?'—':'Optimal'}</span>`)
       : !conn.connected
       ? '<span class="cx-mut" style="font-size:12px">Connect Sleeper</span>'
       : act
@@ -22263,7 +22298,7 @@ async function renderLineupCommand(){
       ? `<button class="cx-btn green sm" onclick="event.stopPropagation();${isOpen?'':`pfLcToggle('${lid}');`}pfStashAndOptimize('${lid}')">${_cxIc('bolt',13)}Stash ${stashPlan.need}</button>`
       : canFix
       ? `<button class="cx-btn green sm" onclick="event.stopPropagation();pfFixIr('${lid}', ()=>renderLineupCommand())">${_cxIc('bolt',13)}Fix IR</button>`
-      : `<span class="cx-mut" style="font-size:12px">${empty?'—':(blocked?'Fix in Sleeper':'Best ball')}</span>`;
+      : `<span class="cx-mut" style="font-size:12px">${empty?'—':(blocked?'Fix in Sleeper':'Optimal')}</span>`;
     const swapCount = act ? (lc.swaps.in.length) : 0;
     const meta2 = act ? `${swapCount} swap${swapCount!==1?'s':''}`
                 : blocked ? `<span style="color:var(--red2)">${issues.length} roster issue${issues.length!==1?'s':''}</span>${(canStash||canFix)?' · <span style="color:var(--rb)">fixable in Vault</span>':''}`
@@ -22285,7 +22320,7 @@ async function renderLineupCommand(){
 
   const strip = _cxStrip([
     { label:'Leagues', val:rows.length, hint:'with lineup control', c:'neutral' },
-    { label:'Optimized', val:optimizedCount, hint:'already best ball', c:'steel' },
+    { label:'Optimized', val:optimizedCount, hint:'already optimal', c:'steel' },
     { label:'Actionable', val:actionable.length, hint:'gains available', c:'green' },
     { label:'Blocked', val:blockedCount, hint:blockedCount===1?'roster issue':'roster issues', c:'red' },
     { label:'Projected gain', val:'+'+_lcFmt(totalGain), hint:`points across ${actionable.length} lineup${actionable.length!==1?'s':''} this week`, c:'green', span:true, vstyle:'font-size:38px' }
@@ -22309,7 +22344,9 @@ async function renderLineupCommand(){
         <tbody>${rowsHtml}</tbody>
       </table></div>
     </div>
-    ${anyBlocked?`<div class="cx-banner">${_cxIc('alert',16)}<span><b>Some lineups are blocked.</b> A roster issue (IR / taxi / over-roster) is blocking optimization — Vault can stash spare players on taxi or move IR players to your bench in one tap, or you can resolve it in the Sleeper app.</span></div>`:''}
+    ${anyBlocked?`<div class="cx-banner">${_cxIc('alert',16)}<span><b>Some lineups are blocked.</b> ${anyBlockedWritable
+        ? `A roster issue (IR / taxi / over-roster) is blocking optimization — Vault can stash spare players on taxi or move IR players to your bench in one tap, or you can resolve it in your league's app.`
+        : `A roster issue is blocking optimization. Vault reads ${blockedReadonlyApps.length===1?'this league':'these leagues'} but sets lineups in ${blockedReadonlyApps.length===1?`${blockedReadonlyApps[0]}`:'their native app'} — resolve the issue there, then hit Refresh.`}</span></div>`:''}
   </div>`;
 }
 try { window.renderLineupCommand = renderLineupCommand; } catch(e){}
@@ -23393,7 +23430,10 @@ async function renderWaiverCommand(force){
   const priority = rows.filter(r => r.diff >= 300).length;
   const best = rows.reduce((b,r)=> (!b || (r.bestFA&&r.bestFA.val>(b.bestFA?b.bestFA.val:0))) ? r : b, null);
 
-  const anyBlocked = rows.some(r => r.issues.length);
+  // Only writable (Sleeper) leagues surface a "blocked claim" — ESPN/Yahoo rows
+  // hand off natively and never render a block state, so the banner must not
+  // fire on their roster issues alone.
+  const anyBlocked = rows.some(r => (r.d.caps ? r.d.caps.write : true) && r.issues.length);
   const rowHtml = rows.map(r => {
     const lid = r.d.lg.league_id;
     const caps = r.d.caps || { write:true, faab:true, platform:'sleeper', label:'Sleeper' };
