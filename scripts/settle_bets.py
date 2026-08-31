@@ -406,7 +406,7 @@ def build_scoreboard(prop_picks, game_picks):
             "inseason_temp": {"t": temp, "n": n_temp, "k_shrink": K_BLEND,
                               "note": "builder composes t onto calib, shrunk by n/(n+K)"},
             "blend": {"w_measured": w_meas, "n": n_blend, "k_shrink": K_BLEND,
-                      "note": "measured model<->market weight; served blend deferred (see docs #3)"},
+                      "note": "measured model<->market weight; build publishes blend_w, serving blends P(over) toward the vig-free market (docs #3)"},
         }
 
     by_grade = defaultdict(list)

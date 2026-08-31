@@ -122,6 +122,38 @@ reliability, but CLV is what tells us *early* (before enough outcomes accrue for
 a stable `t`) whether the number is sharp, so the scoreboard is readable and
 trustworthy weeks before the overlay meaningfully engages.
 
+## The second lever: market blend (#3), the runtime one
+
+The calibration overlay bends a market's probabilities in aggregate. The **market
+blend** does something the overlay can't: on a *specific priced line*, it pulls
+the model's `P(over)` toward that line's **vig-free market price**, because on a
+real two-way market the price is itself sharp information.
+
+Unlike the overlay, this can't be fully baked into `prop_model.json` — the market
+price is a *runtime* value known only when the board renders a live line. So it's
+split:
+
+- **Build time.** `build_prop_projections.py` publishes a per-market `blend_w`
+  from `edge_scoreboard.markets[mk].blend.w_measured` (the grid-searched weight
+  on the model that minimized blended log-loss vs settled outcomes), shrunk the
+  same way: `w = w_prior·(K/(K+n)) + w_measured·(n/(K+n))`, **`w_prior = 1.0`**
+  (pure model, no blend) until evidence. So a market with no in-season data (or
+  the whole offseason) publishes no meaningful `blend_w` and nothing blends.
+- **Serve time.** `blendToward(pModel, pMarket, w)` in `prop-model.js` (and its
+  inline copy in `index.html`) blends in logit space:
+  `p* = sigmoid(w·logit(pModel) + (1−w)·logit(pMarket))`. It is called from the
+  Edge Board consumers (`ebFillVaultCol`, `ebFillVault`) with the de-vigged
+  market `P(over)` (`fe.sides.over.fairProb`). `w ≥ 1` or no market price ⇒ pure
+  model, so it is a no-op today and only priced two-way rows in-season ever move.
+
+Two deliberate exclusions: **flat pickem lines** (Underdog/PrizePicks) can't be
+de-vigged, so `marketProbOver` is null and they stay pure-model — the existing
+shrink-toward-0.5 temperature already is their "market blend." **One-sided
+markets** (anytime-TD "Yes" only) have no vig-free price to blend toward, so they
+stay pure-model too. Standalone projection surfaces (a player card with no market
+shown) also keep the raw model on purpose; the blend belongs only where we
+display an edge *vs* the market.
+
 ## The game model: measured, deliberately not auto-tuned
 
 `edge_scoreboard.games` grades the Vault game line forward — does our

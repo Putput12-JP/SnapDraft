@@ -581,30 +581,45 @@ def apply_inseason_overlay(model):
     except Exception:
         return
     mks = sb.get("markets", {})
-    applied = []
+    applied, blended = [], []
     for mkt, entry in model.get("markets", {}).items():
-        it = (mks.get(mkt) or {}).get("inseason_temp") or {}
+        sbm = mks.get(mkt) or {}
+
+        # (a) calibration overlay — bend the served calib toward this season's
+        # measured miscalibration (temperature), sample-shrunk.
+        it = sbm.get("inseason_temp") or {}
         t, n = it.get("t"), it.get("n") or 0
         K = it.get("k_shrink", 300)
-        if t is None or n <= 0 or not entry.get("calib"):
-            continue
-        t = max(0.6, min(1.4, t))                     # bound a noisy estimate
-        w = n / (n + K)
-        factor = 1.0 + w * (t - 1.0)
-        if abs(factor - 1.0) < 1e-4:
-            continue
-        new, prev = [], 0.0
-        for x, y in entry["calib"]:
-            yv = _sig(factor * _logit(y))
-            yv = max(prev, min(1.0, yv))              # keep isotonic (monotone non-decreasing)
-            new.append([round(x, 4), round(yv, 4)]); prev = yv
-        entry["calib"] = new
-        entry["inseason"] = {"t": round(t, 3), "n": n, "w": round(w, 4), "factor": round(factor, 4)}
-        applied.append(f"{mkt}(t={t:.2f},n={n},w={w:.2f})")
-    if applied:
-        print(f"[prop-model] in-season overlay applied: {', '.join(applied)}")
-    else:
-        print("[prop-model] in-season overlay: no eligible market yet (offseason or thin sample) — no-op")
+        if t is not None and n > 0 and entry.get("calib"):
+            t = max(0.6, min(1.4, t))                 # bound a noisy estimate
+            w = n / (n + K)
+            factor = 1.0 + w * (t - 1.0)
+            if abs(factor - 1.0) >= 1e-4:
+                new, prev = [], 0.0
+                for x, y in entry["calib"]:
+                    yv = _sig(factor * _logit(y))
+                    yv = max(prev, min(1.0, yv))       # keep isotonic (monotone non-decreasing)
+                    new.append([round(x, 4), round(yv, 4)]); prev = yv
+                entry["calib"] = new
+                entry["inseason"] = {"t": round(t, 3), "n": n, "w": round(w, 4), "factor": round(factor, 4)}
+                applied.append(f"{mkt}(t={t:.2f},n={n},w={w:.2f})")
+
+        # (b) market-blend weight (#3) — published for the serving code to blend
+        # the model's P(over) toward the vig-free market where the loop MEASURES
+        # the market is sharper. w_prior = 1.0 (pure model, no blend) until
+        # evidence, shrunk the same way; the JS defaults to 1.0 when absent, so
+        # this is a no-op offseason and only priced two-way rows ever use it.
+        bl = sbm.get("blend") or {}
+        wm, nb, Kb = bl.get("w_measured"), bl.get("n") or 0, (bl.get("k_shrink") or 300)
+        if wm is not None and nb > 0:
+            wb = nb / (nb + Kb)
+            entry["blend_w"] = round(1.0 * (1 - wb) + float(wm) * wb, 4)
+            blended.append(f"{mkt}(w={entry['blend_w']},n={nb})")
+
+    print(f"[prop-model] in-season overlay applied: {', '.join(applied)}" if applied
+          else "[prop-model] in-season overlay: no eligible market yet (offseason or thin sample) — no-op")
+    if blended:
+        print(f"[prop-model] market-blend weights published: {', '.join(blended)}")
 
 
 def main():

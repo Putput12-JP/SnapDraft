@@ -13334,6 +13334,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T12:00', tag:'Improved', title:'A big “Vault edge” now warns you instead of just tempting you',
+    items:[
+      'When Vault’s edge on a prop is suspiciously large, it now turns amber with a short reason instead of glowing green — because a giant edge usually means our projection is missing something, not that you found free money.',
+      'It tells you why to be skeptical: the player is hurt (Out/Questionable), Vault disagrees with the market by a lot, there’s barely any game history to go on, or only one book is posting the line.',
+      'Injuries feed the warning directly — a hurt player’s number is built from healthy games, so the market already knows what our history doesn’t.',
+    ],
+  },
+  {
     ts:'2026-09-01T06:00', tag:'Fixed', title:'No more phantom “drop players” warning on ESPN leagues',
     items:[
       'ESPN and Yahoo leagues no longer show a false “too many players on your roster — drop some” warning. Vault was counting only your starting spots and treating everyone on your bench as extra.',
@@ -40154,6 +40162,17 @@ window.VaultPropModel = (function () {
   function lognormOver(proj, sd, line) { if (proj <= 0) return 0; if (line <= 0) return 1; const s2 = Math.log(1 + (sd * sd) / (proj * proj)); if (s2 <= 0) return proj > line ? 1 : 0; return 1 - normCdf((Math.log(line) - (Math.log(proj) - s2 / 2)) / Math.sqrt(s2)); }
   // #3 market shrink: temperature scaling toward 0.5 (pickem/market prior). w<1 pulls an overconfident prob toward a coin-flip; w≈1 (yards) is a no-op.
   function shrinkProb(p, w) { if (!w || w === 1) return p; p = Math.min(Math.max(p, 1e-6), 1 - 1e-6); return 1 / (1 + Math.exp(-w * Math.log(p / (1 - p)))); }
+  // #3 market blend: pull the model's P(over) toward the vig-free market P(over),
+  // weighted by w (published per market from the settlement loop's measured model-
+  // vs-market log-loss). w>=1 or no market prob → pure model — the no-evidence
+  // default (a no-op offseason), so only priced two-way rows in-season ever move.
+  function blendToward(pModel, pMarket, w) {
+    if (pModel == null) return pModel;
+    const ww = (typeof w === 'number' && w >= 0 && w < 1) ? w : 1;
+    if (ww >= 1 || pMarket == null) return pModel;
+    const lg = p => { p = Math.min(Math.max(p, 1e-6), 1 - 1e-6); return Math.log(p / (1 - p)); };
+    return clamp(1 / (1 + Math.exp(-(ww * lg(pModel) + (1 - ww) * lg(pMarket)))), 0.01, 0.99);
+  }
   function poisOver(lam, line) { if (lam <= 0) return 0; const k = Math.floor(line); let term = Math.exp(-lam), acc = term; for (let i = 1; i <= k; i++) { term *= lam / i; acc += term; } return Math.max(0, 1 - Math.min(acc, 1)); }
   function calibrate(calib, p) {
     if (!calib || !calib.length) return p;
@@ -40198,7 +40217,8 @@ window.VaultPropModel = (function () {
               : dist === 'nbinom' ? nbOver(proj, L, m.nb_r)
               : dist === 'lognormal' ? lognormOver(proj, sd, L)
               : rawOver(proj, sd, L, count);
-    const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
+    const cal0 = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
+    const cal = blendToward(cal0, num(opts.marketProbOver), m.blend_w);   // #3: toward the vig-free market where measured
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
   }
@@ -41466,7 +41486,8 @@ window.VaultPropModel = (function () {
     const tile = document.getElementById('eb-vtile');
     if (!tile) return;
     if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; setG('<div class="tv"><span class="mut">—</span></div>'); return; }
-    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
+    const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo }).then(v => {
       const t = document.getElementById('eb-vtile');
       if (!t || propKey(r) !== ebSel) return;               // selection moved on
       if (!v || v.fairProb == null) {
@@ -41479,11 +41500,12 @@ window.VaultPropModel = (function () {
       const mp = BM.americanToProb(fe.bestPrice);
       const ed = mp != null ? BM.findEdge(sideProb, mp) : null;
       const ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
-      const unv = edgeUnverified(r, sideProb, ev);
-      const nB = lineTrust(r).books;
+      const mktSideProb = (fe.sides && fe.sides[fe.side]) ? fe.sides[fe.side].fairProb : null;
+      const caution = edgeCaution(r, sideProb, mktSideProb, ev, v);
+      const unv = !!caution;
       t.innerHTML = '<div class="tl">Vault edge</div>'
-        + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (unv ? ' ⚠' : '')) + '</div>'
-        + '<div class="ts" style="' + SS + '">' + (unv ? 'unverified · ' + (nB === 1 ? 'single-book line' : 'books disagree') : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%') + '</div>';
+        + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (caution ? ' ' + caution.label : '')) + '</div>'
+        + '<div class="ts" style="' + SS + '"' + (caution ? ' title="' + caution.tip.replace(/"/g, '&quot;') + '"' : '') + '>' + (caution ? caution.tip : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%') + '</div>';
       // Vault grade tile — grades the DISPLAYED pick side (fe.side), matching the
       // board column, so the tile never rates the opposite side of the pick.
       const gp = fe.side === 'over' ? v.over : v.under;
@@ -41522,6 +41544,41 @@ window.VaultPropModel = (function () {
     return (sideProb != null && sideProb >= 0.75) || ev >= 20;
   }
 
+  // Projection plausibility check. A big positive edge is far more often OUR
+  // projection being wrong than a real opportunity — an efficient market rarely
+  // hands out 20%+. So instead of painting every large edge green, ask WHY it's
+  // large and, when the answer is suspicious, flag it "check this" (amber) with
+  // the reason. Returns null (trust it) or { kind, label, tip }. Ordered by how
+  // decisive the cause is: a known injury beats a mere magnitude heuristic.
+  // Thresholds are hand-set for now; the settlement loop can calibrate them
+  // later (bucket settled picks by gap/edge, find where realized win% stops
+  // rising — the empirical "mirage line"). See docs/edge-feedback-loop.md.
+  function edgeCaution(r, sideProb, marketProb, ev, v) {
+    if (ev == null || ev <= 0) return null;                 // only caution POSITIVE edges
+    const inj = String(r && r.injury || '').toLowerCase(), des = (r && r.injuryDes) ? ' (' + r.injuryDes + ')' : '';
+    // 1. Injury — the projection is built from healthy games, so the market
+    //    almost certainly knows something our history doesn't.
+    if (/(out|doubtful|injured reserve|\bir\b)/.test(inj))
+      return { kind: 'injury', label: 'INJ', tip: 'Player is ' + (r.injury || 'out') + des + '. Vault’s projection is built from healthy games — this edge is almost certainly stale, and the market already knows.' };
+    if (/quest/.test(inj))
+      return { kind: 'injury', label: 'Q', tip: 'Player is Questionable' + des + '. Real workload is in doubt, so discount this edge until the status clears.' };
+    // 2. Implausible disagreement with the fair (vig-free) market. The market
+    //    line ≈ its own projection; a big prob gap usually means a stale role,
+    //    a bad name-join, or a thin sample — not a real edge.
+    if (marketProb != null && sideProb != null) {
+      const gap = Math.abs(sideProb - marketProb);
+      if (gap >= 0.18)
+        return { kind: 'implausible', label: '?', tip: 'Vault disagrees with the fair market by ' + Math.round(gap * 100) + ' pts (' + Math.round(sideProb * 100) + '% vs the market’s ' + Math.round(marketProb * 100) + '%). A gap this large is usually a projection problem — stale role, injury, or a bad match — so sanity-check the number before trusting it.' };
+    }
+    // 3. Thin history — few games make the projection noisy, so a big edge is low-confidence.
+    if (v && v.games != null && v.games < 4)
+      return { kind: 'thin', label: v.games + 'g', tip: 'Only ' + v.games + ' game' + (v.games === 1 ? '' : 's') + ' of history — the projection is noisy, so treat a large edge here as low-confidence.' };
+    // 4. Single-book (the original check) — no second book to confirm the number.
+    if (!lineTrust(r).corrob && ((sideProb != null && sideProb >= 0.75) || ev >= 20))
+      return { kind: 'unverified', label: '⚠', tip: 'Single-book line — no second book confirms this number, so the edge is unverified.' };
+    return null;
+  }
+
   // Fill the leaderboard's Hit% L10 cells asynchronously from VaultPropHistory.
   // Vault-edge cell: undefined cache = still loading (·); ev null = no usable
   // projection (—); else the signed EV%, green when positive. An unverified
@@ -41529,7 +41586,10 @@ window.VaultPropModel = (function () {
   function vaultCellHTML(c) {
     if (!c) return '<span class="mut">·</span>';
     if (c.ev == null) return '<span class="mut">—</span>';
-    if (c.unv) return '<span title="Single-book line — no second book to confirm this number, so the edge is unverified" style="color:var(--bt-gold);font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%<span style="font-size:9px;opacity:.8"> ⚠</span></span>';
+    // A flagged edge shows AMBER with the caution's short label + a tooltip that
+    // says why to doubt it — a big edge is a question ("is my projection right?"),
+    // not a trophy. Unflagged positive edges stay green.
+    if (c.caution) return '<span title="' + c.caution.tip.replace(/"/g, '&quot;') + '" style="color:var(--bt-gold);font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%<span style="font-size:9px;opacity:.85"> ' + c.caution.label + '</span></span>';
     return '<span style="color:' + (c.ev > 0 ? 'var(--bt-green)' : 'var(--bt-muted)') + ';font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%</span>';
   }
 
@@ -41627,18 +41687,22 @@ window.VaultPropModel = (function () {
       const k = propKey(r);
       if (k in _vaultCache) return null;                 // already resolved — body rendered it
       if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; changed = true; return null; }
-      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
-        let ev = null, proj = null, g = null, unv = false, over = null, under = null;
+      const mpo = (r.fe && r.fe.sides && r.fe.sides.over) ? r.fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo }).then(v => {
+        let ev = null, proj = null, g = null, unv = false, over = null, under = null, caution = null;
         if (v && v.proj != null) {
           proj = v.proj; over = v.over; under = v.under;
           const sideProb = r.fe.side === 'under' ? v.under : v.over;
           const mp = BM.americanToProb(r.fe.bestPrice);
           const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
           ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
-          unv = edgeUnverified(r, sideProb, ev);          // single-book line → don't trust a strong edge
+          // fair (vig-free) market prob for THIS side, when de-viggable — the plausibility anchor
+          const mktSideProb = (r.fe.sides && r.fe.sides[r.fe.side]) ? r.fe.sides[r.fe.side].fairProb : null;
+          caution = edgeCaution(r, sideProb, mktSideProb, ev, v);   // injury / implausible-gap / thin / single-book
+          unv = !!caution;                                           // back-compat: any caution flags the row
           g = vaultGrade(v.over, v.under, v.games);       // pickem confidence grade (player's own game count)
         }
-        _vaultCache[k] = { ev, proj, g, unv, over, under }; changed = true;
+        _vaultCache[k] = { ev, proj, g, unv, over, under, caution }; changed = true;
         const tv = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
         if (tv) tv.innerHTML = vaultEdgeCellHTML(r);
         const tp = _pvInner() && _pvInner().querySelector('[data-vpk="' + k + '"]');

@@ -138,6 +138,17 @@ window.VaultPropModel = (function () {
     p = Math.min(Math.max(p, 1e-6), 1 - 1e-6);
     return 1 / (1 + Math.exp(-w * Math.log(p / (1 - p))));
   }
+  // #3 market blend: pull the model's P(over) toward the vig-free market P(over),
+  // weighted by w (published per market from the settlement loop's measured model-
+  // vs-market log-loss). w>=1 or no market prob → pure model — the no-evidence
+  // default (a no-op offseason), so only priced two-way rows in-season ever move.
+  function blendToward(pModel, pMarket, w) {
+    if (pModel == null) return pModel;
+    const ww = (typeof w === 'number' && w >= 0 && w < 1) ? w : 1;
+    if (ww >= 1 || pMarket == null) return pModel;
+    const lg = p => { p = Math.min(Math.max(p, 1e-6), 1 - 1e-6); return Math.log(p / (1 - p)); };
+    return clamp(1 / (1 + Math.exp(-(ww * lg(pModel) + (1 - ww) * lg(pMarket)))), 0.01, 0.99);
+  }
   // Poisson tail: P(X >= ceil(line)) for a .5 line = 1 - P(X <= floor(line)).
   function poisOver(lam, line) {
     if (lam <= 0) return 0;
@@ -202,7 +213,8 @@ window.VaultPropModel = (function () {
               : dist === 'nbinom' ? nbOver(proj, L, m.nb_r)
               : dist === 'lognormal' ? lognormOver(proj, sd, L)
               : rawOver(proj, sd, L, count);
-    const cal = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
+    const cal0 = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
+    const cal = blendToward(cal0, num(opts.marketProbOver), m.blend_w);   // #3: toward the vig-free market where measured
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
              fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
   }
