@@ -10664,6 +10664,7 @@ async function connectEspnDraft(leagueId){
   const lg = myTeamsData.find(l=>l.league_id===leagueId);
   if (!lg || vpPlat(lg)!=='espn'){ if(typeof toast==='function') toast('Not an ESPN league'); return; }
   espnDraftLid = leagueId; sleeperDraftId='';
+  window._bdLastMaxPick = undefined; window._bdJustPicked = null; // don't pop every cell on first sync
   try { localStorage.setItem(SK+'-espn-draft', leagueId); localStorage.removeItem(SK+'-did'); } catch(e){}
   try { closeDraftConnect(); } catch(e){}
   window._draftPromptDismissed = true;
@@ -10700,7 +10701,11 @@ async function syncEspnDraft(){
     // filled slots (else a not-started draft reads as fully drafted). Round count
     // comes from the slots themselves — they span the whole board even when empty —
     // rather than rosterSize, which includes bench/IR spots ESPN doesn't draft.
-    const madePicks = picks.filter(p => p && p.playerId > 0);
+    // ESPN pre-lists empty slots with playerId -1 — filter ONLY those. D/ST carry
+    // NEGATIVE ids (-16001..-16032), so the old `> 0` test silently dropped every
+    // defense (kickers survived, their ids are positive). That was the "defenses
+    // not showing on the board" bug.
+    const madePicks = picks.filter(p => p && p.playerId != null && p.playerId !== -1);
     const teams = data.teams||[];
     NUM_TEAMS = teams.length || data.settings?.size || 12;
     const slotCounts = (data.settings?.rosterSettings?.lineupSlotCounts)||{};
@@ -10757,7 +10762,29 @@ async function syncEspnDraft(){
     try { _dvAutoMode(); } catch(e){}
     save(); _rebuildCaches(); try { buildADPFromDraft(); } catch(e){}
     setSyncStatus('live'); lastPickTime = Date.now();
+    // ── Pick-landing: flag picks that arrived since the last poll so the board
+    // animates them in (renderBoard → .board-cell.just-picked). Skipped on the
+    // first sync so an already-in-progress board doesn't pop every cell at once.
+    // Keyed `${teamIdx}-${round}` to match renderBoard's cell key. ──
+    const _maxPick = madePicks.reduce((m,p)=>Math.max(m, p.overallPickNumber||0), 0);
+    if (window._bdLastMaxPick !== undefined && _maxPick > window._bdLastMaxPick) {
+      const _jp = {};
+      madePicks.forEach(pk=>{
+        if ((pk.overallPickNumber||0) > window._bdLastMaxPick){
+          const ti = (rosterToIdx[pk.teamId] ?? -1);
+          if (ti>=0) _jp[`${ti}-${pk.roundId||1}`] = true;
+        }
+      });
+      window._bdJustPicked = _jp;
+    } else {
+      window._bdJustPicked = null;
+    }
+    window._bdLastMaxPick = _maxPick;
     scheduleSync();
+    // Repaint the board on every poll — WITHOUT this the interval sync updated
+    // draftState silently and the board sat frozen at connect-time (the "ESPN
+    // draft didn't update as it went" bug). syncSleeper ends the same way.
+    renderAll();
   } catch(e){ setSyncStatus('err'); console.warn('ESPN draft sync error:', e); }
 }
 function syncActiveDraft(){ return espnDraftLid ? syncEspnDraft() : syncSleeper(); }
@@ -13263,6 +13290,13 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-08-31T20:00', tag:'Fixed', title:'ESPN drafts now update live as picks come in',
+    items:[
+      'When you mirror an ESPN draft, the board now fills in each pick in real time as your league drafts — no more sitting frozen at the picks that were in when you connected.',
+      'Freshly landed ESPN picks flash in on the board the same way Sleeper picks do.',
+    ],
+  },
   {
     ts:'2026-08-28T18:45', tag:'Improved', title:'Tap a prop to expand it right on the board',
     items:[
