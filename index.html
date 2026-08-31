@@ -14437,11 +14437,22 @@ async function renderOverview() {
   const hasContext = ovLeagueId || draftRoster.length > 0;
   if (!hasContext) { _ovRendering = false; showLeaguePicker(el); return; }
 
+  // ESPN has no logged-in identity like Sleeper's myTeamsUserId — the user picks
+  // which team in the league is theirs (stored per-league). Resolve that here so
+  // the whole overview (roster, record, power rank, SOS) keys on the right owner
+  // instead of matching a Sleeper id that an ESPN roster can never carry (the
+  // "couldn't find your roster" dead end). No pick yet → show the team picker.
+  const _ovLeague = ovLeagueId ? myTeamsData.find(l => l.league_id === ovLeagueId) : null;
+  const _ovEspn = !!(_ovLeague && vpPlat(_ovLeague) === 'espn');
+  if (_ovEspn && !espnSelectedTeam(ovLeagueId)) { _ovRendering = false; return renderEspnTeamPicker(el, ovLeagueId); }
+  const myOwnerId = _ovEspn ? ('espn_owner_' + espnSelectedTeam(ovLeagueId)) : myTeamsUserId;
+
   // Resume-safety: a saved session whose Sleeper identity hasn't resolved yet
   // (a transient hiccup on load) must NOT read as "connect again". Show a quiet
   // reconnecting state, reload teams in the background, and re-render on success —
-  // a manual Retry (no auto-loop) covers a persistent outage.
-  if (ovLeagueId && !myTeamsUserId && localStorage.getItem(SK+'-username')) {
+  // a manual Retry (no auto-loop) covers a persistent outage. Sleeper-only: ESPN
+  // leagues never resolve a myTeamsUserId, so this guard must not fire for them.
+  if (ovLeagueId && !_ovEspn && !myTeamsUserId && localStorage.getItem(SK+'-username')) {
     el.innerHTML = _reconnectingHtml();
     _ovRendering = false;
     loadMyTeams().then(() => {
@@ -14470,9 +14481,9 @@ async function renderOverview() {
       // Update season year in subtitle dynamically
       const seasonYearEl = document.getElementById('ov-season-year');
       if (seasonYearEl && league?.season) seasonYearEl.textContent = league.season;
-      const myRoster_raw = rosters.find(r => r.owner_id === myTeamsUserId);
+      const myRoster_raw = rosters.find(r => r.owner_id === myOwnerId);
       if (!myRoster_raw) { el.innerHTML = _reconnectFailedHtml('Couldn’t find your roster in this league — it’s still saved.'); _ovRendering = false; return; }
-      teamName = userMap[myTeamsUserId] || 'My Team';
+      teamName = userMap[myOwnerId] || 'My Team';
 
       // Fetch league roster_positions for slot labels (cached on ctx)
       if (!ctx.rosterPositions) {
@@ -14560,7 +14571,7 @@ async function renderOverview() {
         owner: r.owner_id,
         val: (r.players||[]).reduce((s,pid) => s + getPlayerValue(globalPidToName[String(pid)]||''), 0)
       })).sort((a,b)=>b.val-a.val);
-      powerRank = allTeamVals.findIndex(r=>r.owner===myTeamsUserId)+1;
+      powerRank = allTeamVals.findIndex(r=>r.owner===myOwnerId)+1;
       totalTeams = allTeamVals.length;
       // ── Real record / points / playoff-week capture for Season Outlook ──
       const _st = myRoster_raw.settings || {};
@@ -14568,19 +14579,19 @@ async function renderOverview() {
       _ovPF = (_st.fpts||0) + (_st.fpts_decimal||0)/100;
       _ovPA = (_st.fpts_against||0) + (_st.fpts_against_decimal||0)/100;
       const _pfArr = rosters.map(r=>({owner:r.owner_id, pf:(r.settings?.fpts||0)+((r.settings?.fpts_decimal||0)/100)})).sort((a,b)=>b.pf-a.pf);
-      const _pfi = _pfArr.findIndex(x=>x.owner===myTeamsUserId); _ovPFRank = _pfi>=0?_pfi+1:null;
+      const _pfi = _pfArr.findIndex(x=>x.owner===myOwnerId); _ovPFRank = _pfi>=0?_pfi+1:null;
       _ovPlayoffStart = ctx.lgFull?.settings?.playoff_week_start || league?.settings?.playoff_week_start || 15;
       // ── Strength-of-Schedule context (roster_id → name/value/rank) for live + projected ──
       const _valByOwner = {}; allTeamVals.forEach(t => _valByOwner[t.owner] = t.val);
       const _metaList = rosters.map(r => ({ roster_id:r.roster_id, owner:r.owner_id, name:(userMap[r.owner_id]||'Team'), val:_valByOwner[r.owner_id]||0 }));
       const _rosterMeta = {};
       _metaList.slice().sort((a,b)=>b.val-a.val).forEach((m,i)=>{ m.rank=i+1; _rosterMeta[m.roster_id]=m; });
-      window._ovSosCtx = { leagueId:ovLeagueId, myRosterId:myRoster_raw.roster_id, rosterMeta:_rosterMeta, totalTeams:allTeamVals.length, playoffStart:_ovPlayoffStart, oppSorted:_metaList.filter(m=>m.owner!==myTeamsUserId).sort((a,b)=>b.val-a.val) };
+      window._ovSosCtx = { leagueId:ovLeagueId, myRosterId:myRoster_raw.roster_id, rosterMeta:_rosterMeta, totalTeams:allTeamVals.length, playoffStart:_ovPlayoffStart, oppSorted:_metaList.filter(m=>m.owner!==myOwnerId).sort((a,b)=>b.val-a.val) };
       // Redraft roster-preview extras (real record-based seed, FAAB, waiver order),
       // captured here where raw rosters/users are in scope for the redraft view below.
       try {
         const _rrLg = ctx.lgFull || league;
-        const _rrStand = rosters.map(r => { const s=r.settings||{}; return { name:userMap[r.owner_id]||'Team', w:s.wins||0, l:s.losses||0, t:s.ties||0, pf:(s.fpts||0)+((s.fpts_decimal||0)/100), isMe:r.owner_id===myTeamsUserId }; })
+        const _rrStand = rosters.map(r => { const s=r.settings||{}; return { name:userMap[r.owner_id]||'Team', w:s.wins||0, l:s.losses||0, t:s.ties||0, pf:(s.fpts||0)+((s.fpts_decimal||0)/100), isMe:r.owner_id===myOwnerId }; })
           .sort((a,b)=> (b.w-a.w) || (b.pf-a.pf));
         _rrStand.forEach((t,i)=>{ t.seed=i+1; });
         const _rrMe = _rrStand.find(t=>t.isMe) || {};
@@ -15429,8 +15440,11 @@ function espnTeamName(t){ return (t.name && t.name.trim()) || [t.location,t.nick
 function espnSelectedTeam(leagueId){ return localStorage.getItem(SK+'-espn-team-'+leagueId) || null; }
 function espnPickTeam(leagueId, teamId){
   localStorage.setItem(SK+'-espn-team-'+leagueId, String(teamId));
-  const el = document.getElementById('ov-content');
-  if (el) renderOverviewRoster(el);
+  // Re-render the active My Team view (renderOverview routes to the roster grid
+  // itself when ovTab==='roster'), so picking a team resolves the whole overview
+  // — not just the roster tab that the picker happened to be shown from.
+  if (typeof renderOverview === 'function') renderOverview();
+  else { const el = document.getElementById('ov-content'); if (el) renderOverviewRoster(el); }
 }
 function espnEntryToPlayer(e){
   const pl = (e.playerPoolEntry && e.playerPoolEntry.player) || e.player || {};
@@ -41111,9 +41125,7 @@ window.VaultPropModel = (function () {
       + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv' + (!vled && fe.ev != null && fe.ev > 0 ? ' good' : '') + '">' + (vled ? '<span class="mut" title="No price edge — the edge here is Vault’s projection">—</span>' : (fe.ev == null ? '<span class="mut">—</span>' : (fe.ev > 0 ? '+' : '') + fe.ev + '%')) + '</div></div>'
-      + ((!/^pre/i.test(MODEL.season_type || '') && r.proj != null && r.line != null)
-          ? '<div class="eb-tile"><div class="tl">Model lean</div><div class="tv cy">' + ((r.proj - r.line) > 0 ? '+' : '') + (+(r.proj - r.line).toFixed(1)) + '</div><div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + r.proj + ' vs ' + r.line + '</div></div>'
-          : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + (fe.vig == null ? '<span class="mut">—</span>' : fe.vig + '%') + '</div></div>')
+      + '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + (fe.vig == null ? '<span class="mut">—</span>' : fe.vig + '%') + '</div></div>'
       + '<div class="eb-tile" id="eb-vtile"><div class="tl">Vault edge</div><div class="tv"><span class="spinner xs"></span></div></div>'
       + '<div class="eb-tile" id="eb-gtile"><div class="tl">Vault grade</div><div class="tv"><span class="spinner xs"></span></div></div>'
       + '</div>'
