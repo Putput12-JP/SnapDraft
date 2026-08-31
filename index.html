@@ -1117,6 +1117,8 @@ header{
 .bm-pill.RB{background:#3de8a020;color:var(--rb)}
 .bm-pill.WR{background:#5bc5ff20;color:var(--wr)}
 .bm-pill.TE{background:#ffd16620;color:var(--te)}
+.bm-pill.K{background:#d19eff20;color:#d19eff}
+.bm-pill.DEF{background:#ffd16620;color:#ffd166}
 .bm-info{flex:1;min-width:0}
 .bm-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bm-team-owner{font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-top:2px}
@@ -10629,6 +10631,10 @@ function startSync(){
 // ════════════════════════════════════
 // ── ESPN live draft sync, polled mirror into the SAME board as Sleeper ──
 let espnDraftLid = '';
+// ESPN D/ST "players" carry negative ids (= -16000 - proTeamId, with gaps), so
+// they never appear in the skill-player universe. Map each to its NFL abbr so
+// defense picks land on the board with a logo + DEF badge instead of vanishing.
+const ESPN_DEF_TEAM = {'-16001':'ATL','-16002':'BUF','-16003':'CHI','-16004':'CIN','-16005':'CLE','-16006':'DAL','-16007':'DEN','-16008':'DET','-16009':'GB','-16010':'TEN','-16011':'IND','-16012':'KC','-16013':'LV','-16014':'LAR','-16015':'MIA','-16016':'MIN','-16017':'NE','-16018':'NO','-16019':'NYG','-16020':'NYJ','-16021':'PHI','-16022':'ARI','-16023':'PIT','-16024':'LAC','-16025':'SF','-16026':'SEA','-16027':'TB','-16028':'WAS','-16029':'CAR','-16030':'JAX','-16033':'BAL','-16034':'HOU'};
 let _espnPlayerUniverse = {};
 async function espnPlayerMap(year){
   if (_espnPlayerUniverse[year]) return _espnPlayerUniverse[year];
@@ -10740,9 +10746,23 @@ async function syncEspnDraft(){
     const newState = {};
     const newDraftedIds = new Set();
     madePicks.forEach(pk=>{
-      const nm = pmap[pk.playerId]; if (!nm) return;
+      const defAbbr = ESPN_DEF_TEAM[String(pk.playerId)];
+      // For a D/ST, headline the clean team nickname ("Falcons") — the board's
+      // DEF badge + team logo carry the rest, and ESPN's "Falcons D/ST" would
+      // otherwise headline the "D/ST" half. Skill players keep their real name.
+      let nm = defAbbr ? (_RDV_DST[defAbbr]||defAbbr) : pmap[pk.playerId];
+      if (!nm) return;
       const teamIdx = (rosterToIdx[pk.teamId] ?? 0);
       const pickData = { teamIdx, round: pk.roundId||1, pickNo: pk.overallPickNumber||0, slot: teamIdx+1 };
+      if (defAbbr){
+        // Team defenses have no skill-player row — register the abbr so the board
+        // draws the team logo + DEF badge, and mark the Sleeper DEF id (its ids ARE
+        // the team abbr) so the ranking list dims it like any other drafted player.
+        window._bdDefByName[nm] = defAbbr;
+        newState[nm] = pickData;
+        newDraftedIds.add(defAbbr);
+        return;
+      }
       const player = _findPlayerLoose(nm);
       if (player){ newState[player.name]=pickData; if (player.name!==nm) newState[nm]=pickData; }
       else newState[nm]=pickData;
@@ -11386,6 +11406,16 @@ function _vhUpgradeImgs() {
   });
 }
 window.vaultHeadshot = vaultHeadshot; window._vhUpgradeImgs = _vhUpgradeImgs;
+
+/* Team D/ST logo by NFL abbreviation. Team defenses have no headshot, so the
+   draft board renders this instead. ESPN defense picks resolve their team abbr
+   through ESPN_DEF_TEAM and register the pick name in _bdDefByName; renderBoard
+   reads both to draw the logo + a DEF badge. (ESPN's logo host spells
+   Washington 'wsh'.) */
+function vaultTeamLogo(abbr){ abbr=String(abbr||'').toUpperCase(); if(!abbr) return ''; const m={WAS:'wsh'}; return 'https://a.espncdn.com/i/teamlogos/nfl/500/'+(m[abbr]||abbr).toLowerCase()+'.png'; }
+window.vaultTeamLogo = vaultTeamLogo;
+// name-as-stored-in-draftState → team abbr, for defense picks the player DB can't match
+window._bdDefByName = window._bdDefByName || {};
 
 /* Non-destructive img error handler for vaultHeadshot avatars. A transient
    load failure gets ONE retry — re-resolved through vaultHeadshot (in case the
@@ -13291,10 +13321,20 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-08-31T21:30', tag:'Improved', title:'Props board tells one story per pick — plus a Sim % and Vault projection',
+    items:[
+      'Every prop now reads consistently: the Pick, projection, grade, hit-rate and edge all describe the same side. Before, a flat market could show an “Over” pick while Vault’s grade and projection pointed the other way — confusing. Now, when the market is a coin-flip with no real price edge, the pick follows Vault’s projection (marked with a small “V”), so the whole row agrees.',
+      'New Sim % column: Vault’s model probability that the pick actually hits — a forward-looking number right next to the historical Hit% (what’s happened before), so you can see both at a glance.',
+      'New Vault projection column shows Vault’s own number vs the line (e.g. 212.9 vs 250.5), green when the projection backs the pick.',
+      'When there’s no price edge, the EV now honestly reads “—” instead of a scary negative number, and the headline shows Vault’s edge instead.',
+    ],
+  },
+  {
     ts:'2026-08-31T20:00', tag:'Fixed', title:'ESPN drafts now update live as picks come in',
     items:[
       'When you mirror an ESPN draft, the board now fills in each pick in real time as your league drafts — no more sitting frozen at the picks that were in when you connected.',
       'Freshly landed ESPN picks flash in on the board the same way Sleeper picks do.',
+      'Team defenses now show up on the ESPN board with their team logo and a DEF badge, instead of quietly going missing.',
     ],
   },
   {
@@ -16893,14 +16933,19 @@ function renderBoard(){
   const g=document.getElementById('bgrid');
   if(!g||!TEAMS.length) return;
 
-  const POSCOL={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+  const POSCOL={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)',K:'#d19eff',DEF:'#ffd166'};
   // Local avatar builder (mirrors the ADP board's _bdAvatar, which is out of scope here)
   // PLAYERS comes from RosterAudit and carries no sleeperId, so pk.sid is empty
   // and the Sleeper-thumb fallback inside vaultHeadshot could never fire — an
   // nflverse name miss meant the grey position box, not a photo. Resolve the pid
   // by name so rookies and missed-season vets (absent from nflverse entirely)
-  // still get a face.
-  const _bdAv=(name,sid,pos)=>{
+  // still get a face. Team defenses have no headshot at all — render the team
+  // logo (resolved from the pick's `team` abbr) instead of the grey DEF box.
+  const _bdAv=(name,sid,pos,team)=>{
+    if(pos==='DEF' && team && typeof vaultTeamLogo==='function'){
+      const tl=vaultTeamLogo(team);
+      if(tl) return `<img class="adp-bd-av" src="${tl}" onerror="this.outerHTML='<div class=\\'adp-bd-av-fb\\'>DEF</div>'" loading="lazy" alt="">`;
+    }
     const _sid=(typeof vaultPidFor==='function')?vaultPidFor(name,sid):(sid||'');
     const u=(typeof vaultHeadshot==='function')?vaultHeadshot(name,_sid,48):'';
     return u?`<img class="adp-bd-av" src="${u}" onerror="this.outerHTML='<div class=\\'adp-bd-av-fb\\'>${pos||'?'}</div>'" loading="lazy" alt="">`:`<div class="adp-bd-av-fb">${pos||'?'}</div>`;
@@ -16917,7 +16962,8 @@ function renderBoard(){
     const col = v.slot!==undefined ? v.slot-1 : v.teamIdx;
     if(r>0){
       const _fp=findPlayer(name);
-      pickLookup[`${col}-${r}`]={name,pos:_fp?.pos||'?',r0:_fp?.r0||'',sid:_fp?.sleeperId||'',ownerIdx:v.teamIdx,pickNo:v.pickNo||0};
+      const _def=window._bdDefByName&&window._bdDefByName[name];
+      pickLookup[`${col}-${r}`]={name,pos:_def?'DEF':(_fp?.pos||'?'),r0:_fp?.r0||'',sid:_fp?.sleeperId||'',team:_def||'',ownerIdx:v.teamIdx,pickNo:v.pickNo||0};
     }
   });
 
@@ -16927,7 +16973,8 @@ function renderBoard(){
     if(v.teamIdx<0||v.round>0) return;
     if(!manualByTeam[v.teamIdx]) manualByTeam[v.teamIdx]=[];
     const _fpm=findPlayer(name);
-    manualByTeam[v.teamIdx].push({name,pos:_fpm?.pos||'?',r0:_fpm?.r0||'',sid:_fpm?.sleeperId||'',ownerIdx:v.teamIdx});
+    const _defm=window._bdDefByName&&window._bdDefByName[name];
+    manualByTeam[v.teamIdx].push({name,pos:_defm?'DEF':(_fpm?.pos||'?'),r0:_fpm?.r0||'',sid:_fpm?.sleeperId||'',team:_defm||'',ownerIdx:v.teamIdx});
   });
   Object.entries(manualByTeam).forEach(([ti,arr])=>{
     const tidx=parseInt(ti);
@@ -17026,7 +17073,7 @@ function renderBoard(){
                 ${bcFirst?`<div class="bc-first">${bcFirst}</div>`:''}<div class="bc-name" style="color:${ownerC}">${bcLast}</div>
                 ${isTraded?`<div class="bc-meta bc-tradedtag">↗ ${(TEAMS[pk.ownerIdx]||'').slice(0,7)}</div>`:''}
               </div>
-              ${_bdAv(pk.name,pk.sid,pk.pos)}
+              ${_bdAv(pk.name,pk.sid,pk.pos,pk.team)}
             </div>
           </div>
         </td>`;
@@ -17076,12 +17123,15 @@ function renderBoardMobile(pickLookup, manualByTeam) {
         // so this corner becomes the overall pick number rather than the board
         // rank it used to show.
         const rank = pk.pickNo || '';
-        const hsUrl = getPlayerHeadshotUrl(pk.name);
+        // Team defenses have no headshot — show the team logo instead.
+        const hsUrl = (pk.pos==='DEF'&&pk.team&&typeof vaultTeamLogo==='function') ? vaultTeamLogo(pk.team) : getPlayerHeadshotUrl(pk.name);
         const hsHtml = hsUrl
           ? `<img class="bm-img" src="${hsUrl}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : '';
         const justClsM=(window._bdJustPicked && window._bdJustPicked[key])?' just-picked':'';
-        roundPicks.push(`<div class="bm-card ${isMyCol?'me-card':''}${justClsM}" style="--pc:var(--${(pk.pos||'').toLowerCase()})">
+        // K/DEF have no --pos CSS var; give them an explicit accent so the card tint isn't blank.
+        const _bmpc = ({DEF:'#ffd166',K:'#d19eff'}[pk.pos]) || `var(--${(pk.pos||'').toLowerCase()})`;
+        roundPicks.push(`<div class="bm-card ${isMyCol?'me-card':''}${justClsM}" style="--pc:${_bmpc}">
           ${hsHtml}
           <div class="bm-slot">${slotLabel}</div>
           <span class="bm-pill ${pk.pos}">${pk.pos}</span>
@@ -40725,10 +40775,14 @@ window.VaultPropModel = (function () {
     });
     const evO = bO != null ? BM.findEdge(dv.over.fairProb, BM.americanToProb(bO)) : null;
     const evU = bU != null ? BM.findEdge(dv.under.fairProb, BM.americanToProb(bU)) : null;
-    let side = 'over', ev = evO, fp = dv.over.fairProb, fa = dv.over.fairAmerican, bp = bO, bk = boBook;
-    if (evU && (!evO || evU.edge > evO.edge)) { side = 'under'; ev = evU; fp = dv.under.fairProb; fa = dv.under.fairAmerican; bp = bU; bk = buBook; }
-    return { side, fairProb: fp, fairAmerican: Math.round(fa), bestPrice: bp, bestBook: bk,
-      ev: ev ? +(ev.evPerDollar * 100).toFixed(1) : null, edgePts: ev ? ev.edgePct : null, vig: dv.vigPct };
+    // Both sides, fully priced — the market-best side leads (returned at top
+    // level for backward compat), but `sides` lets a caller present the other
+    // side (e.g. when Vault's projection leads a no-price-edge row).
+    const mk = (s, d, bp, bk, e) => ({ side: s, fairProb: d.fairProb, fairAmerican: Math.round(d.fairAmerican), bestPrice: bp, bestBook: bk,
+      ev: e ? +(e.evPerDollar * 100).toFixed(1) : null, edgePts: e ? e.edgePct : null, vig: dv.vigPct });
+    const overFE = mk('over', dv.over, bO, boBook, evO), underFE = mk('under', dv.under, bU, buBook, evU);
+    const best = (evU && (!evO || evU.edge > evO.edge)) ? underFE : overFE;
+    return Object.assign({}, best, { sides: { over: overFE, under: underFE } });
   }
 
   // Reference "fe" for a real line we CAN'T de-vig — a flat pickem line. DFS
@@ -40773,6 +40827,50 @@ window.VaultPropModel = (function () {
     const host = document.getElementById('bt-v-props');
     if (!host.querySelector('#bt-pv-inner')) host.innerHTML = '<div id="bt-pv-inner"></div>';
     renderPropsBoard();
+  }
+
+  // The side a row LEADS with. Two engines can disagree: the market de-vig
+  // (price) and Vault's own projection (model). When the market has a real
+  // positive-EV side, trust it — that edge is price-guaranteed. But a flat or
+  // juiced two-way with no +EV side (e.g. Underdog −110/−110) picks a side
+  // essentially at random, which then contradicts Vault's grade/projection on
+  // the same row. In that case defer the whole row to Vault's confident lean so
+  // Pick, EV, game log, hit-rate, grade and projection all describe ONE side.
+  // Returns the market `fe` unchanged (market-led) or a vaultLed variant with
+  // the Vault side's fair/best/price plus vaultEv/vProj for the headline.
+  // Vault data is async (_vaultCache); until it lands this returns the market
+  // side, and the board re-renders once ebFillVaultCol fills the cache.
+  function resolvePick(r) {
+    const fe = r && r.fe;
+    if (!fe || fe.pickem || !fe.sides) return fe;            // no two-way to flip
+    if (fe.ev != null && fe.ev > 0) return fe;               // real price edge → market side
+    const c = _vaultCache[propKey(r)];
+    if (!c || c.proj == null || c.over == null || c.under == null) return fe;   // Vault read not in yet
+    const vs = c.over >= c.under ? 'over' : 'under';        // Vault's favored side
+    if (vs === fe.side) return fe;                          // Vault already agrees with the market side
+    const alt = fe.sides[vs];
+    if (!alt || alt.bestPrice == null) return fe;           // Vault side isn't bettable
+    const BM = window.VaultBettingMath;
+    const sideProb = vs === 'under' ? c.under : c.over;
+    const mp = BM ? BM.americanToProb(alt.bestPrice) : null;
+    const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
+    const vEv = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+    if (vEv == null || vEv <= 0) return fe;                 // Vault sees no value on the other side → keep market side
+    const unv = edgeUnverified(r, sideProb, vEv);
+    return Object.assign({}, alt, { vaultLed: true, marketEv: fe.ev, vaultEv: vEv, vaultProb: sideProb, vProj: c.proj, vaultUnv: unv });
+  }
+
+  // The side every Vault signal (grade, projection, hit-rate) describes for a
+  // row. For a priced pick that's the displayed pick side. For a flat pickem
+  // line the market chooses no side, so Vault's favored side is the actionable
+  // recommendation — grade/proj/hit all describe THAT.
+  function displaySide(r) {
+    const pf = resolvePick(r);
+    if (pf && pf.pickem) {
+      const c = _vaultCache[propKey(r)];
+      if (c && c.over != null && c.under != null) return c.over >= c.under ? 'over' : 'under';
+    }
+    return pf ? pf.side : (r.fe ? r.fe.side : 'over');
   }
 
   function renderPropsBoard() {
@@ -40839,27 +40937,27 @@ window.VaultPropModel = (function () {
     const car = k => ebSort.key === k ? '<span class="ebs-c">' + (ebSort.dir < 0 ? ' ▼' : ' ▲') + '</span>' : '';
     const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
     // Column count for the inline detail row's colspan: rank + player + pick +
-    // edge + ev + fair/best + [proj] + vault edge + vault grade + hit + watch + chevron.
-    const nCols = 11 + (anyLean ? 1 : 0);
-    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + (anyLean ? SC('Proj', 'lean', 'r') : '') + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th><th class="c eb-chevh"></th></tr></thead>';
+    // edge + ev + fair/best + vault proj + vault edge + vault grade + hit + watch + chevron.
+    const nCols = 13;
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + '<th class="r eb-vph" title="Vault’s own per-game projection vs the line">Vault proj</th>' + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + '<th class="c eb-simh" title="Vault’s simulated probability this pick hits">Sim %</th>' + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th><th class="c eb-chevh"></th></tr></thead>';
     const body = rows.map((r, i) => {
-      const fe = r.fe, init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+      const pf = resolvePick(r), init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
-      const lean = anyLean && r.proj != null && r.line != null ? +(r.proj - r.line).toFixed(1) : null;
-      const leanAgree = lean != null && ((fe.side === 'over' && lean > 0) || (fe.side === 'under' && lean < 0));
       const mut = '<span class="mut">—</span>';
+      const noEdge = '<span class="mut" title="No price edge — flat or juiced market. The edge here is Vault’s projection (see Vault edge/proj).">—</span>';
       const isOpen = propKey(r) === ebSel;
       const tr = '<tr class="' + (isOpen ? 'sel exp' : '') + '" data-k="' + propKey(r) + '">'
         + '<td class="eb-rk">' + (i + 1) + '</td>'
         + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
         + '<div><div class="eb-pn">' + r.name + injBadge(r) + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
-        + '<td>' + (fe.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + fe.side + '">' + fe.side.toUpperCase() + '</span>') + ' ' + (r.line != null ? r.line : '') + '</td>'
-        + '<td class="eb-m2" style="text-align:right">' + (fe.edgePts == null ? mut : (fe.edgePts > 0 ? '+' : '') + fe.edgePts) + '</td>'
-        + '<td style="text-align:right">' + (fe.ev == null ? mut : '<span class="eb-ev">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span>') + '</td>'
-        + '<td class="eb-fb">' + (fe.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(fe.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(fe.bestPrice) + '</span>') + '</td>'
-        + (anyLean ? '<td class="eb-proj" style="text-align:right">' + (r.proj == null || r.line == null ? mut : '<span style="color:' + (leanAgree ? 'var(--bt-green)' : 'var(--bt-muted)') + '">' + r.proj + '<span class="pjx">vs ' + r.line + '</span></span>') + '</td>' : '')
-        + '<td class="eb-vault" data-vk="' + propKey(r) + '" style="text-align:right">' + vaultCellHTML(_vaultCache[propKey(r)]) + '</td>'
-        + '<td class="eb-gradecell" data-vg="' + propKey(r) + '" style="text-align:center">' + gradeCellHTML(_vaultCache[propKey(r)]) + '</td>'
+        + '<td>' + (pf.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + pf.side + '">' + pf.side.toUpperCase() + '</span>' + (pf.vaultLed ? '<span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '')) + ' ' + (r.line != null ? r.line : '') + '</td>'
+        + '<td class="eb-m2" style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.edgePts == null ? mut : (pf.edgePts > 0 ? '+' : '') + pf.edgePts)) + '</td>'
+        + '<td style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.ev == null ? mut : '<span class="eb-ev">' + (pf.ev > 0 ? '+' : '') + pf.ev + '%</span>')) + '</td>'
+        + '<td class="eb-fb">' + (pf.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(pf.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(pf.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(pf.bestPrice) + '</span>') + '</td>'
+        + '<td class="eb-vaultproj" data-vpk="' + propKey(r) + '" style="text-align:right">' + projCellHTML(r) + '</td>'
+        + '<td class="eb-vault" data-vk="' + propKey(r) + '" style="text-align:right">' + vaultEdgeCellHTML(r) + '</td>'
+        + '<td class="eb-gradecell" data-vg="' + propKey(r) + '" style="text-align:center">' + gradeCellFor(r) + '</td>'
+        + '<td class="eb-simc" data-simk="' + propKey(r) + '" style="text-align:center">' + simCellHTML(r) + '</td>'
         + '<td class="eb-hit" data-hitk="' + propKey(r) + '"><span class="mut">·</span></td>'
         + '<td style="text-align:center"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★' : '☆') + '</button></td>'
         + '<td class="eb-chevc"><span class="eb-chev">▸</span></td></tr>';
@@ -40995,22 +41093,24 @@ window.VaultPropModel = (function () {
   // Featured detail: header + tiles + per-book strip now; game-log chart (with a
   // L5/L10/Season/H2H window filter) + hit-rate heatmap once history loads.
   function renderPropDetail(r) {
-    const fb = F(), fe = r.fe, col = POS_COLOR[curPos], init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
-    const on = watch.has(propKey(r));
+    const fb = F(), fe = resolvePick(r) || r.fe, col = POS_COLOR[curPos], init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+    const on = watch.has(propKey(r)), vled = fe.vaultLed;
     const feat = document.getElementById('eb-feat'); if (!feat) return;
     feat.innerHTML =
       '<div class="eb-ftop"><div class="eb-fpl"><span class="bt-hs eb-fhs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
       + '<div><div class="eb-fpn">' + r.name + injBadge(r) + '</div><div class="eb-fpm"><span class="eb-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span> '
       + (r.team || '') + (r.opp ? ' · vs ' + r.opp : '') + '</div>'
-      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + (fe.pickem ? 'PICK' : fe.side.toUpperCase()) + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b>' + (fe.fairAmerican == null ? '' : ' → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b>') + '</div></div></div>'
-      + '<div class="eb-fbadge">' + (fe.ev == null
-          ? '<div class="eb-eb"><span class="v">' + fb.fmtOdds(fe.bestPrice) + '</span><span class="l">pickem line</span></div>'
-          : '<div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>')
+      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + (fe.pickem ? 'PICK' : fe.side.toUpperCase()) + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b>' + (fe.fairAmerican == null ? '' : ' → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b>') + (vled ? ' · <span class="eb-vled-note" title="No positive-EV side at this price — the market is a coin-flip here. Vault’s projection is what favors this side.">Vault-led · market has no edge</span>' : '') + '</div></div></div>'
+      + '<div class="eb-fbadge">' + (vled
+          ? '<div class="eb-eb"><span class="v">' + (fe.vaultEv == null ? '—' : (fe.vaultEv > 0 ? '+' : '') + fe.vaultEv + '%') + '</span><span class="l">Vault edge · ' + fe.side + '</span></div>'
+          : (fe.ev == null
+              ? '<div class="eb-eb"><span class="v">' + fb.fmtOdds(fe.bestPrice) + '</span><span class="l">pickem line</span></div>'
+              : '<div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>'))
       + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button>'
       + '<button class="eb-logbtn ' + (pickLogged(r) ? 'on' : '') + '" id="eb-logpick">' + (pickLogged(r) ? '✓ Tracking' : '＋ Track pick') + '</button></div></div>'
       + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
       + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
-      + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv good">' + (fe.ev == null ? '<span class="mut">—</span>' : (fe.ev > 0 ? '+' : '') + fe.ev + '%') + '</div></div>'
+      + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv' + (!vled && fe.ev != null && fe.ev > 0 ? ' good' : '') + '">' + (vled ? '<span class="mut" title="No price edge — the edge here is Vault’s projection">—</span>' : (fe.ev == null ? '<span class="mut">—</span>' : (fe.ev > 0 ? '+' : '') + fe.ev + '%')) + '</div></div>'
       + ((!/^pre/i.test(MODEL.season_type || '') && r.proj != null && r.line != null)
           ? '<div class="eb-tile"><div class="tl">Model lean</div><div class="tv cy">' + ((r.proj - r.line) > 0 ? '+' : '') + (+(r.proj - r.line).toFixed(1)) + '</div><div class="ts" style="font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px">proj ' + r.proj + ' vs ' + r.line + '</div></div>'
           : '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + (fe.vig == null ? '<span class="mut">—</span>' : fe.vig + '%') + '</div></div>')
@@ -41027,13 +41127,13 @@ window.VaultPropModel = (function () {
     ebFillVault(r, fe);
     const PH = window.VaultPropHistory;
     if (!PH) return;
-    PH.forProp(r.name, r.market, r.line, fe.side, {}).then(h => {
+    PH.forProp(r.name, r.market, r.line, displaySide(r), {}).then(h => {
       if (propKey(r) !== ebSel) return;   // selection moved on
       // The game log is fetched once and re-sliced, so clicking a hit-rate cell
       // (the window filter) never refetches. The hit-rate row IS the filter: each
       // cell shows that window's hit% and drives the chart when clicked.
       const WINS = [['L5', 'L5'], ['L10', 'L10'], ['L20', 'L20'], ['SZN', 'SZN'], ['H2H', 'H2H']];
-      const line = Number(r.line), over = fe.side !== 'under';
+      const dSide = displaySide(r), line = Number(r.line), over = dSide !== 'under';
       const hitPct = games => games.length ? Math.round(games.filter(g => over ? g.val >= line : g.val < line).length / games.length * 100) : null;
       const paint = () => {
         const chart = document.getElementById('eb-chart'), heat = document.getElementById('eb-heat');
@@ -41049,7 +41149,7 @@ window.VaultPropModel = (function () {
             const bars = gl.map(g => { const hit = over ? g.val >= line : g.val < line; return '<div class="eb-bar ' + (hit ? 'hit' : 'miss') + '"><span class="v">' + g.val + '</span><div class="b" style="height:' + (g.val / max * 100).toFixed(1) + '%"></div><span class="x">' + (ebRange === 'H2H' ? '\'' + String(g.season).slice(-2) : 'W' + g.wk) + '</span></div>'; }).join('');
             const lp = (1 - line / max) * 100;
             const hitN = gl.filter(g => over ? g.val >= line : g.val < line).length;
-            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · ' + ebRange + ' · ' + hitN + '/' + gl.length + ' ' + fe.side + '</span></span><span class="eb-cl"><i class="hit"></i>Hit <i class="miss"></i>Miss</span></div>'
+            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · ' + ebRange + ' · ' + hitN + '/' + gl.length + ' ' + dSide + '</span></span><span class="eb-cl"><i class="hit"></i>Hit <i class="miss"></i>Miss</span></div>'
               + '<div class="eb-bars">' + bars + '<div class="eb-line" style="top:' + lp + '%"></div><div class="eb-ltag" style="top:' + lp + '%">' + r.line + '</div></div>';
           }
         }
@@ -41063,7 +41163,7 @@ window.VaultPropModel = (function () {
             const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-red,#e23a4e)';
             return '<div class="eb-hc' + (k === ebRange ? ' on' : '') + '" data-rg="' + k + '" style="border-color:' + c + '"><div class="hv" style="color:' + c + '">' + (v == null ? '—' : v + '%') + '</div><div class="hl">' + l + '</div></div>';
           }).join('');
-          heat.innerHTML = '<div class="eb-ht">Hit rate · ' + fe.side + ' ' + r.line + '<span class="hint"> · tap to filter chart</span></div><div class="eb-hrow">' + cells + '</div>';
+          heat.innerHTML = '<div class="eb-ht">Hit rate · ' + dSide + ' ' + r.line + '<span class="hint"> · tap to filter chart</span></div><div class="eb-hrow">' + cells + '</div>';
           heat.querySelectorAll('.eb-hc[data-rg]').forEach(c => c.onclick = () => { ebRange = c.dataset.rg; paint(); });
         }
       };
@@ -41106,13 +41206,15 @@ window.VaultPropModel = (function () {
       t.innerHTML = '<div class="tl">Vault edge</div>'
         + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (unv ? ' ⚠' : '')) + '</div>'
         + '<div class="ts" style="' + SS + '">' + (unv ? 'unverified · ' + (nB === 1 ? 'single-book line' : 'books disagree') : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%') + '</div>';
-      // Vault grade tile — same confidence-tempered grade as the board column.
-      const g = vaultGrade(v.over, v.under, v.games);
-      if (!g) { setG('<div class="tv"><span class="mut">—</span></div>'); return; }
-      const letter = gradeLetter(g.padj, betBE), cls = letter.toLowerCase();
-      const sd = g.side === 'over' ? 'Over' : 'Under';
+      // Vault grade tile — grades the DISPLAYED pick side (fe.side), matching the
+      // board column, so the tile never rates the opposite side of the pick.
+      const gp = fe.side === 'over' ? v.over : v.under;
+      if (gp == null) { setG('<div class="tv"><span class="mut">—</span></div>'); return; }
+      const gN = v.games != null ? v.games : 0, gK = 6, gpadj = 0.5 + (gp - 0.5) * (gN / (gN + gK));
+      const letter = gradeLetter(gpadj, betBE), cls = letter.toLowerCase();
+      const sd = fe.side === 'over' ? 'Over' : 'Under';
       setG('<div class="tv"><span class="eb-grade ' + cls + '"><span class="eb-gside">' + sd[0] + '</span>' + letter + '</span></div>'
-        + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(g.p * 100) + '% · vs ' + Math.round(betBE * 100) + '% BE</div>');
+        + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(gp * 100) + '% · vs ' + Math.round(betBE * 100) + '% BE</div>');
     });
   }
   // ── phantom-edge guard ────────────────────────────────────────────────
@@ -41190,17 +41292,67 @@ window.VaultPropModel = (function () {
   // rendered straight from the body and skipped here. Mirrors ebFillHits: if the
   // board is sorted by Vault edge and this pass filled new values, re-sort once
   // (the guard can't loop — the re-render finds everything cached).
+  // Vault-edge cell on the row's DISPLAYED pick side (market side, or the Vault
+  // side when the row is Vault-led), so the column never shows an edge for the
+  // opposite side of the Pick.
+  function vaultEdgeCellHTML(r) {
+    const c = _vaultCache[propKey(r)];
+    if (!c) return '<span class="mut">·</span>';
+    const pf = resolvePick(r);
+    if (pf && pf.vaultLed) return vaultCellHTML({ ev: pf.vaultEv, unv: pf.vaultUnv });
+    return vaultCellHTML(c);
+  }
+  // Vault projection cell: Vault's own per-game number vs the line, green when
+  // it backs the displayed pick side. Ungated (this is the per-game projection
+  // the grade already uses, valid against a per-game line in any season).
+  function projCellHTML(r) {
+    const c = _vaultCache[propKey(r)];
+    if (!c) return '<span class="mut">·</span>';
+    if (c.proj == null) return '<span class="mut">—</span>';
+    const side = displaySide(r), line = r.line;
+    const favors = line != null && (side === 'over' ? c.proj > line : c.proj < line);
+    return '<span style="color:' + (favors ? 'var(--bt-green)' : 'var(--bt-muted)') + ';font-weight:700">' + c.proj + '<span class="pjx">vs ' + (line != null ? line : '—') + '</span></span>';
+  }
+
+  // Vault grade for the row's DISPLAYED pick side (not Vault's favourite side),
+  // so the grade always rates the side you'd actually bet. A market pick Vault
+  // dislikes honestly grades low on that side (e.g. O F) instead of showing a
+  // conflicting grade for the opposite side.
+  function gradeCellFor(r) {
+    const c = _vaultCache[propKey(r)];
+    if (!c) return '<span class="mut">·</span>';
+    if (c.over == null || c.under == null || !c.g) return '<span class="mut">—</span>';
+    const side = displaySide(r);
+    const p = side === 'over' ? c.over : c.under, n = c.g.n != null ? c.g.n : 0, K = 6;
+    const padj = 0.5 + (p - 0.5) * (n / (n + K));
+    const letter = gradeLetter(padj, betBE), cls = letter.toLowerCase(), sd = side === 'over' ? 'O' : 'U';
+    const tip = 'Vault ' + sd + ' ' + Math.round(p * 100) + '% · ' + n + ' game' + (n === 1 ? '' : 's') + ' of history · vs ' + Math.round(betBE * 100) + '% break-even';
+    return '<span class="eb-grade ' + cls + '" title="' + tip + '"><span class="eb-gside">' + sd + '</span>' + letter + '</span>';
+  }
+
+  // Vault "Sim %": the model's calibrated probability this pick hits — a
+  // forward-looking simulated chance, paired with the historical Hit% L10. Same
+  // probability that drives the grade, shown as a plain number for scanning.
+  function simCellHTML(r) {
+    const c = _vaultCache[propKey(r)];
+    if (!c) return '<span class="mut">·</span>';
+    if (c.over == null || c.under == null) return '<span class="mut">—</span>';
+    const side = displaySide(r), pct = Math.round((side === 'over' ? c.over : c.under) * 100);
+    const col = pct >= 60 ? 'var(--bt-green)' : pct >= 52 ? 'var(--bt-gold)' : 'var(--bt-muted)';
+    return '<span title="Vault’s model probability this pick hits (calibrated). The Hit% column beside it is what actually happened." style="color:' + col + ';font-weight:700">' + pct + '%</span>';
+  }
+
   function ebFillVaultCol(rows) {
     const PM = window.VaultPropModel, BM = window.VaultBettingMath;
     let changed = false;
     const ps = rows.map(r => {
       const k = propKey(r);
       if (k in _vaultCache) return null;                 // already resolved — body rendered it
-      if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null }; changed = true; return null; }
+      if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; changed = true; return null; }
       return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons() }).then(v => {
-        let ev = null, proj = null, g = null, unv = false;
+        let ev = null, proj = null, g = null, unv = false, over = null, under = null;
         if (v && v.proj != null) {
-          proj = v.proj;
+          proj = v.proj; over = v.over; under = v.under;
           const sideProb = r.fe.side === 'under' ? v.under : v.over;
           const mp = BM.americanToProb(r.fe.bestPrice);
           const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
@@ -41208,20 +41360,27 @@ window.VaultPropModel = (function () {
           unv = edgeUnverified(r, sideProb, ev);          // single-book line → don't trust a strong edge
           g = vaultGrade(v.over, v.under, v.games);       // pickem confidence grade (player's own game count)
         }
-        _vaultCache[k] = { ev, proj, g, unv }; changed = true;
+        _vaultCache[k] = { ev, proj, g, unv, over, under }; changed = true;
         const tv = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
-        if (tv) tv.innerHTML = vaultCellHTML(_vaultCache[k]);
+        if (tv) tv.innerHTML = vaultEdgeCellHTML(r);
+        const tp = _pvInner() && _pvInner().querySelector('[data-vpk="' + k + '"]');
+        if (tp) tp.innerHTML = projCellHTML(r);
         const tg = _pvInner() && _pvInner().querySelector('[data-vg="' + k + '"]');
-        if (tg) tg.innerHTML = gradeCellHTML(_vaultCache[k]);
-      }).catch(() => { _vaultCache[k] = { ev: null, proj: null, g: null }; });
+        if (tg) tg.innerHTML = gradeCellFor(r);
+        const tsm = _pvInner() && _pvInner().querySelector('[data-simk="' + k + '"]');
+        if (tsm) tsm.innerHTML = simCellHTML(r);
+      }).catch(() => { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; });
     }).filter(Boolean);
-    if (ps.length) Promise.all(ps).then(() => { if (changed && ebSort.key === 'vault') renderPropsBoard(); });
+    // Re-render once the projections land: a row may flip to Vault's side, which
+    // changes Pick/EV/Fair — not just the async cells. All rows are cached by
+    // then, so the re-render's fill is a no-op and can't loop.
+    if (ps.length) Promise.all(ps).then(() => { if (changed) renderPropsBoard(); });
   }
 
   function ebFillHits(rows) {
     const PH = window.VaultPropHistory; if (!PH) return;
     let changed = false;
-    const ps = rows.map(r => PH.forProp(r.name, r.market, r.line, r.fe.side, { limit: 10 }).then(h => {
+    const ps = rows.map(r => PH.forProp(r.name, r.market, r.line, displaySide(r), { limit: 10 }).then(h => {
       const k = propKey(r);
       const v = h && h.heat ? h.heat.L10 : null;
       if (_hitCache[k] !== v) { _hitCache[k] = v; changed = true; }
@@ -41745,8 +41904,11 @@ window.VaultPropModel = (function () {
 #page-betting .gb-vi b{color:var(--bt-text)}
 #page-betting .gb-vi .mut{color:var(--bt-muted)}
 /* ── Inline accordion detail row ─────────────────────────────────────────── */
-#page-betting .eb-proj{font-family:var(--bt-mono);font-size:12.5px}
-#page-betting .eb-proj .pjx{display:block;font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted);margin-top:1px;letter-spacing:.02em}
+#page-betting .eb-vph{white-space:nowrap}
+#page-betting .eb-vaultproj{font-family:var(--bt-mono);font-size:12.5px}
+#page-betting .eb-vaultproj .pjx{display:block;font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted);margin-top:1px;letter-spacing:.02em}
+#page-betting .eb-vled{display:inline-block;margin-left:4px;font-family:var(--bt-mono);font-size:8.5px;font-weight:800;color:var(--bt-accent2);border:1px solid color-mix(in srgb,var(--bt-accent2) 45%,transparent);background:color-mix(in srgb,var(--bt-accent2) 12%,transparent);border-radius:4px;padding:0 4px;vertical-align:middle;cursor:help}
+#page-betting .eb-vled-note{font-family:var(--bt-mono);font-size:10px;color:var(--bt-accent2);cursor:help}
 #page-betting .eb-chevh{width:26px}
 #page-betting .eb-chevc{text-align:center;width:26px}
 #page-betting .eb-chev{display:inline-block;color:var(--bt-muted);font-size:10px;transition:transform .3s cubic-bezier(.22,.61,.36,1),color .15s ease}
@@ -41762,15 +41924,17 @@ window.VaultPropModel = (function () {
 /* ── Mobile: collapse the board to the essentials; the drawer carries the rest ─ */
 @media(max-width:600px){
   #page-betting .eb-table{min-width:0}
-  #page-betting .eb-table thead th,#page-betting .eb-table tbody td{padding:10px 9px}
+  #page-betting .eb-table thead th,#page-betting .eb-table tbody td{padding:10px 6px}
   #page-betting .eb-table thead th:first-child,
   #page-betting .eb-table tbody td.eb-rk,
   #page-betting .eb-table thead th[data-sk="edge"],
   #page-betting .eb-table tbody td.eb-m2,
   #page-betting .eb-table thead th[data-sk="best"],
   #page-betting .eb-table tbody td.eb-fb,
-  #page-betting .eb-table thead th[data-sk="lean"],
-  #page-betting .eb-table tbody td.eb-proj,
+  #page-betting .eb-table thead th.eb-vph,
+  #page-betting .eb-table tbody td.eb-vaultproj,
+  #page-betting .eb-table thead th.eb-simh,
+  #page-betting .eb-table tbody td.eb-simc,
   #page-betting .eb-table thead th[data-sk="vault"],
   #page-betting .eb-table tbody td.eb-vault,
   #page-betting .eb-table thead th[data-sk="hit"],
