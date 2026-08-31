@@ -13334,6 +13334,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T04:00', tag:'Fixed', title:'Draft Buddy report card shows your real draft',
+    items:[
+      'The post-draft “report card” now fills in with your actual team: your Steal of the Draft (the pick that fell furthest past his price), your real Upside / Floor / Risk / Situational grades, and your true positional mix versus the rest of the league — instead of placeholder numbers.',
+    ],
+  },
+  {
     ts:'2026-09-01T03:00', tag:'Fixed', title:'ESPN rosters: no more phantom free agents',
     items:[
       'Rostered players like James Cook and Kenneth Walker no longer show up as waiver-wire targets in ESPN leagues. ESPN lists them with their full name (“James Cook III”), which Vault wasn’t matching — so they slipped through as “available.”',
@@ -47930,7 +47936,61 @@ table.rs-std tr.champ{background:color-mix(in srgb,var(--te) 8%,transparent)}
   function showPanel(){ panel.classList.remove('closing'); panel.classList.add('show'); }
   function closeAll(){ panel.classList.add('closing'); setTimeout(function(){panel.classList.remove('show','closing');},300); pill.classList.remove('show'); minimized=false; fab.classList.add('bob'); }
   function react(txt){ var b=document.createElement('div'); b.className='vbud-nudge'; b.style.right='90px'; b.style.bottom='20px'; b.innerHTML='<small>Draft Buddy</small>'+txt; root.appendChild(b); pop(); setTimeout(function(){b.remove();},3000); }
-  function openReport(){ var g=liveGrade(); document.getElementById('vbud-rc-letter').firstChild.textContent=g; document.getElementById('vbud-rc-strat').textContent=strat?STRATS[strat].name:'Robust RB'; scrim.classList.add('show'); }
+  // Paint one 4-factor ring: value 0-10 → conic fill + coloured number.
+  function _rcRing(rr, val, col){
+    if(!rr) return;
+    var v=Math.max(0,Math.min(10, +val||0)), pct=Math.round(v*10);
+    rr.textContent=v.toFixed(1); rr.style.color=col;
+    rr.style.background='conic-gradient('+col+' 0 '+pct+'%,var(--s4) '+pct+'%)';
+  }
+  // Fill the report card with the SAME real data the Draft Grade card uses:
+  // team 4-factor from dvTeamGrade, the steal from dvPickScore (biggest value vs
+  // price), and positional mix from the live draftState. Falls back gracefully so
+  // a not-yet-gradeable roster just keeps the neutral defaults instead of erroring.
+  function fillReportCard(){
+    try{
+      var tg=(typeof dvTeamGrade==='function')?dvTeamGrade():null, f=tg&&tg.factors;
+      var rings=scrim.querySelectorAll('.vbud-rings .rr');
+      if(f && rings.length>=4){
+        _rcRing(rings[0], f.upside,      'var(--te)');   // Upside
+        _rcRing(rings[1], f.floor,       'var(--rb)');   // Floor
+        _rcRing(rings[2], f.risk,        'var(--red)');  // Risk (higher = riskier)
+        _rcRing(rings[3], f.situational, 'var(--wr)');   // Situational
+      }
+      var roster=(typeof getMyRoster==='function')?getMyRoster().filter(function(p){return p&&p.name;}):[];
+      // Steal of the draft = my pick that fell furthest past his price (dvPickScore.delta).
+      var best=null;
+      roster.forEach(function(p){
+        var d=(typeof draftState!=='undefined')&&draftState[p.name]; var overall=d&&d.pickNo; if(!overall) return;
+        var g=null; try{ g=(typeof dvPickScore==='function')&&dvPickScore(p.name,p.pos,overall); }catch(e){}
+        if(g&&g.delta!=null&&(!best||g.delta>best.delta)) best={name:p.name,delta:g.delta};
+      });
+      var stealEl=document.getElementById('vbud-rc-steal'), stealV=document.getElementById('vbud-rc-stealv');
+      if(stealEl){
+        if(best&&best.delta>=2){ stealEl.textContent=best.name; if(stealV) stealV.textContent='+'+best.delta+' picks of value'; }
+        else if(roster.length){
+          var top=roster.slice().sort(function(a,b){return ((typeof getPlayerValue==='function'&&getPlayerValue(b.name))||0)-((typeof getPlayerValue==='function'&&getPlayerValue(a.name))||0);})[0];
+          stealEl.textContent=top?top.name:'—'; if(stealV) stealV.textContent='best value pick';
+        }
+      }
+      // Positional mix (skill only): my share vs the league-wide share from draftState.
+      var mine={QB:0,RB:0,WR:0,TE:0}, myTot=0;
+      roster.forEach(function(p){ if(mine[p.pos]!=null){ mine[p.pos]++; myTot++; } });
+      var lgc={QB:0,RB:0,WR:0,TE:0}, lgTot=0;
+      if(typeof draftState!=='undefined'){
+        Object.keys(draftState).forEach(function(n){ var d=draftState[n]; if(!d||d.teamIdx<0) return; var pos=((typeof findPlayer==='function'&&findPlayer(n))||{}).pos; if(lgc[pos]!=null){ lgc[pos]++; lgTot++; } });
+      }
+      var rows=scrim.querySelectorAll('.vbud-mixrow'), POSK=['QB','RB','WR','TE'], PC={QB:'var(--qb)',RB:'var(--rb)',WR:'var(--wr)',TE:'var(--te)'};
+      Array.prototype.forEach.call(rows,function(row,i){ var pos=POSK[i]; if(!pos) return;
+        var mp=myTot?Math.round(mine[pos]/myTot*100):0, lp=lgTot?Math.round(lgc[pos]/lgTot*100):0;
+        var fb=row.querySelector('.fillb'), tick=row.querySelector('.lgtick'), mv=row.querySelector('.mv');
+        if(fb){ fb.style.width=mp+'%'; fb.style.background=PC[pos]; }
+        if(tick) tick.style.left=lp+'%';
+        if(mv) mv.textContent=mp+'% · lg '+lp+'%';
+      });
+    }catch(e){ console.warn('[vbud] report card fill failed', e); }
+  }
+  function openReport(){ var g=liveGrade(); document.getElementById('vbud-rc-letter').firstChild.textContent=g; document.getElementById('vbud-rc-strat').textContent=strat?STRATS[strat].name:'Robust RB'; fillReportCard(); scrim.classList.add('show'); }
   document.getElementById('vbud-rc-close').onclick=function(){scrim.classList.remove('show');};
   scrim.onclick=function(e){if(e.target===scrim)scrim.classList.remove('show');};
 
