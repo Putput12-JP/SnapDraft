@@ -40942,6 +40942,7 @@ window.VaultPropModel = (function () {
       : SK === 'hit' ? (_hitCache[propKey(r)] ?? -Infinity)
       : SK === 'vault' ? (() => { const c = _vaultCache[propKey(r)]; if (!c || c.ev == null) return -Infinity; return c.unv ? Math.min(c.ev, 0) : c.ev; })()
       : SK === 'grade' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].g) ? _vaultCache[propKey(r)].g.padj : -Infinity)
+      : SK === 'sim' ? (() => { const c = _vaultCache[propKey(r)]; if (!c || c.over == null || c.under == null) return -Infinity; return displaySide(r) === 'over' ? c.over : c.under; })()
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
     // Accordion: default-expand the top edge on first open, but respect an
@@ -40960,7 +40961,7 @@ window.VaultPropModel = (function () {
     // Column count for the inline detail row's colspan: rank + player + pick +
     // edge + ev + fair/best + vault proj + vault edge + vault grade + hit + watch + chevron.
     const nCols = 13;
-    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + '<th class="r eb-vph" title="Vault’s own per-game projection vs the line">Vault proj</th>' + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + '<th class="c eb-simh" title="Vault’s simulated probability this pick hits">Sim %</th>' + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th><th class="c eb-chevh"></th></tr></thead>';
+    const head = '<thead><tr><th></th>' + SC('Player', 'name') + SC('Pick', 'line') + SC('Edge', 'edge', 'r') + SC('EV / $1', 'ev', 'r') + SC('Fair / Best', 'best', 'r') + '<th class="r eb-vph" title="Vault’s own per-game projection vs the line">Vault proj</th>' + SC('Vault edge', 'vault', 'r') + SC('Vault grade', 'grade', 'c') + SC('Sim %', 'sim', 'c eb-simh') + SC('Hit% L10', 'hit', 'c') + '<th class="c">Watch</th><th class="c eb-chevh"></th></tr></thead>';
     const body = rows.map((r, i) => {
       const pf = resolvePick(r), init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r));
@@ -40987,8 +40988,10 @@ window.VaultPropModel = (function () {
       const drawer = isOpen ? '<tr class="eb-drow"><td colspan="' + nCols + '"><div class="eb-dwrap"><div class="eb-feat" id="eb-feat"></div></div></td></tr>' : '';
       return tr + drawer;
     }).join('');
-    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge', grade: 'Vault grade' };
-    const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑');
+    const SORTLBL = { name: 'player', line: 'line', edge: 'edge', ev: 'EV', best: 'best price', lean: 'lean', hit: 'hit rate', vault: 'Vault edge', grade: 'Vault grade', sim: 'Sim %' };
+    const anyVaultLed = rows.some(r => { const p = resolvePick(r); return p && p.vaultLed; });
+    const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑')
+      + (anyVaultLed ? ' · <span title="No market price edge on this line, so the pick follows Vault’s projection instead of the book"><b style="color:var(--bt-accent2)">V</b> = Vault-led</span>' : '');
     _pvInner().innerHTML = '<div class="eb-wrap">'
       + '<div class="eb-board"><div class="eb-bh"><div><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
       + '<div class="eb-bh-r"><label class="eb-be" title="Vault grade is scored against this break-even. Pick the pickem entry you play — a 3-pick power play needs ~55% per leg to profit.">Grade vs <select id="eb-be-sel" class="bt-in">'
