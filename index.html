@@ -13334,6 +13334,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T00:30', tag:'Fixed', title:'ESPN My Team: Position Grades and Next Up',
+    items:[
+      'Position Grades on your ESPN My Team page now rank each spot against the rest of your league instead of showing “Average · —” across the board.',
+      'The “Next Up” card no longer spins on “Projecting…” forever when there’s no matchup yet — it settles into a clear message.',
+      'Private ESPN leagues now pull this-week’s matchup through the secure connection instead of coming up empty.',
+    ],
+  },
+  {
     ts:'2026-08-31T23:30', tag:'Fixed', title:'ESPN polish: finished drafts, League rank, and a nav glitch',
     items:[
       'A finished ESPN draft no longer shows as “Upcoming” in the draft connect list — once Vault has synced it, it reads as done.',
@@ -14799,7 +14807,9 @@ async function renderOverview() {
       }).sort((a,b)=>b.val-a.val);
     }
     if (teamPosVals.length >= 2) {
-      const myIdx = teamPosVals.findIndex(t => t.owner === myTeamsUserId);
+      // myOwnerId (not myTeamsUserId) so ESPN rosters resolve — else rank is null
+      // and every position grade falls back to "Average · —".
+      const myIdx = teamPosVals.findIndex(t => t.owner === myOwnerId);
       const rank = myIdx >= 0 ? myIdx+1 : null;
       const total = teamPosVals.length;
       const pct = rank ? (rank-1)/total : 0.5;  // 0 = best
@@ -36413,18 +36423,28 @@ window._ovRenderRedraftMatchup=_ovRenderRedraftMatchup;
 async function _rdvEspnMatchup(ctx, lg){
   var mEl=document.getElementById('rdv-matchup'), oEl=document.getElementById('rdv-optimizer'), nEl=document.getElementById('rdv-nextweek');
   if(!mEl) return;
+  // The Next Up card ships a "Projecting…" spinner as a placeholder; every early
+  // return below used to leave it spinning forever on ESPN leagues (private or
+  // preseason). nClear always parks it in a clean state so nothing hangs.
+  var nClear=function(msg){ if(nEl) nEl.innerHTML='<div class="rdv-sechd" style="margin-bottom:2px"><div class="rdv-sectitle"><span class="tick" style="background:var(--rw)"></span>Next Up</div></div><div class="rdv-empty" style="padding:18px">'+(msg||'Next week\'s matchup isn\'t scheduled yet.')+'</div>'; };
   var myTid=(typeof espnSelectedTeam==='function')&&espnSelectedTeam(ctx.leagueId);
-  if(!lg._espnId || !myTid){ mEl.innerHTML='<div class="rdv-empty">Pick your ESPN team to see this week\'s matchup.</div>'; return; }
+  if(!lg._espnId || !myTid){ mEl.innerHTML='<div class="rdv-empty">Pick your ESPN team to see this week\'s matchup.</div>'; nClear('Pick your ESPN team first.'); return; }
   myTid=String(myTid);
   var apiBase='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+lg.season+'/segments/0/leagues/'+lg._espnId;
-  var data=await fetch(apiBase+'?view=mMatchupScore&view=mScoreboard&view=mRoster&view=mTeam',{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
-  if(!data){ mEl.innerHTML='<div class="rdv-empty">ESPN didn\'t return matchup data (the league may be private).</div>'; return; }
+  // Private leagues 401 on the public endpoint — their SWID/espn_s2 cookies live
+  // server-side, so route through the same proxy syncEspnDraft uses.
+  var espnPrivate=!!(lg._espnPrivate && window.VaultEspn && window.VaultEspn.league);
+  var mainViews=['mMatchupScore','mScoreboard','mRoster','mTeam'];
+  var data = espnPrivate
+    ? await window.VaultEspn.league(lg._espnId, lg.season, mainViews, true).catch(function(){return null;})
+    : await fetch(apiBase+'?'+mainViews.map(function(v){return 'view='+v;}).join('&'),{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
+  if(!data){ mEl.innerHTML='<div class="rdv-empty">'+(espnPrivate?'Couldn\'t reach ESPN for this private league right now.':'ESPN didn\'t return matchup data (the league may be private).')+'</div>'; nClear(); return; }
   var week=(data.status&&data.status.currentMatchupPeriod)||data.scoringPeriodId||1;
   var spid=data.scoringPeriodId||week;
   var teams={}; (data.teams||[]).forEach(function(t){ var r=(t.record&&t.record.overall)||{}; teams[t.id]={name:espnTeamName(t),rec:(r.wins||0)+'-'+(r.losses||0)+((r.ties)?'-'+r.ties:'')}; });
   var sched=(data.schedule||[]).filter(function(m){ return m.matchupPeriodId===week; });
   var mine=sched.find(function(m){ return (m.home&&String(m.home.teamId)===myTid)||(m.away&&String(m.away.teamId)===myTid); });
-  if(!mine){ mEl.innerHTML='<div class="rdv-empty">No ESPN matchup posted for week '+week+' yet.</div>'; return; }
+  if(!mine){ mEl.innerHTML='<div class="rdv-empty">No ESPN matchup posted for week '+week+' yet.</div>'; nClear('Matchups appear once the season schedule posts.'); return; }
   var isHome=String(mine.home.teamId)===myTid;
   var meSide=isHome?mine.home:mine.away, opSide=isHome?mine.away:mine.home;
   var BENCH=(typeof ESPN_BENCH!=='undefined')?ESPN_BENCH:new Set([20,21,24]);
@@ -36492,8 +36512,11 @@ async function _rdvEspnMatchup(ctx, lg){
       : '<div class="rdv-opt ok"><div class="ic">✓</div><div class="body"><div class="t">Lineup optimized</div><div class="d">Your projected '+myTot.toFixed(1)+' is the best available from your current roster.</div></div></div>';
   }
 
-  // next week (ESPN): re-fetch with next scoring period for projections
-  if(nEl){
+  // next week (ESPN): re-fetch with next scoring period for projections. The proxy
+  // can't forward a scoringPeriodId, so for private leagues skip the peek and just
+  // park the card rather than spinning forever.
+  if(nEl && espnPrivate){ nClear('Next week\'s projection posts once this week wraps.'); }
+  else if(nEl){
     try{
       var nd=await fetch(apiBase+'?view=mMatchupScore&view=mRoster&view=mTeam&scoringPeriodId='+(spid+1),{headers:{accept:'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
       var nweek=week+1, nspid=(nd&&nd.scoringPeriodId)||(spid+1);
@@ -36515,7 +36538,7 @@ async function _rdvEspnMatchup(ctx, lg){
       } else {
         nEl.innerHTML='<div class="rdv-sechd" style="margin-bottom:2px"><div class="rdv-sectitle"><span class="tick" style="background:var(--rw)"></span>Next Up</div></div><div class="rdv-empty" style="padding:18px">Next week\'s matchup isn\'t scheduled yet.</div>';
       }
-    }catch(e){ console.warn('[Vault] ESPN next week failed:', e); }
+    }catch(e){ console.warn('[Vault] ESPN next week failed:', e); nClear(); }
   }
 }
 window._rdvEspnMatchup=_rdvEspnMatchup;
