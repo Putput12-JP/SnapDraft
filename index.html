@@ -13334,6 +13334,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T06:00', tag:'Fixed', title:'No more phantom “drop players” warning on ESPN leagues',
+    items:[
+      'ESPN and Yahoo leagues no longer show a false “too many players on your roster — drop some” warning. Vault was counting only your starting spots and treating everyone on your bench as extra.',
+    ],
+  },
+  {
     ts:'2026-09-01T05:00', tag:'Fixed', title:'Clearer lineup status for ESPN & Yahoo leagues',
     items:[
       'When an ESPN or Yahoo league has a roster issue, Lineup Command and Waiver Command now point you to that league’s app to fix it instead of telling you to open Sleeper.',
@@ -21662,7 +21668,13 @@ function pfRosterIssues(d, meta){
   const active = (d.myPlayersCount||0) - resv.length - taxi.length;
   // Over-roster is the one issue with a no-cost fix — never say "drop N" when
   // there are open taxi slots to park players in instead.
-  if(cap && active > cap){
+  // `cap` is only the true roster limit on Sleeper, whose roster_positions carries
+  // a BN entry per bench slot. ESPN/Yahoo build a STARTERS-ONLY list (VP_ESPN_SLOT
+  // maps no bench/IR slot), so cap = starting count and every bench player reads as
+  // "over roster" — that's the phantom "16 active for 10 spots — drop 6" on the
+  // Goonies. Only run this where cap actually represents the whole roster.
+  const _capIsFullRoster = !d.lg || (typeof vpPlat==='function' ? vpPlat(d.lg) : (d.lg.platform||'sleeper')) === 'sleeper';
+  if(_capIsFullRoster && cap && active > cap){
     const over = active - cap;
     const taxiOpen = Math.max(0, taxiSlots - taxi.length);
     const stashable = Math.min(over, taxiOpen);
