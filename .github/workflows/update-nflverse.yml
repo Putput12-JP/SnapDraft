@@ -28,6 +28,14 @@ jobs:
         run: |
           python scripts/process_nflverse.py
 
+      - name: Rebuild usage cascade
+        # Measures the injury teammate-cascade (WR1 out → more targets for WR2/3;
+        # RB2 handcuff) from the freshly-written nflverse_stats_* seasons. Pure
+        # stdlib; writes data/usage_cascade.json (buckets only publish past
+        # MIN_EVENTS, so a thin run simply ships fewer and serving no-ops).
+        run: |
+          python scripts/build_usage_cascade.py --since 2014
+
       - name: Rebuild grade calibration
         # Fits Grade Keys factor weights from the freshly-written nflverse_stats_*
         # seasons (pure stdlib, no deps). Writes data/grade_calibration.json; a

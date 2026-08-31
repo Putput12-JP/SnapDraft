@@ -154,6 +154,37 @@ stay pure-model too. Standalone projection surfaces (a player card with no marke
 shown) also keep the raw model on purpose; the blend belongs only where we
 display an edge *vs* the market.
 
+## Injury teammate-cascade (measured, forward-validated)
+
+The #1 reason a projection is "way too high" or "way too low" is that the model
+doesn't know a role changed. The cascade handles the biggest, most predictable
+role change: **a higher-usage teammate is Out, so this player's volume jumps.**
+
+- **Measured, not guessed** (`scripts/build_usage_cascade.py` →
+  `data/usage_cascade.json`). From many seasons of nflverse weekly stats: rank a
+  team's players by baseline volume (targets for WR/TE, carries for RB); a player
+  is "absent" a week if he has a season role but no row that week; compare each
+  remaining player's volume in absent-teammate weeks to his normal baseline.
+  Publish the **median multiplier** per (group × depth-rank × how-many-higher-out),
+  only where ≥ `MIN_EVENTS` support it. Findings: **RB2 with the starter out ≈
+  ×2.3 carries** (the handcuff), WR2 ≈ ×1.1 / WR3 ≈ ×1.25 (targets scatter), and
+  the deep bench correctly gets **×1.0** — the measurement isn't "everyone up when
+  anyone's out," which is exactly why it's trustworthy.
+- **Served** as a capped, shrunk volume multiplier: `fairProbOver`'s `usageMult`
+  (alongside `oppMult`/`envMult`) scales the projection. Serving ranks a team's
+  players by projected volume (the same signal the pipeline ranked on), counts
+  higher-ranked players who are Out (same injury source as the board's badge),
+  and looks up the measured median — shrunk toward 1 (`CASCADE_SHRINK`) and capped
+  (`CASCADE_CAP`) for single-game noise. No injuries / no data / deep bench → no-op.
+- **It talks to the plausibility layer.** A cascade-boosted projection is *supposed*
+  to disagree with a market line that hasn't caught up, so `edgeCaution` suppresses
+  the "implausible" flag when a cascade explains the gap and the board shows the
+  edge **green with a ▲** naming who's out, instead of amber "check this."
+- **Validated forward on CLV**, like everything else here: these picks settle
+  through the same loop, so `edge_scoreboard` will show whether the bump actually
+  beats the close. If it doesn't hold up, it comes out — same discipline as the
+  rejected opponent/DvP adjustment.
+
 ## The game model: measured, deliberately not auto-tuned
 
 `edge_scoreboard.games` grades the Vault game line forward — does our

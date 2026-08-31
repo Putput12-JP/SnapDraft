@@ -198,7 +198,7 @@ window.VaultPropModel = (function () {
 
     let proj = projectFrom(weeks, m, minPrior);
     if (proj == null) return null;
-    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
+    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
 
     // #4: the distribution is chosen per market at build time (m.dist). Fall back
     // to kind for pre-#4 model files.

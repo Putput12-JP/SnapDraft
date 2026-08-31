@@ -13334,6 +13334,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T18:00', tag:'New', title:'Vault now bumps a player’s projection when a teammate is Out',
+    items:[
+      'When a higher-usage teammate is ruled Out, Vault raises the next man up’s projection — the WR2/WR3 who inherit targets, or the backup RB who takes over the backfield.',
+      'The size of the bump is measured from real history, not guessed: a handcuff running back with the starter out has averaged more than double the carries, while a WR2 gets a smaller, honest lift.',
+      'These boosted picks show green with a ▲ and name who’s out, so a suddenly-big edge reads as “expected” instead of getting flagged as suspicious.',
+    ],
+  },
+  {
     ts:'2026-09-01T12:00', tag:'Improved', title:'A big “Vault edge” now warns you instead of just tempting you',
     items:[
       'When Vault’s edge on a prop is suspiciously large, it now turns amber with a short reason instead of glowing green — because a giant edge usually means our projection is missing something, not that you found free money.',
@@ -40205,7 +40213,7 @@ window.VaultPropModel = (function () {
     if (!weeks.length) return null;
     let proj = projectFrom(weeks, m, minPrior);
     if (proj == null) return null;
-    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1);
+    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
     const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');   // #4 per-market distribution
     const count = m.kind === 'count';
     const sd = dist === 'poisson' ? Math.sqrt(Math.max(proj, 0))
@@ -41044,6 +41052,80 @@ window.VaultPropModel = (function () {
       + ' — Vault’s projection assumes full health; discount a limited or inactive player">' + inj.code + '</span>';
   }
 
+  // ── Injury teammate-cascade ───────────────────────────────────────────────
+  // When a higher-usage teammate is OUT, a player's own volume jumps — WR1 out →
+  // more targets for WR2/3, and the RB2 handcuff can bellcow. The size of that
+  // bump is MEASURED per position × depth-rank × how-many-higher-out in
+  // data/usage_cascade.json (scripts/build_usage_cascade.py), not guessed. We
+  // rank a team's players by projected volume (the same signal the pipeline
+  // ranked on), count how many higher-ranked ones are Out, look up the measured
+  // median multiplier, shrink it toward 1 (single-game noise) and cap it, then
+  // scale the volume projection. No injuries / no data / deep bench → no-op, and
+  // the settlement loop validates it forward on CLV.
+  const CASCADE_SHRINK = 0.85, CASCADE_CAP = 2.5;
+  const CASCADE_MK = {
+    rec: { g: 'rec', vol: 'rec_yd' }, rec_yd: { g: 'rec', vol: 'rec_yd' }, rec_td: { g: 'rec', vol: 'rec_yd' },
+    rush_yd: { g: 'rush', vol: 'rush_yd' }, rush_att: { g: 'rush', vol: 'rush_yd' }, rush_td: { g: 'rush', vol: 'rush_yd' },
+  };
+  const CASCADE_POS = { rec: ['WR', 'TE'], rush: ['RB'] };
+  const CASCADE_VOL = { rec: 'rec_yd', rush: 'rush_yd' };
+  let _cascadeData = null, _cascadeTried = false, _cascadeCtx = null, _cascadeCtxTok = null;
+  function cascadeData() {
+    if (_cascadeData || _cascadeTried) return _cascadeData;
+    _cascadeTried = true;
+    const base = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE) ? NFLVERSE_BASE : '/data';
+    fetch(base + '/usage_cascade.json').then(r => (r.ok ? r.json() : null)).then(j => { _cascadeData = j; if (view === 'props') renderProps(); }).catch(() => {});
+    return _cascadeData;
+  }
+  // Injury status for ANY player id (teammates), same source/parse as betInjFor.
+  function betInjById(id) {
+    const meta = window._pfRosterMeta, d = (meta && meta.inj && id != null) ? meta.inj[id] : null;
+    if (!d) return null;
+    const raw = String(d[1] || d[0] || '').trim().toLowerCase();
+    if (!raw) return null;
+    if (/out|injured reserve|^ir$|pup|nfi|inactive|susp|^na$|dnr|^cov$|doubt/.test(raw)) return 'out';
+    return /question/.test(raw) ? 'q' : 'other';
+  }
+  // Team → group → players ranked by projected volume (memoized per MODEL).
+  function cascadeContext() {
+    if (_cascadeCtx && _cascadeCtxTok === MODEL) return _cascadeCtx;
+    const byKey = {};
+    for (const p of ((MODEL && MODEL.players) || [])) {
+      if (!p.team || !p.pos || !p.proj || p.id == null) continue;
+      for (const g of ['rec', 'rush']) {
+        if (CASCADE_POS[g].indexOf(p.pos) < 0) continue;
+        const vol = p.proj[CASCADE_VOL[g]];
+        if (vol == null) continue;
+        (byKey[p.team + '|' + g] = byKey[p.team + '|' + g] || []).push({ id: p.id, name: p.name, vol });
+      }
+    }
+    for (const k in byKey) byKey[k].sort((a, b) => b.vol - a.vol);
+    _cascadeCtx = byKey; _cascadeCtxTok = MODEL;
+    return byKey;
+  }
+  // For a row, the measured volume multiplier from higher-ranked OUT teammates.
+  function cascadeInfo(r) {
+    const cfg = CASCADE_MK[r && r.market];
+    if (!cfg || !r.team || r.id == null) return null;
+    const cd = cascadeData();
+    if (!cd || !cd.groups || !cd.groups[cfg.g]) return null;
+    const list = cascadeContext()[r.team + '|' + cfg.g];
+    if (!list) return null;
+    const k = list.findIndex(x => String(x.id) === String(r.id));
+    if (k < 0) return null;
+    let nOut = 0; const outNames = [];
+    for (let j = 0; j < k; j++) if (betInjById(list[j].id) === 'out') { nOut++; outNames.push(list[j].name); }
+    if (!nOut) return null;
+    const bucket = cd.groups[cfg.g][Math.min(k, 3)];
+    const cell = bucket && bucket[Math.min(nOut, 2)];
+    if (!cell || !(cell.mult > 1)) return null;
+    return { mult: Math.min(1 + (cell.mult - 1) * CASCADE_SHRINK, CASCADE_CAP), raw: cell.mult, outNames: outNames, n: cell.n };
+  }
+  function cascadeTip(ci) {
+    return (ci.outNames.length === 1 ? ci.outNames[0] + ' is' : ci.outNames.slice(0, 2).join(' & ') + ' are')
+      + ' Out — Vault raised this projection ×' + ci.mult.toFixed(2) + ', the measured next-man-up bump from ' + ci.n + ' past cases. The big edge is expected, not a mistake.';
+  }
+
   // Fair / EV for one real-line prop row (VaultBettingMath). Returns the better
   // +EV side, or null when the market isn't a genuinely juiced two-way.
   //
@@ -41487,7 +41569,8 @@ window.VaultPropModel = (function () {
     if (!tile) return;
     if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; setG('<div class="tv"><span class="mut">—</span></div>'); return; }
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
-    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo }).then(v => {
+    const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined }).then(v => {
       const t = document.getElementById('eb-vtile');
       if (!t || propKey(r) !== ebSel) return;               // selection moved on
       if (!v || v.fairProb == null) {
@@ -41501,11 +41584,12 @@ window.VaultPropModel = (function () {
       const ed = mp != null ? BM.findEdge(sideProb, mp) : null;
       const ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
       const mktSideProb = (fe.sides && fe.sides[fe.side]) ? fe.sides[fe.side].fairProb : null;
-      const caution = edgeCaution(r, sideProb, mktSideProb, ev, v);
+      const caution = edgeCaution(r, sideProb, mktSideProb, ev, v, ci);
       const unv = !!caution;
+      const showCascade = ci && !caution && ev != null && ev > 0;   // boosted proj, edge explained by a teammate being out
       t.innerHTML = '<div class="tl">Vault edge</div>'
-        + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (caution ? ' ' + caution.label : '')) + '</div>'
-        + '<div class="ts" style="' + SS + '"' + (caution ? ' title="' + caution.tip.replace(/"/g, '&quot;') + '"' : '') + '>' + (caution ? caution.tip : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%') + '</div>';
+        + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (caution ? ' ' + caution.label : (showCascade ? ' ▲' : ''))) + '</div>'
+        + '<div class="ts" style="' + SS + '"' + (caution ? ' title="' + caution.tip.replace(/"/g, '&quot;') + '"' : '') + '>' + (caution ? caution.tip : (showCascade ? cascadeTip(ci) : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%')) + '</div>';
       // Vault grade tile — grades the DISPLAYED pick side (fe.side), matching the
       // board column, so the tile never rates the opposite side of the pick.
       const gp = fe.side === 'over' ? v.over : v.under;
@@ -41553,19 +41637,23 @@ window.VaultPropModel = (function () {
   // Thresholds are hand-set for now; the settlement loop can calibrate them
   // later (bucket settled picks by gap/edge, find where realized win% stops
   // rising — the empirical "mirage line"). See docs/edge-feedback-loop.md.
-  function edgeCaution(r, sideProb, marketProb, ev, v) {
+  function edgeCaution(r, sideProb, marketProb, ev, v, cascade) {
     if (ev == null || ev <= 0) return null;                 // only caution POSITIVE edges
-    const inj = String(r && r.injury || '').toLowerCase(), des = (r && r.injuryDes) ? ' (' + r.injuryDes + ')' : '';
-    // 1. Injury — the projection is built from healthy games, so the market
-    //    almost certainly knows something our history doesn't.
-    if (/(out|doubtful|injured reserve|\bir\b)/.test(inj))
-      return { kind: 'injury', label: 'INJ', tip: 'Player is ' + (r.injury || 'out') + des + '. Vault’s projection is built from healthy games — this edge is almost certainly stale, and the market already knows.' };
-    if (/quest/.test(inj))
-      return { kind: 'injury', label: 'Q', tip: 'Player is Questionable' + des + '. Real workload is in doubt, so discount this edge until the status clears.' };
-    // 2. Implausible disagreement with the fair (vig-free) market. The market
-    //    line ≈ its own projection; a big prob gap usually means a stale role,
-    //    a bad name-join, or a thin sample — not a real edge.
-    if (marketProb != null && sideProb != null) {
+    // 1. Injury (this player's own) — projection is built from healthy games, so
+    //    the market almost certainly knows something our history doesn't. Uses
+    //    the same live source the board's injury badge does (not r.injury, which
+    //    isn't populated on betting rows).
+    const inj = betInjFor(r);
+    if (inj && inj.sev === 'out')
+      return { kind: 'injury', label: 'INJ', tip: 'Player is ' + inj.label + '. Vault’s projection is built from healthy games — this edge is almost certainly stale, and the market already knows.' };
+    if (inj && inj.sev === 'q')
+      return { kind: 'injury', label: 'Q', tip: 'Player is ' + inj.label + ' — real workload is in doubt, so discount this edge until the status clears.' };
+    // 2. Implausible disagreement with the fair (vig-free) market — UNLESS the
+    //    injury cascade explains it (a boosted next-man-up SHOULD disagree with a
+    //    market line that hasn't caught up). The market line ≈ its own projection;
+    //    a big unexplained gap usually means a stale role, bad name-join, or thin
+    //    sample, not a real edge.
+    if (!cascade && marketProb != null && sideProb != null) {
       const gap = Math.abs(sideProb - marketProb);
       if (gap >= 0.18)
         return { kind: 'implausible', label: '?', tip: 'Vault disagrees with the fair market by ' + Math.round(gap * 100) + ' pts (' + Math.round(sideProb * 100) + '% vs the market’s ' + Math.round(marketProb * 100) + '%). A gap this large is usually a projection problem — stale role, injury, or a bad match — so sanity-check the number before trusting it.' };
@@ -41590,6 +41678,9 @@ window.VaultPropModel = (function () {
     // says why to doubt it — a big edge is a question ("is my projection right?"),
     // not a trophy. Unflagged positive edges stay green.
     if (c.caution) return '<span title="' + c.caution.tip.replace(/"/g, '&quot;') + '" style="color:var(--bt-gold);font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%<span style="font-size:9px;opacity:.85"> ' + c.caution.label + '</span></span>';
+    // Cascade: a teammate is Out, so this raised projection is EXPECTED — the big
+    // edge is explained, not suspect. Green with a ▲ and the reason.
+    if (c.cascade) return '<span title="' + cascadeTip(c.cascade).replace(/"/g, '&quot;') + '" style="color:var(--bt-green);font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%<span style="font-size:9px;opacity:.85"> ▲</span></span>';
     return '<span style="color:' + (c.ev > 0 ? 'var(--bt-green)' : 'var(--bt-muted)') + ';font-weight:700">' + (c.ev > 0 ? '+' : '') + c.ev + '%</span>';
   }
 
@@ -41688,7 +41779,8 @@ window.VaultPropModel = (function () {
       if (k in _vaultCache) return null;                 // already resolved — body rendered it
       if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; changed = true; return null; }
       const mpo = (r.fe && r.fe.sides && r.fe.sides.over) ? r.fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
-      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo }).then(v => {
+      const ci = cascadeInfo(r);                                                                // injury teammate-cascade volume bump (or null)
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined }).then(v => {
         let ev = null, proj = null, g = null, unv = false, over = null, under = null, caution = null;
         if (v && v.proj != null) {
           proj = v.proj; over = v.over; under = v.under;
@@ -41698,11 +41790,11 @@ window.VaultPropModel = (function () {
           ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
           // fair (vig-free) market prob for THIS side, when de-viggable — the plausibility anchor
           const mktSideProb = (r.fe.sides && r.fe.sides[r.fe.side]) ? r.fe.sides[r.fe.side].fairProb : null;
-          caution = edgeCaution(r, sideProb, mktSideProb, ev, v);   // injury / implausible-gap / thin / single-book
-          unv = !!caution;                                           // back-compat: any caution flags the row
+          caution = edgeCaution(r, sideProb, mktSideProb, ev, v, ci);   // injury / implausible-gap / thin / single-book (cascade explains the gap)
+          unv = !!caution;                                              // back-compat: any caution flags the row
           g = vaultGrade(v.over, v.under, v.games);       // pickem confidence grade (player's own game count)
         }
-        _vaultCache[k] = { ev, proj, g, unv, over, under, caution }; changed = true;
+        _vaultCache[k] = { ev, proj, g, unv, over, under, caution, cascade: (ci && ev != null && ev > 0) ? ci : null }; changed = true;
         const tv = _pvInner() && _pvInner().querySelector('[data-vk="' + k + '"]');
         if (tv) tv.innerHTML = vaultEdgeCellHTML(r);
         const tp = _pvInner() && _pvInner().querySelector('[data-vpk="' + k + '"]');
