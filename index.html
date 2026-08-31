@@ -13334,6 +13334,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T03:00', tag:'Fixed', title:'ESPN rosters: no more phantom free agents',
+    items:[
+      'Rostered players like James Cook and Kenneth Walker no longer show up as waiver-wire targets in ESPN leagues. ESPN lists them with their full name (“James Cook III”), which Vault wasn’t matching — so they slipped through as “available.”',
+      'That same fix restores player values and headshots for anyone ESPN spells with a suffix (Jr., III) across your ESPN roster, matchup and league pages.',
+    ],
+  },
+  {
     ts:'2026-09-01T02:00', tag:'New', title:'ESPN trades and transactions are now live',
     items:[
       'Your ESPN league’s Transactions tab now shows real trades, waiver claims and free-agent adds — each trade graded with who won the value, plus waiver bid amounts.',
@@ -15507,7 +15514,8 @@ function espnEntryToPlayer(e){
   const slot = e.lineupSlotId;
   const isStarter = !ESPN_BENCH.has(slot);
   const team = ESPN_PRO[pl.proTeamId] || '';
-  const sid = sleeperPlayerMap[normName(name)]?.player_id || '';
+  // Suffix-tolerant (ESPN "James Cook III" → Sleeper pid) so headshots resolve.
+  const sid = (typeof vaultPidFor==='function' && vaultPidFor(name)) || sleeperPlayerMap[normName(name)]?.player_id || '';
   const base = (window.PLAYERS||[]).find(x=>x.name===name) || {name,pos,team};
   return {...base, name, pos, team:team||base.team||'', fcVal:getPlayerValue(name), sleeperId:sid, isStarter, slotLabel: isStarter ? (ESPN_SLOT_LABEL[slot]||'STR') : 'BN'};
 }
@@ -15548,7 +15556,12 @@ async function buildEspnContext(leagueId){
     entries.forEach(e => {
       const pl = (e.playerPoolEntry && e.playerPoolEntry.player) || {};
       const nm = pl.fullName; if (!nm) return;
-      const sid = sleeperPlayerMap[normName(nm)]?.player_id;
+      // ESPN uses full legal names with suffixes ("James Cook III", "Kenneth
+      // Walker III") that a strict sleeperPlayerMap[normName] miss — which left
+      // them with an 'espn:' id, so the rostered-pid set never matched the
+      // Sleeper-named free-agent pool and they surfaced as PHANTOM free agents
+      // (and lost their value/headshot). vaultPidFor is suffix-tolerant.
+      const sid = (typeof vaultPidFor==='function' && vaultPidFor(nm)) || sleeperPlayerMap[normName(nm)]?.player_id;
       const pid = sid || ('espn:'+normName(nm));
       if (!sid) globalPidToName[pid] = nm;     // so globalPidToName[pid] resolves
       players.push(pid);
@@ -36492,7 +36505,7 @@ async function _rdvEspnMatchup(ctx, lg){
   function mapEntry(e){ var pl=(e.playerPoolEntry&&e.playerPoolEntry.player)||{}; var nm=pl.fullName||pl.name||'—';
     var pos=(typeof ESPN_POS!=='undefined'&&ESPN_POS[pl.defaultPositionId])||'';
     var team=(typeof ESPN_PRO!=='undefined'&&ESPN_PRO[pl.proTeamId])||'';
-    var sid=(window.sleeperPlayerMap&&sleeperPlayerMap[normName(nm)]&&sleeperPlayerMap[normName(nm)].player_id)||'';
+    var sid=(typeof vaultPidFor==='function'&&vaultPidFor(nm))||(window.sleeperPlayerMap&&sleeperPlayerMap[normName(nm)]&&sleeperPlayerMap[normName(nm)].player_id)||'';
     var inj=(pl.injuryStatus&&pl.injuryStatus!=='ACTIVE')?pl.injuryStatus:null;
     return {name:nm,pos:pos,team:team,sid:sid,slot:e.lineupSlotId,pts:projOf(e,spid),act:actOf(e,spid),inj:inj}; }
   var meStart=entries(meSide).map(mapEntry).filter(function(p){return !BENCH.has(p.slot);}).sort(function(a,b){return a.slot-b.slot;});
