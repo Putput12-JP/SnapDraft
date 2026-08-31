@@ -38,10 +38,12 @@ jobs:
           git config user.email "vault-bot@users.noreply.github.com"
           # Rebase in case another data cron pushed while we ran.
           git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
-          if git diff --quiet -- data/game_line_history.json; then
+          # Stage first, then check the index — `git diff` alone can't see a
+          # brand-new untracked file, so the first-ever run must add before test.
+          git add data/game_line_history.json 2>/dev/null || true
+          if git diff --staged --quiet; then
             echo "No game-history changes."
           else
-            git add data/game_line_history.json
             git commit -m "games: snapshot game line history [skip ci]"
             git push
           fi
