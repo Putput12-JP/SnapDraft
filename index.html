@@ -13334,6 +13334,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T01:15', tag:'Fixed', title:'Finished ESPN drafts show up in your draft list',
+    items:[
+      'A completed ESPN draft now reliably appears under your finished drafts — the connect screen refreshes each ESPN league’s draft status live, so it stops showing “Upcoming” once the draft is done.',
+      'Your ESPN drafts no longer get pushed off the finished list behind older Sleeper mock drafts.',
+    ],
+  },
+  {
     ts:'2026-09-01T00:30', tag:'Fixed', title:'ESPN My Team: Position Grades and Next Up',
     items:[
       'Position Grades on your ESPN My Team page now rank each spot against the rest of your league instead of showing “Average · —” across the board.',
@@ -16568,10 +16575,28 @@ async function ldRescan() {
 
     // 3) ESPN leagues live in myTeamsData, not the Sleeper endpoints — fold each one
     //    in as its own entry so a connected ESPN league shows up in YOUR DRAFTS too.
-    //    They carry a status computed at connect time (pre_draft / drafting / complete
-    //    / in_season); map in_season → complete since that draft is already done.
-    (myTeamsData||[]).forEach(l => {
-      if (!l || vpPlat(l) !== 'espn') return;
+    //    The persisted status can be STALE (a league connected pre-draft stays
+    //    pre_draft until something re-syncs it), so refresh each one's draft status
+    //    from live ESPN here — otherwise a finished draft keeps showing UPCOMING and
+    //    never lands in the finished list. Private leagues go through the proxy.
+    const _espnLeagues = (myTeamsData||[]).filter(l => l && vpPlat(l) === 'espn');
+    await Promise.all(_espnLeagues.map(async l => {
+      try {
+        const _guard = new Promise(res => setTimeout(() => res(null), 3500));
+        let raw;
+        if (l._espnPrivate && window.VaultEspn && window.VaultEspn.league){
+          raw = await Promise.race([window.VaultEspn.league(l._espnId, l.season, ['mDraftDetail'], true).catch(()=>null), _guard]);
+        } else {
+          const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${l.season}/segments/0/leagues/${l._espnId}?view=mDraftDetail`;
+          raw = await Promise.race([fetch(url,{headers:{accept:'application/json'}}).then(r=>r.ok?r.json():null).catch(()=>null), _guard]);
+        }
+        const dd = raw && raw.draftDetail;
+        if (dd){
+          // Mirror syncEspnDraft: drafted (this season) → in_season (modal maps to DONE).
+          const fresh = dd.inProgress ? 'drafting' : (dd.drafted ? 'in_season' : 'pre_draft');
+          if (l.status !== fresh){ l.status = fresh; try { vpSaveEspnLeagues(); } catch(e){} }
+        }
+      } catch(e){}
       const teams = l.total_rosters || l.settings?.num_teams || '?';
       const rounds = (l.roster_positions && l.roster_positions.length) || '?';
       const st = l.status === 'in_season' ? 'complete' : (l.status || 'pre_draft');
@@ -16584,11 +16609,16 @@ async function ldRescan() {
         type: 'snake',
         settings: { teams, rounds },
       });
-    });
+    }));
 
     const active = drafts.filter(d => ['drafting','in_progress','paused'].includes(d.status));
     const upcoming = drafts.filter(d => d.status === 'pre_draft');
-    const completed = drafts.filter(d => d.status === 'complete').slice(0,8);
+    // ESPN leagues are folded in AFTER every Sleeper draft, so a flat slice(0,8)
+    // would drop a finished ESPN draft behind 8 older Sleeper ones. Put ESPN
+    // completed first and never let them be sliced out.
+    const _completedAll = drafts.filter(d => d.status === 'complete');
+    const _cEspn = _completedAll.filter(d => d._espn), _cSleeper = _completedAll.filter(d => !d._espn);
+    const completed = [..._cEspn, ..._cSleeper].slice(0, 8 + _cEspn.length);
 
     if (!active.length && !upcoming.length && !completed.length) {
       msg.textContent = 'No drafts detected across your leagues. You can still enter a league ID manually below.';
