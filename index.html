@@ -40973,7 +40973,7 @@ window.VaultPropModel = (function () {
         + '<div><div class="eb-pn">' + r.name + injBadge(r) + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
         + '<td>' + (pf.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + pf.side + '">' + pf.side.toUpperCase() + '</span>' + (pf.vaultLed ? '<span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '')) + ' ' + (r.line != null ? r.line : '') + '</td>'
         + '<td class="eb-m2" style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.edgePts == null ? mut : (pf.edgePts > 0 ? '+' : '') + pf.edgePts)) + '</td>'
-        + '<td style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.ev == null ? mut : '<span class="eb-ev">' + (pf.ev > 0 ? '+' : '') + pf.ev + '%</span>')) + '</td>'
+        + '<td class="eb-evc" style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.ev == null ? mut : '<span class="eb-ev">' + (pf.ev > 0 ? '+' : '') + pf.ev + '%</span>')) + '</td>'
         + '<td class="eb-fb">' + (pf.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(pf.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(pf.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(pf.bestPrice) + '</span>') + '</td>'
         + '<td class="eb-vaultproj" data-vpk="' + propKey(r) + '" style="text-align:right">' + projCellHTML(r) + '</td>'
         + '<td class="eb-vault" data-vk="' + propKey(r) + '" style="text-align:right">' + vaultEdgeCellHTML(r) + '</td>'
@@ -41952,8 +41952,8 @@ window.VaultPropModel = (function () {
   #page-betting .eb-table tbody td.eb-fb,
   #page-betting .eb-table thead th.eb-vph,
   #page-betting .eb-table tbody td.eb-vaultproj,
-  #page-betting .eb-table thead th.eb-simh,
-  #page-betting .eb-table tbody td.eb-simc,
+  #page-betting .eb-table thead th[data-sk="ev"],
+  #page-betting .eb-table tbody td.eb-evc,
   #page-betting .eb-table thead th[data-sk="vault"],
   #page-betting .eb-table tbody td.eb-vault,
   #page-betting .eb-table thead th[data-sk="hit"],
