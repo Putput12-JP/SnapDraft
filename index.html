@@ -13334,6 +13334,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T02:00', tag:'New', title:'ESPN trades and transactions are now live',
+    items:[
+      'Your ESPN league’s Transactions tab now shows real trades, waiver claims and free-agent adds — each trade graded with who won the value, plus waiver bid amounts.',
+      'The “Latest Move” card on your League overview now surfaces the most recent ESPN trade instead of a “not wired yet” note.',
+      'Works for private ESPN leagues too, pulled through the same secure connection as the rest of your league data.',
+    ],
+  },
+  {
     ts:'2026-09-01T01:15', tag:'Fixed', title:'Finished ESPN drafts show up in your draft list',
     items:[
       'A completed ESPN draft now reliably appears under your finished drafts — the connect screen refreshes each ESPN league’s draft status live, so it stops showing “Upcoming” once the draft is done.',
@@ -38612,7 +38620,15 @@ body .page,body .page.on{background:transparent!important}
     const setSlot = (html)=>{ slot.innerHTML = html; if (_lid) _lhLatestCache[_lid] = { html, ts: Date.now() }; };
     try {
       const lg = leagueObj();
-      if (lg && vpPlat(lg)==='espn'){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">ESPN trade history isn't wired yet, rankings & standings still run on live ESPN data.</div>`); return; }
+      if (lg && vpPlat(lg)==='espn'){
+        try {
+          if (typeof sleeperPlayersLoaded!=='undefined' && !sleeperPlayersLoaded) await fetchSleeperPlayers();
+          const data = await _lhEspnTx(lg);
+          if (data && data.trades && data.trades.length){ setSlot(tradeMini(data.trades[0], data.userMap, data.rom)); }
+          else { setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">No trades yet this season.</div>`); }
+        } catch(e){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">No recent moves.</div>`); }
+        return;
+      }
       const ctx = await getLeagueContext();
       if (!ctx || !ctx.rosters){ setSlot(`<div class="lh-muted" style="font-size:12px;padding:6px 2px">No recent moves.</div>`); return; }
       if (typeof sleeperPlayersLoaded!=='undefined' && !sleeperPlayersLoaded) await fetchSleeperPlayers();
@@ -38840,6 +38856,81 @@ body .page,body .page.on{background:transparent!important}
   function leagueObj(){
     try { return myTeamsData.find(l => l.league_id === (teamsLeagueId || window._currentLeagueId)); } catch(e){ return null; }
   }
+  // "My team" owner id for the active league. ESPN rosters carry
+  // owner_id 'espn_owner_'+teamId and never a Sleeper myTeamsUserId.
+  function _lhMyOwnerId(){
+    const lg = leagueObj();
+    const lid = (typeof teamsLeagueId!=='undefined' && teamsLeagueId) || window._currentLeagueId || '';
+    return (lg && typeof vpPlat==='function' && vpPlat(lg)==='espn' && lid)
+      ? ('espn_owner_' + espnSelectedTeam(lid)) : myTeamsUserId;
+  }
+  // Map ESPN's mTransactions2 feed into the SAME Sleeper-shaped tx objects the
+  // trade/waiver renderers already consume ({type, roster_ids, adds, drops,
+  // status_updated, leg, settings}) so parseTrade / txTradeCard / txSmallCard /
+  // tradeMini all work unchanged. Player names resolve through espnPlayerMap and
+  // register under a namespaced pid (no collision with real Sleeper ids); team
+  // ids become 'espn_owner_'+id so userMap / rom / isMe line up with the rest of
+  // the ESPN league surfaces. Cached briefly since it's read by two views.
+  const _lhEspnTxCache = {};
+  async function _lhEspnTx(lg){
+    const cacheKey = lg.league_id + ':' + (lg.season||'');
+    const c = _lhEspnTxCache[cacheKey];
+    if (c && Date.now()-c.ts < 120000) return c.data;
+    let raw;
+    if (lg._espnPrivate && window.VaultEspn && window.VaultEspn.league){
+      raw = await window.VaultEspn.league(lg._espnId, lg.season, ['mTransactions2','mTeam'], true).catch(()=>null);
+    } else {
+      const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${lg.season}/segments/0/leagues/${lg._espnId}?view=mTransactions2&view=mTeam`;
+      raw = await fetch(url,{headers:{accept:'application/json'}}).then(r=>r.ok?r.json():null).catch(()=>null);
+    }
+    if (!raw) return null;
+    if (typeof fcLoaded!=='undefined' && !fcLoaded && typeof fetchFantasyCalc==='function'){ try { await fetchFantasyCalc(); } catch(e){} }
+    const userMap = {}, rom = {};
+    (raw.teams||[]).forEach(t=>{ const oid='espn_owner_'+t.id; userMap[oid]=(typeof espnTeamName==='function'?espnTeamName(t):('Team '+t.id)); rom[t.id]=oid; });
+    let pmap = {}; try { pmap = (await espnPlayerMap(lg.season)) || {}; } catch(e){}
+    const nameOf = id => {
+      if (pmap[id]) return pmap[id];
+      const ab = (typeof ESPN_DEF_TEAM!=='undefined') && ESPN_DEF_TEAM[String(id)];
+      if (ab) return (typeof _RDV_DST!=='undefined' && _RDV_DST[ab]) || ab;
+      return '#'+id;
+    };
+    const regPid = (espnId)=>{ const k='espntx:'+espnId; if(globalPidToName[k]==null) globalPidToName[k]=nameOf(espnId); return k; };
+    const trades=[], waivers=[], fas=[];
+    (raw.transactions||[]).forEach(tx=>{
+      const items = tx.items||[];
+      const T = String(tx.type||'').toUpperCase();
+      const status = String(tx.status||'').toUpperCase();
+      const when = tx.processDate || tx.proposedDate || 0;
+      const wk = tx.scoringPeriodId || null;
+      if (T.indexOf('TRADE')>=0){
+        if (status && status!=='EXECUTED') return;      // completed trades only
+        const rosterIds=new Set(), adds={}, drops={};
+        items.forEach(it=>{ if(it.playerId==null) return; const k=regPid(it.playerId);
+          if(it.toTeamId!=null){ adds[k]=it.toTeamId; rosterIds.add(it.toTeamId); }
+          if(it.fromTeamId!=null){ drops[k]=it.fromTeamId; rosterIds.add(it.fromTeamId); } });
+        if (rosterIds.size<2) return;
+        trades.push({ type:'trade', roster_ids:[...rosterIds], adds, drops, draft_picks:[], status_updated:when, leg:wk });
+      } else if (T==='WAIVER' || T==='FREEAGENT'){
+        if (status && status!=='EXECUTED') return;
+        const rid = tx.teamId!=null ? tx.teamId : (items[0] && (items[0].toTeamId!=null?items[0].toTeamId:items[0].fromTeamId));
+        if (rid==null) return;
+        const adds={}, drops={};
+        items.forEach(it=>{ if(it.playerId==null) return; const k=regPid(it.playerId); const itT=String(it.type||'').toUpperCase();
+          if(itT==='ADD' || it.toTeamId!=null) adds[k]=rid;
+          else if(itT==='DROP' || it.fromTeamId!=null) drops[k]=rid; });
+        if(!Object.keys(adds).length && !Object.keys(drops).length) return;
+        const obj={ type:(T==='WAIVER'?'waiver':'free_agent'), roster_ids:[rid], adds, drops, status_updated:when, leg:wk, settings:{} };
+        if (tx.bidAmount!=null) obj.settings.waiver_bid = tx.bidAmount;
+        (T==='WAIVER'?waivers:fas).push(obj);
+      }
+    });
+    const byRecent=(a,b)=>(b.status_updated||0)-(a.status_updated||0);
+    trades.sort(byRecent); waivers.sort(byRecent); fas.sort(byRecent);
+    const moved = trades.reduce((s,t)=>{ const sides=parseTrade(t,userMap,rom); return s+sides.reduce((a,sd)=>a+sd.gets.reduce((q,g)=>q+g.v,0),0); },0);
+    const data = { trades, waivers, fas, userMap, rom, moved };
+    _lhEspnTxCache[cacheKey] = { ts:Date.now(), data };
+    return data;
+  }
   function gradeReturn(net, givesVal){
     const pct = givesVal>0 ? net/givesVal : (net>0?1:0);
     if (pct>0.25) return { label:'WIN',  cls:'lh-g-win' };
@@ -38862,7 +38953,7 @@ body .page,body .page.on{background:transparent!important}
       const ownerId = rom[rid];
       const net = s.getsVal - s.givesVal;
       const g = gradeReturn(net, s.givesVal);
-      return { rid, idx:(rosterIds.indexOf(parseInt(rid))+1)||0, teamName:userMap[ownerId]||`Roster ${rid}`, isMe: ownerId===myTeamsUserId, gets:s.gets, gives:s.gives, net, grade:g.label, gradeCls:g.cls };
+      return { rid, idx:(rosterIds.indexOf(parseInt(rid))+1)||0, teamName:userMap[ownerId]||`Roster ${rid}`, isMe: ownerId===_lhMyOwnerId(), gets:s.gets, gives:s.gives, net, grade:g.label, gradeCls:g.cls };
     });
   }
 
@@ -38871,7 +38962,16 @@ body .page,body .page.on{background:transparent!important}
     const E = el(); if (!E) return;
     const lg = leagueObj();
     if (lg && vpPlat(lg)==='espn'){
-      E.innerHTML = `<div class="lh-empty"><div class="ico"><span data-reicon="clipboard" data-rsize="26"></span></div><b>ESPN transaction history isn't available yet</b>Rosters, standings, power rankings and trades all run on live ESPN data. The transaction feed needs ESPN's activity endpoint with a player-ID map, that's the next piece to wire.</div>`;
+      E.innerHTML = loadingHtml('Loading ESPN transactions…');
+      try {
+        if (typeof sleeperPlayersLoaded!=='undefined' && !sleeperPlayersLoaded) await fetchSleeperPlayers();
+        const data = await _lhEspnTx(lg);
+        if (!data){ E.innerHTML = `<div class="lh-empty"><div class="ico"><span data-reicon="clipboard" data-rsize="26"></span></div><b>Couldn't load ESPN transactions</b>${lg._espnPrivate?'The private-league connection may need a refresh.':'ESPN didn\'t return transaction data right now.'}</div>`; return; }
+        if (!data.trades.length && !data.waivers.length && !data.fas.length){ E.innerHTML = `<div class="lh-empty"><div class="ico">💤</div><b>No transactions yet</b>Trades, waivers and free-agent moves will show here once they happen in your ESPN league.</div>`; return; }
+        _lhTx = data;
+        E.innerHTML = `<div class="lh-wrap" id="lh-tx-wrap"></div>`;
+        lhFilterTx('all');
+      } catch(e){ E.innerHTML = `<div class="lh-empty">⚠ ${esc(e.message)}</div>`; }
       return;
     }
     E.innerHTML = loadingHtml('Loading transactions…');
@@ -38916,7 +39016,7 @@ body .page,body .page.on{background:transparent!important}
     const { userMap, rom } = _lhTx;
     const rid = (tx.roster_ids||[])[0];
     const teamName = userMap[rom[rid]] || `Roster ${rid}`;
-    const isMe = rom[rid]===myTeamsUserId;
+    const isMe = rom[rid]===_lhMyOwnerId();
     const adds = Object.keys(tx.adds||{}).map(pid=>({n:globalPidToName[String(pid)]||`#${pid}`}));
     const drops = Object.keys(tx.drops||{}).map(pid=>({n:globalPidToName[String(pid)]||`#${pid}`}));
     const date = tx.status_updated ? new Date(tx.status_updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
