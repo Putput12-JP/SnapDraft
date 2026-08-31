@@ -562,6 +562,51 @@ def compute_priors(seq):
     return pri
 
 
+# ── in-season live recalibration (the "gets sharper over time" loop) ─────────
+def apply_inseason_overlay(model):
+    """Compose this season's MEASURED miscalibration onto each market's shipped
+    calib table, so served probabilities sharpen week over week from real
+    settled outcomes — with NO serving-JS change (it's baked into calib).
+
+    scripts/settle_bets.py grades the banked snapshots vs nflverse actuals and
+    writes data/edge_scoreboard.json, whose per-market `inseason_temp.t` is the
+    residual temperature on the served probs (t<1 ⇒ still overconfident this
+    season). We apply a SAMPLE-SHRUNK version: factor = 1 + w·(t−1) with
+    w = n/(n+K), K large, so Weeks 1–3 (small n) barely move and confidence
+    grows only as the season's evidence does. Bounded + re-derived from tape
+    each build, so it converges and can't run away. Offseason / no scoreboard /
+    thin sample ⇒ w≈0 ⇒ no-op. See docs/edge-feedback-loop.md."""
+    try:
+        sb = json.load(open(os.path.join(DATA, "edge_scoreboard.json")))
+    except Exception:
+        return
+    mks = sb.get("markets", {})
+    applied = []
+    for mkt, entry in model.get("markets", {}).items():
+        it = (mks.get(mkt) or {}).get("inseason_temp") or {}
+        t, n = it.get("t"), it.get("n") or 0
+        K = it.get("k_shrink", 300)
+        if t is None or n <= 0 or not entry.get("calib"):
+            continue
+        t = max(0.6, min(1.4, t))                     # bound a noisy estimate
+        w = n / (n + K)
+        factor = 1.0 + w * (t - 1.0)
+        if abs(factor - 1.0) < 1e-4:
+            continue
+        new, prev = [], 0.0
+        for x, y in entry["calib"]:
+            yv = _sig(factor * _logit(y))
+            yv = max(prev, min(1.0, yv))              # keep isotonic (monotone non-decreasing)
+            new.append([round(x, 4), round(yv, 4)]); prev = yv
+        entry["calib"] = new
+        entry["inseason"] = {"t": round(t, 3), "n": n, "w": round(w, 4), "factor": round(factor, 4)}
+        applied.append(f"{mkt}(t={t:.2f},n={n},w={w:.2f})")
+    if applied:
+        print(f"[prop-model] in-season overlay applied: {', '.join(applied)}")
+    else:
+        print("[prop-model] in-season overlay: no eligible market yet (offseason or thin sample) — no-op")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", type=int, default=2016)
@@ -632,6 +677,9 @@ def main():
         if mkt in HOLD:
             continue                      # fit + reported above, but not shipped
         model["markets"][mkt] = entry
+
+    # Live recalibration: sharpen served probs from this season's settled outcomes.
+    apply_inseason_overlay(model)
 
     if args.dry:
         print("[prop-model] --dry: not written")

@@ -90,23 +90,25 @@ def load_actuals(season):
     """nflverse_stats for a season → {name: {wk: {col: val}}}. Regular/postseason
     weeks only (preseason is never in here, which is why we gate settlement to
     non-preseason: a 'pre' week N would otherwise false-match regular week N)."""
-    for fn in (f"nflverse_stats_{season}.json", "nflverse_stats.json"):
-        path = os.path.join(DATA, fn)
-        if not os.path.exists(path): continue
-        try:
-            blob = json.load(open(path))
-        except Exception:
-            continue
-        out = {}
-        for name, rec in blob.items():
-            if not isinstance(rec, dict): continue
-            wk = {}
-            for row in rec.get("weeks", []) or []:
-                if isinstance(row, dict) and row.get("wk") is not None:
-                    wk[int(row["wk"])] = row
-            if wk: out[name] = wk
-        if out: return out
-    return {}
+    # ONLY the per-season file — never the generic nflverse_stats.json alias,
+    # which is season-ambiguous (it holds the current season) and would settle
+    # e.g. 2026 week-1 props against 2025 week-1 actuals before 2026 data lands.
+    path = os.path.join(DATA, f"nflverse_stats_{season}.json")
+    if not os.path.exists(path):
+        return {}
+    try:
+        blob = json.load(open(path))
+    except Exception:
+        return {}
+    out = {}
+    for name, rec in blob.items():
+        if not isinstance(rec, dict): continue
+        wk = {}
+        for row in rec.get("weeks", []) or []:
+            if isinstance(row, dict) and row.get("wk") is not None:
+                wk[int(row["wk"])] = row
+        if wk: out[name] = wk
+    return out
 
 def actual_for(actuals, name, week, market):
     cols = COL.get(market)
@@ -149,10 +151,24 @@ def settle_props(season_filter=None):
     except Exception:
         return [], {"reason": "no prop_line_history.json"}
     props = blob.get("props", {})
+    # Dedup by pick identity (not by history-key): adding seasonType to the
+    # snapshot key means one live prop can be retained under both the old and new
+    # key format with identical body fields. Collapse to the freshest (latest
+    # lastSeen, then most samples) so a settled pick is never double-counted.
+    dedup = {}
+    for r in props.values():
+        ident = (str(r.get("season")), (r.get("seasonType") or "").lower(),
+                 r.get("week"), r.get("pid"), r.get("market"))
+        cur = dedup.get(ident)
+        if cur is None:
+            dedup[ident] = r; continue
+        better = (r.get("lastSeen") or "", len(r.get("samples") or [])) > \
+                 (cur.get("lastSeen") or "", len(cur.get("samples") or []))
+        if better: dedup[ident] = r
     actuals_cache, model = {}, load_prop_model()
     picks, unmatched, unsettled = [], 0, 0
 
-    for r in props.values():
+    for r in dedup.values():
         seasonType = (r.get("seasonType") or "").lower()
         if seasonType == "pre":       # preseason props settle against nothing meaningful; skip
             continue

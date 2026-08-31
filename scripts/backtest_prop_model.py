@@ -413,9 +413,22 @@ def clv_harness():
     props = blob.get("props", {})
     settled = [r for r in props.values() if r.get("open") and r.get("cur")
                and r["open"].get("bestOver") is not None]
-    print(f"[clv] {len(props)} props banked; true CLV needs settled in-season closing "
-          f"lines vs game outcomes — {len(settled)} have an open+cur snapshot so far. "
-          f"Run again once in-season odds accrue.")
+    print(f"[clv] {len(props)} props banked ({len(settled)} with an open+cur price snapshot).")
+    # The live CLV + settlement engine now lives in scripts/settle_bets.py, which
+    # grades these snapshots vs nflverse actuals and writes data/edge_scoreboard.json.
+    sb_path = os.path.join(DATA, "edge_scoreboard.json")
+    try:
+        sb = json.load(open(sb_path))
+    except Exception:
+        print("[clv] no edge_scoreboard.json yet — run: python3 scripts/settle_bets.py "
+              "(see docs/edge-feedback-loop.md).")
+        return
+    print(f"[clv] edge_scoreboard: {sb.get('settled_props',0)} props / "
+          f"{sb.get('settled_games',0)} games settled so far. Per-market CLV-beat / win%:")
+    for mk, m in sorted(sb.get("markets", {}).items()):
+        cb, wr = m.get("clv_beat_rate"), m.get("winrate_close")
+        print(f"      {mk:14s} n={m.get('n',0):4d}  clv-beat={cb if cb is None else round(cb,3)}"
+              f"  win={wr if wr is None else round(wr,3)}")
 
 
 def main():
