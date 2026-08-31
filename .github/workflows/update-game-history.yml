@@ -1,0 +1,47 @@
+# Banks game-market lines (spread / total / moneyline) from data/lineup-feed.json
+# into data/game_line_history.json for the settlement + CLV harness. The
+# game-market twin of update-prop-history: reads the already-built feed, so no
+# API calls and no credits. Finished games are RETAINED (unlike the live board)
+# so they can be graded once the score lands.
+name: Update game history
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Hourly at :29 — after update-props commits the fresh feed (:17) and
+    # alongside prop-history (:27), so it banks the latest lines. Freezes each
+    # game's first-seen snapshot as "open", rolls "cur" forward, and only
+    # commits when a line actually moved, so quiet hours are free.
+    - cron: '29 * * * *'
+
+concurrency:
+  group: game-history
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  game-history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Snapshot game lines
+        run: node scripts/snapshot-game-history.mjs --feed=data/lineup-feed.json --out=data/game_line_history.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "vault-bot"
+          git config user.email "vault-bot@users.noreply.github.com"
+          # Rebase in case another data cron pushed while we ran.
+          git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+          if git diff --quiet -- data/game_line_history.json; then
+            echo "No game-history changes."
+          else
+            git add data/game_line_history.json
+            git commit -m "games: snapshot game line history [skip ci]"
+            git push
+          fi

@@ -1,0 +1,46 @@
+# Settles graded bets + computes closing-line value (CLV) from the retained
+# snapshot logs. Reads data/prop_line_history.json + data/game_line_history.json
+# + data/nflverse_stats_<season>.json (and nflverse games.csv for final scores)
+# and rebuilds data/bet_results.json + data/edge_scoreboard.json deterministically
+# each run — no append/merge, so the ledger can't drift. Pure stdlib, no credits.
+# Missing inputs degrade gracefully (empty ledgers) rather than failing.
+name: Settle bets + CLV
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Daily at 07:10 UTC — after "Update nflverse data" (06:00) lands the week's
+    # box scores; the hourly game/prop snapshots are always already fresh.
+    - cron: '10 7 * * *'
+
+concurrency:
+  group: bet-settlement
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Settle bets + compute CLV
+        run: python3 scripts/settle_bets.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "vault-bot"
+          git config user.email "vault-bot@users.noreply.github.com"
+          # Rebase in case another data cron pushed while we ran.
+          git pull --rebase --autostash origin ${GITHUB_REF_NAME} || true
+          git add data/bet_results.json data/edge_scoreboard.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No settlement changes."
+          else
+            git commit -m "bets: settle results + CLV scoreboard [skip ci]"
+            git push
+          fi
