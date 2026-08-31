@@ -97,7 +97,9 @@ for (const pid in feed.vegas_player_props) {
     if (cell.over == null || cell.under == null) continue;
     seen++;
 
-    const key = [season, week, pid, mk].join('|');
+    // seasonType is in the key so preseason week N and regular-season week N
+    // (same season+week integers) never collide into one settlement record.
+    const key = [season, seasonType, week, pid, mk].join('|');
     const cur = snapshot(cell, projFor(stats, mk), now);
     const rec = props[key];
 
