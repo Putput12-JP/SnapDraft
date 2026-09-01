@@ -56,11 +56,18 @@ CLAMP = 3.0           # inference caps the role move to [1/CLAMP, CLAMP]× — b
 
 # stat → (positions eligible, the "involvement" fields that mark a game as played
 # in the role). Rank proxy = within team-season total of `stat`.
+#
+# QB is DELIBERATELY EXCLUDED. Depth rank cleanly proxies OPPORTUNITY for skill
+# players (a WR2 sees more targets than a WR4; a lead back out-carries the RB3),
+# so anchoring their volume to their role is sound. But a QB's passing volume is
+# PLAY-STYLE, not role: a dual-threat starter (Lamar Jackson, Jayden Daniels)
+# throws QB2-level attempts by design, so the anchor reads his own history as
+# "backup" and wrongly bumps him to QB1 passing volume (Lamar pass_yd 202 → 276).
+# QBs with props are the starter anyway, so there's little upside and real
+# downside. Their autoregressive projection already captures true passing volume.
 SPECS = {
-    "car": (["RB", "QB"],       ["car", "tgt"]),   # rushing volume — lead back / mobile QB
-    "att": (["QB"],             ["att"]),           # pass attempts — the starter
-    "cmp": (["QB"],             ["att"]),
-    "tgt": (["WR", "TE", "RB"], ["tgt", "car"]),    # target volume — WR1/2/3, pass-catching back
+    "car": (["RB"],             ["car", "tgt"]),   # rushing volume — lead back vs committee
+    "tgt": (["WR", "TE", "RB"], ["tgt", "car"]),   # target volume — WR1/2/3, pass-catching back
     "rec": (["WR", "TE", "RB"], ["tgt", "car"]),
 }
 
