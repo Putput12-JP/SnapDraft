@@ -840,6 +840,12 @@ header{
 .prow.ismine td:first-child{border-left:2px solid var(--accent)}
 .prow.is-value td:first-child{border-left:2px solid var(--rb)}
 .prow.hidden{display:none}
+/* Desktop right-click marking menu (initRowContextMenu) */
+.row-cmenu{position:fixed;z-index:9999;min-width:180px;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:5px;box-shadow:0 12px 32px rgba(0,0,0,.4);font-family:var(--font-sans);animation:rcm-in .12s var(--ease-out,ease-out)}
+.row-cmenu button{display:block;width:100%;text-align:left;background:transparent;border:none;border-radius:7px;padding:9px 11px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;font-family:inherit}
+.row-cmenu button:hover{background:var(--s3)}
+@keyframes rcm-in{from{opacity:0;transform:scale(.96) translateY(-2px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.row-cmenu{animation:none}}
 .rnum{font-size:12px;font-weight:700;color:var(--muted);font-family:var(--font-mono);text-align:right;padding-right:6px;flex-shrink:0;line-height:1}
 .rnum.hl,.prow.ismine .rnum,.prow.is-value .rnum{color:var(--accent2)}
 .pcell{display:flex;align-items:center;gap:7px;min-width:0;height:100%;padding:0 4px}
@@ -6163,6 +6169,20 @@ function pgsOpen(name, pos, team){
       <button class="ld-change-btn" onclick="openDraftConnect()" title="Connect a different draft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M21 6H8a4 4 0 0 0-4 4v1"/><path d="m7 22-4-4 4-4"/><path d="M3 18h13a4 4 0 0 0 4-4v-1"/></svg> Change draft</button>
     </div>
 
+    <!-- ESPN live-draft notice: ESPN does not broadcast in-progress picks to any
+         pollable endpoint (verified), so the board can only fill after the draft
+         finalizes. Shown only while an ESPN draft is actively in progress; auto-hides
+         once picks import at completion. See updateEspnLiveBanner(). -->
+    <div id="espn-live-banner" style="display:none;margin-top:16px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid #ffd166;border-radius:10px;background:var(--s2);font-family:var(--font-sans)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:16px;line-height:1.3;flex-shrink:0">⚠️</span>
+        <div style="font-size:13px;color:var(--text);line-height:1.5;min-width:0">
+          <b>ESPN doesn't broadcast live picks.</b> ESPN only publishes this draft's picks to Vault once the draft <b>finishes</b> — so your board can't fill in pick-by-pick the way a Sleeper draft does. It will populate automatically the moment the draft ends.
+          <div style="margin-top:6px;color:var(--muted);font-size:12px">Meanwhile, use your rankings as a live cheat sheet. To keep the board in sync as picks happen, <b>right-click a player</b> to mark them drafted (or swipe on mobile).</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Active draft board -->
     <div id="ld-board-wrap" style="margin-top:18px">
       <!-- Desktop board -->
@@ -11090,6 +11110,71 @@ function undo(name){
   save();renderAll();
 }
 
+// ── ESPN live-draft banner ─────────────────────────────────────────────
+// ESPN publishes in-progress picks to no pollable endpoint (confirmed on a live
+// mock: room at pick 40 while mDraftDetail reported 0). So while an ESPN draft is
+// mid-flight the board genuinely has nothing to show; be honest about it rather
+// than sitting on a silently-empty board. Auto-hides once the draft finalizes and
+// syncEspnDraft imports the picks (status flips 'drafting' → 'complete').
+function updateEspnLiveBanner(){
+  const el = document.getElementById('espn-live-banner');
+  if (!el) return;
+  const live = !!(typeof espnDraftLid!=='undefined' && espnDraftLid
+    && window._activeDraft && window._activeDraft.platform==='espn'
+    && window._activeDraft.status==='drafting');
+  el.style.display = live ? 'block' : 'none';
+}
+
+// ── Desktop manual-mark: right-click a ranking row to mark drafted / mine ──
+// Mobile has swipe (initSwipe); desktop had no gesture, so during an ESPN live
+// draft there was no way to keep the board in sync by hand. A lightweight context
+// menu reuses the existing markGone / markMine / undo, keyed by the row's clean
+// data-pname (the visible .pname can carry a note glyph). Delegated + guarded so
+// it survives every list re-render.
+let _rowMenuEl = null;
+function _closeRowMenu(){ if(_rowMenuEl){ _rowMenuEl.remove(); _rowMenuEl=null; } }
+function initRowContextMenu(){
+  const list = document.getElementById('plist');
+  if (!list || list._rcmInit) return;
+  list._rcmInit = true;
+  list.addEventListener('contextmenu', e => {
+    const row = e.target.closest('.prow');
+    if (!row) return;
+    const name = row.dataset.pname;
+    if (!name) return;
+    e.preventDefault();
+    _closeRowMenu();
+    const isGone = !!(draftState[name] && draftState[name].teamIdx<0) || manualOverrides[name]==='gone';
+    const isMine = manualOverrides[name]==='mine' || (draftState[name] && draftState[name].teamIdx===myTeam && myTeam!==null && draftState[name].round===0);
+    const marked = draftState[name] !== undefined;
+    const m = document.createElement('div');
+    m.className = 'row-cmenu';
+    const item = (label, color, fn) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      if (color) b.style.color = color;
+      b.onmousedown = ev => { ev.preventDefault(); ev.stopPropagation(); fn(); _closeRowMenu(); };
+      return b;
+    };
+    const short = name.split(' ').slice(-1)[0];
+    if (!isGone) m.appendChild(item('✕  Mark drafted', 'var(--qb)', ()=>markGone(name)));
+    m.appendChild(item('✦  Mark to my team', 'var(--accent2)', ()=>markMine(name)));
+    if (marked) m.appendChild(item('↩  Undo', 'var(--muted)', ()=>undo(name)));
+    document.body.appendChild(m);
+    // position within viewport
+    const mw = 190, mh = m.offsetHeight || 120;
+    let x = e.clientX, y = e.clientY;
+    if (x + mw > window.innerWidth) x = window.innerWidth - mw - 8;
+    if (y + mh > window.innerHeight) y = window.innerHeight - mh - 8;
+    m.style.left = x + 'px'; m.style.top = y + 'px';
+    _rowMenuEl = m;
+  });
+  // dismiss on any outside click / scroll / escape
+  document.addEventListener('mousedown', e => { if (_rowMenuEl && !e.target.closest('.row-cmenu')) _closeRowMenu(); }, true);
+  document.addEventListener('scroll', _closeRowMenu, true);
+  document.addEventListener('keydown', e => { if (e.key==='Escape') _closeRowMenu(); });
+}
+
 // ════════════════════════════════════
 
 // ════════════════════════════════════
@@ -13333,6 +13418,13 @@ function _sdSetAdp(bucket, field, value){
    The "New" badge in Settings is driven by the newest entry's ts vs. the last
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
+  {
+    ts:'2026-09-01T19:30', tag:'Improved', title:'Clearer ESPN live drafts, plus right-click to mark players',
+    items:[
+      'ESPN doesn’t send Vault your picks while a draft is live — it only shares them once the draft finishes. Vault now says so plainly during an ESPN draft, instead of showing an empty board. Your board fills in automatically the moment the draft ends.',
+      'You can now right-click any player in your rankings to mark them drafted (or add them to your team) — handy for keeping your board in sync during an ESPN draft. On mobile, swipe as before.',
+    ]
+  },
   {
     ts:'2026-09-01T18:00', tag:'New', title:'Vault now bumps a player’s projection when a teammate is Out',
     items:[
@@ -16288,7 +16380,7 @@ function renderList(){
     const draftCell = (_dvReady.on && !isDrafted && _dvPid)
       ? `<td class="td-draft"><button class="dv-draftnow" onclick="event.stopPropagation();dvDraftFromBoard('${_dvPid}','${p.name.replace(/'/g,"\\'")}',${_dvReady.pickNo})" title="Draft ${p.name.replace(/"/g,'&quot;')} into your Sleeper draft">Draft</button></td>`
       : `<td class="td-draft"></td>`;
-    const desktopRow = _mobileMode ? '' : `<tr class="prow ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}">
+    const desktopRow = _mobileMode ? '' : `<tr class="prow ${isDrafted?'gone':''} ${isMe?'ismine':''} ${isHot?'is-value':''}" data-pname="${p.name.replace(/"/g,'&quot;')}">
       ${draftCell}
       <td class="rnum" style="text-align:right;padding-right:10px">${rank}</td>
       <td class="td-player" onclick="openPlayerProfile('${p.name.replace(/'/g,"\\'")}','','${p.pos}','${p.team}')" style="cursor:pointer" title="View player profile">
@@ -17069,6 +17161,7 @@ function ldInitPage() {
 
 // ════════════════════════════════════
 function renderBoard(){
+  try { updateEspnLiveBanner(); } catch(e){}
   const g=document.getElementById('bgrid');
   if(!g||!TEAMS.length) return;
 
@@ -19252,6 +19345,7 @@ function renderAll(){
     renderStrip(); renderList(); renderRoster(); renderSuggestions();
     try { renderIntelBar(); } catch(e){}   // live positional run signal (draft only)
     initSwipe();
+    try { initRowContextMenu(); } catch(e){}
     const pg = document.querySelector('.page.on')?.id;
     if (pg==='page-teams') { const loaded=valueSource==='fc'?fcLoaded:raLoaded; if(!loaded){if(valueSource==='fc')fetchFantasyCalc();else fetchRosterAudit();}else renderTeams(); }
     if (pg==='page-visual') renderBoard();
