@@ -13419,6 +13419,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T21:00', tag:'Improved', title:'ESPN Team Review now fills in FAAB, waivers and more',
+    items:[
+      'Your ESPN league’s Team Snapshot now shows real FAAB left, waiver order, and win % — the same details Vault already showed for Sleeper.',
+      'In ESPN leagues without a FAAB budget, Vault shows your moves made this season instead; before the season starts, it shows ESPN’s projected finish where win % will go.',
+    ]
+  },
+  {
     ts:'2026-09-01T20:15', tag:'Fixed', title:'ESPN leagues now show your standings in Portfolio',
     items:[
       'Your ESPN leagues in the Portfolio tab were showing a dash instead of your rank. They now show where your roster stands, just like your Sleeper leagues.',
@@ -14787,13 +14794,17 @@ async function renderOverview() {
           .sort((a,b)=> (b.w-a.w) || (b.pf-a.pf));
         _rrStand.forEach((t,i)=>{ t.seed=i+1; });
         const _rrMe = _rrStand.find(t=>t.isMe) || {};
-        const _rrBudget = (_rrLg?.settings?.waiver_budget) || 0;
+        // ESPN carries waiver_budget on each roster's settings (league object has
+        // none); Sleeper carries it on the league. Read roster first, fall back.
+        const _rrBudget = (myRoster_raw.settings?.waiver_budget) || (_rrLg?.settings?.waiver_budget) || 0;
         const _rrUsed = (myRoster_raw.settings?.waiver_budget_used) || 0;
         window._rrpExtras = {
           standings:_rrStand, seed:_rrMe.seed||null,
           playoffTeams:(_rrLg?.settings?.playoff_teams) || Math.round(rosters.length/2),
           faab:{ hasFaab: !!_rrBudget, budget:_rrBudget||100, left:Math.max(0,(_rrBudget||100)-_rrUsed) },
-          waiverPos:(myRoster_raw.settings?.waiver_position) || null
+          waiverPos:(myRoster_raw.settings?.waiver_position) || null,
+          // ESPN-only replacement metrics for tiles Sleeper fills differently.
+          espnExtras: myRoster_raw.espnExtras || null
         };
       } catch(e){ window._rrpExtras=null; }
       const nameEl = document.getElementById('ov-subtitle');
@@ -15209,7 +15220,7 @@ async function renderOverview() {
         window._rrpCompactWaiver = true;
         el.innerHTML = window._buildRedraftPreview(Object.assign({}, _rdvPayload, {
           seed:_rrx.seed, standings:_rrx.standings, playoffTeams:_rrx.playoffTeams, faab:_rrx.faab,
-          waiverPos:_rrx.waiverPos, lineupStr:_lineupStr, curWeek:((_ovRec?_ovRec.w+_ovRec.l+_ovRec.t:0)+1)
+          waiverPos:_rrx.waiverPos, espnExtras:_rrx.espnExtras, lineupStr:_lineupStr, curWeek:((_ovRec?_ovRec.w+_ovRec.l+_ovRec.t:0)+1)
         }));
         _ovRendering = false;
         try { window._ovRenderRedraftRace(); } catch(e){ console.warn('[Vault] redraft race:', e); }
@@ -15675,6 +15686,13 @@ async function buildEspnContext(leagueId){
   if (typeof fcLoaded!=='undefined' && !fcLoaded && typeof fcLoading!=='undefined' && !fcLoading && typeof fetchFantasyCalc==='function'){ try { await fetchFantasyCalc(); } catch(e){} }
   const data = await loadEspnLeagueRaw(leagueId, ['mTeam','mRoster','mSettings']);
   if (!data || !Array.isArray(data.teams)) return null;
+  // League-wide waiver/acquisition settings (mSettings). ESPN exposes whether the
+  // league runs a FAAB budget and how large it is; per-team spend + waiver order
+  // live on each team object below. Carried onto every roster's `settings` under
+  // the SAME field names Sleeper uses, so the Team Snapshot reads them unchanged.
+  const _acq = (data.settings && data.settings.acquisitionSettings) || {};
+  const _usingFaab = !!_acq.isUsingAcquisitionBudget;
+  const _faabBudget = _usingFaab ? (_acq.acquisitionBudget || 0) : 0;
   const rosters = [], users = [];
   data.teams.forEach(t => {
     const tname = espnTeamName(t);
@@ -15704,11 +15722,22 @@ async function buildEspnContext(leagueId){
     });
     const rec = (t.record && t.record.overall) || {};
     const pf = rec.pointsFor || 0;
+    const _tc = t.transactionCounter || {};
     rosters.push({
       roster_id: t.id, owner_id: ownerId, players, starters, reserve: [],
       settings: { wins: rec.wins||0, losses: rec.losses||0, ties: rec.ties||0,
         fpts: Math.floor(pf), fpts_decimal: Math.round((pf%1)*100),
-        fpts_against: Math.floor(rec.pointsAgainst||0) },
+        fpts_against: Math.floor(rec.pointsAgainst||0),
+        // Waiver + FAAB, mapped onto Sleeper's field names so shared readers work.
+        // waiver_budget is league-wide; per-team spend + order come off the team.
+        waiver_budget: _faabBudget,
+        waiver_budget_used: _tc.acquisitionBudgetSpent || 0,
+        waiver_position: (t.waiverRank != null ? t.waiverRank : null) },
+      // ESPN-native extras for Snapshot tiles Sleeper can't fill the same way
+      // (used as replacements: Moves in a non-FAAB league, Proj. Finish in preseason).
+      espnExtras: { usingFaab: _usingFaab, moves: _tc.acquisitions || 0, trades: _tc.trades || 0,
+        projRank: (t.currentProjectedRank!=null ? t.currentProjectedRank : null),
+        streakType: rec.streakType || null, streakLength: rec.streakLength || 0 },
       // native ESPN ids for the write layer; ignored by every read path
       platform: 'espn', espnTeamId: t.id, platformIds
     });
@@ -36250,6 +36279,27 @@ function _buildRedraftPreview(d){
   var rosterN=(d.roster||[]).length;
   var activeN=(d.roster||[]).filter(function(p){ return !_out(p.injury_status||p.status); }).length;
 
+  // ── Snapshot tiles: ESPN gives us different levers than Sleeper, so where a
+  // Sleeper-shaped tile would sit blank for an ESPN league we swap in an
+  // ESPN-native metric that IS available rather than showing a dash.
+  var _esx=d.espnExtras||null, isEspn=(d.platform==='espn')||!!_esx;
+  // Tile 1 — budget: FAAB when the league runs a budget; otherwise (rolling
+  // waivers) ESPN still tracks total acquisitions, so show Moves Made instead.
+  var faabBar=hasFaab?'<div class="faab-bar" style="height:6px;background:var(--s3);border-radius:999px;overflow:hidden;margin-top:5px"><i style="display:block;height:100%;border-radius:999px;background:var(--value);width:'+Math.round(faabBudget?(faabLeft/faabBudget*100):0)+'%"></i></div>':'';
+  var tileBudget;
+  if (hasFaab) tileBudget='<div class="mth-snap-item"><span class="mth-snap-k">💰 FAAB Left</span><span class="mth-snap-v">$'+faabLeft+' <span class="mth-snap-rank">of $'+faabBudget+'</span></span>'+faabBar+'</div>';
+  else if (isEspn && _esx) tileBudget='<div class="mth-snap-item"><span class="mth-snap-k">🔄 Moves Made</span><span class="mth-snap-v">'+(_esx.moves||0)+' <span class="mth-snap-rank">'+(_esx.trades?_esx.trades+' trade'+(_esx.trades===1?'':'s'):'this season')+'</span></span></div>';
+  else tileBudget='<div class="mth-snap-item"><span class="mth-snap-k">💰 FAAB Left</span><span class="mth-snap-v">—</span></div>';
+  // Tile 2 — waiver order: ESPN sends a real waiverRank even in FAAB leagues.
+  var tileWaiver='<div class="mth-snap-item"><span class="mth-snap-k">⏳ Waiver Order</span><span class="mth-snap-v">'+(d.waiverPos?('#'+d.waiverPos+' <span class="mth-snap-rank">of '+teams+'</span>'):(hasFaab?'FAAB':'—'))+'</span></div>';
+  // Tile 3 — Win %: real once games are played (both platforms). Preseason has
+  // no record, but ESPN publishes a projected finish, so use it as the stand-in.
+  var tileForm;
+  if (gp) tileForm='<div class="mth-snap-item"><span class="mth-snap-k">📈 Win %</span><span class="mth-snap-v">'+Math.round(winPct*100)+'% <span class="mth-snap-rank">'+rec.w+'-'+rec.l+'</span></span></div>';
+  else if (isEspn && _esx && _esx.projRank) tileForm='<div class="mth-snap-item"><span class="mth-snap-k">🔮 Proj. Finish</span><span class="mth-snap-v">#'+_esx.projRank+' <span class="mth-snap-rank">of '+teams+'</span></span></div>';
+  else tileForm='<div class="mth-snap-item"><span class="mth-snap-k">📈 Win %</span><span class="mth-snap-v">— <span class="mth-snap-rank"></span></span></div>';
+  var tileHealth='<div class="mth-snap-item"><span class="mth-snap-k">🩹 Roster Health</span><span class="mth-snap-v">'+activeN+'/'+rosterN+' <span class="mth-snap-rank">active</span></span></div>';
+
   /* ── LEFT: manager rail ── */
   var avatar='<div class="mth-avatar">'+(d.avatarUrl?'<img src="'+_rrpEsc(d.avatarUrl)+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+_rdvInitials(d.managerName)+'\'">':_rdvInitials(d.managerName))+'</div>';
   var tierLabel = (winPct>=0.6?'🔥 Playoff Track':winPct>=0.4?'Playoff Hunt':gp?'Chasing':'Season Start');
@@ -36258,14 +36308,10 @@ function _buildRedraftPreview(d){
     + '<div class="mth-hero-stat"><div class="mth-hero-label">Standing</div><div class="mth-hero-val">#'+seed+'<span style="font-size:12px;color:var(--muted)">/'+teams+'</span></div><div class="mth-hero-sub">'+playoffTeams+' make it</div></div>'
     + '<div class="mth-hero-stat"><div class="mth-hero-label">Pts For</div><div class="mth-hero-val">'+(gp?Math.round(d.pf):'—')+'</div><div class="mth-hero-sub">'+(pfRank?'#'+pfRank+' in lg':'—')+'</div></div>'
     + '</div>';
-  var faabBar=hasFaab?'<div class="faab-bar" style="height:6px;background:var(--s3);border-radius:999px;overflow:hidden;margin-top:5px"><i style="display:block;height:100%;border-radius:999px;background:var(--value);width:'+Math.round(faabBudget?(faabLeft/faabBudget*100):0)+'%"></i></div>':'';
   var snapshot='<div class="mth-snapshot">'
     + '<div class="mth-snap-title">Team Snapshot</div>'
     + '<div class="mth-snap-grid">'
-    + '<div class="mth-snap-item"><span class="mth-snap-k">💰 FAAB Left</span><span class="mth-snap-v">'+(hasFaab?('$'+faabLeft+' <span class="mth-snap-rank">of $'+faabBudget+'</span>'):'—')+'</span>'+faabBar+'</div>'
-    + '<div class="mth-snap-item"><span class="mth-snap-k">⏳ Waiver Order</span><span class="mth-snap-v">'+(d.waiverPos?('#'+d.waiverPos+' <span class="mth-snap-rank">of '+teams+'</span>'):(hasFaab?'FAAB':'—'))+'</span></div>'
-    + '<div class="mth-snap-item"><span class="mth-snap-k">📈 Win %</span><span class="mth-snap-v">'+(gp?Math.round(winPct*100)+'%':'—')+' <span class="mth-snap-rank">'+(gp?rec.w+'-'+rec.l:'')+'</span></span></div>'
-    + '<div class="mth-snap-item"><span class="mth-snap-k">🩹 Roster Health</span><span class="mth-snap-v">'+activeN+'/'+rosterN+' <span class="mth-snap-rank">active</span></span></div>'
+    + tileBudget + tileWaiver + tileForm + tileHealth
     + '</div></div>';
   var settings=d.lineupStr?'<div class="mth-settings"><div class="mth-snap-title">League Settings</div><div class="mth-lineup-str">Lineup: '+_rrpEsc(d.lineupStr)+'<br>'+teams+'-team · '+_rrpEsc(d.scoring||'PPR')+(hasFaab?' · FAAB waivers':'')+'</div></div>':'';
   var psBars=['QB','RB','WR','TE'].map(function(p){
