@@ -21,6 +21,7 @@ window.VaultPropModel = (function () {
     ? NFLVERSE_BASE
     : ((location.hostname.endsWith('github.io')) ? '' : '/data');
   const URL = `${BASE}/prop_model.json`;
+  const ROLE_URL = `${BASE}/role_volume.json`;
 
   let _params = null;      // Promise<model|null>
   function params() {
@@ -29,8 +30,36 @@ window.VaultPropModel = (function () {
     }
     return _params;
   }
+  // Role-volume prior (scripts/build_role_volume.py). Null until it lands → the
+  // role anchor is a silent no-op (falls back to the pure autoregressive proj).
+  let _role = null;
+  function roleParams() {
+    if (!_role) _role = fetch(ROLE_URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    return _role;
+  }
 
   const num = v => { const f = Number(v); return Number.isFinite(f) ? f : null; };
+  // Role-shift multiplier on a VOLUME level (mirror build_role_volume.shift_mult).
+  // A player's history reflects the role he HELD; his current depth rank may be a
+  // different role. Read which role his own volume resembles (nearest prior), then
+  // scale by prior[currentRank]/prior[impliedRank], dampened by the fitted w and
+  // capped. No-ops (→null) when history already matches the role, when depth rank
+  // is unknown, or when the prior/weight for this stat×pos isn't published.
+  function roleShift(rp, stat, pos, rank, level) {
+    if (!rp || !rp.priors || rank == null || level == null || pos == null) return null;
+    const ranks = rp.priors[stat] && rp.priors[stat][pos];
+    const wobj = rp.weights && rp.weights[stat + '|' + pos];
+    if (!ranks || !wobj) return null;
+    const cur = num(ranks[String(rank)]);
+    if (cur == null) return null;
+    let impRank = null, impVal = null, best = Infinity;
+    for (const r in ranks) { const d = Math.abs(ranks[r] - level); if (d < best) { best = d; impVal = ranks[r]; impRank = +r; } }
+    if (impVal == null || impVal <= 0) return null;
+    const w = num(wobj.w); if (w == null) return null;
+    const clampV = (rp.meta && num(rp.meta.clamp)) || 3;
+    const m = Math.max(1 / clampV, Math.min(clampV, 1 + w * (cur / impVal - 1)));
+    return { mult: m, from: impRank, to: +rank };
+  }
 
   // ── projection math (must mirror build_prop_projections.py) ───────────────
   function wmean(vals, halfLife) {
@@ -71,13 +100,24 @@ window.VaultPropModel = (function () {
 
   // Point projection for one market from a player's ordered weeks. null if the
   // player has fewer than min_prior usable games (→ caller falls back).
-  function projectFrom(weeks, m, minPrior) {
+  // role = { params, pos, rank } (optional). When present, the projection's
+  // VOLUME is anchored toward the player's current depth-chart role; the applied
+  // shift is written onto role.applied for callers to explain. TD/poisson markets
+  // are left alone (goal-line scoring doesn't track volume rank).
+  function projectFrom(weeks, m, minPrior, role) {
+    const anchor = (stat, level) => {
+      if (!role || m.kind === 'poisson') return level;
+      const rs = roleShift(role.params, stat, role.pos, role.rank, level);
+      if (rs) { role.applied = rs; return level * rs.mult; }
+      return level;
+    };
     // Direct recency-shrunk projection UNLESS the market declares usage fields
     // (vol + eff_num) — yards always, and rec_td (targets × TD-rate) opts in.
     if (!(m.vol && m.eff_num) && (m.kind === 'count' || m.kind === 'poisson')) {
       const s = m.stat_sum ? sumSeries(weeks, m.stat_sum) : series(weeks, m.stat);
       if (s.length < minPrior) return null;
-      return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
+      // for a direct-count market the stat IS the volume, so anchor it directly
+      return anchor(m.stat, shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol));
     }
     // volume × efficiency, each shrunk to its own prior
     const vs = [], es = [];
@@ -89,9 +129,9 @@ window.VaultPropModel = (function () {
     if (vs.length < minPrior || es.length < minPrior) return null;
     const key = k => m.prior[k];
     const mkt = _marketKeyOf(m);
-    const pv = shrink(vs, key(mkt + '|vol'), m.half_life, m.k_vol);
+    const pv = anchor(m.vol, shrink(vs, key(mkt + '|vol'), m.half_life, m.k_vol));
     const pe = shrink(es, key(mkt + '|eff'), m.half_life, m.k_eff);
-    return pv * pe;
+    return pv * pe;                                       // efficiency unchanged — only VOLUME is role-shifted
   }
   // recover the market key from a market's prior keys (e.g. "rec_yd|vol")
   function _marketKeyOf(m) {
@@ -196,7 +236,12 @@ window.VaultPropModel = (function () {
     }
     if (!weeks.length) return null;
 
-    let proj = projectFrom(weeks, m, minPrior);
+    // Role anchor: current depth rank (opts.roleRank, from the feed's vegas_depth)
+    // + position steer the volume toward the player's current role. Absent rank /
+    // params → no-op (pure autoregressive projection).
+    const role = (opts.roleRank != null && opts.pos)
+      ? { params: await roleParams(), pos: opts.pos, rank: num(opts.roleRank) } : null;
+    let proj = projectFrom(weeks, m, minPrior, role);
     if (proj == null) return null;
     proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
 
@@ -216,7 +261,8 @@ window.VaultPropModel = (function () {
     const cal0 = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
     const cal = blendToward(cal0, num(opts.marketProbOver), m.blend_w);   // #3: toward the vig-free market where measured
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
-             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
+             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length,
+             role: role && role.applied ? { mult: round(role.applied.mult, 2), from: role.applied.from, to: role.applied.to } : null };
   }
 
   // just the point projection (for the Model Lean "Vault" number), no line

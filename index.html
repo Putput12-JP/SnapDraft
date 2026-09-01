@@ -13419,6 +13419,15 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T23:30', tag:'Improved', title:'Player Props now read a player’s current role, not last year’s',
+    items:[
+      'Vault’s own prop projections were built only from a player’s past game log, so a backup who just won a starting job was still projected like a backup — inventing a huge fake “edge” against the real line (a lead-back rush-yards line looked like a +60% under when it wasn’t).',
+      'Projections now anchor to a player’s current depth-chart role: a promoted starter is projected like a starter, and a demoted player like a backup. Established starters are unchanged.',
+      'The role move is measured from years of real game logs (how many carries/targets each role actually gets), so it’s a grounded read — not us copying the book’s number.',
+      'Any prop where Vault’s projection is still far from a single-book (PrizePicks/Underdog) line now gets a “check this” flag instead of showing a big green edge.',
+    ]
+  },
+  {
     ts:'2026-09-01T21:00', tag:'Improved', title:'ESPN Team Review now fills in FAAB, waivers and more',
     items:[
       'Your ESPN league’s Team Snapshot now shows real FAAB left, waiver order, and win % — the same details Vault already showed for Sleeper.',
@@ -39626,6 +39635,10 @@ body .page,body .page.on{background:transparent!important}
     }
 
     // ── assemble players ─────────────────────────────────────────────────
+    // vegas_depth: id → [positional depth rank, weeks-observed]. Rank 1 = the
+    // starter / lead back / WR1; drives the prop model's role anchor.
+    const vdepth = (feed && feed.vegas_depth) || {};
+    const depthRankOf = id => (id != null && vdepth[id] && vdepth[id][0] != null) ? vdepth[id][0] : null;
     const players = [];
     for (const key in seasonById) {
       const { ident, stats } = seasonById[key];
@@ -39653,6 +39666,7 @@ body .page,body .page.on{background:transparent!important}
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
         rank: ident.rank ?? null, headshot: headshotFor(id, ident.name), season, weekly,
         proj: stats || null,   // raw season stat projection per market → Model Lean
+        depthRank: depthRankOf(id),
       });
     }
 
@@ -39673,6 +39687,7 @@ body .page,body .page.on{background:transparent!important}
         id, name: ident.name, team: ident.team || null,
         teamName: ident.team ? TEAMNAME[ident.team] : null, pos: ident.pos || null,
         rank: null, headshot: headshotFor(id, ident.name), season: null, weekly: wk,
+        depthRank: depthRankOf(id),
       });
     }
 
@@ -39901,7 +39916,7 @@ body .page,body .page.on{background:transparent!important}
         const projVal = projRaw == null ? null : (tf === 'weekly' ? +(projRaw / games).toFixed(1) : projRaw);
         rows.push({
           id: p.id, name: p.name, team: p.team, teamName: p.teamName, pos: p.pos,
-          headshot: p.headshot, rank: p.rank,
+          headshot: p.headshot, rank: p.rank, depthRank: p.depthRank ?? null,
           market: mk, marketLabel: m.label, marketShort: m.short, kind: m.kind,
           line: consLine, prob: cell.prob ?? null, value: val, proj: projVal,
           // spread of distinct lines across books; null when they agree or when
@@ -40267,12 +40282,43 @@ window.VaultPropModel = (function () {
     ? NFLVERSE_BASE
     : ((location.hostname.endsWith('github.io')) ? '' : '/data');
   const URL = `${BASE}/prop_model.json`;
+  const ROLE_URL = `${BASE}/role_volume.json`;
   let _params = null;
   function params() {
     if (!_params) _params = fetch(URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
     return _params;
   }
+  // Role-volume prior (scripts/build_role_volume.py). Null until it lands, so a
+  // cold cache / missing file makes the role anchor a silent no-op (fall back to
+  // the pure autoregressive projection).
+  let _role = null;
+  function roleParams() {
+    if (!_role) _role = fetch(ROLE_URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    return _role;
+  }
   const num = v => { const f = Number(v); return Number.isFinite(f) ? f : null; };
+  // Role-shift multiplier on a VOLUME level (mirror build_role_volume.shift_mult).
+  // A player's history reflects the role he HELD; his current depth rank may be a
+  // different role. Read which role his own volume resembles (nearest prior), then
+  // scale by prior[currentRank]/prior[impliedRank], dampened by the fitted w and
+  // capped. No-ops (→1) when history already matches the role, when depth rank is
+  // unknown, or when the prior/weight for this stat×pos isn't published. Returns
+  // { mult, from, to } or null (no anchor available).
+  function roleShift(rp, stat, pos, rank, level) {
+    if (!rp || !rp.priors || rank == null || level == null || pos == null) return null;
+    const ranks = rp.priors[stat] && rp.priors[stat][pos];
+    const wobj = rp.weights && rp.weights[stat + '|' + pos];
+    if (!ranks || !wobj) return null;
+    const cur = num(ranks[String(rank)]);
+    if (cur == null) return null;
+    let impRank = null, impVal = null, best = Infinity;
+    for (const r in ranks) { const d = Math.abs(ranks[r] - level); if (d < best) { best = d; impVal = ranks[r]; impRank = +r; } }
+    if (impVal == null || impVal <= 0) return null;
+    const w = num(wobj.w); if (w == null) return null;
+    const clampV = (rp.meta && num(rp.meta.clamp)) || 3;
+    const m = Math.max(1 / clampV, Math.min(clampV, 1 + w * (cur / impVal - 1)));
+    return { mult: m, from: impRank, to: +rank };
+  }
   function wmean(vals, halfLife) {
     const n = vals.length; if (!n) return [null, 0];
     let acc = 0, sw = 0;
@@ -40287,12 +40333,23 @@ window.VaultPropModel = (function () {
   function series(weeks, field) { const out = []; for (const w of weeks) { const v = num(w[field]); if (v != null) out.push(v); } return out; }
   function sumSeries(weeks, fields) { const out = []; for (const w of weeks) { const vals = fields.map(f => num(w[f])); if (vals.every(v => v == null)) continue; out.push(vals.reduce((a, v) => a + (v || 0), 0)); } return out; }
   function _marketKeyOf(m) { const k = Object.keys(m.prior)[0] || ''; return k.includes('|') ? k.split('|')[0] : k; }
-  function projectFrom(weeks, m, minPrior) {
+  // role = { params, pos, rank } (optional). When present, the projection's
+  // VOLUME is anchored toward the player's current depth-chart role; the applied
+  // shift is written back onto role.applied for callers to explain. TD/poisson
+  // markets are left alone (goal-line scoring doesn't track volume rank).
+  function projectFrom(weeks, m, minPrior, role) {
+    const anchor = (stat, level) => {
+      if (!role || m.kind === 'poisson') return level;
+      const rs = roleShift(role.params, stat, role.pos, role.rank, level);
+      if (rs) { role.applied = rs; return level * rs.mult; }
+      return level;
+    };
     // Direct projection unless the market declares usage fields (vol+eff_num) — yards always, rec_td opts in (targets × TD-rate).
     if (!(m.vol && m.eff_num) && (m.kind === 'count' || m.kind === 'poisson')) {
       const s = m.stat_sum ? sumSeries(weeks, m.stat_sum) : series(weeks, m.stat);
       if (s.length < minPrior) return null;
-      return shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol);
+      // for a direct-count market the stat IS the volume, so anchor it directly
+      return anchor(m.stat, shrink(s, m.prior[Object.keys(m.prior)[0]], m.half_life, m.k_vol));
     }
     const vs = [], es = [];
     for (const w of weeks) {
@@ -40302,9 +40359,9 @@ window.VaultPropModel = (function () {
     }
     if (vs.length < minPrior || es.length < minPrior) return null;
     const mkt = _marketKeyOf(m);
-    const pv = shrink(vs, m.prior[mkt + '|vol'], m.half_life, m.k_vol);
+    const pv = anchor(m.vol, shrink(vs, m.prior[mkt + '|vol'], m.half_life, m.k_vol));
     const pe = shrink(es, m.prior[mkt + '|eff'], m.half_life, m.k_eff);
-    return pv * pe;
+    return pv * pe;                                       // efficiency unchanged — only VOLUME is role-shifted
   }
   function sdAt(m, proj) { return Math.sqrt(Math.max(m.sd_v0 + m.sd_v1 * Math.max(proj, 0), 1e-6)); }
   function erf(x) {
@@ -40361,7 +40418,12 @@ window.VaultPropModel = (function () {
       if (p && p.weeks) weeks = weeks.concat(p.weeks.slice().sort((a, b) => (a.wk || 0) - (b.wk || 0)));
     }
     if (!weeks.length) return null;
-    let proj = projectFrom(weeks, m, minPrior);
+    // Role anchor: current depth rank (opts.roleRank, from the feed's vegas_depth)
+    // + the player's position steer the volume toward his current role. Absent
+    // rank / params → no-op (pure autoregressive projection).
+    const role = (opts.roleRank != null && opts.pos)
+      ? { params: await roleParams(), pos: opts.pos, rank: num(opts.roleRank) } : null;
+    let proj = projectFrom(weeks, m, minPrior, role);
     if (proj == null) return null;
     proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
     const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');   // #4 per-market distribution
@@ -40378,7 +40440,8 @@ window.VaultPropModel = (function () {
     const cal0 = clamp(shrinkProb(clamp(calibrate(m.calib, raw), 0.01, 0.99), m.shrink), 0.01, 0.99);
     const cal = blendToward(cal0, num(opts.marketProbOver), m.blend_w);   // #3: toward the vig-free market where measured
     return { proj: round(proj, 2), sd: round(sd, 2), over: round(cal, 4), under: round(1 - cal, 4),
-             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length };
+             fairProb: round(cal, 4), raw: round(raw, 4), n: m.n, r2: m.r2, games: weeks.length,
+             role: role && role.applied ? { mult: round(role.applied.mult, 2), from: role.applied.from, to: role.applied.to } : null };
   }
   async function projectStat(name, marketKey, opts) { const r = await fairProbOver(name, marketKey, null, opts); return r ? r.proj : null; }
   function has(marketKey) { return params().then(P => !!(P && P.markets && P.markets[marketKey])); }
@@ -41720,7 +41783,7 @@ window.VaultPropModel = (function () {
     if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; setG('<div class="tv"><span class="mut">—</span></div>'); return; }
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
     const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
-    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined }).then(v => {
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: r.depthRank }).then(v => {
       const t = document.getElementById('eb-vtile');
       if (!t || propKey(r) !== ebSel) return;               // selection moved on
       if (!v || v.fairProb == null) {
@@ -41737,9 +41800,13 @@ window.VaultPropModel = (function () {
       const caution = edgeCaution(r, sideProb, mktSideProb, ev, v, ci);
       const unv = !!caution;
       const showCascade = ci && !caution && ev != null && ev > 0;   // boosted proj, edge explained by a teammate being out
+      // role anchor note: the projection's volume was shifted to the player's
+      // current depth-chart role (e.g. a promoted backup), so a big move is
+      // explained, not a mistake.
+      const roleTxt = (v.role && r.pos && v.role.from !== v.role.to) ? ' · role-adj ' + r.pos + v.role.from + '→' + r.pos + v.role.to + ' ×' + v.role.mult : '';
       t.innerHTML = '<div class="tl">Vault edge</div>'
         + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (caution ? ' ' + caution.label : (showCascade ? ' ▲' : ''))) + '</div>'
-        + '<div class="ts" style="' + SS + '"' + (caution ? ' title="' + caution.tip.replace(/"/g, '&quot;') + '"' : '') + '>' + (caution ? caution.tip : (showCascade ? cascadeTip(ci) : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%')) + '</div>';
+        + '<div class="ts" style="' + SS + '"' + (caution ? ' title="' + caution.tip.replace(/"/g, '&quot;') + '"' : '') + '>' + (caution ? caution.tip : (showCascade ? cascadeTip(ci) : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%' + roleTxt)) + '</div>';
       // Vault grade tile — grades the DISPLAYED pick side (fe.side), matching the
       // board column, so the tile never rates the opposite side of the pick.
       const gp = fe.side === 'over' ? v.over : v.under;
@@ -41807,6 +41874,18 @@ window.VaultPropModel = (function () {
       const gap = Math.abs(sideProb - marketProb);
       if (gap >= 0.18)
         return { kind: 'implausible', label: '?', tip: 'Vault disagrees with the fair market by ' + Math.round(gap * 100) + ' pts (' + Math.round(sideProb * 100) + '% vs the market’s ' + Math.round(marketProb * 100) + '%). A gap this large is usually a projection problem — stale role, injury, or a bad match — so sanity-check the number before trusting it.' };
+    }
+    // 2b. DFS / pickem line — no vig to strip, so there's no market probability to
+    //    compare against (#2 can't fire). Compare the PROJECTION to the line
+    //    directly instead: a projection that misses a real book line by a lot,
+    //    with no second market to corroborate, is the same stale-role / bad-join
+    //    shape. The role anchor already corrects KNOWN depth-chart shifts, so a
+    //    large gap that survives it is exactly what to doubt. (This is the hole
+    //    Tuten fell through — a PrizePicks/Underdog line the de-vig can't reach.)
+    if (!cascade && marketProb == null && v && v.proj != null && r.line) {
+      const rel = Math.abs(v.proj - r.line) / Math.abs(r.line);
+      if (rel >= 0.33)
+        return { kind: 'projgap', label: '?', tip: 'Vault’s projection (' + v.proj + ') is ' + Math.round(rel * 100) + '% off the ' + r.line + ' line, and no second market confirms it. A gap this big on a DFS line is usually a projection issue — a stale role, thin sample, or name mismatch — so sanity-check it before trusting the edge.' };
     }
     // 3. Thin history — few games make the projection noisy, so a big edge is low-confidence.
     if (v && v.games != null && v.games < 4)
@@ -41930,7 +42009,7 @@ window.VaultPropModel = (function () {
       if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; changed = true; return null; }
       const mpo = (r.fe && r.fe.sides && r.fe.sides.over) ? r.fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
       const ci = cascadeInfo(r);                                                                // injury teammate-cascade volume bump (or null)
-      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined }).then(v => {
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: r.depthRank }).then(v => {
         let ev = null, proj = null, g = null, unv = false, over = null, under = null, caution = null;
         if (v && v.proj != null) {
           proj = v.proj; over = v.over; under = v.under;
