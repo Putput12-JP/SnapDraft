@@ -41342,15 +41342,18 @@ window.VaultPropModel = (function () {
 
   // ── role-rank corroboration ────────────────────────────────────────────────
   // The role anchor (prop-model) reads the feed's vegas_depth to know a player's
-  // CURRENT depth-chart role. But that feed is unreliable — it carries wrong-team
-  // players and scrambled ranks (measured: it ranked Jerry Jeudy WR3 while the
-  // books priced him CLE's WR1). Trusting a bad rank would DEMOTE a real starter
-  // toward a backup prior — a phantom under, the very bug the anchor exists to
-  // kill. So we only trust a depth rank the BOOKS agree with: rank each team's
-  // players at a position by their own volume-market line, and let the anchor
-  // fire only where the feed depth rank matches that line rank. The line is used
-  // ordinally (a sanity check), never to set the projection — Vault stays
-  // independent. No line / no teammates / disagreement → no anchor (autoregressive).
+  // CURRENT role. But vegas_depth is Sleeper's depth_chart_order — listing ORDER,
+  // not OPPORTUNITY. At WR especially, a nominal "WR2" (e.g. the slot) can play
+  // every snap and out-target the WR1: measured live, Michael Pittman is dco 2 on
+  // PIT yet carries a HIGHER rec-yd line than the dco-1 Metcalf, and Jerry Jeudy
+  // is listed CLE dco 3 while the books give him the team's top receiving line.
+  // Trusting listing order would DEMOTE a full-snap receiver toward a backup prior
+  // — a phantom under, the very bug the anchor exists to kill. So we only trust a
+  // depth rank the BOOKS agree with (the line is the real opportunity signal):
+  // rank each team's players at a position by their own volume-market line, and
+  // let the anchor fire only where the feed depth rank matches that line rank. The
+  // line is used ordinally (a sanity check), never to set the projection — Vault
+  // stays independent. No line / no teammates / disagreement → no anchor.
   const ROLE_VOL_MK = { RB: 'rush_yd', WR: 'rec_yd', TE: 'rec_yd' };   // QB excluded from the anchor
   let _roleCorrob = null, _roleCorrobTok = null;
   function roleCorroborated(id) {
