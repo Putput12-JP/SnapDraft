@@ -13419,6 +13419,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-01T20:15', tag:'Fixed', title:'ESPN leagues now show your standings in Portfolio',
+    items:[
+      'Your ESPN leagues in the Portfolio tab were showing a dash instead of your rank. They now show where your roster stands, just like your Sleeper leagues.',
+    ]
+  },
+  {
     ts:'2026-09-01T19:30', tag:'Improved', title:'Clearer ESPN live drafts, plus right-click to mark players',
     items:[
       'ESPN doesn’t send Vault your picks while a draft is live — it only shares them once the draft finishes. Vault now says so plainly during an ESPN draft, instead of showing an empty board. Your board fills in automatically the moment the draft ends.',
@@ -24491,7 +24497,11 @@ async function renderPortfolio() {  if (!myTeamsData.length) {
           : 0;
         return { owner: r.owner_id, val: playerSum + pickSum };
       }).sort((a,b) => b.val - a.val);
-      const myRank = allVals.findIndex(r => r.owner === myTeamsUserId) + 1;
+      // Match on the resolved roster's own owner, not myTeamsUserId directly:
+      // ESPN rosters carry an 'espn_owner_<id>' owner, never the Sleeper user id,
+      // so keying rank off myTeamsUserId dropped every ESPN league to rank 0 (→ "—").
+      const _myOwner = myRoster?.owner_id;
+      const myRank = (_myOwner != null ? allVals.findIndex(r => r.owner === _myOwner) : -1) + 1;
       const totalTeams = rosters.length;
 
       // Position grades
