@@ -173,13 +173,33 @@ async function srcESPN(season, week, resolver) {
 /* ── 3. DvP — COMPUTED from real Sleeper stats + schedule ✅ ───────────────
    Fantasy points (PPR) each defense has allowed to each position, per game,
    over completed weeks of the current season (falls back to prior season in
-   the early weeks). Ranked 1 (toughest) … 32 (softest).                    */
+   the early weeks). Ranked 1 (toughest) … 32 (softest).
+
+   Roster-blind fallback: in the preseason there are no current-season games, so
+   we stand in LAST season's full-year DvP — which can't see a defense that lost
+   a star or churned its roster (e.g. Cleveland trading Myles Garrett). Last
+   season's grade is only a weak, uncertain guide to this year's team, so we
+   SHRINK it toward the league average by a MEASURED per-position weight
+   (scripts/build_dvp_shrink.py → data/dvp_shrink.json). That regresses extreme
+   grades toward the mean — the right prior when the current roster is unknown —
+   handling all turnover uniformly without inventing a per-player impact. Fitted
+   on real history: shrunk prior-season DvP predicts the next season's actual DvP
+   19–23% better than the raw prior. Applied ONLY in the stale/preseason case;
+   once real current-season games land, the DvP reflects the true roster.        */
+let _dvpShrink;
+async function loadDvpShrink() {
+  if (_dvpShrink !== undefined) return _dvpShrink;
+  try { _dvpShrink = JSON.parse(await readFile(resolve(process.cwd(), 'data/dvp_shrink.json'), 'utf8')); }
+  catch { _dvpShrink = null; }   // missing file → graceful no-op (raw prior-season DvP)
+  return _dvpShrink;
+}
 async function buildDvP(season, week) {
   try {
     const completed = [];
     for (let w = 1; w < week; w++) completed.push(w);
+    const stale = completed.length < 2;               // preseason → standing in last year's data
     let useSeason = season, weeks = completed;
-    if (weeks.length < 2) { useSeason = String(Number(season) - 1); weeks = range(1, 17); } // preseason → last year
+    if (stale) { useSeason = String(Number(season) - 1); weeks = range(1, 17); } // preseason → last year
     const schedule = await getSchedule(useSeason);
     const allow = {}; // team -> [QBpts, RBpts, WRpts, TEpts], and games count
     const games = {};
@@ -205,6 +225,24 @@ async function buildDvP(season, week) {
       const g = Math.max(1, (games[tm] || weeks.length));
       perGame[tm] = allow[tm].map(v => round(v / g));
     }
+    // Roster-blind fallback: shrink last season's grade toward the league mean by
+    // the fitted per-position weight, then rank the SHRUNK values. Only in the
+    // stale/preseason case; live current-season data is left untouched.
+    let shrunk = false;
+    if (stale) {
+      const sh = await loadDvpShrink();
+      const lam = sh && sh.lambda;
+      if (lam) {
+        for (const pos of ['QB', 'RB', 'WR', 'TE']) {
+          const i = POS_IDX[pos], L = lam[pos];
+          if (!(L > 0)) continue;
+          const tms = Object.keys(perGame);
+          const mean = tms.reduce((s, tm) => s + perGame[tm][i], 0) / (tms.length || 1);
+          for (const tm of tms) perGame[tm][i] = round((1 - L) * perGame[tm][i] + L * mean);
+          shrunk = true;
+        }
+      }
+    }
     // ranks per position (1 = fewest allowed = toughest)
     const dvp = {};
     for (const pos of ['QB', 'RB', 'WR', 'TE']) {
@@ -212,7 +250,9 @@ async function buildDvP(season, week) {
       const order = Object.keys(perGame).sort((a, b) => perGame[a][i] - perGame[b][i]);
       order.forEach((tm, idx) => { (dvp[tm] = dvp[tm] || {})[pos] = { fpa: perGame[tm][i], rank: idx + 1 }; });
     }
-    return dvp;
+    // Return the table plus provenance so the feed can label it (last season /
+    // roster-shrunk) rather than presenting stale context as current.
+    return { table: dvp, stale, season: useSeason, shrunk };
   } catch (e) { warn('dvp', e); return null; }
 }
 async function getSchedule(season) {
@@ -353,7 +393,7 @@ async function main() {
     if (name) identity[id] = { name, team: (pl.team || '').toUpperCase() || null, pos: pl.position || null };
   }
 
-  const [espn, cbs, nfl, dk, dvp, vegas] = await Promise.all([
+  const [espn, cbs, nfl, dk, dvpRes, vegas] = await Promise.all([
     srcESPN(season, week, resolver),
     srcCBS(season, week, resolver),
     srcNFL(season, week, resolver, statlines),
@@ -361,7 +401,8 @@ async function main() {
     buildDvP(season, week),
     buildVegas(season, week, rid, resolver, identity),
   ]);
-  log(`  espn: ${Object.keys(espn).length} · cbs: ${Object.keys(cbs).length} · nfl: ${Object.keys(nfl).length} · dk: ${Object.keys(dk).length} · dvp teams: ${dvp ? Object.keys(dvp).length : 0}`);
+  const dvp = dvpRes && dvpRes.table;
+  log(`  espn: ${Object.keys(espn).length} · cbs: ${Object.keys(cbs).length} · nfl: ${Object.keys(nfl).length} · dk: ${Object.keys(dk).length} · dvp teams: ${dvp ? Object.keys(dvp).length : 0}${dvpRes && dvpRes.stale ? ` (last season ${dvpRes.season}${dvpRes.shrunk ? ', roster-shrunk' : ''})` : ''}`);
   log(`  vegas: ${Object.keys(vegas.vegas_teams).length} teams (${vegas.meta.live_source}, blend ${vegas.meta.blend_weight}) · ${vegas.meta.players_matched}/${vegas.meta.players_total} players · props: ${vegas.meta.props_players} (${vegas.meta.props_source})`);
 
   /* sanity gate: a scrape that matched a trickle of players is a broken
@@ -406,6 +447,9 @@ async function main() {
   const feed = {
     season, week, season_type: seasonType || null, generated: new Date().toISOString(), players,
     ...(dvp ? { dvp } : {}),
+    // DvP provenance so the app can label it (e.g. "last season, roster-adjusted")
+    // instead of presenting a stale preseason grade as the current defense.
+    ...(dvpRes ? { dvp_meta: { stale: !!dvpRes.stale, season: dvpRes.season, shrunk: !!dvpRes.shrunk } } : {}),
     vegas_teams: vegas.vegas_teams,
     vegas_games: vegas.vegas_games,
     vegas_players: vegas.vegas_players,
