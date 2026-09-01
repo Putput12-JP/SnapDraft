@@ -13422,8 +13422,9 @@ const VAULT_CHANGELOG = [
     ts:'2026-09-01T23:30', tag:'Improved', title:'Player Props now read a player’s current role, not last year’s',
     items:[
       'Vault’s own prop projections were built only from a player’s past game log, so a backup who just won a starting job was still projected like a backup — inventing a huge fake “edge” against the real line (a lead-back rush-yards line looked like a +60% under when it wasn’t).',
-      'Projections now anchor to a player’s current depth-chart role: a promoted starter is projected like a starter, and a demoted player like a backup. Established starters are unchanged.',
+      'Projections now anchor to a player’s current role (starter vs backup) for running backs, receivers and tight ends: a promoted starter is projected like a starter, a demoted player like a backup, and established starters are unchanged.',
       'The role move is measured from years of real game logs (how many carries/targets each role actually gets), so it’s a grounded read — not us copying the book’s number.',
+      'Vault cross-checks each player’s role against the betting lines and only adjusts when they agree, so a bad depth-chart entry can’t wrongly drag a real starter down.',
       'Any prop where Vault’s projection is still far from a single-book (PrizePicks/Underdog) line now gets a “check this” flag instead of showing a big green edge.',
     ]
   },
@@ -41339,6 +41340,44 @@ window.VaultPropModel = (function () {
       + ' Out — Vault raised this projection ×' + ci.mult.toFixed(2) + ', the measured next-man-up bump from ' + ci.n + ' past cases. The big edge is expected, not a mistake.';
   }
 
+  // ── role-rank corroboration ────────────────────────────────────────────────
+  // The role anchor (prop-model) reads the feed's vegas_depth to know a player's
+  // CURRENT depth-chart role. But that feed is unreliable — it carries wrong-team
+  // players and scrambled ranks (measured: it ranked Jerry Jeudy WR3 while the
+  // books priced him CLE's WR1). Trusting a bad rank would DEMOTE a real starter
+  // toward a backup prior — a phantom under, the very bug the anchor exists to
+  // kill. So we only trust a depth rank the BOOKS agree with: rank each team's
+  // players at a position by their own volume-market line, and let the anchor
+  // fire only where the feed depth rank matches that line rank. The line is used
+  // ordinally (a sanity check), never to set the projection — Vault stays
+  // independent. No line / no teammates / disagreement → no anchor (autoregressive).
+  const ROLE_VOL_MK = { RB: 'rush_yd', WR: 'rec_yd', TE: 'rec_yd' };   // QB excluded from the anchor
+  let _roleCorrob = null, _roleCorrobTok = null;
+  function roleCorroborated(id) {
+    if (id == null) return false;
+    if (!(_roleCorrob && _roleCorrobTok === MODEL)) {
+      const byTeam = {};
+      for (const p of ((MODEL && MODEL.players) || [])) {
+        const mk = ROLE_VOL_MK[p.pos];
+        if (!mk || !p.team || p.id == null || p.depthRank == null) continue;
+        const cell = p.weekly && p.weekly.lines && p.weekly.lines[mk];
+        const line = cell && cell.line != null ? cell.line : null;
+        if (line == null) continue;
+        (byTeam[p.team + '|' + p.pos] = byTeam[p.team + '|' + p.pos] || []).push({ id: p.id, line, depth: p.depthRank });
+      }
+      const ok = new Set();
+      for (const k in byTeam) {
+        byTeam[k].sort((a, b) => b.line - a.line).forEach((x, i) => { if (x.depth === i + 1) ok.add(String(x.id)); });
+      }
+      _roleCorrob = ok; _roleCorrobTok = MODEL;
+    }
+    return _roleCorrob.has(String(id));
+  }
+  // The depth rank to feed the anchor: the feed rank only when the books corroborate it.
+  function verifiedRoleRank(r) {
+    return (r && r.depthRank != null && roleCorroborated(r.id)) ? r.depthRank : undefined;
+  }
+
   // Fair / EV for one real-line prop row (VaultBettingMath). Returns the better
   // +EV side, or null when the market isn't a genuinely juiced two-way.
   //
@@ -41783,7 +41822,7 @@ window.VaultPropModel = (function () {
     if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; setG('<div class="tv"><span class="mut">—</span></div>'); return; }
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
     const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
-    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: r.depthRank }).then(v => {
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
       const t = document.getElementById('eb-vtile');
       if (!t || propKey(r) !== ebSel) return;               // selection moved on
       if (!v || v.fairProb == null) {
@@ -42009,7 +42048,7 @@ window.VaultPropModel = (function () {
       if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; changed = true; return null; }
       const mpo = (r.fe && r.fe.sides && r.fe.sides.over) ? r.fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
       const ci = cascadeInfo(r);                                                                // injury teammate-cascade volume bump (or null)
-      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: r.depthRank }).then(v => {
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
         let ev = null, proj = null, g = null, unv = false, over = null, under = null, caution = null;
         if (v && v.proj != null) {
           proj = v.proj; over = v.over; under = v.under;
