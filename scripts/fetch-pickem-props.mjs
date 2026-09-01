@@ -508,7 +508,8 @@ function upsertQuote(cell, fresh, book) {
   cell.best.under = bestSide(cell.quotes, 'under');
 }
 
-function mergeFeed(sources, stats, depth) {
+function mergeFeed(sources, stats, sl) {
+  const depth = sl && sl.depth;
   if (!existsSync(FEED)) { log('feed not found, nothing to merge:', FEED); return false; }
   const feed = JSON.parse(readFileSync(FEED, 'utf8'));
   const existing = feed.vegas_player_props || {};
@@ -538,6 +539,25 @@ function mergeFeed(sources, stats, depth) {
       }
     }
   }
+
+  // Sleeper-team override: Sleeper is the authoritative CURRENT-team source, and
+  // every entry keyed by a Sleeper id already carries that id — so force its team
+  // to Sleeper's, overriding whatever a prop source (parlay-api) claimed. Prop
+  // feeds lag on team changes and deep-bench players (measured: a WR still listed
+  // on his old team while Sleeper had moved him), and that stale team wrongly
+  // groups a player with the wrong roster (e.g. the role-anchor depth check).
+  // Entries keyed by a non-Sleeper id (name-fallback), or where Sleeper has no
+  // team (free agent), keep their source team as the best available.
+  const byId = (sl && sl.byId) || {};
+  let teamFixed = 0;
+  for (const coll of [existing, feed.vegas_players]) {
+    if (!coll) continue;
+    for (const id in coll) {
+      const st = byId[id] && byId[id].team;
+      if (st && coll[id] && coll[id].team !== st) { coll[id].team = st; teamFixed++; }
+    }
+  }
+  if (teamFixed) log(`sleeper-team override: corrected ${teamFixed} stale team(s)`);
 
   feed.vegas_player_props = existing;
   if (depth && Object.keys(depth).length) feed.vegas_depth = depth;   // [dco, active] per skill-player id
@@ -601,7 +621,7 @@ function mergeFeed(sources, stats, depth) {
       } catch (e) { log('sleeper skipped:', e.message); }
     }
 
-    mergeFeed(sources, { players: totalPlayers }, sl.depth);
+    mergeFeed(sources, { players: totalPlayers }, sl);
   } catch (e) {
     log('ERROR:', e.message);
     process.exit(0); // never fail the workflow / never wipe the feed on error
