@@ -41025,6 +41025,8 @@ window.VaultPropModel = (function () {
 #page-betting .bx-projhero .ph-lean{margin-left:auto;font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:800;padding:7px 15px;border-radius:999px;white-space:nowrap}
 #page-betting .bx-projhero .ph-lean.over{color:var(--bt-green);background:color-mix(in srgb,var(--bt-green) 14%,transparent);border:1px solid color-mix(in srgb,var(--bt-green) 34%,transparent)}
 #page-betting .bx-projhero .ph-lean.under{color:var(--red);background:color-mix(in srgb,var(--red) 13%,transparent);border:1px solid color-mix(in srgb,var(--red) 32%,transparent)}
+#page-betting .bx-projhero .ph-adj{font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.02em;color:var(--bt-muted);margin-top:8px}
+#page-betting .bx-projhero .ph-adj b{color:var(--bt-text2);font-weight:700}
 /* keep the chart's line tag out of the bars, in a clear right gutter, solid + readable */
 #page-betting .bx-detail .eb-bars{padding-right:46px}
 #page-betting .bx-detail .eb-ltag{right:4px;background:var(--bt-accent2);color:var(--on-primary);border-color:transparent;font-weight:800;z-index:4}
@@ -42046,8 +42048,15 @@ window.VaultPropModel = (function () {
     const c = vOverride || _vaultCache[propKey(r)], line = r.line;
     if (!c || c.proj == null) return '<div class="ph-main"><div class="l">Vault projection</div><div class="v"><span class="spinner sm"></span></div></div>';
     const proj = c.proj, diff = (line != null) ? (proj - line) : null, lean = (line != null) ? (proj > line ? 'over' : 'under') : null;
+    // Show how the matchup shaped the number: raw history → opponent × environment.
+    const a = matchupAdj(r), applied = Math.abs(a.oppMult - 1) > 0.005 || Math.abs(a.envMult - 1) > 0.005;
+    const base = applied ? (proj / (a.oppMult * a.envMult)) : null;
     return '<div class="ph-main"><div class="l">Vault projection</div>'
-      + '<div class="v">' + proj + '<span class="vs">vs line ' + (line != null ? line : '—') + '</span></div></div>'
+      + '<div class="v">' + proj + '<span class="vs">vs line ' + (line != null ? line : '—') + '</span></div>'
+      + (applied ? '<div class="ph-adj">from <b>' + base.toFixed(1) + '</b> history'
+          + (a.oppRank != null ? ' · opp <b>' + r.opp + ' ' + _ord(a.oppRank) + '</b> ×' + a.oppMult.toFixed(2) : '')
+          + (a.teamTotal != null ? ' · env <b>' + a.teamTotal + '</b> implied ×' + a.envMult.toFixed(2) : '') + '</div>' : '')
+      + '</div>'
       + (diff != null ? '<div class="ph-lean ' + lean + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + ' · leans ' + (lean === 'over' ? 'Over' : 'Under') + '</div>' : '');
   }
   function twoSideInner(r, v, loading) {
@@ -42247,7 +42256,8 @@ window.VaultPropModel = (function () {
     if (!PM || !BM || r.line == null) { host.innerHTML = twoSideInner(r, null, false); return; }
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
     const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
-    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
+    const adj = matchupAdj(r);                                                        // DvP opponent + Vegas-total environment
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, oppMult: adj.oppMult, envMult: adj.envMult, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
       const h = document.getElementById('eb-2side');
       if (!h || tok !== _pdTok) return;               // panel moved on
       const vv = (v && v.over != null) ? { over: v.over, under: v.under, proj: v.proj, games: v.games } : null;
@@ -42477,9 +42487,57 @@ window.VaultPropModel = (function () {
     if (_dvp || _dvpTried) return;
     _dvpTried = true;
     const base = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE) ? NFLVERSE_BASE : '/data';
-    fetch(base + '/lineup-feed.json').then(r => (r.ok ? r.json() : null)).then(j => { _dvp = (j && j.dvp) ? j.dvp : {}; if (view === 'props') renderPropsBoard(); }).catch(() => { _dvp = {}; });
+    fetch(base + '/lineup-feed.json').then(r => (r.ok ? r.json() : null)).then(j => {
+      _dvp = (j && j.dvp) ? j.dvp : {};
+      // The projection folds DvP into an opponent multiplier, so any projection
+      // cached before DvP landed is opponent-blind — clear the cache so the next
+      // render recomputes every player WITH the matchup.
+      for (const kk in _vaultCache) delete _vaultCache[kk];
+      if (view === 'props') renderPropsBoard();
+    }).catch(() => { _dvp = {}; });
   }
   const _ord = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+
+  // ── matchup + environment adjustment ──────────────────────────────────────
+  // Vegas prices the opponent and the game environment; our raw projection is
+  // just the player's own history, so it isn't comparable to a market line until
+  // we add those. We fold in TWO measured, market-native signals to pull the
+  // projection toward what a book would post — then the leftover gap to the line
+  // is a real edge, not a missing-context artifact:
+  //   • OPPONENT — the DvP fantasy-points-allowed vs the position, already shrunk
+  //     toward league mean (validated), expressed as a ratio to the league fpa.
+  //   • ENVIRONMENT — the team's Vegas implied total (total/2 − spread/2) vs an
+  //     average team total, damped (passing yards move ~½ as fast as points) and
+  //     capped. Both are safety-railed so a bad number can't blow up a line.
+  const _ENV_AVG = 22.5, _ENV_BETA = 0.5;
+  const _mAdjCache = {};   // pos → league-average fpa (memoized off _dvp)
+  function _leagueFpa(pos) {
+    if (!_dvp) return null;
+    if (pos in _mAdjCache) return _mAdjCache[pos];
+    let s = 0, n = 0;
+    for (const t in _dvp) { const c = _dvp[t] && _dvp[t][pos]; if (c && c.fpa != null) { s += c.fpa; n++; } }
+    return (_mAdjCache[pos] = n ? s / n : null);
+  }
+  function _teamTotal(team) {
+    if (!team || !MODEL.games) return null;
+    const g = MODEL.games.find(x => x.away === team || x.home === team);
+    if (!g || !g.total || g.total.cons == null || !g.spread || !g.spread.cons) return null;
+    const total = g.total.cons, sp = (team === g.home) ? g.spread.cons.home : g.spread.cons.away;
+    if (sp == null) return null;
+    return +(total / 2 - sp / 2).toFixed(1);
+  }
+  // { oppMult, envMult, oppRank, teamTotal } — 1× when the data isn't loaded yet.
+  function matchupAdj(r) {
+    let oppMult = 1, envMult = 1, oppRank = null;
+    if (!_dvp) loadDvp();
+    else if (r.opp && r.pos) {
+      const cell = _dvp[r.opp] && _dvp[r.opp][r.pos], avg = _leagueFpa(r.pos);
+      if (cell && cell.fpa != null && avg) { oppMult = Math.min(1.15, Math.max(0.88, cell.fpa / avg)); oppRank = cell.rank; }
+    }
+    const teamTotal = _teamTotal(r.team);
+    if (teamTotal != null) envMult = Math.min(1.10, Math.max(0.92, 1 + _ENV_BETA * (teamTotal / _ENV_AVG - 1)));
+    return { oppMult, envMult, oppRank, teamTotal };
+  }
   function oppRankCell(r) {
     if (!r.opp || !r.pos) return '<span class="mut">—</span>';
     if (!_dvp) { loadDvp(); return '<span class="mut">·</span>'; }
@@ -42527,7 +42585,8 @@ window.VaultPropModel = (function () {
       if (!PM || !BM || r.line == null) { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; changed = true; return null; }
       const mpo = (r.fe && r.fe.sides && r.fe.sides.over) ? r.fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
       const ci = cascadeInfo(r);                                                                // injury teammate-cascade volume bump (or null)
-      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
+      const adj = matchupAdj(r);                                                                // DvP opponent + Vegas-total environment → market-native projection
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, oppMult: adj.oppMult, envMult: adj.envMult, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
         let ev = null, proj = null, g = null, unv = false, over = null, under = null, caution = null;
         if (v && v.proj != null) {
           proj = v.proj; over = v.over; under = v.under;
@@ -42541,7 +42600,7 @@ window.VaultPropModel = (function () {
           unv = !!caution;                                              // back-compat: any caution flags the row
           g = vaultGrade(v.over, v.under, v.games);       // pickem confidence grade (player's own game count)
         }
-        _vaultCache[k] = { ev, proj, g, unv, over, under, caution, cascade: (ci && ev != null && ev > 0) ? ci : null }; changed = true;
+        _vaultCache[k] = { ev, proj, g, unv, over, under, caution, adj, cascade: (ci && ev != null && ev > 0) ? ci : null }; changed = true;
         const tv = _pvInner() && _pvInner().querySelector('[data-edgek="' + k + '"]');
         if (tv) tv.innerHTML = edgeChipHTML(r);
         const tp = _pvInner() && _pvInner().querySelector('[data-vpk="' + k + '"]');
