@@ -43062,13 +43062,16 @@ window.VaultPropModel = (function () {
 #page-betting .eb-cl{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted)}
 #page-betting .eb-cl i{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px;vertical-align:middle}
 #page-betting .eb-cl i.hit{background:var(--bt-green)} #page-betting .eb-cl i.miss{background:#5a1620}
-#page-betting .eb-bars{display:flex;align-items:flex-end;gap:5px;height:140px;position:relative;overflow:visible;min-height:60px}
-#page-betting .eb-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;position:relative}
+#page-betting .eb-bars{display:flex;align-items:flex-end;gap:5px;height:140px;position:relative;overflow:visible;min-height:60px;margin-bottom:18px}
+/* bars bottom-align to the SAME baseline the dashed line is measured against, so
+   a value below the line always renders below it. The week label is taken out of
+   the flex flow (absolute) — in-flow it ate ~14px and shoved every bar up. */
+#page-betting .eb-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
 #page-betting .eb-bar .b{width:100%;border-radius:3px 3px 2px 2px;min-height:3px}
 #page-betting .eb-bar.hit .b{background:linear-gradient(180deg,var(--bt-green),color-mix(in srgb,var(--bt-green) 60%,black))}
 #page-betting .eb-bar.miss .b{background:linear-gradient(180deg,#7d1f2b,#5a1620)}
 #page-betting .eb-bar .v{font-family:var(--bt-mono);font-size:8.5px;color:var(--bt-text2);position:absolute;top:-13px}
-#page-betting .eb-bar .x{font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted)}
+#page-betting .eb-bar .x{position:absolute;bottom:-15px;left:0;right:0;text-align:center;font-family:var(--bt-mono);font-size:8px;color:var(--bt-muted);white-space:nowrap}
 #page-betting .eb-line{position:absolute;left:0;right:0;border-top:1.5px dashed var(--bt-accent2);z-index:3}
 #page-betting .eb-ltag{position:absolute;right:0;transform:translateY(-50%);background:var(--bt-s3);border:1px solid var(--bt-border3);font-family:var(--bt-mono);font-size:9px;color:var(--bt-accent2);padding:1px 5px;border-radius:5px}
 #page-betting .eb-noh{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted);padding:20px 0}
