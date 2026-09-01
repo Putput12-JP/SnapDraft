@@ -13463,6 +13463,7 @@ const VAULT_CHANGELOG = [
       'No side is pre-picked for you anymore: each number is green when it’s in your favor and grey when it isn’t, over and under treated equally.',
       'When Vault’s average projection sits on one side of the line but the more likely single-game result is the other side, Vault now explains why — some stats (like receiving yards) have a few huge games that pull the average up even though most weeks land under.',
       'The every-book list shows both prices per sportsbook at once, with the best price on each side highlighted.',
+      'The board itself now shows both the over and under price on every row, so you can shop both sides at a glance without opening anything.',
     ],
   },
   {
@@ -41602,7 +41603,19 @@ window.VaultPropModel = (function () {
         + '<td class="eb-rk">' + (i + 1) + '</td>'
         + '<td><div class="eb-pl"><span class="bt-hs eb-hs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
         + '<div><div class="eb-pn">' + r.name + injBadge(r) + '</div><div class="eb-ps">' + r.pos + ' · ' + (r.team || '') + (r.opp ? ' vs ' + r.opp : '') + '</div></div></div></td>'
-        + '<td>' + (pf.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + pf.side + '">' + pf.side.toUpperCase() + '</span>' + (pf.vaultLed ? '<span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '')) + ' ' + (r.line != null ? r.line : '') + '</td>'
+        + (function () {
+            // Pick column: the row's lean (side chip + line) on top, then BOTH
+            // best prices below — over and under, the leaning side highlighted,
+            // the other side still readable so you see both without opening the row.
+            const s = (r.fe && r.fe.sides) ? r.fe.sides : null;
+            let bo = s && s.over ? s.over.bestPrice : null, bu = s && s.under ? s.under.bestPrice : null;
+            if (!s) (r.quotes || []).forEach(q => { const on = q.line == null || r.line == null || q.line === r.line; if (on) { if (q.over != null && (bo == null || q.over > bo)) bo = q.over; if (q.under != null && (bu == null || q.under > bu)) bu = q.under; } });
+            const lean = pf.pickem ? null : pf.side;
+            return '<td class="eb-pickcell">'
+              + '<div class="eb-pick-lean">' + (pf.pickem ? '<span class="eb-side pick">PICK</span>' : '<span class="eb-side ' + pf.side + '">' + pf.side.toUpperCase() + '</span>' + (pf.vaultLed ? '<span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '')) + ' <b>' + (r.line != null ? r.line : '') + '</b></div>'
+              + '<div class="eb-2px"><span class="' + (lean === 'over' ? 'lean' : '') + '">O ' + fb.fmtOdds(bo) + '</span><span class="' + (lean === 'under' ? 'lean' : '') + '">U ' + fb.fmtOdds(bu) + '</span></div>'
+              + '</td>';
+          })()
         + '<td class="eb-m2" style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.edgePts == null ? mut : (pf.edgePts > 0 ? '+' : '') + pf.edgePts)) + '</td>'
         + '<td class="eb-evc" style="text-align:right">' + (pf.vaultLed ? noEdge : (pf.ev == null ? mut : '<span class="eb-ev">' + (pf.ev > 0 ? '+' : '') + pf.ev + '%</span>')) + '</td>'
         + '<td class="eb-fb">' + (pf.fairAmerican == null ? '<span class="eb-best">' + fb.fmtOdds(pf.bestPrice) + '</span>' : '<span class="mut">fair</span> ' + fb.fmtOdds(pf.fairAmerican) + ' · <span class="eb-best">' + fb.fmtOdds(pf.bestPrice) + '</span>') + '</td>'
@@ -42611,6 +42624,11 @@ window.VaultPropModel = (function () {
 #page-betting .eb-side.over{background:color-mix(in srgb,var(--bt-green) 15%,transparent);color:var(--bt-green)}
 #page-betting .eb-side.under{background:color-mix(in srgb,var(--bt-red,#e23a4e) 15%,transparent);color:var(--bt-red,#ff5a6e)}
 #page-betting .eb-side.pick{background:color-mix(in srgb,var(--bt-muted) 18%,transparent);color:var(--bt-muted)}
+#page-betting .eb-pickcell{white-space:nowrap}
+#page-betting .eb-pick-lean{display:flex;align-items:center;gap:6px}
+#page-betting .eb-pick-lean b{font-family:var(--bt-mono);font-size:13px;font-weight:700;color:var(--bt-text)}
+#page-betting .eb-2px{display:flex;gap:12px;margin-top:4px;font-family:var(--bt-mono);font-size:11px;color:var(--bt-text2)}
+#page-betting .eb-2px .lean{color:var(--bt-accent2);font-weight:700}
 #page-betting .eb-grade{display:inline-flex;align-items:center;gap:3px;font-family:var(--bt-mono);font-size:13px;font-weight:800;padding:2px 7px;border-radius:5px;line-height:1}
 #page-betting .eb-grade .eb-gside{font-size:9px;font-weight:700;opacity:.7}
 #page-betting .eb-grade.a{background:color-mix(in srgb,var(--bt-green) 18%,transparent);color:var(--bt-green)}
