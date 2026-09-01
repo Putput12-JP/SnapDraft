@@ -40252,8 +40252,8 @@ window.VaultBettingMath = (function () {
    Board detail. Reads the weekly actuals already shipped in
    data/nflverse_stats_<season>.json, joins a prop by normalized name, and
    counts how often the player cleared a line. Real data only: no logs → null →
-   the panel shows its empty state. Gap: weekly rows carry `wk` but no opponent,
-   so no H2H split and bars are labelled by week until a schedule join is added. */
+   the panel shows its empty state. Weekly rows carry `opp` (opponent_team from the
+   nflverse feed), so the chart can split to a single head-to-head opponent (H2H). */
 window.VaultPropHistory = (function () {
   'use strict';
   const BASE = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE)
@@ -40286,7 +40286,7 @@ window.VaultPropHistory = (function () {
     const field = FIELD[marketKey]; if (!field) return null;
     const seasons = opts.seasons || [2024, 2025];
     const key = nkey(name), out = [];
-    for (const s of seasons) { const idx = await index(s); const p = idx && idx[key]; if (!p || !p.weeks) continue; for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field] }); }
+    for (const s of seasons) { const idx = await index(s); const p = idx && idx[key]; if (!p || !p.weeks) continue; for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field], opp: w.opp || null }); }
     return out;
   }
   function hitRates(gl, line, side) {
@@ -42014,10 +42014,13 @@ window.VaultPropModel = (function () {
     range = range || ebRange;
     if (!glAll || !glAll.length) return { gl: [], note: null };
     if (range === 'H2H') {
-      const opp = (r.opp || '').toUpperCase();
+      // Collapse team-code aliases so the betting feed (WSH/JAC/LAR/OAK…) and the
+      // nflverse game log (WAS/JAX/LA/LV…) line up on the same franchise.
+      const norm = t => { t = (t || '').toUpperCase(); return { WSH: 'WAS', JAC: 'JAX', LAR: 'LA', STL: 'LA', OAK: 'LV', SD: 'LAC' }[t] || t; };
+      const opp = norm(r.opp);
       if (!opp) return { gl: [], note: 'No listed opponent for this game.' };
-      const gl = glAll.filter(g => (g.opp || '').toUpperCase() === opp);
-      return { gl, note: gl.length ? null : 'No games vs ' + opp + ' in the last two seasons.' };
+      const gl = glAll.filter(g => norm(g.opp) === opp);
+      return { gl, note: gl.length ? null : 'No games vs ' + (r.opp || '') + ' in the last two seasons.' };
     }
     if (range === 'SZN') {
       const latest = glAll[glAll.length - 1].season;
