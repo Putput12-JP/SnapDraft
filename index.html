@@ -13419,6 +13419,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-02T09:00', tag:'Fixed', title:'Vault Best Bets no longer contradicts the board',
+    items:[
+      'A Best Bet could show the opposite side from the board for the same player — e.g. “Under 1 Pass TD” up top while the board liked the Over. That was a pricing mismatch, not a real disagreement.',
+      'Best Bets was reading a player’s line from a pick’em placeholder (a whole number with no price) and then attaching a plus-price quote from a different, half-point line — manufacturing juicy “under” edges that no book actually offered.',
+      'Each Best Bet now scores and prices the same line at the same book, so the pick, the number and the price always match a bet you can actually place, and it agrees with the board.',
+    ]
+  },
+  {
     ts:'2026-09-01T23:30', tag:'Improved', title:'Player Props now read a player’s current role, not last year’s',
     items:[
       'Vault’s own prop projections were built only from a player’s past game log, so a backup who just won a starting job was still projected like a backup — inventing a huge fake “edge” against the real line (a lead-back rush-yards line looked like a +60% under when it wasn’t).',
@@ -13447,6 +13455,15 @@ const VAULT_CHANGELOG = [
       'ESPN doesn’t send Vault your picks while a draft is live — it only shares them once the draft finishes. Vault now says so plainly during an ESPN draft, instead of showing an empty board. Your board fills in automatically the moment the draft ends.',
       'You can now right-click any player in your rankings to mark them drafted (or add them to your team) — handy for keeping your board in sync during an ESPN draft. On mobile, swipe as before.',
     ]
+  },
+  {
+    ts:'2026-09-01T19:30', tag:'Improved', title:'Open any prop to see BOTH the over and the under, side by side',
+    items:[
+      'Tapping a prop now shows the over and the under together — best price, fair price, value, Vault’s edge, Vault’s chance and grade for each — so a line labeled “under” still shows you the over in full, and you decide.',
+      'No side is pre-picked for you anymore: each number is green when it’s in your favor and grey when it isn’t, over and under treated equally.',
+      'When Vault’s average projection sits on one side of the line but the more likely single-game result is the other side, Vault now explains why — some stats (like receiving yards) have a few huge games that pull the average up even though most weeks land under.',
+      'The every-book list shows both prices per sportsbook at once, with the best price on each side highlighted.',
+    ],
   },
   {
     ts:'2026-09-01T18:00', tag:'New', title:'Vault now bumps a player’s projection when a teammate is Out',
@@ -41684,29 +41701,6 @@ window.VaultPropModel = (function () {
     if (picks.some(p => !p.result)) settlePicks(picks).then(() => { if (propsView === 'results') draw(); });
   }
 
-  /* Per-book price strip for ONE prop, on the pick side. Consensus-line books
-     first (best price highlighted gold), off-consensus books after, each naming
-     the line it is actually on. This is what "Compare Books" used to be, folded
-     into the detail so it reads the same consensus line the edge is built on. */
-  function bookStrip(r, fe) {
-    const fb = F(), M = fb.MARKET_BY_KEY[r.market], isProb = M.kind === 'prob', side = fe.side, cons = r.line;
-    const onLine = q => isProb || q.line == null || cons == null || q.line === cons;
-    const qs = (r.quotes || []).filter(q => q[side] != null);
-    if (!qs.length) return '';
-    const sorted = qs.slice().sort((a, b) => {
-      const ao = onLine(a) ? 0 : 1, bo = onLine(b) ? 0 : 1;
-      if (ao !== bo) return ao - bo;
-      return (b[side] ?? -Infinity) - (a[side] ?? -Infinity);   // higher price = better
-    });
-    const chips = sorted.map(q => {
-      const off = !onLine(q), best = !off && q.book === fe.bestBook;
-      const lnLab = (!isProb && q.line != null) ? (off ? side[0].toUpperCase() + ' ' + q.line : side.toUpperCase()) : side.toUpperCase();
-      return '<div class="eb-bk' + (best ? ' best' : '') + (off ? ' off' : '') + '" title="' + q.book + (off ? ' is on ' + q.line + ', not the consensus ' + cons : (best ? ' — best price' : '')) + '">'
-        + '<div class="bk">' + q.book + '</div><div class="pr">' + fb.fmtOdds(q[side]) + '</div><div class="ln">' + lnLab + '</div></div>';
-    }).join('');
-    return '<div class="eb-bks-h">Every book · ' + side.toUpperCase() + (isProb ? '' : ' ' + cons) + '<span class="mut"> · best price highlighted</span></div><div class="eb-bks">' + chips + '</div>';
-  }
-
   // Filter a chronological game log (oldest→newest) to a window. Defaults to the
   // active chart window; pass a range to size any window (used to fill the
   // hit-rate cells, which each represent one window).
@@ -41727,32 +41721,102 @@ window.VaultPropModel = (function () {
     return { gl: glAll.slice(-n), note: null };
   }
 
-  // Featured detail: header + tiles + per-book strip now; game-log chart (with a
-  // L5/L10/Season/H2H window filter) + hit-rate heatmap once history loads.
+  // Vault projection (over/under/proj/games) for a row straight from the board's
+  // cache, or null when it hasn't resolved yet. Lets the detail render both sides
+  // filled immediately when the board already computed them.
+  function _cacheV(r) {
+    const c = _vaultCache[propKey(r)];
+    return (c && c.over != null) ? { over: c.over, under: c.under, proj: c.proj, games: (c.g && c.g.n != null) ? c.g.n : null } : null;
+  }
+
+  // Neutral OVER | UNDER comparison for the detail card. The user asked to see
+  // BOTH lines with equal weight — no single side flagged as "the pick". Market
+  // numbers (fair, EV, best price) come from fe.sides (the de-vig); Vault numbers
+  // (edge, sim, grade) from the model result v. loading=true paints spinners in
+  // the Vault cells until the async projection lands. Positive is green, negative
+  // muted — the SIGN is the signal, not a highlighted winner.
+  function twoSideInner(r, v, loading) {
+    const fb = F(), BM = window.VaultBettingMath, fe = r.fe, line = r.line, fmt = fb.fmtOdds;
+    const sides = (fe && fe.sides) ? fe.sides : null;
+    const mk = side => {
+      const s = sides ? sides[side] : null;
+      let best = s ? s.bestPrice : null, book = s ? s.bestBook : null, fair = s ? s.fairAmerican : null, mev = s ? s.ev : null;
+      if (!s) { (r.quotes || []).forEach(q => { const on = q.line == null || line == null || q.line === line; if (on && q[side] != null && (best == null || q[side] > best)) { best = q[side]; book = q.book; } }); }
+      const prob = v ? (side === 'over' ? v.over : v.under) : null;
+      const mp = (BM && best != null) ? BM.americanToProb(best) : null;
+      const ed = (BM && prob != null && mp != null) ? BM.findEdge(prob, mp) : null;
+      const vev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+      let letter = null;
+      if (prob != null) { const n = (v && v.games != null) ? v.games : 0, K = 6; letter = gradeLetter(0.5 + (prob - 0.5) * (n / (n + K)), betBE); }
+      return { side, best, book, fair, mev, prob, vev, letter };
+    };
+    const O = mk('over'), U = mk('under');
+    const evH = e => e == null ? '<span class="mut">—</span>' : '<span class="' + (e > 0 ? 'pos' : 'neg') + '">' + (e > 0 ? '+' : '') + e + '%</span>';
+    const vH = s => loading ? '<span class="spinner xs"></span>' : (s.vev == null ? '<span class="mut">—</span>' : '<span class="' + (s.vev > 0 ? 'pos' : 'neg') + '">' + (s.vev > 0 ? '+' : '') + s.vev + '%</span>');
+    const sH = s => loading ? '<span class="spinner xs"></span>' : (s.prob == null ? '<span class="mut">—</span>' : '<span class="' + (s.prob >= 0.5 ? 'pos' : 'neg') + '">' + Math.round(s.prob * 100) + '%</span>');
+    const gH = s => loading ? '<span class="spinner xs"></span>' : (s.letter == null ? '<span class="mut">—</span>' : '<span class="eb-grade ' + s.letter.toLowerCase() + '">' + s.letter + '</span>');
+    const colH = (s, lab) => '<div class="eb-2col"><div class="eb-2h"><span>' + lab + '</span><b>' + (line != null ? line : '') + '</b></div>'
+      + '<div class="eb-2big">' + fmt(s.best) + '</div><div class="eb-2bk">' + (s.book || '—') + '</div>'
+      + '<div class="eb-2rows">'
+      + '<div><span>Fair (no-vig)</span><b>' + fmt(s.fair) + '</b></div>'
+      + '<div><span title="Value from the book price after stripping the hold">Market EV</span><b>' + evH(s.mev) + '</b></div>'
+      + '<div><span title="Value from Vault’s own projection vs this price">Vault edge</span><b>' + vH(s) + '</b></div>'
+      + '<div><span title="Vault’s calibrated chance this side hits">Vault sim</span><b>' + sH(s) + '</b></div>'
+      + '<div><span title="Vault grade for this side vs your break-even">Grade</span><b>' + gH(s) + '</b></div>'
+      + '</div></div>';
+    // Projection context. When the model's MEAN and its PROBABILITY point at
+    // different sides (a skewed stat: a few big games drag the average over the
+    // line even though most games land under), say so out loud — that gap is
+    // exactly what makes a "proj 38 vs 34.5" line read as an UNDER.
+    let ctx = '';
+    if (!loading && v && v.proj != null && line != null) {
+      const meanFav = v.proj > line ? 'over' : 'under';
+      const probFav = (v.over != null && v.under != null) ? (v.over >= v.under ? 'over' : 'under') : null;
+      if (probFav && meanFav !== probFav)
+        ctx = '<div class="eb-2ctx"><b>Why the average and the likely result disagree:</b> Vault projects an average of ' + v.proj + ', which is ' + meanFav + ' the ' + line + ' line — but the more likely single-game result is ' + probFav + '. This stat is right-skewed, so a handful of big games pull the average past the line while most weeks land ' + probFav + '.</div>';
+      else
+        ctx = '<div class="eb-2ctx eb-2ctx-sm">Vault projects an average of <b>' + v.proj + '</b> vs the <b>' + line + '</b> line.</div>';
+    }
+    return ctx + '<div class="eb-2cols">' + colH(O, 'OVER') + colH(U, 'UNDER') + '</div>';
+  }
+
+  // Per-book price table showing BOTH sides at the consensus line, best price on
+  // each side highlighted gold. Replaces the old one-sided strip so the detail
+  // reads neutrally: every book, over and under, side by side.
+  function bookTableTwo(r) {
+    const fb = F(), M = fb.MARKET_BY_KEY[r.market], isProb = M.kind === 'prob', cons = r.line;
+    const onLine = q => isProb || q.line == null || cons == null || q.line === cons;
+    const qs = (r.quotes || []).filter(onLine);
+    if (!qs.length) return '';
+    let bO = null, bU = null;
+    qs.forEach(q => { if (q.over != null && (bO == null || q.over > bO)) bO = q.over; if (q.under != null && (bU == null || q.under > bU)) bU = q.under; });
+    const rows = qs.slice().sort((a, b) => ((b.over ?? -Infinity) - (a.over ?? -Infinity))).map(q => {
+      const bestO = q.over != null && q.over === bO, bestU = q.under != null && q.under === bU;
+      return '<div class="eb-btr"><div class="bk">' + q.book + '</div>'
+        + '<div class="pc' + (bestO ? ' best' : '') + '">' + (q.over != null ? fb.fmtOdds(q.over) : '—') + '</div>'
+        + '<div class="pc' + (bestU ? ' best' : '') + '">' + (q.under != null ? fb.fmtOdds(q.under) : '—') + '</div></div>';
+    }).join('');
+    return '<div class="eb-bks-h">Every book' + (isProb ? '' : ' · line ' + cons) + '<span class="mut"> · best price each side highlighted</span></div>'
+      + '<div class="eb-bt2"><div class="eb-btr eb-bth"><div class="bk">Sportsbook</div><div class="pc">Over</div><div class="pc">Under</div></div>' + rows + '</div>';
+  }
+
+  // Featured detail: header + neutral two-sided (over/under) comparison + per-book
+  // table now; game-log chart (L5/L10/Season/H2H window) + hit-rate heatmap once
+  // history loads.
   function renderPropDetail(r) {
     const fb = F(), fe = resolvePick(r) || r.fe, col = POS_COLOR[curPos], init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
-    const on = watch.has(propKey(r)), vled = fe.vaultLed;
+    const on = watch.has(propKey(r));
     const feat = document.getElementById('eb-feat'); if (!feat) return;
     feat.innerHTML =
       '<div class="eb-ftop"><div class="eb-fpl"><span class="bt-hs eb-fhs" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span>'
       + '<div><div class="eb-fpn">' + r.name + injBadge(r) + '</div><div class="eb-fpm"><span class="eb-posb" style="color:' + col + ';border-color:' + col + '">' + r.pos + '</span> '
       + (r.team || '') + (r.opp ? ' · vs ' + r.opp : '') + '</div>'
-      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>' + (fe.pickem ? 'PICK' : fe.side.toUpperCase()) + ' ' + r.line + '</b> · book <b>' + fb.fmtOdds(fe.bestPrice) + '</b>' + (fe.fairAmerican == null ? '' : ' → fair <b>' + fb.fmtOdds(fe.fairAmerican) + '</b>') + (vled ? ' · <span class="eb-vled-note" title="No positive-EV side at this price — the market is a coin-flip here. Vault’s projection is what favors this side.">Vault-led · market has no edge</span>' : '') + '</div></div></div>'
-      + '<div class="eb-fbadge">' + (vled
-          ? '<div class="eb-eb"><span class="v">' + (fe.vaultEv == null ? '—' : (fe.vaultEv > 0 ? '+' : '') + fe.vaultEv + '%') + '</span><span class="l">Vault edge · ' + fe.side + '</span></div>'
-          : (fe.ev == null
-              ? '<div class="eb-eb"><span class="v">' + fb.fmtOdds(fe.bestPrice) + '</span><span class="l">pickem line</span></div>'
-              : '<div class="eb-eb"><span class="v">' + (fe.ev > 0 ? '+' : '') + fe.ev + '%</span><span class="l">EV · ' + fe.side + '</span></div>'))
+      + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>line ' + (r.line != null ? r.line : '—') + '</b> · <span class="mut">both sides below</span></div></div></div>'
+      + '<div class="eb-fbadge">'
       + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button>'
       + '<button class="eb-logbtn ' + (pickLogged(r) ? 'on' : '') + '" id="eb-logpick">' + (pickLogged(r) ? '✓ Tracking' : '＋ Track pick') + '</button></div></div>'
-      + '<div class="eb-tiles"><div class="eb-tile"><div class="tl">Best price</div><div class="tv cy">' + fb.fmtOdds(fe.bestPrice) + '</div></div>'
-      + '<div class="eb-tile"><div class="tl">Fair (no-vig)</div><div class="tv">' + fb.fmtOdds(fe.fairAmerican) + '</div></div>'
-      + '<div class="eb-tile"><div class="tl">EV / $1</div><div class="tv' + (!vled && fe.ev != null && fe.ev > 0 ? ' good' : '') + '">' + (vled ? '<span class="mut" title="No price edge — the edge here is Vault’s projection">—</span>' : (fe.ev == null ? '<span class="mut">—</span>' : (fe.ev > 0 ? '+' : '') + fe.ev + '%')) + '</div></div>'
-      + '<div class="eb-tile"><div class="tl">Hold stripped</div><div class="tv">' + (fe.vig == null ? '<span class="mut">—</span>' : fe.vig + '%') + '</div></div>'
-      + '<div class="eb-tile" id="eb-vtile"><div class="tl">Vault edge</div><div class="tv"><span class="spinner xs"></span></div></div>'
-      + '<div class="eb-tile" id="eb-gtile"><div class="tl">Vault grade</div><div class="tv"><span class="spinner xs"></span></div></div>'
-      + '</div>'
-      + '<div class="eb-booksec">' + bookStrip(r, fe) + '</div>'
+      + '<div class="eb-2side" id="eb-2side">' + twoSideInner(r, _cacheV(r), !_cacheV(r)) + '</div>'
+      + '<div class="eb-booksec">' + bookTableTwo(r) + '</div>'
       + '<div class="eb-chart" id="eb-chart"><div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '</span><span class="eb-cl">loading…</span></div><div class="eb-bars"><span class="spinner sm"></span></div></div>'
       + '<div class="eb-heat" id="eb-heat"></div>';
     paintHeadshots('#eb-feat');
@@ -41768,7 +41832,9 @@ window.VaultPropModel = (function () {
       // (the window filter) never refetches. The hit-rate row IS the filter: each
       // cell shows that window's hit% and drives the chart when clicked.
       const WINS = [['L5', 'L5'], ['L10', 'L10'], ['L20', 'L20'], ['SZN', 'SZN'], ['H2H', 'H2H']];
-      const dSide = displaySide(r), line = Number(r.line), over = dSide !== 'under';
+      // Neutral: colour bars by whether the game cleared the line (over) or not
+      // (under), not by a chosen pick side. The count below states both.
+      const line = Number(r.line), over = true;
       const hitPct = games => games.length ? Math.round(games.filter(g => over ? g.val >= line : g.val < line).length / games.length * 100) : null;
       const paint = () => {
         const chart = document.getElementById('eb-chart'), heat = document.getElementById('eb-heat');
@@ -41784,7 +41850,7 @@ window.VaultPropModel = (function () {
             const bars = gl.map(g => { const hit = over ? g.val >= line : g.val < line; return '<div class="eb-bar ' + (hit ? 'hit' : 'miss') + '"><span class="v">' + g.val + '</span><div class="b" style="height:' + (g.val / max * 100).toFixed(1) + '%"></div><span class="x">' + (ebRange === 'H2H' ? '\'' + String(g.season).slice(-2) : 'W' + g.wk) + '</span></div>'; }).join('');
             const lp = (1 - line / max) * 100;
             const hitN = gl.filter(g => over ? g.val >= line : g.val < line).length;
-            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · ' + ebRange + ' · ' + hitN + '/' + gl.length + ' ' + dSide + '</span></span><span class="eb-cl"><i class="hit"></i>Hit <i class="miss"></i>Miss</span></div>'
+            chart.innerHTML = '<div class="eb-csec"><span class="eb-ct">Game log vs ' + r.line + '<span class="mut"> · ' + ebRange + ' · ' + hitN + ' over · ' + (gl.length - hitN) + ' under</span></span><span class="eb-cl"><i class="hit"></i>Over <i class="miss"></i>Under</span></div>'
               + '<div class="eb-bars">' + bars + '<div class="eb-line" style="top:' + lp + '%"></div><div class="eb-ltag" style="top:' + lp + '%">' + r.line + '</div></div>';
           }
         }
@@ -41798,7 +41864,7 @@ window.VaultPropModel = (function () {
             const c = v == null ? 'var(--bt-muted)' : v >= 60 ? 'var(--bt-green)' : v >= 52 ? 'var(--bt-gold)' : 'var(--bt-red,#e23a4e)';
             return '<div class="eb-hc' + (k === ebRange ? ' on' : '') + '" data-rg="' + k + '" style="border-color:' + c + '"><div class="hv" style="color:' + c + '">' + (v == null ? '—' : v + '%') + '</div><div class="hl">' + l + '</div></div>';
           }).join('');
-          heat.innerHTML = '<div class="eb-ht">Hit rate · ' + dSide + ' ' + r.line + '<span class="hint"> · tap to filter chart</span></div><div class="eb-hrow">' + cells + '</div>';
+          heat.innerHTML = '<div class="eb-ht">Over rate vs ' + r.line + '<span class="hint"> · tap to filter chart</span></div><div class="eb-hrow">' + cells + '</div>';
           heat.querySelectorAll('.eb-hc[data-rg]').forEach(c => c.onclick = () => { ebRange = c.dataset.rg; paint(); });
         }
       };
@@ -41816,49 +41882,24 @@ window.VaultPropModel = (function () {
   // Fill the featured detail's "Vault edge" tile from Vault's OWN projection
   // (VaultPropModel) → fair prob → edge vs the best price. Async: needs a game
   // log fetch. Falls back to "—" when the player has no usable history yet.
+  // Fill the detail's neutral two-sided block from Vault's OWN projection. Both
+  // sides' edge/sim/grade come from one model read (over + under probabilities),
+  // so a single fetch fills the whole OVER | UNDER comparison. When the board
+  // already cached the projection the block renders filled and this just refreshes
+  // it; otherwise it swaps the spinners for real numbers when the fetch lands.
   function ebFillVault(r, fe) {
     const PM = window.VaultPropModel, BM = window.VaultBettingMath;
-    const SS = 'font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:2px';
-    const setG = html => { const g = document.getElementById('eb-gtile'); if (g && propKey(r) === ebSel) g.innerHTML = '<div class="tl">Vault grade</div>' + html; };
-    const tile = document.getElementById('eb-vtile');
-    if (!tile) return;
-    if (!PM || !BM || r.line == null) { tile.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'; setG('<div class="tv"><span class="mut">—</span></div>'); return; }
+    const host = document.getElementById('eb-2side');
+    if (!host) return;
+    if (!PM || !BM || r.line == null) { host.innerHTML = twoSideInner(r, null, false); return; }
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
     const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
     PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
-      const t = document.getElementById('eb-vtile');
-      if (!t || propKey(r) !== ebSel) return;               // selection moved on
-      if (!v || v.fairProb == null) {
-        t.innerHTML = '<div class="tl">Vault edge</div><div class="tv"><span class="mut">—</span></div>'
-          + '<div class="ts" style="' + SS + '">no game log yet</div>';
-        setG('<div class="tv"><span class="mut">—</span></div><div class="ts" style="' + SS + '">no game log yet</div>');
-        return;
-      }
-      const sideProb = fe.side === 'under' ? v.under : v.over;
-      const mp = BM.americanToProb(fe.bestPrice);
-      const ed = mp != null ? BM.findEdge(sideProb, mp) : null;
-      const ev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
-      const mktSideProb = (fe.sides && fe.sides[fe.side]) ? fe.sides[fe.side].fairProb : null;
-      const caution = edgeCaution(r, sideProb, mktSideProb, ev, v, ci);
-      const unv = !!caution;
-      const showCascade = ci && !caution && ev != null && ev > 0;   // boosted proj, edge explained by a teammate being out
-      // role anchor note: the projection's volume was shifted to the player's
-      // current depth-chart role (e.g. a promoted backup), so a big move is
-      // explained, not a mistake.
-      const roleTxt = (v.role && r.pos && v.role.from !== v.role.to) ? ' · role-adj ' + r.pos + v.role.from + '→' + r.pos + v.role.to + ' ×' + v.role.mult : '';
-      t.innerHTML = '<div class="tl">Vault edge</div>'
-        + '<div class="tv ' + (ev != null && ev > 0 && !unv ? 'good' : '') + '"' + (unv ? ' style="color:var(--bt-gold)"' : '') + '>' + (ev == null ? '<span class="mut">—</span>' : (ev > 0 ? '+' : '') + ev + '%' + (caution ? ' ' + caution.label : (showCascade ? ' ▲' : ''))) + '</div>'
-        + '<div class="ts" style="' + SS + '"' + (caution ? ' title="' + caution.tip.replace(/"/g, '&quot;') + '"' : '') + '>' + (caution ? caution.tip : (showCascade ? cascadeTip(ci) : 'proj ' + v.proj + ' vs ' + r.line + ' · ' + fe.side + ' ' + Math.round(sideProb * 100) + '%' + roleTxt)) + '</div>';
-      // Vault grade tile — grades the DISPLAYED pick side (fe.side), matching the
-      // board column, so the tile never rates the opposite side of the pick.
-      const gp = fe.side === 'over' ? v.over : v.under;
-      if (gp == null) { setG('<div class="tv"><span class="mut">—</span></div>'); return; }
-      const gN = v.games != null ? v.games : 0, gK = 6, gpadj = 0.5 + (gp - 0.5) * (gN / (gN + gK));
-      const letter = gradeLetter(gpadj, betBE), cls = letter.toLowerCase();
-      const sd = fe.side === 'over' ? 'Over' : 'Under';
-      setG('<div class="tv"><span class="eb-grade ' + cls + '"><span class="eb-gside">' + sd[0] + '</span>' + letter + '</span></div>'
-        + '<div class="ts" style="' + SS + '">' + sd + ' ' + Math.round(gp * 100) + '% · vs ' + Math.round(betBE * 100) + '% BE</div>');
-    });
+      const h = document.getElementById('eb-2side');
+      if (!h || propKey(r) !== ebSel) return;               // selection moved on
+      const vv = (v && v.over != null) ? { over: v.over, under: v.under, proj: v.proj, games: v.games } : null;
+      h.innerHTML = twoSideInner(r, vv, false);
+    }).catch(() => { const h = document.getElementById('eb-2side'); if (h && propKey(r) === ebSel) h.innerHTML = twoSideInner(r, null, false); });
   }
   // ── phantom-edge guard ────────────────────────────────────────────────
   // A single-source line (only one book quotes it) that Vault's projection
@@ -42469,6 +42510,35 @@ window.VaultPropModel = (function () {
 #page-betting .eb-bk.best .pr{color:var(--bt-gold)}
 #page-betting .eb-bk.off{border-style:dashed;border-color:color-mix(in srgb,var(--bt-alt) 45%,transparent)}
 #page-betting .eb-bk.off .ln{color:var(--bt-alt)}
+/* Neutral two-sided (OVER | UNDER) comparison in the prop detail. */
+#page-betting .eb-2side{border-bottom:1px solid var(--bt-border)}
+#page-betting .eb-2ctx{margin:14px 18px 0;padding:11px 13px;border:1px solid color-mix(in srgb,var(--bt-gold) 32%,transparent);background:color-mix(in srgb,var(--bt-gold) 8%,transparent);border-radius:11px;font-size:var(--t-label);line-height:1.5;color:var(--bt-text2)}
+#page-betting .eb-2ctx b{color:var(--bt-gold)}
+#page-betting .eb-2ctx.eb-2ctx-sm{border-color:var(--bt-border);background:var(--bt-s1);color:var(--bt-muted);font-family:var(--bt-mono);font-size:var(--t-micro);line-height:1.4}
+#page-betting .eb-2ctx.eb-2ctx-sm b{color:var(--bt-text)}
+#page-betting .eb-2cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bt-border);margin-top:14px;border-top:1px solid var(--bt-border)}
+#page-betting .eb-2col{background:var(--bt-s1);padding:14px 16px;min-width:0}
+#page-betting .eb-2h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+#page-betting .eb-2h>span{font-family:var(--bt-mono);font-size:var(--t-micro);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .eb-2h>b{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:700;color:var(--bt-text)}
+#page-betting .eb-2col:first-child .eb-2h>span{color:var(--bt-green)}
+#page-betting .eb-2col:last-child .eb-2h>span{color:var(--bt-accent2)}
+#page-betting .eb-2big{font-family:var(--bt-mono);font-size:26px;font-weight:700;color:var(--bt-gold);margin-top:9px;line-height:1}
+#page-betting .eb-2bk{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .eb-2rows{margin-top:13px;display:flex;flex-direction:column;gap:8px}
+#page-betting .eb-2rows>div{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:16px}
+#page-betting .eb-2rows>div>span{font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .eb-2rows>div>b{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:700;color:var(--bt-text)}
+#page-betting .eb-2rows .pos{color:var(--bt-green)}
+#page-betting .eb-2rows .neg{color:var(--bt-muted)}
+#page-betting .eb-bt2{display:flex;flex-direction:column;gap:1px;background:var(--bt-border);border:1px solid var(--bt-border);border-radius:10px;overflow:hidden;margin-top:2px}
+#page-betting .eb-btr{display:grid;grid-template-columns:1fr 82px 82px;gap:1px;background:var(--bt-border)}
+#page-betting .eb-btr>div{background:var(--bt-s1);padding:8px 12px;font-family:var(--bt-mono);font-size:var(--t-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .eb-btr .bk{color:var(--bt-text2)}
+#page-betting .eb-btr .pc{text-align:right;color:var(--bt-text);font-weight:700}
+#page-betting .eb-bth>div{background:var(--bt-s2);color:var(--bt-muted);font-size:var(--t-nano);letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+#page-betting .eb-btr .pc.best{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);color:var(--bt-gold)}
+@media(max-width:640px){#page-betting .eb-2big{font-size:22px}#page-betting .eb-2col{padding:12px 13px}#page-betting .eb-2ctx{margin:12px 14px 0}}
 /* Game-markets per-book strip (folded-in Compare Books, one market, two sides).
    Collapsible: the header toggles .gb-bkbody; collapsed shows a best-price summary. */
 #page-betting .gb-books{padding:13px 18px;border-bottom:1px solid var(--bt-border)}
