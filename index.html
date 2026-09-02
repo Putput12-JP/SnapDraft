@@ -13419,6 +13419,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-02T16:00', tag:'Improved', title:'Grade is now a column on the props board',
+    items:[
+      'The player props board shows Vault’s A–F grade as its own sortable column, so you can rank every prop by grade and see the model’s conviction at a glance.',
+      'Dropped the separate Over/Under column to make room — the side Vault leans is on the grade’s hover, and the open pick panel still spells it out.',
+    ],
+  },
+  {
     ts:'2026-09-02T14:00', tag:'New', title:'Track Record: does the grade actually win?',
     items:[
       'My Picks is redesigned: a big win-loss record with your win rate versus break-even and units, then your results broken down by grade, over vs under, market and position, plus a cleaner list of every pick you’re tracking.',
@@ -41849,7 +41856,7 @@ window.VaultPropModel = (function () {
     const head = '<thead><tr>'
       + '<th class="c-star"></th>'
       + SH('Player &amp; prop', 'name', 'l')
-      + '<th>O/U</th>'
+      + SH('Grade', 'grade', '', 'Vault’s A–F grade on the pick — how strongly the model favors this side')
       + SH('Line', 'line')
       + SH('Best price', 'best', '', 'Best price across your books')
       + '<th title="Vault’s own per-game projection">Vault proj</th>'
@@ -41869,7 +41876,7 @@ window.VaultPropModel = (function () {
         + '<td class="c-star"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + k + '">' + (on ? '★' : '☆') + '</button></td>'
         + '<td class="c-player"><div class="bx-pl"><div class="bx-facewrap"><span class="bt-hs bx-face" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span><span class="bx-posbadge" style="background:' + col + '">' + r.pos + '</span></div>'
         + '<div><div class="bx-pn">' + r.name + injBadge(r) + '</div><div class="bx-pg">' + sub + '</div></div></div></td>'
-        + '<td>' + (pf.pickem ? '<span class="bx-side pick">PICK</span>' : '<span class="bx-side ' + pf.side + '">' + (pf.side === 'over' ? 'Over' : 'Under') + '</span>') + '</td>'
+        + '<td data-gradek="' + k + '">' + gradeColCell(r) + '</td>'
         + '<td><span class="bx-line">' + (r.line != null ? r.line : '') + '</span>' + (pf.vaultLed ? ' <span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '') + '</td>'
         + '<td><span class="bx-px">' + fb.fmtOdds(pf.bestPrice) + bookChip(pf.bestBook) + nBooksTag(r) + '</span></td>'
         + '<td data-vpk="' + k + '">' + projNumCell(r) + '</td>'
@@ -41896,7 +41903,7 @@ window.VaultPropModel = (function () {
         + '<div class="mc-id"><div class="bx-pn">' + r.name + injBadge(r) + '</div><div class="bx-pg">' + sub + '</div></div>'
         + '<button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + k + '">' + (on ? '★' : '☆') + '</button></div>'
         + '<div class="mc-line">' + (pf.pickem ? '<span class="bx-side pick">PICK</span>' : '<span class="bx-side ' + pf.side + '">' + (pf.side === 'over' ? 'Over' : 'Under') + '</span>') + '<span class="bx-line">' + (r.line != null ? r.line : '') + '</span>' + (pf.vaultLed ? '<span class="eb-vled">V</span>' : '') + '<span class="mc-best"><span class="bx-px">' + fb.fmtOdds(pf.bestPrice) + bookChip(pf.bestBook) + nBooksTag(r) + '</span></span></div>'
-        + '<div class="mc-stats">' + stat('Proj', projNumCell(r), ' data-vpk="' + k + '"') + stat('Edge', edgeChipHTML(r), ' data-edgek="' + k + '"') + stat('Sim', simCellHTML(r), ' data-simk="' + k + '"') + stat('Opp', oppRankCell(r)) + '</div>'
+        + '<div class="mc-stats">' + stat('Grade', gradeColCell(r), ' data-gradek="' + k + '"') + stat('Proj', projNumCell(r), ' data-vpk="' + k + '"') + stat('Edge', edgeChipHTML(r), ' data-edgek="' + k + '"') + stat('Sim', simCellHTML(r), ' data-simk="' + k + '"') + stat('Opp', oppRankCell(r)) + '</div>'
         + '<div class="mc-hits">' + hit('L5') + hit('L10') + hit('L20') + hit('SZN') + '</div>'
         + '</div>';
     }).join('') : '';
@@ -42626,6 +42633,19 @@ window.VaultPropModel = (function () {
     const tip = 'Vault ' + sd + ' ' + Math.round(g.p * 100) + '% · ' + g.n + ' game' + (g.n === 1 ? '' : 's') + ' of history · vs ' + Math.round(betBE * 100) + '% break-even';
     return '<span class="eb-grade ' + cls + '" title="' + tip + '"><span class="eb-gside">' + sd + '</span>' + letter + '</span>';
   }
+  // Grade COLUMN cell (board table): just the A–F letter, no O/U side badge — the
+  // dedicated O/U column was folded into this. Async, so it reads the cache and
+  // ebFillVaultCol repaints [data-gradek] once the projection lands. The side
+  // Vault leans is kept in the hover title so nothing is lost.
+  function gradeColCell(r) {
+    const c = _vaultCache[propKey(r)];
+    if (!c) return '<span class="mut">·</span>';
+    if (!c.g) return '<span class="mut">—</span>';
+    const g = c.g, letter = cappedGradeLetter(g.padj, betBE, c.caution), cls = letter.toLowerCase();
+    const sd = g.side === 'over' ? 'Over' : 'Under';
+    const tip = 'Vault leans ' + sd + ' · ' + Math.round(g.p * 100) + '% vs ' + Math.round(betBE * 100) + '% break-even';
+    return '<span class="eb-grade ' + cls + '" title="' + tip + '">' + letter + '</span>';
+  }
 
   // Fill the Vault-edge column from Vault's OWN projection (VaultPropModel):
   // fair prob on the pick side → edge vs the best book price → EV%. Async (needs
@@ -42812,6 +42832,7 @@ window.VaultPropModel = (function () {
         if (tp) tp.innerHTML = projNumCell(r);
         const ts = _pvInner() && _pvInner().querySelector('[data-simk="' + k + '"]');
         if (ts) ts.innerHTML = simCellHTML(r);
+        _pvInner() && _pvInner().querySelectorAll('[data-gradek="' + k + '"]').forEach(tg => tg.innerHTML = gradeColCell(r));
       }).catch(() => { _vaultCache[k] = { ev: null, proj: null, g: null, over: null, under: null }; });
     }).filter(Boolean);
     // Re-render once the projections land: a row may flip to Vault's side, which
