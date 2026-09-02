@@ -1,0 +1,69 @@
+# Guardian for the Player Props board. Several times a day it verifies that
+# data/lineup-feed.json actually carries a healthy set of player props (core
+# markets present, enough players per position, enrichment fresh). If it's
+# degraded during the regular season, it self-heals by re-running the FREE,
+# keyless PrizePicks enrichment (never ParlayAPI — that costs credits), then
+# re-checks. It only FAILS — which emails the repo owner — when the feed is
+# still degraded after healing, i.e. every source is genuinely down.
+#
+# This is the second net behind build-lineup-feed's merge (which already stops
+# a thin response from DELETING props). Place at: .github/workflows/check-prop-feed.yml
+name: Check prop feed health
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Every 3 hours, year-round. Off-season the check reports but never fails
+    # (thin props are expected then), so quiet months cost nothing but a log.
+    - cron: '40 */3 * * *'
+
+# Share the props-feed serialization group so a heal here can't race the
+# hourly update-props.yml writer on data/lineup-feed.json.
+concurrency:
+  group: props-feed
+  cancel-in-progress: false
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Check feed health
+        id: check1
+        run: node scripts/check-prop-feed.mjs --feed=data/lineup-feed.json
+        continue-on-error: true
+
+      - name: Self-heal via PrizePicks (free)
+        if: steps.check1.outcome == 'failure'
+        run: |
+          echo "Feed degraded — re-running the free PrizePicks enrichment…"
+          node scripts/fetch-pickem-props.mjs --feed=data/lineup-feed.json
+          node scripts/build_best_bets.mjs --feed=data/lineup-feed.json
+
+      - name: Commit any healed feed
+        if: steps.check1.outcome == 'failure'
+        run: |
+          git config user.name  "vault-bot"
+          git config user.email "vault-bot@users.noreply.github.com"
+          if git diff --quiet -- data/lineup-feed.json; then
+            echo "Heal produced no change."
+          else
+            git add data/lineup-feed.json
+            git commit -m "props: self-heal degraded feed via PrizePicks [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && break
+              echo "push race, retrying ($i)…"; sleep 3
+            done
+          fi
+
+      - name: Re-check after heal (fails → email alert)
+        if: steps.check1.outcome == 'failure'
+        run: |
+          echo "Verifying the feed recovered…"
+          node scripts/check-prop-feed.mjs --feed=data/lineup-feed.json
