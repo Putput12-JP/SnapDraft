@@ -41476,7 +41476,11 @@ window.VaultPropModel = (function () {
       const when = g.slot || (g.commence ? new Date(g.commence).toLocaleString([], { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
       const ia = g.implied && g.implied.away, ih = g.implied && g.implied.home;
       const tot = (ia != null && ih != null) ? (ia + ih) : null;
-      const impA = tot ? Math.round(ia / tot * 100) : null, impH = tot ? 100 - impA : null;
+      // Win% shown on the team rows + the ML lean baseline = vig-free market
+      // P(home win) from the two-sided moneyline; fall back to the points-share.
+      const mlHP = _mlHomeProb(g);
+      const impH = mlHP != null ? Math.round(mlHP * 100) : (tot ? 100 - Math.round(ia / tot * 100) : null);
+      const impA = impH != null ? 100 - impH : null;
       const teamRow = (code, imp) => '<div class="bx-team"><span class="bt-logo" data-logo="' + code + '"></span><div><div class="bx-tn">' + fullName(code) + '</div>' + (imp != null ? '<div class="bx-tsub"><span class="imp">' + imp + '%</span> win' : '<div class="bx-tsub">' + code) + '</div></div></div>';
       // Vault projection footer — squared to the market columns above (see the
       // .bx-vproj grid): a VAULT LINE label sits under the matchup column, then
@@ -41638,6 +41642,23 @@ window.VaultPropModel = (function () {
   // Vault's hardest lean for a game → a trackable pick, or null when nothing
   // clears its bar. Divergence is scored as a fraction of each market's bar so
   // spread / total / win% compare on one scale; the widest wins.
+  // Vig-free market P(home win) from the TWO-SIDED moneyline consensus (median
+  // home & away price across books, devigged). This is the right baseline for a
+  // win% lean and for the card's win% — the raw ML price (e.g. -174 ⇒ 63.5%) is
+  // vig-inflated, and g.implied is only a points-share heuristic. Falls back to
+  // the points-share when ML quotes are missing.
+  function _mlHomeProb(g) {
+    const BM = window.VaultBettingMath, M = g && g.ml, qs = (M && M.quotes) || [];
+    const homes = qs.map(q => q.home).filter(v => v != null), aways = qs.map(q => q.away).filter(v => v != null);
+    if (BM && homes.length && aways.length) {
+      const med = a => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor((s.length - 1) / 2)]; };
+      const ph = BM.americanToProb(med(homes)), pa = BM.americanToProb(med(aways));
+      if (ph != null && pa != null && (ph + pa) > 0) return ph / (ph + pa);
+    }
+    const ia = g && g.implied && g.implied.away, ih = g && g.implied && g.implied.home, tot = (ia != null && ih != null) ? (ia + ih) : null;
+    return tot ? ih / tot : null;
+  }
+
   function bestLean(g, gp) {
     if (!gp) return null;
     const cands = [];
@@ -41662,8 +41683,8 @@ window.VaultPropModel = (function () {
           label: (over ? 'Over ' : 'Under ') + mkT, vault: 'total ' + gp.total, score: d / 1.5 });
       }
     }
-    const ia = g.implied && g.implied.away, ih = g.implied && g.implied.home, tot = (ia != null && ih != null) ? (ia + ih) : null;
-    const impH = tot ? Math.round(ih / tot * 100) : null;
+    const mlP = _mlHomeProb(g);
+    const impH = mlP != null ? Math.round(mlP * 100) : null;   // devigged market home win %
     if (impH != null) {
       const d = Math.abs(gp.homeWinPct - impH);
       if (d >= 6) {

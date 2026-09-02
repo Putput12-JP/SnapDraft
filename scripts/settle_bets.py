@@ -352,18 +352,25 @@ def settle_games(season_filter=None):
         # calibration against the actual result (the win-prob learning signal).
         # p_home / y_home feed a full-range reliability curve + Brier in the board.
         wh, ml_c, ml_o = (vl.get("winHome") if vl else None), cls.get("mlHome"), opn.get("mlHome")
+        ml_ac, ml_ao = cls.get("mlAway"), opn.get("mlAway")     # away price (banked since the two-sided fix)
         if wh is not None and ml_c is not None:
-            p_mkt_home = am_prob(ml_c)                          # market implied home win (single-sided, vig included)
+            # Vig-free market home win when both sides are banked (devig), else the
+            # single-sided implied (older samples). Right baseline for the lean/CLV.
+            p_mkt_home = devig(ml_c, ml_ac) if ml_ac is not None else am_prob(ml_c)
             side = "home" if wh > (p_mkt_home if p_mkt_home is not None else 0.5) else "away"
             home_won = margin > 0
             push = abs(margin) < 1e-9                           # tie (rare) → no grade
             won = None if push else (1.0 if (side == "home") == home_won else 0.0)
             clv_prob = None
-            if ml_o is not None and p_mkt_home is not None:
-                p_open_home = am_prob(ml_o)
-                if p_open_home is not None:
-                    p_close_side = p_mkt_home if side == "home" else 1 - p_mkt_home
-                    p_open_side = p_open_home if side == "home" else 1 - p_open_home
+            if ml_o is not None:
+                # Use the SAME method (devig vs single-sided) on both ends so a
+                # transition sample (open pre-mlAway, close post) can't invent CLV.
+                two = ml_ac is not None and ml_ao is not None
+                pc = devig(ml_c, ml_ac) if two else am_prob(ml_c)
+                po = devig(ml_o, ml_ao) if two else am_prob(ml_o)
+                if pc is not None and po is not None:
+                    p_close_side = pc if side == "home" else 1 - pc
+                    p_open_side = po if side == "home" else 1 - po
                     clv_prob = p_close_side - p_open_side       # market drift toward the model's side
             picks.append({**base, "market": "ml", "side": side, "ml_open": ml_o, "ml_close": ml_c,
                           "vault_winhome": wh, "p_home": wh, "y_home": (None if push else (1.0 if home_won else 0.0)),

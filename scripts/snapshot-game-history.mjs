@@ -72,12 +72,13 @@ function snapshot(g, ts) {
     spread: g.spread && g.spread.cons ? num(g.spread.cons.home) : null,   // home spread (signed)
     total: g.total ? num(g.total.cons) : null,                            // game total
     mlHome: g.ml && g.ml.quotes ? med(g.ml.quotes.map(q => q.home)) : null, // home moneyline (American)
+    mlAway: g.ml && g.ml.quotes ? med(g.ml.quotes.map(q => q.away)) : null, // away moneyline — lets settle devig the win prob
     vault: vaultLine(g.away, g.home),                                     // model line as-of now (null offseason/unmapped)
     ts,
   };
 }
 // Value signature — used to skip appending a duplicate sample (ts-only refresh is free).
-const sig = s => [s.spread, s.total, s.mlHome].join('|');
+const sig = s => [s.spread, s.total, s.mlHome, s.mlAway].join('|');
 
 const feed = readJSON(FEED);
 if (!feed || !Array.isArray(feed.vegas_games)) { log('no vegas_games in feed — nothing to snapshot'); process.exit(0); }
