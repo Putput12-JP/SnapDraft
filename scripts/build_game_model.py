@@ -153,10 +153,49 @@ def backtest(games):
 SD_MARGIN = 13.2   # provisional; re-fit below
 SD_TOTAL = 13.5
 
+SB_PATH = os.path.join(ROOT, "data", "edge_scoreboard.json")
+K_GAME = 150          # sample the in-season overlay corrections shrink against
+
+
+def load_overlay():
+    """LOOP-CLOSER. Read how the SERVED model line actually did this season
+    (scripts/settle_bets.py → edge_scoreboard.games) and return small,
+    sample-shrunk deltas for the served hfa / base_pts / sd_margin. Mirrors the
+    prop builder's inseason overlay: settle_bets fits the corrections, the
+    builder applies them shrunk by n/(n+K). Only IN-SEASON picks count —
+    offseason-rating errors (Wk1 on priors) are not the tuned model — so a cold
+    season with no in-season results is a clean no-op. These are intercept-level
+    corrections on the served numbers; ratings are NOT refit."""
+    try:
+        sb = json.load(open(SB_PATH))
+    except Exception:
+        return {}
+    g = sb.get("games") or {}
+    sp, tot, ml = g.get("spread") or {}, g.get("total") or {}, g.get("ml") or {}
+    def shrink(n): return (n or 0) / ((n or 0) + K_GAME)
+    out = {}
+    # spread proj_bias = mean(model home margin − actual); +bias ⇒ model runs
+    # home-high ⇒ trim HFA by the shrunk bias (clamped to ±1.5 pt).
+    b, n = sp.get("proj_bias_inseason"), sp.get("n_proj_inseason") or 0
+    if b is not None and n:
+        out["hfa"] = {"delta": round(max(-1.5, min(1.5, -shrink(n) * b)), 3), "bias": round(b, 3), "n": n}
+    # total proj_bias = mean(model total − actual); total = 2·base_pts, so a
+    # total bias of x corrects base_pts by −x/2 (clamped to ±3 pt).
+    b, n = tot.get("proj_bias_inseason"), tot.get("n_proj_inseason") or 0
+    if b is not None and n:
+        out["base_pts"] = {"delta": round(max(-3.0, min(3.0, -shrink(n) * b / 2.0)), 3), "bias": round(b, 3), "n": n}
+    # win-prob sd scale (k>1 ⇒ model overconfident ⇒ widen sd_margin), shrunk and
+    # clamped to [0.8, 1.3] so a thin sample can't swing calibration hard.
+    k, n = ml.get("winprob_sd_k"), ml.get("n_cal_inseason") or 0
+    if k is not None and n:
+        out["sd_margin"] = {"factor": round(max(0.8, min(1.3, 1.0 + shrink(n) * (k - 1.0))), 4), "k": k, "n": n}
+    return out
+
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--no-overlay", action="store_true", help="skip the in-season self-correction overlay (pure historical fit)")
     args = ap.parse_args()
     global HFA, SD_MARGIN, SD_TOTAL
 
@@ -198,12 +237,29 @@ def main():
     teams = {t: {"rate": round(rate[t], 3), "off": round(off[t], 3), "def": round(dff[t], 3)}
              for t in sorted(set(list(rate) + list(off)))}
 
+    # Loop-closer: apply the in-season self-correction to the SERVED intercepts
+    # (hfa / base_pts / sd_margin) after the historical fit + ratings — ratings
+    # are not refit; this is a small drift correction the historical backtest
+    # can't see. No-op when there are no in-season results yet.
+    overlay = {} if args.no_overlay else load_overlay()
+    served_hfa, served_base, served_sd = HFA, BASE_PTS, SD_MARGIN
+    if overlay.get("hfa"): served_hfa = round(HFA + overlay["hfa"]["delta"], 3)
+    if overlay.get("base_pts"): served_base = round(BASE_PTS + overlay["base_pts"]["delta"], 3)
+    if overlay.get("sd_margin"): served_sd = round(SD_MARGIN * overlay["sd_margin"]["factor"], 3)
+    if overlay:
+        print(f"[game-model] in-season overlay: hfa {HFA}→{served_hfa} · base {BASE_PTS}→{served_base} · sd_margin {SD_MARGIN}→{served_sd}")
+        print(f"             {overlay}")
+    else:
+        print("[game-model] in-season overlay: none (no in-season results banked yet)")
+
     model = {
         "generated": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
         "through_season": through[0], "through_week": through[1], "offseason": offseason,
-        "base_pts": BASE_PTS, "hfa": HFA, "sd_margin": SD_MARGIN, "sd_total": SD_TOTAL,
+        "base_pts": served_base, "hfa": served_hfa, "sd_margin": served_sd, "sd_total": SD_TOTAL,
         "params": {"k_margin": K_MARGIN, "k_score": K_SCORE, "carry": CARRY, "ridge": RIDGE},
         "teams": teams, "backtest": m,
+        "inseason_overlay": (overlay or None),
+        "fit": {"hfa": HFA, "base_pts": BASE_PTS, "sd_margin": SD_MARGIN},   # pre-overlay historical fit
         "note": "Context line only — matches the market, does not beat the close. Never present as +EV.",
     }
     if args.dry:

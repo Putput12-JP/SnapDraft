@@ -13419,6 +13419,22 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-02T19:00', tag:'New', title:'Track Vault’s best bet on any game',
+    items:[
+      'Every game card now has a Track button on Vault’s best bet — the one market (spread, total or moneyline) where Vault’s projection leans hardest against the number.',
+      'Tracked game bets land in Track Record → My Picks under “Game bets,” alongside your prop picks, and settle themselves against the final score once the game is played — no manual entry.',
+      'The Game Markets header shows how many you’re tracking; tap it to jump straight to your record.',
+    ],
+  },
+  {
+    ts:'2026-09-02T18:00', tag:'Improved', title:'Clearer game cards and a real book-by-book compare',
+    items:[
+      'Each game card now lines Vault’s projection up under the market it’s calling: Vault’s spread sits under the spread, its total under the total, its win% under the moneyline, with the market number right beneath each. Where Vault disagrees enough to matter, its number is highlighted.',
+      'Compare books opens straight to every book on one row, and now shows the actual line each book is hanging, not just the price.',
+      'A book posting a different number than the market (say an exchange with the home team as a small favorite when everyone else has them getting points) is marked as off the main line, so a price that looks like a steal is no longer mistaken for the best bet on the same number.',
+    ],
+  },
+  {
     ts:'2026-09-02T16:00', tag:'Improved', title:'Grade is now a column on the props board',
     items:[
       'The player props board shows Vault’s A–F grade as its own sortable column, so you can rank every prop by grade and see the model’s conviction at a glance.',
@@ -40911,6 +40927,9 @@ window.VaultPropModel = (function () {
 #page-betting .bx-bstat{background:color-mix(in srgb,var(--bt-s2) 78%,transparent);border:1px solid var(--bt-border2);border-radius:12px;padding:8px 14px;text-align:right;backdrop-filter:blur(4px)}
 #page-betting .bx-bstat .k{font-size:var(--t-nano);color:var(--bt-muted);font-weight:600}
 #page-betting .bx-bstat .v{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--bt-text);font-family:var(--bt-mono);line-height:1.05}
+#page-betting button.bx-trbtn{cursor:pointer;transition:border-color .15s ease,background .15s ease}
+#page-betting button.bx-trbtn:hover{border-color:color-mix(in srgb,var(--bt-accent2) 46%,transparent)}
+#page-betting button.bx-trbtn .v{color:var(--bt-accent2)}
 #page-betting .bx-bstat .v.g{color:var(--bt-green)}
 /* game card */
 #page-betting .bx-game{background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:16px;margin-bottom:13px;overflow:hidden;transition:border-color .15s ease}
@@ -40944,10 +40963,24 @@ window.VaultPropModel = (function () {
 #page-betting .bx-split i.g{background:var(--bt-green)}#page-betting .bx-split i.r{background:var(--red)}
 #page-betting .bx-etag{display:inline-flex;align-items:center;gap:1px;font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;color:var(--bt-green);border:1px solid color-mix(in srgb,var(--bt-green) 34%,transparent);background:var(--bt-s1);border-radius:5px;padding:1px 4px}
 #page-betting .bx-book{width:17px;height:16px;border-radius:4px;display:inline-grid;place-items:center;font-family:var(--bt-mono);font-size:8px;font-weight:800;color:#fff;letter-spacing:-.02em}
-#page-betting .bx-gfoot{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:9px 16px;border-top:1px solid var(--bt-border);background:var(--bt-s2)}
-#page-betting .bx-vline{display:inline-flex;align-items:center;gap:8px;font-size:var(--t-micro);background:var(--bt-s1);border:1px solid color-mix(in srgb,var(--bt-accent2) 30%,transparent);border-radius:999px;padding:5px 12px 5px 8px;color:var(--bt-text)}
-#page-betting .bx-vline .tag{font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:800;letter-spacing:.04em;color:var(--on-primary);background:var(--bt-accent2);border-radius:5px;padding:2px 6px}
-#page-betting .bx-vline b{font-weight:700}#page-betting .bx-vline .mut{color:var(--bt-muted)}
+/* Squared Vault-projection footer: label under the matchup column, then Vault's
+   spread / total / win% aligned beneath the market columns above (.bx-markets). */
+#page-betting .bx-gfoot{display:grid;grid-template-columns:248px 1fr;border-top:1px solid var(--bt-border);background:var(--bt-s2)}
+#page-betting .bx-gfoot.simple{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:9px 16px}
+#page-betting .bx-vhead{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:11px 18px;border-right:1px solid var(--bt-border);text-align:center}
+#page-betting .bx-vltag{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:800;letter-spacing:.08em;color:var(--on-primary);background:var(--bt-accent2);border-radius:7px;padding:6px 15px}
+#page-betting .bx-vcell .bx-foot-btn{font-size:var(--t-nano);margin-top:3px}
+#page-betting .bx-track{font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;color:var(--bt-muted);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:7px;padding:5px 10px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-betting .bx-track:hover{color:var(--bt-text);border-color:var(--bt-border3)}
+#page-betting .bx-track.on{color:var(--bt-gold);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
+#page-betting .bx-vproj{display:grid;grid-template-columns:repeat(3,1fr)}
+#page-betting .bx-vcell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 12px;text-align:center;border-right:1px solid var(--bt-border)}
+#page-betting .bx-vcell:last-child{border-right:0}
+#page-betting .bx-vcell .vl{font-family:var(--bt-mono);font-weight:700;font-size:var(--t-secondary);color:var(--bt-text);letter-spacing:-.01em}
+#page-betting .bx-vcell .vl.lean{color:var(--bt-accent2)}
+#page-betting .bx-vcell .mk{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted)}
+#page-betting .bx-vmv{font-family:var(--bt-mono);font-size:var(--t-nano);color:var(--bt-muted)}
+#page-betting .bx-vmv.steam{color:var(--bt-green)}#page-betting .bx-vmv.sharp{color:var(--bt-accent2)}#page-betting .bx-vmv.flat{color:var(--bt-faint)}
 #page-betting .bx-foot-btn{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-micro);font-weight:600;color:var(--bt-muted);cursor:pointer}
 #page-betting .bx-foot-btn:hover{color:var(--bt-accent2)}
 #page-betting .bx-foot-btn svg{width:13px;height:13px}
@@ -41082,6 +41115,11 @@ window.VaultPropModel = (function () {
   #page-betting .bx-mh{margin:0;justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-start;gap:3px}
   #page-betting .bx-odds{grid-column:2;display:flex;flex-direction:column;gap:7px;min-width:0}
   #page-betting .bx-oc{min-width:0}
+  /* footer stacks too: VAULT LINE + track as a top row, projection cells below */
+  #page-betting .bx-gfoot{grid-template-columns:1fr}
+  #page-betting .bx-vhead{flex-direction:row;justify-content:space-between;align-items:center;text-align:left;gap:10px;padding:10px 14px;border-right:0;border-bottom:1px solid var(--bt-border)}
+  #page-betting .bx-vltag{font-size:var(--t-micro)}
+  #page-betting .bx-vcell{padding:9px 8px}
   /* ── mobile props: stacked cards (Outlier-style) ── */
   #page-betting .bx-hint{display:none}
   #page-betting .eb-bh{flex-direction:column;align-items:stretch;gap:10px}
@@ -41162,7 +41200,7 @@ window.VaultPropModel = (function () {
      bet across the slate. Real two-sided game lines only. Line-movement and
      Kalshi columns arrive with their feeds. */
   let gSel = 0;       // selected game index for the featured detail
-  let gbBooksOpen = false;   // featured game's "Every book" strip collapsed by default
+  let gbBooksOpen = true;    // game drawer opens straight to the per-book lines
   let gmSort = { key: 'ev', dir: -1 };   // game-markets board column sort
   const gExpanded = new Set();   // Outlier card-list: game keys with the per-book drawer open
   const gDrawerMkt = {};         // per-game selected market for the drawer (defaults curGM)
@@ -41321,29 +41359,52 @@ window.VaultPropModel = (function () {
     const books = gatherBooks(x => x[gm] && x[gm].quotes);
     const qBy = {}; (M.quotes || []).forEach(q => qBy[q.book] = q);
     const best = M.best || {};
+    // Each side carries the consensus line plus a per-book line accessor, so the
+    // drawer shows the line every book is ACTUALLY hanging. A book off the
+    // consensus number (e.g. an exchange pricing NE -2.5 when the market is
+    // +3.5) is flagged .off and can't masquerade as the gold "best price".
     let sides;
     if (gm === 'total') {
       const ln = M.cons != null ? M.cons : '';
-      sides = [{ lab: 'Over ' + ln, priceOf: q => q.over, bestBook: best.over && best.over.book },
-               { lab: 'Under ' + ln, priceOf: q => q.under, bestBook: best.under && best.under.book }];
+      const cf = v => v == null ? '' : ('' + v);
+      sides = [{ lab: 'Over ' + ln, priceOf: q => q.over, lineOf: q => q.line, consLine: M.cons != null ? M.cons : null, lnFmt: cf, consFmt: cf(M.cons) },
+               { lab: 'Under ' + ln, priceOf: q => q.under, lineOf: q => q.line, consLine: M.cons != null ? M.cons : null, lnFmt: cf, consFmt: cf(M.cons) }];
     } else if (gm === 'spread') {
       const sa = M.cons ? round05(M.cons.away) : null, sh = M.cons ? round05(M.cons.home) : null;
-      sides = [{ lab: g.away + ' ' + sline(sa), priceOf: q => q.away && q.away.price, bestBook: best.away && best.away.book },
-               { lab: g.home + ' ' + sline(sh), priceOf: q => q.home && q.home.price, bestBook: best.home && best.home.book }];
+      const sf = v => v == null ? '' : sline(round05(v));
+      sides = [{ lab: g.away + ' ' + sline(sa), priceOf: q => q.away && q.away.price, lineOf: q => q.away && q.away.line, consLine: sa, lnFmt: sf, consFmt: sf(sa) },
+               { lab: g.home + ' ' + sline(sh), priceOf: q => q.home && q.home.price, lineOf: q => q.home && q.home.line, consLine: sh, lnFmt: sf, consFmt: sf(sh) }];
     } else {
-      sides = [{ lab: g.away + ' ML', priceOf: q => q.away, bestBook: best.away && best.away.book },
-               { lab: g.home + ' ML', priceOf: q => q.home, bestBook: best.home && best.home.book }];
+      sides = [{ lab: g.away + ' ML', priceOf: q => q.away, lineOf: null, consLine: null, lnFmt: null, consFmt: '' },
+               { lab: g.home + ' ML', priceOf: q => q.home, lineOf: null, consLine: null, lnFmt: null, consFmt: '' }];
     }
+    // Best = highest American price among books ON the consensus line, so a
+    // different-line outlier never wins the gold. Only when no line exists
+    // (moneyline) does it fall back to the best price across all books.
+    const uiBest = s => {
+      let bk = null, bp = -Infinity;
+      books.forEach(b => { const q = qBy[b]; if (!q) return; const p = s.priceOf(q); if (p == null) return; const ln = s.lineOf ? s.lineOf(q) : null; if (s.consLine != null && ln != null && round05(ln) !== s.consLine) return; if (p > bp) { bp = p; bk = b; } });
+      if (bk == null && s.consLine == null) books.forEach(b => { const q = qBy[b]; if (!q) return; const p = s.priceOf(q); if (p != null && p > bp) { bp = p; bk = b; } });
+      return { book: bk, price: bp === -Infinity ? null : bp };
+    };
+    sides.forEach(s => s._best = uiBest(s));
     const rowH = s => {
-      const chips = books.map(b => { const q = qBy[b]; const p = q ? s.priceOf(q) : null; if (p == null) return ''; const isBest = b === s.bestBook; return '<div class="eb-bk' + (isBest ? ' best' : '') + '" title="' + b + (isBest ? ' — best price' : '') + '"><div class="bk">' + b + '</div><div class="pr">' + fb.fmtOdds(p) + '</div></div>'; }).filter(Boolean).join('');
+      const chips = books.map(b => {
+        const q = qBy[b]; const p = q ? s.priceOf(q) : null; if (p == null) return '';
+        const ln = s.lineOf ? s.lineOf(q) : null;
+        const off = s.consLine != null && ln != null && round05(ln) !== s.consLine;
+        const isBest = !off && b === s._best.book;
+        const lnHTML = ln != null ? '<div class="ln">' + s.lnFmt(ln) + '</div>' : '';
+        const tt = b + (off ? ' — hanging ' + s.lnFmt(ln) + ' (off the ' + s.consFmt + ' line)' : (isBest ? ' — best price at ' + s.consFmt : ''));
+        return '<div class="eb-bk' + (isBest ? ' best' : '') + (off ? ' off' : '') + '" title="' + tt + '"><div class="bk">' + b + '</div><div class="pr">' + fb.fmtOdds(p) + '</div>' + lnHTML + '</div>';
+      }).filter(Boolean).join('');
       return chips ? '<div class="gb-bkside"><div class="gb-bklab">' + s.lab + '</div><div class="eb-bks">' + chips + '</div></div>' : '';
     };
     const body = sides.map(rowH).join('');
     if (!body) return '';
     const gmLabel = (GM_TABS.find(t => t[0] === gm) || ['', ''])[1];
-    // Collapsed by default (saves vertical space) with a best-price-per-side
-    // summary in the header; the header toggles the full grid open.
-    const bestChip = s => { const q = s.bestBook && qBy[s.bestBook]; const p = q ? s.priceOf(q) : null; return p != null ? '<b>' + s.lab + '</b> ' + fb.fmtOdds(p) : ''; };
+    // Collapsed shows the best-price-per-side summary (best = on-consensus-line).
+    const bestChip = s => { const q = s._best.book && qBy[s._best.book]; const p = q ? s.priceOf(q) : null; return p != null ? '<b>' + s.lab + '</b> ' + fb.fmtOdds(p) + ' <span class="mut">' + s._best.book + '</span>' : ''; };
     const summary = sides.map(bestChip).filter(Boolean).join(' <span class="gb-bkdot">·</span> ');
     const open = gbBooksOpen;
     return '<div class="gb-books' + (open ? '' : ' collapsed') + '">'
@@ -41388,6 +41449,7 @@ window.VaultPropModel = (function () {
       return '<div class="bx-mcol"><div class="bx-mh">' + label + arbTag + '</div><div class="bx-odds">' + sides + '</div></div>';
     };
 
+    const _trackMap = {};   // card key → {g, lean} so the Track button can log on click
     const cardH = (x) => {
       const g = x.g, key = g.away + '@' + g.home;
       const when = g.slot || (g.commence ? new Date(g.commence).toLocaleString([], { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
@@ -41395,19 +41457,42 @@ window.VaultPropModel = (function () {
       const tot = (ia != null && ih != null) ? (ia + ih) : null;
       const impA = tot ? Math.round(ia / tot * 100) : null, impH = tot ? 100 - impA : null;
       const teamRow = (code, imp) => '<div class="bx-team"><span class="bt-logo" data-logo="' + code + '"></span><div><div class="bx-tn">' + fullName(code) + '</div>' + (imp != null ? '<div class="bx-tsub"><span class="imp">' + imp + '%</span> win' : '<div class="bx-tsub">' + code) + '</div></div></div>';
-      // Vault line chip (context, gated to the regular season — see gmPredict).
+      // Vault projection footer — squared to the market columns above (see the
+      // .bx-vproj grid): a VAULT LINE label sits under the matchup column, then
+      // Vault's spread / total / win% each sit directly beneath the market they
+      // opine on, market value muted below, any line move folded into the column.
+      // Gated to the regular season (gp is null otherwise → the simple footer).
       const gp = (_gmModel && seasonReg) ? gmPredict(g.away, g.home) : null;
-      let vchip = '';
-      if (gp) {
-        const mkT = g.total && g.total.cons != null ? g.total.cons : null;
-        vchip = '<span class="bx-vline" title="Vault’s team-rating model — context, not a bet edge. Matches the market, doesn’t beat the close."><span class="tag">VAULT LINE</span> ' + g.home + ' <b>' + (gp.homeSpread > 0 ? '+' : '') + gp.homeSpread + '</b> · total <b>' + gp.total + '</b>' + (mkT != null ? ' <span class="mut">mkt ' + mkT + '</span>' : '') + '</span>';
-      }
-      let mv = '';
-      if (_lineHist) {
-        const items = [['spread', 'Spread'], ['total', 'Total'], ['ml', 'ML']].map(([m, l]) => { const mt = moveTag(key, m); return mt ? '<span class="bx-mvi">' + l + ' <b>' + mt.from + '→' + mt.to + '</b> <span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span></span>' : ''; }).filter(Boolean).join('');
-        if (items) mv = '<span class="bx-mvchips">' + items + '</span>';
-      }
       const open = gExpanded.has(key);
+      const cmpBtn = '<button class="bx-foot-btn" data-tgl="' + key + '">' + (open ? 'Hide books' : 'Compare books') + ' <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="' + (open ? 'm18 15-6-6-6 6' : 'm6 9 6 6 6-6') + '"/></svg></button>';
+      let foot;
+      if (gp) {
+        const vTitle = 'Vault’s team-rating model — context, not a bet edge. Matches the market, doesn’t beat the close.';
+        const mkSp = (g.spread && g.spread.cons && g.spread.cons.home != null) ? round05(g.spread.cons.home) : null;
+        const mkT = (g.total && g.total.cons != null) ? g.total.cons : null;
+        // Market number lives in the columns above, so the footer shows only
+        // Vault's line (tinted where it diverges enough to be a real lean) plus
+        // any move — no redundant "mkt …" row.
+        // Compare books lives in the far-right (moneyline) cell — the label cell
+        // carries only the VAULT LINE tag; extra is appended into a cell's body.
+        const cell = (vl, lean, extra) => '<div class="bx-vcell"><div class="vl' + (lean ? ' lean' : '') + '">' + vl + '</div>' + (extra || '') + '</div>';
+        const spCell = cell(g.home + ' ' + sline(gp.homeSpread), mkSp != null && Math.abs(gp.homeSpread - mkSp) >= 1);
+        const totCell = cell('' + gp.total, mkT != null && Math.abs(gp.total - mkT) >= 1.5);
+        const mlCell = cell(g.home + ' ' + gp.homeWinPct + '%', impH != null && Math.abs(gp.homeWinPct - impH) >= 6, cmpBtn);
+        // Track control: only the game's hardest lean (Vault's pushed best bet)
+        // is trackable; it logs to Track Record. No lean past the bar → no button.
+        const lean = bestLean(g, gp); _trackMap[key] = { g, lean };
+        let trackBtn = '';
+        if (lean) { const tracked = gamePickLogged(g, lean);
+          trackBtn = '<button class="bx-track' + (tracked ? ' on' : '') + '" data-track="' + key + '" title="' + (tracked ? 'Tracking this pick in Track Record' : 'Track Vault’s best bet — ' + lean.label) + '">' + (tracked ? '★ Tracking' : '☆ ' + lean.label) + '</button>'; }
+        foot = '<div class="bx-gfoot">'
+          + '<div class="bx-vhead"><span class="bx-vltag" title="' + vTitle + '">VAULT LINE</span>' + trackBtn + '</div>'
+          + '<div class="bx-vproj">' + spCell + totCell + mlCell + '</div></div>';
+      } else {
+        let mv = '';
+        if (_lineHist) { const items = [['spread', 'Spread'], ['total', 'Total'], ['ml', 'ML']].map(([m, l]) => { const mt = moveTag(key, m); return mt ? '<span class="bx-mvi">' + l + ' <b>' + mt.from + '→' + mt.to + '</b> <span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span></span>' : ''; }).filter(Boolean).join(''); if (items) mv = '<span class="bx-mvchips">' + items + '</span>'; }
+        foot = '<div class="bx-gfoot simple">' + mv + '<span class="sp"></span>' + cmpBtn + '</div>';
+      }
       let drawer = '';
       if (open) {
         const dm = gDrawerMkt[key] || curGM || 'spread';
@@ -41417,15 +41502,19 @@ window.VaultPropModel = (function () {
       return '<article class="bx-game" data-key="' + key + '">'
         + '<div class="bx-gtop"><div class="bx-matchup"><div class="bx-when">' + when + '</div>' + teamRow(g.away, impA) + teamRow(g.home, impH) + '</div>'
         + '<div class="bx-markets">' + mCell(g, 'spread', 'Spread') + mCell(g, 'total', 'Total') + mCell(g, 'ml', 'Moneyline') + '</div></div>'
-        + '<div class="bx-gfoot">' + vchip + mv + '<span class="sp"></span><button class="bx-foot-btn" data-tgl="' + key + '">' + (open ? 'Hide books' : 'Compare books') + ' <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="' + (open ? 'm18 15-6-6-6 6' : 'm6 9 6 6 6-6') + '"/></svg></button></div>'
+        + foot
         + drawer + '</article>';
     };
 
-    const banner = '<div class="bx-banner"><div class="eyebrow">' + (MODEL.season || '') + (MODEL.week ? ' · Week ' + MODEL.week : '') + (seasonReg ? '' : ' · Preseason') + '</div><h1>Game markets</h1><p>Every spread, total and moneyline across your books, with the +EV side flagged and Vault’s model line alongside.</p><div class="bx-bstats"><div class="bx-bstat"><div class="k">Games priced</div><div class="v">' + withBets.length + '</div></div><div class="bx-bstat"><div class="k">+EV bets</div><div class="v g">' + nEdges + '</div></div></div></div>';
+    const nTracked = gamePicksLoad().length;
+    const trackedStat = seasonReg ? '<button class="bx-bstat bx-trbtn" id="bx-open-tr" title="See the game bets you\'re tracking in Track Record"><div class="k">Tracked</div><div class="v">' + nTracked + ' ›</div></button>' : '';
+    const banner = '<div class="bx-banner"><div class="eyebrow">' + (MODEL.season || '') + (MODEL.week ? ' · Week ' + MODEL.week : '') + (seasonReg ? '' : ' · Preseason') + '</div><h1>Game markets</h1><p>Every spread, total and moneyline across your books, with the +EV side flagged and Vault’s model line alongside.</p><div class="bx-bstats"><div class="bx-bstat"><div class="k">Games priced</div><div class="v">' + withBets.length + '</div></div><div class="bx-bstat"><div class="k">+EV bets</div><div class="v g">' + nEdges + '</div></div>' + trackedStat + '</div></div>';
 
     inner.innerHTML = banner + withBets.map(cardH).join('');
     paintLogos('#bt-gv-inner');
     inner.querySelectorAll('[data-tgl]').forEach(b => b.onclick = () => { const k = b.dataset.tgl; gExpanded.has(k) ? gExpanded.delete(k) : gExpanded.add(k); renderGamesBoard(); });
+    inner.querySelectorAll('[data-track]').forEach(b => b.onclick = e => { e.stopPropagation(); const m = _trackMap[b.dataset.track]; if (m && m.lean) { toggleGamePick(m.g, m.lean); renderGamesBoard(); } });
+    const trOpen = inner.querySelector('#bx-open-tr'); if (trOpen) trOpen.onclick = () => { view = 'props'; propsView = 'results'; resultsTab = 'mine'; setView('props'); };
     inner.querySelectorAll('[data-dmkt]').forEach(b => b.onclick = () => { gDrawerMkt[b.dataset.dkey] = b.dataset.dmkt; renderGamesBoard(); });
     const gbTgl = inner.querySelector('.gb-bkstoggle'); if (gbTgl) gbTgl.onclick = () => { gbBooksOpen = !gbBooksOpen; renderGamesBoard(); };
     // Kalshi + line history + game model load once, then repaint so their bits fill in.
@@ -41510,6 +41599,95 @@ window.VaultPropModel = (function () {
     }
     if (changed) picksSave(picks);
     return picks;
+  }
+
+  // ── Game-market pick tracking (Vault's hardest lean) ─────────────────────
+  // The UI only lets you track the "best bet" per game = the market where Vault's
+  // projection diverges most from the market number, past a conviction bar. (The
+  // full projection-vs-result corpus is captured backend-side for model learning;
+  // here we log just the pushed pick and settle it against final scores.)
+  const GKEY = 'vault-game-picks';
+  function gamePicksLoad() { try { return JSON.parse(localStorage.getItem(GKEY) || '[]'); } catch (e) { return []; } }
+  function gamePicksSave(a) { try { localStorage.setItem(GKEY, JSON.stringify(a)); } catch (e) {} }
+  const gameKeyOf = g => g.away + '@' + g.home;
+  const gamePickKey = p => p.game + ':' + p.market + ':' + p.side + ':' + (p.season || '') + 'w' + (p.week || '');
+
+  // Vault's hardest lean for a game → a trackable pick, or null when nothing
+  // clears its bar. Divergence is scored as a fraction of each market's bar so
+  // spread / total / win% compare on one scale; the widest wins.
+  function bestLean(g, gp) {
+    if (!gp) return null;
+    const cands = [];
+    const mkSp = (g.spread && g.spread.cons && g.spread.cons.home != null) ? round05(g.spread.cons.home) : null;
+    if (mkSp != null) {
+      const d = Math.abs(gp.homeSpread - mkSp);
+      if (d >= 1) {
+        const home = gp.homeSpread < mkSp, b = (g.spread.best || {}), bb = home ? b.home : b.away;
+        cands.push({ market: 'spread', side: home ? 'home' : 'away', team: home ? g.home : g.away,
+          line: home ? mkSp : round05(-mkSp), price: bb ? bb.price : null, book: bb ? bb.book : null,
+          label: (home ? g.home : g.away) + ' ' + sline(home ? mkSp : round05(-mkSp)),
+          vault: (home ? g.home : g.away) + ' ' + sline(+(home ? gp.homeSpread : -gp.homeSpread).toFixed(1)), score: d / 1 });
+      }
+    }
+    const mkT = (g.total && g.total.cons != null) ? g.total.cons : null;
+    if (mkT != null) {
+      const d = Math.abs(gp.total - mkT);
+      if (d >= 1.5) {
+        const over = gp.total > mkT, b = (g.total.best || {}), bb = over ? b.over : b.under;
+        cands.push({ market: 'total', side: over ? 'over' : 'under', team: null, line: mkT,
+          price: bb ? bb.price : null, book: bb ? bb.book : null,
+          label: (over ? 'Over ' : 'Under ') + mkT, vault: 'total ' + gp.total, score: d / 1.5 });
+      }
+    }
+    const ia = g.implied && g.implied.away, ih = g.implied && g.implied.home, tot = (ia != null && ih != null) ? (ia + ih) : null;
+    const impH = tot ? Math.round(ih / tot * 100) : null;
+    if (impH != null) {
+      const d = Math.abs(gp.homeWinPct - impH);
+      if (d >= 6) {
+        const home = gp.homeWinPct > impH, b = (g.ml && g.ml.best) || {}, bb = home ? b.home : b.away;
+        cands.push({ market: 'ml', side: home ? 'home' : 'away', team: home ? g.home : g.away, line: null,
+          price: bb ? bb.price : null, book: bb ? bb.book : null,
+          label: (home ? g.home : g.away) + ' ML', vault: (home ? g.home : g.away) + ' ' + gp.homeWinPct + '% win', score: d / 6 });
+      }
+    }
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.score - a.score);
+    return cands[0];
+  }
+  function _leanToPick(g, lean) {
+    return { k: null, game: gameKeyOf(g), away: g.away, home: g.home, market: lean.market, side: lean.side,
+      team: lean.team, line: lean.line, price: lean.price, book: lean.book, label: lean.label, vault: lean.vault,
+      season: MODEL.season, week: MODEL.week };
+  }
+  function gamePickLogged(g, lean) { return gamePicksLoad().some(p => p.k === gamePickKey(_leanToPick(g, lean))); }
+  function toggleGamePick(g, lean) {
+    const pick = _leanToPick(g, lean); pick.k = gamePickKey(pick);
+    const picks = gamePicksLoad(), i = picks.findIndex(p => p.k === pick.k);
+    if (i >= 0) picks.splice(i, 1); else { pick.ts = Date.now(); picks.push(pick); }
+    gamePicksSave(picks);
+  }
+  // Settle logged game picks against final scores in the live ledger (backend
+  // writes ledger.games with away/home/season/week + home_score/away_score once
+  // played). Self-contained: each pick stored its own line + side. Returns true
+  // if anything changed, so the caller re-renders at most once.
+  function settleGamePicks(ledger) {
+    const rows = (ledger && ledger.games) || []; if (!rows.length) return false;
+    const byKey = {};
+    rows.forEach(r => { const gk = (r.away && r.home) ? r.away + '@' + r.home : (r.game || ''); byKey[gk + ':' + (r.season || '') + 'w' + (r.week || '')] = r; });
+    const picks = gamePicksLoad(); let changed = false;
+    picks.forEach(p => {
+      if (p.result) return;
+      const r = byKey[p.game + ':' + (p.season || '') + 'w' + (p.week || '')];
+      if (!r || r.home_score == null || r.away_score == null) return;
+      const hs = +r.home_score, as = +r.away_score, margin = hs - as, total = hs + as;
+      let res = null;
+      if (p.market === 'total') res = total === p.line ? 'P' : (p.side === 'over' ? total > p.line : total < p.line) ? 'W' : 'L';
+      else if (p.market === 'ml') res = margin === 0 ? 'P' : ((p.side === 'home') === (margin > 0)) ? 'W' : 'L';
+      else if (p.market === 'spread') { const adj = (p.side === 'home' ? margin : -margin) + p.line; res = adj === 0 ? 'P' : adj > 0 ? 'W' : 'L'; }
+      if (res) { p.result = res; p.homeScore = hs; p.awayScore = as; changed = true; }
+    });
+    if (changed) gamePicksSave(picks);
+    return changed;
   }
 
   // Tier-2 context: current injury status (live, from Sleeper via _pfRosterMeta,
@@ -42134,6 +42312,9 @@ window.VaultPropModel = (function () {
       inner.querySelectorAll('.mp-del').forEach(b => b.onclick = () => {
         picksSave(picksLoad().filter(p => p.k !== b.dataset.k)); renderResults();
       });
+      inner.querySelectorAll('.mp-gdel').forEach(b => b.onclick = () => {
+        gamePicksSave(gamePicksLoad().filter(p => p.k !== b.dataset.k)); renderResults();
+      });
       const toggle = (dim, key) => { if (_trFilter[dim] === key) delete _trFilter[dim]; else _trFilter[dim] = key; renderResults(); };
       inner.querySelectorAll('.tr-row[data-dim]').forEach(row => {
         row.onclick = () => toggle(row.dataset.dim, row.dataset.key);
@@ -42148,15 +42329,51 @@ window.VaultPropModel = (function () {
     return _drawMine(wire);
   }
 
+  // Game bets (Vault's tracked leans) aggregate on their own scale — spread /
+  // total / ML settle vs final score, units at each pick's own price.
+  function _gameAgg(picks) {
+    const dec = a => a == null ? null : (a > 0 ? 1 + a / 100 : 1 + 100 / Math.abs(a));
+    const dcd = picks.filter(p => p.result === 'W' || p.result === 'L');
+    const W = dcd.filter(p => p.result === 'W').length, L = dcd.length - W;
+    let units = 0, hasU = false;
+    dcd.forEach(p => { const d = dec(p.price); if (d == null) return; hasU = true; units += p.result === 'W' ? (d - 1) : -1; });
+    return { W, L, push: picks.filter(p => p.result === 'P').length, pend: picks.filter(p => !p.result).length,
+      n: dcd.length, wr: dcd.length ? W / dcd.length : null, units: hasU ? units : null };
+  }
+  const _GMKL = { spread: 'Spread', total: 'Total', ml: 'Moneyline' };
+  function _gameSection() {
+    const picks = gamePicksLoad();
+    if (!picks.length) return '';
+    const a = _gameAgg(picks);
+    const rec = '<div class="tr-hero"><div class="tr-h-main"><div class="tr-h-rec">' + a.W + '–' + a.L + (a.push ? '–' + a.push : '') + '</div>'
+      + '<div class="tr-h-sub">' + (a.n ? a.n + ' settled' : 'nothing settled yet') + (a.pend ? ' · ' + a.pend + ' pending' : '') + '</div></div>'
+      + '<div class="tr-h-kpis">'
+      + '<div class="tr-kpi"><div class="tr-kl">Win rate</div><div class="tr-kv ' + (a.wr != null && a.wr >= 0.5 ? 'good' : '') + '">' + _trPct(a.wr) + '</div><div class="tr-kt">on game leans</div></div>'
+      + '<div class="tr-kpi"><div class="tr-kl">Units</div><div class="tr-kv ' + _trUC(a.units) + '">' + _trU(a.units) + '</div><div class="tr-kt">at each price</div></div>'
+      + '</div></div>';
+    const list = picks.slice().sort((x, y) => (y.ts || 0) - (x.ts || 0)).map(p => {
+      const res = p.result === 'W' ? '<span class="mp-res w">WON</span>' : p.result === 'L' ? '<span class="mp-res l">LOST</span>' : p.result === 'P' ? '<span class="mp-res pend">PUSH</span>' : '<span class="mp-res pend">pending</span>';
+      const px = p.price != null ? ' <span class="tr-gp-px">' + F().fmtOdds(p.price) + '</span>' : '';
+      const sc = (p.homeScore != null) ? '<span class="tr-pk-act">' + p.awayScore + '–' + p.homeScore + '</span>' : '';
+      return '<div class="tr-pk ' + (p.result ? ({ W: 'w', L: 'l', P: 'pend' })[p.result] : 'pend') + '">'
+        + '<div class="tr-pk-l"><span class="tr-gp-mk">' + (_GMKL[p.market] || p.market) + '</span><div class="tr-pk-nm"><b>' + p.label + '</b>' + px
+        + '<span>' + p.away + ' @ ' + p.home + ' · Wk ' + (p.week || '?') + '</span></div></div>'
+        + '<div class="tr-pk-r">' + sc + res + '<button class="mp-gdel" data-k="' + p.k + '" title="Remove">✕</button></div></div>';
+    }).join('');
+    return '<div class="tr-gamesec"><div class="tr-gt">Game bets <span class="tr-gtn">· Vault’s leans you’re tracking</span></div>'
+      + rec + '<div class="tr-listwrap">' + list + '</div></div>';
+  }
+
   function _drawMine(wire) {
     const all = _pkMine();
+    const gpk = gamePicksLoad();
     const draw = () => {
       const rows = all.filter(_trMatch);
-      const a = _pkAgg(rows);
+      const a = _pkAgg(rows), ga = _gameAgg(gpk);
       let body;
-      if (!all.length) {
+      if (!all.length && !gpk.length) {
         body = '<div class="tr-empty"><div class="tr-ek">No picks logged</div>'
-          + '<div class="tr-et">Open a prop on the board and hit “＋ Track pick”. Vault settles it against the real box score and shows whether your A-grades actually cash, then breaks your record down by grade, side, market and position.</div></div>';
+          + '<div class="tr-et">Track a prop from the board (“＋ Track pick”), or hit Track on a game card to follow Vault’s best bet. Vault settles each against the real result and shows whether the picks actually cash.</div></div>';
       } else {
         const list = rows.slice().sort((x, y) => (y.ts || 0) - (x.ts || 0)).map(p => {
           const res = p.res === 'W' ? '<span class="mp-res w">WON</span>' : p.res === 'L' ? '<span class="mp-res l">LOST</span>' : '<span class="mp-res pend">pending</span>';
@@ -42167,11 +42384,14 @@ window.VaultPropModel = (function () {
             + '<div class="tr-pk-r">' + (p.actual != null ? '<span class="tr-pk-act">' + p.actual + '</span>' : '') + res
             + '<button class="mp-del" data-k="' + p.k + '" title="Remove">✕</button></div></div>';
         }).join('');
-        body = _trHero(a) + _trChips() + _trBreak(a)
-          + '<div class="tr-listwrap"><div class="tr-gt">Your picks' + (_trChips() ? ' <span class="tr-gtn">· filtered</span>' : '') + '</div>'
-          + (list || '<div class="tr-et" style="padding:6px 0">No picks match this filter.</div>') + '</div>';
+        const propsPart = all.length
+          ? (_trHero(a) + _trChips() + _trBreak(a)
+            + '<div class="tr-listwrap"><div class="tr-gt">Your prop picks' + (_trChips() ? ' <span class="tr-gtn">· filtered</span>' : '') + '</div>'
+            + (list || '<div class="tr-et" style="padding:6px 0">No picks match this filter.</div>') + '</div>')
+          : '';
+        body = propsPart + _gameSection();
       }
-      const sub = all.length ? (a.n + ' settled · ' + a.pend + ' pending') : 'log picks from the board';
+      const sub = (all.length || gpk.length) ? ((a.n + ga.n) + ' settled · ' + (a.pend + ga.pend) + ' pending') : 'log picks from the board';
       _pvInner().innerHTML = _trShell(sub, body);
       wire();
     };
@@ -42188,6 +42408,10 @@ window.VaultPropModel = (function () {
           if (picksLoad().filter(p => p.result).length > before) renderResults();
         });
       }
+    }
+    // Game picks settle against the live ledger's final scores (backend-written).
+    if (gpk.some(p => !p.result)) {
+      loadLedger().then(l => { if (settleGamePicks(l) && propsView === 'results' && resultsTab === 'mine') renderResults(); });
     }
   }
 
@@ -43263,6 +43487,11 @@ window.VaultPropModel = (function () {
 #page-betting .tr-pk-act{font-family:var(--bt-mono);font-size:12px;font-weight:700;color:var(--bt-text)}
 #page-betting .tr-pk.pend{opacity:.72}
 #page-betting .tr-note{font-family:var(--bt-mono);font-size:9.5px;line-height:1.5;color:var(--bt-muted);padding:11px 16px;border-top:1px solid var(--bt-border)}
+/* Game-bets section in My Picks (Vault's tracked leans). */
+#page-betting .tr-gamesec{border-top:6px solid var(--bt-border)}
+#page-betting .tr-gamesec > .tr-gt{padding:15px 16px 0}
+#page-betting .tr-gp-mk{font-family:var(--bt-mono);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--bt-accent2);border:1px solid color-mix(in srgb,var(--bt-accent2) 34%,transparent);border-radius:5px;padding:3px 7px;flex-shrink:0}
+#page-betting .tr-gp-px{font-family:var(--bt-mono);font-size:11px;font-weight:700;color:var(--bt-muted)}
 #page-betting .tr-empty{padding:44px 24px;text-align:center}
 #page-betting .tr-ek{font-size:15px;font-weight:700;margin-bottom:7px}
 #page-betting .tr-et{font-size:12.5px;color:var(--bt-muted);line-height:1.55;max-width:440px;margin:0 auto}
@@ -43286,6 +43515,11 @@ window.VaultPropModel = (function () {
 #page-betting .eb-bks-h{font-family:var(--bt-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:10px}
 #page-betting .eb-bks-h .mut{color:var(--bt-faint)}
 #page-betting .eb-bks{display:flex;gap:7px;flex-wrap:wrap}
+/* Game drawer: every book on ONE row per side (equal-width, no wrap). */
+#page-betting .gb-bkside .eb-bks{flex-wrap:nowrap;gap:6px}
+#page-betting .gb-bkside .eb-bk{flex:1 1 0;min-width:0;padding:7px 6px}
+#page-betting .gb-bkside .eb-bk .bk{max-width:none}
+#page-betting .gb-bkside .eb-bk .ln{font-family:var(--bt-mono);font-size:8.5px;letter-spacing:.04em;color:var(--bt-faint);margin-top:2px}
 #page-betting .eb-bk{min-width:82px;flex:0 0 auto;background:var(--bt-s1);border:1px solid var(--bt-border);border-radius:9px;padding:7px 10px;text-align:center}
 #page-betting .eb-bk .bk{font-family:var(--bt-mono);font-size:9.5px;color:var(--bt-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
 #page-betting .eb-bk .pr{font-family:var(--bt-mono);font-size:14px;font-weight:700;color:var(--bt-text);margin-top:3px}

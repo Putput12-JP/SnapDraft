@@ -305,14 +305,25 @@ def settle_games(season_filter=None):
         sc = scores.get((season, week, away, home))
         if not sc:
             unsettled += 1; continue
-        margin = sc["home_score"] - sc["away_score"]         # home margin (actual)
-        total_actual = sc["home_score"] + sc["away_score"]
+        hs, as_ = sc["home_score"], sc["away_score"]
+        margin = hs - as_                                    # home margin (actual)
+        total_actual = hs + as_
         opn = g.get("open") or {}
-        cls = (g.get("samples") or [g.get("cur")])[-1] or g.get("cur") or {}
-        vl = cls.get("vault") or opn.get("vault")            # model line going into the game
+        samples = g.get("samples") or []
+        cls = (samples[-1] if samples else None) or g.get("cur") or {}   # closing MARKET line
+        # Closing MODEL line: the most recent bank that actually carries a vault
+        # line — early samples can predate model banking (vault:null), so don't
+        # just read samples[-1].vault (it may be a stale null even when cur has one).
+        vl = None
+        for s in list(reversed(samples)) + [g.get("cur"), opn]:
+            if s and s.get("vault"): vl = s["vault"]; break
+        moff = bool(vl.get("off")) if vl else False          # model was on offseason (prior-season) ratings
+        base = {"kind": "game", "season": season, "week": g.get("week"), "away": away, "home": home,
+                "home_score": hs, "away_score": as_, "model_offseason": moff}   # scores let the UI settle too
 
         # SPREAD — the Vault model picks a side vs the closing market spread;
-        # does that side cover? (forward ATS test of the game model)
+        # does that side cover? (forward ATS test of the game model). proj_err is
+        # the raw margin miss (model home margin − actual), the regression signal.
         if vl and vl.get("spread") is not None and cls.get("spread") is not None and opn.get("spread") is not None:
             mkt_c, mkt_o = cls["spread"], opn["spread"]
             side = "home" if vl["spread"] < mkt_c else "away"   # model spread lower ⇒ model likes home more than market
@@ -320,22 +331,46 @@ def settle_games(season_filter=None):
             push = abs(margin + mkt_c) < 1e-9
             won = None if push else (1.0 if (side == "home") == home_cov else 0.0)
             clv_line = (mkt_o - mkt_c) if side == "home" else (mkt_c - mkt_o)  # signed to model side
-            picks.append({"kind": "game", "market": "spread", "season": season, "week": g.get("week"),
-                          "away": away, "home": home, "side": side, "line_open": mkt_o, "line_close": mkt_c,
-                          "vault_line": vl["spread"], "actual": margin, "push": push, "won_close": won,
+            picks.append({**base, "market": "spread", "side": side, "line_open": mkt_o, "line_close": mkt_c,
+                          "vault_line": vl["spread"], "actual": margin, "proj_err": (-vl["spread"]) - margin,
+                          "push": push, "won_close": won,
                           "clv_line": clv_line, "beat_close": (1.0 if clv_line > 1e-9 else 0.0)})
 
-        # TOTAL — model over/under vs the closing market total
+        # TOTAL — model over/under vs the closing market total (proj_err = model total − actual)
         if vl and vl.get("total") is not None and cls.get("total") is not None and opn.get("total") is not None:
             mkt_c, mkt_o = cls["total"], opn["total"]
             side = "over" if vl["total"] > mkt_c else "under"
             push = abs(total_actual - mkt_c) < 1e-9
             won = None if push else (1.0 if (side == "over") == (total_actual > mkt_c) else 0.0)
             clv_line = (mkt_c - mkt_o) if side == "over" else (mkt_o - mkt_c)
-            picks.append({"kind": "game", "market": "total", "season": season, "week": g.get("week"),
-                          "away": away, "home": home, "side": side, "line_open": mkt_o, "line_close": mkt_c,
-                          "vault_line": vl["total"], "actual": total_actual, "push": push, "won_close": won,
+            picks.append({**base, "market": "total", "side": side, "line_open": mkt_o, "line_close": mkt_c,
+                          "vault_line": vl["total"], "actual": total_actual, "proj_err": vl["total"] - total_actual,
+                          "push": push, "won_close": won,
                           "clv_line": clv_line, "beat_close": (1.0 if clv_line > 1e-9 else 0.0)})
+
+        # MONEYLINE / WIN-PROB — the model's home win% vs the market, plus its raw
+        # calibration against the actual result (the win-prob learning signal).
+        # p_home / y_home feed a full-range reliability curve + Brier in the board.
+        wh, ml_c, ml_o = (vl.get("winHome") if vl else None), cls.get("mlHome"), opn.get("mlHome")
+        if wh is not None and ml_c is not None:
+            p_mkt_home = am_prob(ml_c)                          # market implied home win (single-sided, vig included)
+            side = "home" if wh > (p_mkt_home if p_mkt_home is not None else 0.5) else "away"
+            home_won = margin > 0
+            push = abs(margin) < 1e-9                           # tie (rare) → no grade
+            won = None if push else (1.0 if (side == "home") == home_won else 0.0)
+            clv_prob = None
+            if ml_o is not None and p_mkt_home is not None:
+                p_open_home = am_prob(ml_o)
+                if p_open_home is not None:
+                    p_close_side = p_mkt_home if side == "home" else 1 - p_mkt_home
+                    p_open_side = p_open_home if side == "home" else 1 - p_open_home
+                    clv_prob = p_close_side - p_open_side       # market drift toward the model's side
+            picks.append({**base, "market": "ml", "side": side, "ml_open": ml_o, "ml_close": ml_c,
+                          "vault_winhome": wh, "p_home": wh, "y_home": (None if push else (1.0 if home_won else 0.0)),
+                          "p_model": (wh if side == "home" else 1.0 - wh),
+                          "p_market": (p_mkt_home if side == "home" else (1 - p_mkt_home if p_mkt_home is not None else None)),
+                          "actual": margin, "push": push, "won_close": won,
+                          "clv_prob": clv_prob, "beat_close": (1.0 if (clv_prob or 0) > 1e-9 else 0.0)})
 
     return picks, {"settled": len(picks), "unsettled": unsettled}
 
@@ -382,6 +417,27 @@ def fit_blend_w(triples):
         if ll < best_ll: best_w, best_ll = w, ll
     return best_w, len(triples)
 
+from statistics import NormalDist  # noqa: E402
+_N = NormalDist()
+def _ncdf(z): return _N.cdf(z)
+def _nppf(p): return _N.inv_cdf(clamp(p))
+
+def fit_sd_k(pairs):
+    """Grid-search the sd_margin scale k that best calibrates the win-prob model
+    on in-season outcomes. winHome = Φ(margin/sd), so Φ⁻¹(p) is the standardized
+    margin and the recalibrated prob is Φ(Φ⁻¹(p)/k) — k>1 ⇒ model overconfident
+    (needs a wider sd), k<1 ⇒ underconfident. Fit without knowing the banked sd.
+    The builder applies this shrunk by n/(n+K)."""
+    pairs = [(p, y) for p, y in pairs if p is not None and y is not None]
+    if len(pairs) < 30: return None, len(pairs)
+    best_k, best_ll = 1.0, 1e18
+    for i in range(14, 31):                     # k in [0.70 .. 1.50]
+        k = i / 20.0
+        ll = mean([logloss1(y, _ncdf(_nppf(p) / k)) for p, y in pairs])
+        if ll < best_ll: best_k, best_ll = k, ll
+    return best_k, len(pairs)
+
+
 def build_scoreboard(prop_picks, game_picks):
     board = {"markets": {}, "grades": {}, "games": {}}
 
@@ -421,10 +477,46 @@ def build_scoreboard(prop_picks, game_picks):
     for p in game_picks: by_gm[p["market"]].append(p)
     for mk, ps in by_gm.items():
         graded = [p for p in ps if p["won_close"] is not None]
-        board["games"][mk] = {"n": len(ps), "n_graded": len(graded),
-                              "ats_or_ou_pct": mean([p["won_close"] for p in graded]),
-                              "clv_beat_rate": mean([p["beat_close"] for p in ps]),
-                              "mean_clv_line": mean([p["clv_line"] for p in ps])}
+        reg = [p for p in ps if not p.get("model_offseason")]   # in-season-rating subset (the clean learning slice)
+        entry = {"n": len(ps), "n_graded": len(graded), "n_offseason": len(ps) - len(reg),
+                 "ats_or_ou_pct": mean([p["won_close"] for p in graded]),
+                 "clv_beat_rate": mean([p["beat_close"] for p in ps]),
+                 "mean_clv_line": mean([p.get("clv_line") for p in ps]),
+                 "mean_clv_prob": mean([p.get("clv_prob") for p in ps])}
+        if mk in ("spread", "total"):
+            # Projection error is the direct regression signal: MAE = how far off,
+            # bias = systematic over/under (positive ⇒ model runs high vs actual).
+            errs = [p["proj_err"] for p in ps if p.get("proj_err") is not None]
+            reg_errs = [p["proj_err"] for p in reg if p.get("proj_err") is not None]
+            entry["proj_mae"] = mean([abs(e) for e in errs]) if errs else None
+            entry["proj_bias"] = mean(errs) if errs else None
+            entry["proj_mae_inseason"] = mean([abs(e) for e in reg_errs]) if reg_errs else None
+            entry["proj_bias_inseason"] = mean(reg_errs) if reg_errs else None
+            entry["n_proj"] = len(errs)
+            entry["n_proj_inseason"] = len(reg_errs)   # sample the builder shrinks the bias correction against
+        if mk == "ml":
+            # Win-prob calibration: home win prob vs home-won (0/1), full range so
+            # underdogs count. Brier + log-loss + a 10-bin reliability curve are
+            # the recalibration inputs for the win% side of the game model.
+            cal = [(p["p_home"], p["y_home"]) for p in ps if p.get("p_home") is not None and p.get("y_home") is not None]
+            entry["brier"] = mean([(pp - y) ** 2 for pp, y in cal]) if cal else None
+            entry["logloss"] = mean([logloss1(y, pp) for pp, y in cal]) if cal else None
+            rel, lo = [], 0.0
+            for hi in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01):
+                b = [(pp, y) for pp, y in cal if lo <= pp < hi]
+                if b:
+                    rel.append([round(lo, 2), round(hi, 2), len(b),
+                                round(mean([pp for pp, _ in b]), 4), round(mean([y for _, y in b]), 4)])
+                lo = hi
+            entry["reliability"] = rel
+            entry["n_cal"] = len(cal)
+            entry["lean_winrate"] = mean([p["won_close"] for p in graded]) if graded else None
+            # In-season-only sd_margin recalibration factor (the loop-closer input).
+            cal_in = [(p["p_home"], p["y_home"]) for p in reg if p.get("p_home") is not None and p.get("y_home") is not None]
+            sd_k, n_sdk = fit_sd_k(cal_in)
+            entry["winprob_sd_k"] = sd_k
+            entry["n_cal_inseason"] = n_sdk
+        board["games"][mk] = entry
     return board
 
 

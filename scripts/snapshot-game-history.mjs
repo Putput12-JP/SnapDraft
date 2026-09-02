@@ -53,13 +53,18 @@ const normCdf = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.
 // line AS IT WAS going into each game (the model refits weekly, so it drifts).
 const GM = readJSON(resolve(HERE, '..', 'data', 'game_model.json'));
 function vaultLine(away, home) {
-  if (!GM || !GM.teams || GM.offseason) return null;   // offseason ratings are stale; gmPredict is gated off then too
+  // Bank the model line whenever the ratings map both teams — INCLUDING when the
+  // model is still on offseason (prior-season) ratings. The settle harness needs
+  // Week-1 projections to start the learning corpus (every model predicts Wk 1 on
+  // priors); the `off` flag lets settlement segment offseason-based picks. Only
+  // regular-season games are ever banked (the feed/caller gate preseason).
+  if (!GM || !GM.teams) return null;
   const A = GM.teams[away], H = GM.teams[home];
   if (!A || !H) return null;
   const hfa = GM.hfa || 0, base = GM.base_pts || 0;
   const margin = H.rate - A.rate + hfa;                       // home margin
   const total = 2 * base + (H.off + A.off) - (A.def + H.def); // hfa/2 terms cancel
-  return { spread: num(-margin), total: num(total), winHome: num(normCdf(margin / (GM.sd_margin || 13.2))) };
+  return { spread: num(-margin), total: num(total), winHome: num(normCdf(margin / (GM.sd_margin || 13.2))), off: GM.offseason ? 1 : 0 };
 }
 
 function snapshot(g, ts) {
