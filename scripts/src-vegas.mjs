@@ -448,7 +448,13 @@ async function loadWeekByMatchup(season) {
       const w = g.week; if (!w) continue;
       const home = (g.home || '').toUpperCase(), away = (g.away || '').toUpperCase();
       if (!home || !away) continue;
-      out[`${away}@${home}`] = w; out[`${home}@${away}`] = w;
+      // Key ONLY the exact away@home orientation. Keying both orientations
+      // collides for division home-and-away pairs: the later meeting (e.g. the
+      // Week-14 LAR@SF) overwrites the earlier meeting (Week-1 SF@LAR) for BOTH
+      // keys, so the current-week game gets the wrong week and the client drops
+      // it. The odds source's home/away matches the schedule's per meeting, so
+      // the exact orientation is correct; an unmatched game just stays untagged.
+      out[`${away}@${home}`] = w;
     }
     return out;
   } catch (e) { warn('schedule', e); return {}; }

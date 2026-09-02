@@ -39779,7 +39779,22 @@ body .page,body .page.on{background:transparent!important}
       // shows up tagged week 8 or 15), so matching on it both drops real
       // preseason games AND leaks regular Week-1 lines into the slate. The
       // date-clustering step below isolates the exhibition week instead.
-      if (!isPre && feed.week != null && fg.some(g => g.week != null)) fg = fg.filter(g => g.week == null || g.week === feed.week);
+      if (!isPre && feed.week != null && fg.some(g => g.week != null)) {
+        // Keep this week's slate. But the `week` tag is wrong for division
+        // home-and-away pairs — the feed keyed both matchup orientations to one
+        // week, so the later meeting clobbered the earlier one, mistagging (and
+        // hiding) current-week games (SF@LAR tagged 14, GB@MIN 10, …). So also
+        // keep any game whose kickoff lands in THIS week's window, anchored to
+        // the earliest correctly-tagged game (Thu→Mon span, short of next Thu).
+        const wkT = fg.filter(g => g.week === feed.week && g.commence).map(g => Date.parse(g.commence)).filter(t => !isNaN(t));
+        const base = wkT.length ? Math.min(...wkT) : null;
+        const lo = base != null ? base - 1.5 * 864e5 : null, hi = base != null ? base + 5.5 * 864e5 : null;
+        fg = fg.filter(g => {
+          if (g.week == null || g.week === feed.week) return true;
+          if (lo != null && g.commence) { const t = Date.parse(g.commence); if (!isNaN(t) && t >= lo && t <= hi) return true; }
+          return false;
+        });
+      }
       // dedupe by matchup (feeds can repeat a game per book / per market)
       const seenMatch = new Set();
       fg = fg.filter(g => { const k = (g.away || '') + '@' + (g.home || ''); if (seenMatch.has(k)) return false; seenMatch.add(k); return true; });
