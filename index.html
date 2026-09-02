@@ -13423,6 +13423,7 @@ const VAULT_CHANGELOG = [
     items:[
       'My Picks is redesigned: a big win-loss record with your win rate versus break-even and units, then your results broken down by grade, over vs under, market and position, plus a cleaner list of every pick you’re tracking.',
       'New Vault Record tab shows the same breakdown for every prop Vault grades league-wide, settled against the real box score. It fills in as games are played, so you can see whether an A-grade really wins more than a C across thousands of picks.',
+      'Tap any breakdown row to drill in. Tap Rec Yds and the grade, over/under and position splits all narrow to Rec Yds; stack filters to ask things like “how do my A-grade unders do on receiving yards?”',
     ],
   },
   {
@@ -41966,16 +41967,23 @@ window.VaultPropModel = (function () {
   //     market / position, so the two records read against each other directly.
   // Units are per-pick at the active entry break-even (win = 1/BE−1, loss −1).
   let resultsTab = 'mine';   // 'mine' | 'vault'
+  // Drill-down filter: dimension → key, stackable across dimensions. Clicking a
+  // breakdown row toggles that facet; every group then recomputes inside it, so
+  // "Rec Yds by grade + side" is market:'Rec Yds' with the grade/side groups live.
+  let _trFilter = {};   // { market?, pos?, grade?, side? }
 
   // Live settled ledger (written by scripts/settle_bets.py each week). Null until
   // it lands / when empty in the offseason, so the Vault tab shows a clean empty
-  // state rather than erroring on a cold cache. Fetched once per session.
+  // state rather than erroring on a cold cache. Fetched once per session; the
+  // resolved value is cached too so filter toggles re-render without a spinner flash.
   const _LEDGER_BASE = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE)
     ? NFLVERSE_BASE : (location.hostname.endsWith('github.io') ? '' : '/data');
-  let _ledgerP = null;
+  let _ledgerP = null, _ledgerData = null, _ledgerDone = false;
   function loadLedger() {
     if (!_ledgerP) _ledgerP = fetch(_LEDGER_BASE + '/bet_results.json')
-      .then(r => (r.ok ? r.json() : null)).catch(() => null);
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { _ledgerData = j; _ledgerDone = true; return j; })
+      .catch(() => { _ledgerDone = true; return null; });
     return _ledgerP;
   }
 
@@ -41991,6 +41999,26 @@ window.VaultPropModel = (function () {
   };
   const _mkLabel = c => MK_LABELS[c] || c || '—';
   const _trEsc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  // Does a normalized row match every active drill-down filter? Keys match the
+  // display key each breakdown groups by (label / letter / Over-Under / pos).
+  function _trMatch(r) {
+    const f = _trFilter;
+    if (f.market && _mkLabel(r.market) !== f.market) return false;
+    if (f.pos && (r.pos || null) !== f.pos) return false;
+    if (f.grade && (r.grade || 'F') !== f.grade) return false;
+    if (f.side && (r.side === 'under' ? 'Under' : 'Over') !== f.side) return false;
+    return true;
+  }
+  const _TR_DIMLBL = { market: 'Market', pos: 'Position', grade: 'Grade', side: 'Side' };
+  function _trChips() {
+    const keys = Object.keys(_trFilter).filter(k => _trFilter[k] != null);
+    if (!keys.length) return '';
+    return '<div class="tr-filters"><span class="tr-flabel">Filtered to</span>'
+      + keys.map(k => '<button class="tr-chip" data-clear="' + k + '" title="Clear ' + _TR_DIMLBL[k] + ' filter">'
+        + _trEsc(_trFilter[k]) + ' <span>✕</span></button>').join('')
+      + (keys.length > 1 ? '<button class="tr-chip tr-chip-x" data-clear="*">Clear all</button>' : '')
+      + '</div>';
+  }
   const _trPct = v => v == null ? '—' : Math.round(v * 100) + '%';
   const _trU = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + 'u';
   const _trUC = v => v == null ? '' : v > 0 ? 'good' : v < 0 ? 'bad' : '';
@@ -42054,14 +42082,14 @@ window.VaultPropModel = (function () {
       + '<div class="tr-kpi"><div class="tr-kl">Units</div><div class="tr-kv ' + _trUC(a.units) + '">' + _trU(a.units) + '</div><div class="tr-kt">at your break-even</div></div>'
       + '</div></div>';
   }
-  function _trBars(title, rows, isGrade) {
+  function _trBars(title, rows, isGrade, dim) {
     if (!rows.length) return '';
     const body = rows.map(r => {
       const cls = _trUC(r.roi), w = Math.round(r.wr * 100);
       const lbl = isGrade
         ? '<span class="eb-grade ' + String(r.k).toLowerCase() + '">' + r.k + '</span>'
         : '<span class="tr-lbl" title="' + _trEsc(r.k) + '">' + _trEsc(r.k) + '</span>';
-      return '<div class="tr-row">'
+      return '<div class="tr-row" data-dim="' + dim + '" data-key="' + _trEsc(String(r.k)) + '" tabindex="0" role="button" title="Filter to ' + _trEsc(String(r.k)) + '">'
         + '<div class="tr-rlbl">' + lbl + '</div>'
         + '<div class="tr-rbar"><span class="tr-fill ' + cls + '" style="width:' + w + '%"></span></div>'
         + '<div class="tr-rwr ' + cls + '">' + _trPct(r.wr) + '</div>'
@@ -42072,13 +42100,18 @@ window.VaultPropModel = (function () {
       + '<div class="tr-rhead"><span></span><span></span><span>WIN%</span><span>W–L</span><span>UNITS</span></div>'
       + body + '</div>';
   }
+  // Groups for dimensions already filtered are hidden (a single-row group is
+  // noise; the chip carries that facet), so what's left answers the cross-cut —
+  // filter market:'Rec Yds' and the grade + side groups are Rec-Yds-only.
   function _trBreak(a) {
-    if (!a.n) return '';
-    return '<div class="tr-breaks">'
-      + _trBars('By grade', a.byGrade, true)
-      + _trBars('Over / Under', a.bySide)
-      + _trBars('By market', a.byMarket)
-      + _trBars('By position', a.byPos) + '</div>';
+    if (!a.n) return _trChips()
+      ? '<div class="tr-empty tr-empty-sm"><div class="tr-ek">No settled picks match</div>'
+        + '<div class="tr-et">Nothing settled under this filter yet. Clear it to see the full record.</div></div>'
+      : '';
+    const defs = [['grade', 'By grade', a.byGrade, true], ['side', 'Over / Under', a.bySide, false],
+                  ['market', 'By market', a.byMarket, false], ['pos', 'By position', a.byPos, false]];
+    const groups = defs.filter(d => !_trFilter[d[0]]).map(d => _trBars(d[1], d[2], d[3], d[0])).join('');
+    return '<div class="tr-breaks">' + groups + '</div>';
   }
 
   function renderResults() {
@@ -42092,17 +42125,27 @@ window.VaultPropModel = (function () {
       inner.querySelectorAll('.mp-del').forEach(b => b.onclick = () => {
         picksSave(picksLoad().filter(p => p.k !== b.dataset.k)); renderResults();
       });
+      const toggle = (dim, key) => { if (_trFilter[dim] === key) delete _trFilter[dim]; else _trFilter[dim] = key; renderResults(); };
+      inner.querySelectorAll('.tr-row[data-dim]').forEach(row => {
+        row.onclick = () => toggle(row.dataset.dim, row.dataset.key);
+        row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(row.dataset.dim, row.dataset.key); } };
+      });
+      inner.querySelectorAll('.tr-chip[data-clear]').forEach(c => c.onclick = () => {
+        if (c.dataset.clear === '*') _trFilter = {}; else delete _trFilter[c.dataset.clear];
+        renderResults();
+      });
     };
     if (resultsTab === 'vault') return _drawVault(wire);
     return _drawMine(wire);
   }
 
   function _drawMine(wire) {
-    const rows = _pkMine();
+    const all = _pkMine();
     const draw = () => {
+      const rows = all.filter(_trMatch);
       const a = _pkAgg(rows);
       let body;
-      if (!rows.length) {
+      if (!all.length) {
         body = '<div class="tr-empty"><div class="tr-ek">No picks logged</div>'
           + '<div class="tr-et">Open a prop on the board and hit “＋ Track pick”. Vault settles it against the real box score and shows whether your A-grades actually cash, then breaks your record down by grade, side, market and position.</div></div>';
       } else {
@@ -42115,10 +42158,11 @@ window.VaultPropModel = (function () {
             + '<div class="tr-pk-r">' + (p.actual != null ? '<span class="tr-pk-act">' + p.actual + '</span>' : '') + res
             + '<button class="mp-del" data-k="' + p.k + '" title="Remove">✕</button></div></div>';
         }).join('');
-        body = _trHero(a) + _trBreak(a)
-          + '<div class="tr-listwrap"><div class="tr-gt">Your picks</div>' + list + '</div>';
+        body = _trHero(a) + _trChips() + _trBreak(a)
+          + '<div class="tr-listwrap"><div class="tr-gt">Your picks' + (_trChips() ? ' <span class="tr-gtn">· filtered</span>' : '') + '</div>'
+          + (list || '<div class="tr-et" style="padding:6px 0">No picks match this filter.</div>') + '</div>';
       }
-      const sub = rows.length ? (a.n + ' settled · ' + a.pend + ' pending') : 'log picks from the board';
+      const sub = all.length ? (a.n + ' settled · ' + a.pend + ' pending') : 'log picks from the board';
       _pvInner().innerHTML = _trShell(sub, body);
       wire();
     };
@@ -42126,7 +42170,7 @@ window.VaultPropModel = (function () {
     // Settle any played-but-unsettled picks, then re-render ONCE — but only if
     // settlement actually changed something, or re-rendering would re-enter this
     // and reschedule settlement forever (a pick that never settles keeps looping).
-    if (rows.some(r => !r.res)) {
+    if (all.some(r => !r.res)) {
       const stored = picksLoad();
       if (stored.some(p => !p.result)) {
         const before = stored.filter(p => p.result).length;
@@ -42139,24 +42183,28 @@ window.VaultPropModel = (function () {
   }
 
   function _drawVault(wire) {
-    _pvInner().innerHTML = _trShell('loading Vault results…', '<div class="tr-load"><span class="spinner md"></span></div>');
-    wire();
-    loadLedger().then(ledger => {
+    const paint = ledger => {
       if (propsView !== 'results' || resultsTab !== 'vault') return;
-      const a = _pkAgg(_pkVault(ledger));
+      const all = _pkVault(ledger);
+      const total = all.filter(r => r.res === 'W' || r.res === 'L').length;   // unfiltered settled
       let sub, body;
-      if (!a.n) {
+      if (!total) {
         sub = 'no settled results yet';
         body = '<div class="tr-empty"><div class="tr-ek">No settled Vault picks yet</div>'
           + '<div class="tr-et">This fills in automatically once games are played. Every prop Vault grades league-wide is settled against the real box score, then shown here by grade, side, market and position. Thousands of picks, so an A-grade’s win rate is a real read, not a coin flip.</div></div>';
       } else {
-        sub = a.n.toLocaleString() + ' graded picks settled';
-        body = _trHero(a, 'every Vault-graded prop') + _trBreak(a)
-          + '<div class="tr-note">Settled from real closing lines vs the box score. Grades are Vault’s at flag time; units at your break-even.</div>';
+        const a = _pkAgg(all.filter(_trMatch));
+        sub = a.n.toLocaleString() + ' graded picks settled' + (_trChips() ? ' · filtered' : '');
+        body = _trHero(a, _trChips() ? 'filtered view' : 'every Vault-graded prop') + _trChips() + _trBreak(a)
+          + '<div class="tr-note">Settled from real closing lines vs the box score. Grades are Vault’s at flag time; units at your break-even. Tap any row to filter.</div>';
       }
       _pvInner().innerHTML = _trShell(sub, body);
       wire();
-    });
+    };
+    if (_ledgerDone) { paint(_ledgerData); return; }   // cached → no spinner flash
+    _pvInner().innerHTML = _trShell('loading Vault results…', '<div class="tr-load"><span class="spinner md"></span></div>');
+    wire();
+    loadLedger().then(paint);
   }
 
   // Filter a chronological game log (oldest→newest) to a window. Defaults to the
@@ -43158,7 +43206,18 @@ window.VaultPropModel = (function () {
 #page-betting .tr-rhead,#page-betting .tr-row{display:grid;grid-template-columns:112px 1fr 44px 46px 52px;align-items:center;gap:9px}
 #page-betting .tr-rhead{padding-bottom:6px}
 #page-betting .tr-rhead span{font-family:var(--bt-mono);font-size:8px;letter-spacing:.05em;color:var(--bt-muted);text-align:right}
-#page-betting .tr-row{padding:5px 0}
+#page-betting .tr-row{padding:5px 6px;margin:0 -6px;border-radius:6px;cursor:pointer;transition:background var(--dur-press,120ms) ease}
+#page-betting .tr-row:hover{background:var(--bt-s2)}
+#page-betting .tr-row:hover .tr-lbl{color:var(--bt-accent2)}
+#page-betting .tr-row:focus-visible{outline:2px solid var(--bt-accent2);outline-offset:-2px}
+#page-betting .tr-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bt-border)}
+#page-betting .tr-flabel{font-family:var(--bt-mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .tr-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--bt-mono);font-size:11px;font-weight:700;color:var(--bt-text);background:color-mix(in srgb,var(--bt-accent2) 14%,transparent);border:1px solid color-mix(in srgb,var(--bt-accent2) 30%,transparent);border-radius:9999px;padding:4px 10px;cursor:pointer}
+#page-betting .tr-chip span{font-size:10px;opacity:.7}
+#page-betting .tr-chip:hover{background:color-mix(in srgb,var(--bt-accent2) 22%,transparent)}
+#page-betting .tr-chip-x{color:var(--bt-muted);background:none;border-color:var(--bt-border2)}
+#page-betting .tr-gtn{color:var(--bt-accent2);font-weight:700}
+#page-betting .tr-empty-sm{padding:26px 20px;grid-column:1/-1}
 #page-betting .tr-rlbl{display:flex;min-width:0}
 #page-betting .tr-lbl{font-size:12px;font-weight:600;color:var(--bt-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #page-betting .tr-rbar{height:6px;border-radius:3px;background:var(--bt-s3);overflow:hidden}
