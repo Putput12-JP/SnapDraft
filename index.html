@@ -40973,6 +40973,8 @@ window.VaultPropModel = (function () {
 #page-betting .bx-vstack{display:inline-flex;flex-direction:column;align-items:stretch;gap:9px}
 #page-betting .bx-vltag{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:800;letter-spacing:.08em;color:var(--on-primary);background:var(--bt-accent2);border-radius:7px;padding:6px 15px;text-align:center}
 #page-betting .bx-vcell .bx-foot-btn{font-size:var(--t-nano);margin-top:3px}
+/* Full-width Compare-books bar at the very bottom of the card. */
+#page-betting .bx-cmpbar{display:flex;justify-content:center;padding:8px 16px;border-top:1px solid var(--bt-border);background:var(--bt-s2)}
 #page-betting .bx-track{font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;color:var(--bt-muted);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:7px;padding:5px 10px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
 #page-betting .bx-track:hover{color:var(--bt-text);border-color:var(--bt-border3)}
 #page-betting .bx-track.on{color:var(--bt-gold);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
@@ -41477,12 +41479,13 @@ window.VaultPropModel = (function () {
         // Market number lives in the columns above, so the footer shows only
         // Vault's line (tinted where it diverges enough to be a real lean) plus
         // any move — no redundant "mkt …" row.
-        // Compare books lives in the far-right (moneyline) cell — the label cell
-        // carries only the VAULT LINE tag; extra is appended into a cell's body.
-        const cell = (vl, lean, extra) => '<div class="bx-vcell"><div class="vl' + (lean ? ' lean' : '') + '">' + vl + '</div>' + (extra || '') + '</div>';
+        // Each projection cell is just Vault's value (tinted on a real lean) —
+        // nothing else crowds it. Compare books gets its own full-width bar at
+        // the very bottom of the card so it never pushes the projection up.
+        const cell = (vl, lean) => '<div class="bx-vcell"><div class="vl' + (lean ? ' lean' : '') + '">' + vl + '</div></div>';
         const spCell = cell(g.home + ' ' + sline(gp.homeSpread), mkSp != null && Math.abs(gp.homeSpread - mkSp) >= 1);
         const totCell = cell('' + gp.total, mkT != null && Math.abs(gp.total - mkT) >= 1.5);
-        const mlCell = cell(g.home + ' ' + gp.homeWinPct + '%', impH != null && Math.abs(gp.homeWinPct - impH) >= 6, cmpBtn);
+        const mlCell = cell(g.home + ' ' + gp.homeWinPct + '%', impH != null && Math.abs(gp.homeWinPct - impH) >= 6);
         // Track control: only the game's hardest lean (Vault's pushed best bet)
         // is trackable; it logs to Track Record. No lean past the bar → no button.
         const lean = bestLean(g, gp); _trackMap[key] = { g, lean };
@@ -41491,7 +41494,8 @@ window.VaultPropModel = (function () {
           trackBtn = '<button class="bx-track' + (tracked ? ' on' : '') + '" data-track="' + key + '" title="' + (tracked ? 'Tracking this pick in Track Record' : 'Track Vault’s best bet — ' + lean.label) + '">' + (tracked ? '★ Tracking' : '☆ ' + lean.label) + '</button>'; }
         foot = '<div class="bx-gfoot">'
           + '<div class="bx-vhead"><div class="bx-vstack"><span class="bx-vltag" title="' + vTitle + '">VAULT LINE</span>' + trackBtn + '</div></div>'
-          + '<div class="bx-vproj">' + spCell + totCell + mlCell + '</div></div>';
+          + '<div class="bx-vproj">' + spCell + totCell + mlCell + '</div></div>'
+          + '<div class="bx-cmpbar">' + cmpBtn + '</div>';
       } else {
         let mv = '';
         if (_lineHist) { const items = [['spread', 'Spread'], ['total', 'Total'], ['ml', 'ML']].map(([m, l]) => { const mt = moveTag(key, m); return mt ? '<span class="bx-mvi">' + l + ' <b>' + mt.from + '→' + mt.to + '</b> <span class="gb-mv ' + mt.cls + '">' + mt.tag + '</span></span>' : ''; }).filter(Boolean).join(''); if (items) mv = '<span class="bx-mvchips">' + items + '</span>'; }
