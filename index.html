@@ -13419,6 +13419,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-02T14:00', tag:'New', title:'Track Record: does the grade actually win?',
+    items:[
+      'My Picks is redesigned: a big win-loss record with your win rate versus break-even and units, then your results broken down by grade, over vs under, market and position, plus a cleaner list of every pick you’re tracking.',
+      'New Vault Record tab shows the same breakdown for every prop Vault grades league-wide, settled against the real box score. It fills in as games are played, so you can see whether an A-grade really wins more than a C across thousands of picks.',
+    ],
+  },
+  {
     ts:'2026-09-02T11:00', tag:'Improved', title:'A cleaner, faster Betting board',
     items:[
       'Game Markets is now a card per game — spread, total and moneyline side by side, with the better-value side flagged and Vault’s own projected line shown right on the card. No more switching between markets to see them.',
@@ -41950,61 +41957,206 @@ window.VaultPropModel = (function () {
     ebFillVaultCol(rows);  // async Vault-edge (own projection) into its column
   }
 
-  // ── My Picks / results dashboard ─────────────────────────────────────────
-  // The payoff of the whole grade: does an A actually win, on YOUR real picks?
-  // Auto-settles played games vs nflverse actuals, then breaks record + units
-  // down by grade (units at the active entry's break-even: win = 1/BE−1, loss −1).
+  // ── Track Record dashboard ───────────────────────────────────────────────
+  // Two lenses on the same question — "does the grade actually win?":
+  //   • My Picks   — YOUR logged picks, auto-settled vs nflverse actuals.
+  //   • Vault Record — every prop Vault graded league-wide, settled by the
+  //     weekly harness (data/bet_results.json), so the sample is thousands of
+  //     picks not your handful. Both aggregate the SAME way, by grade / side /
+  //     market / position, so the two records read against each other directly.
+  // Units are per-pick at the active entry break-even (win = 1/BE−1, loss −1).
+  let resultsTab = 'mine';   // 'mine' | 'vault'
+
+  // Live settled ledger (written by scripts/settle_bets.py each week). Null until
+  // it lands / when empty in the offseason, so the Vault tab shows a clean empty
+  // state rather than erroring on a cold cache. Fetched once per session.
+  const _LEDGER_BASE = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE)
+    ? NFLVERSE_BASE : (location.hostname.endsWith('github.io') ? '' : '/data');
+  let _ledgerP = null;
+  function loadLedger() {
+    if (!_ledgerP) _ledgerP = fetch(_LEDGER_BASE + '/bet_results.json')
+      .then(r => (r.ok ? r.json() : null)).catch(() => null);
+    return _ledgerP;
+  }
+
+  // Market code → label. Self-contained (MARKETS lives in the props-data IIFE, not
+  // this board one); the ledger only carries codes, so map them here.
+  const MK_LABELS = {
+    pass_yd: 'Pass Yds', pass_td: 'Pass TD', pass_cmp: 'Pass Completions', pass_att: 'Pass Attempts',
+    pass_int: 'Interceptions', pass_rush_yd: 'Pass + Rush Yds', long_pass: 'Longest Completion',
+    rush_yd: 'Rush Yds', rush_td: 'Rush TD', rush_att: 'Rush Attempts', long_rush: 'Longest Rush',
+    rec: 'Receptions', rec_yd: 'Rec Yds', rec_td: 'Rec TD', rush_rec_yd: 'Rush + Rec Yds',
+    long_rec: 'Longest Reception', anytime_td: 'Anytime TD', tackles: 'Tackles + Ast',
+    sacks: 'Sacks', kick_pts: 'Kicking Points',
+  };
+  const _mkLabel = c => MK_LABELS[c] || c || '—';
+  const _trEsc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const _trPct = v => v == null ? '—' : Math.round(v * 100) + '%';
+  const _trU = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + 'u';
+  const _trUC = v => v == null ? '' : v > 0 ? 'good' : v < 0 ? 'bad' : '';
+
+  // Normalize either source to { name,pos,market,marketLabel,side,grade,line,
+  // week,actual,res } where res ∈ 'W'|'L'|'P'(push)|null(pending).
+  function _pkMine() {
+    return picksLoad().map(p => ({
+      name: p.name, pos: p.pos, market: p.market, marketLabel: p.marketLabel || _mkLabel(p.market),
+      side: p.side, grade: p.grade, line: p.line, week: p.week, actual: p.actual,
+      res: p.result === 'W' ? 'W' : p.result === 'L' ? 'L' : null, k: p.k, ts: p.ts,
+    }));
+  }
+  function _pkVault(ledger) {
+    return ((ledger && ledger.props) || []).map(p => ({
+      name: p.name, pos: p.pos, market: p.market, marketLabel: _mkLabel(p.market),
+      side: p.side, grade: p.grade, line: p.line_close != null ? p.line_close : p.line_open,
+      week: p.week, season: p.season, actual: p.actual,
+      res: p.push ? 'P' : (p.won_close === 1 ? 'W' : p.won_close === 0 ? 'L' : null),
+    }));
+  }
+
+  // Record + break-even units, then the four splits the record breaks down by.
+  function _pkAgg(rows) {
+    const roi = (w, n) => n ? (w * (1 / betBE - 1) - (n - w)) / n : null;
+    const settled = rows.filter(r => r.res === 'W' || r.res === 'L');
+    const W = settled.filter(r => r.res === 'W').length, L = settled.length - W;
+    const group = (keyFn, order) => {
+      const m = {};
+      settled.forEach(r => { const k = keyFn(r); if (k == null) return; (m[k] = m[k] || []).push(r); });
+      const keys = (order || Object.keys(m).sort()).filter(k => m[k]);
+      return keys.map(k => { const s = m[k], w = s.filter(x => x.res === 'W').length;
+        return { k, n: s.length, w, l: s.length - w, wr: w / s.length, roi: roi(w, s.length) }; });
+    };
+    return {
+      W, L, push: rows.filter(r => r.res === 'P').length, pend: rows.filter(r => !r.res).length,
+      n: settled.length, wr: settled.length ? W / settled.length : null, units: roi(W, settled.length),
+      byGrade: group(r => r.grade || 'F', ['A', 'B', 'C', 'D', 'F']),
+      bySide: group(r => r.side === 'under' ? 'Under' : 'Over', ['Over', 'Under']),
+      byMarket: group(r => _mkLabel(r.market)).sort((a, b) => b.n - a.n),
+      byPos: group(r => r.pos || null, ['QB', 'RB', 'WR', 'TE']),
+    };
+  }
+
+  function _trShell(subtitle, body) {
+    const tabs = '<span class="bt-seg tr-tabs">'
+      + '<button data-rt="mine" class="' + (resultsTab === 'mine' ? 'on' : '') + '">My Picks</button>'
+      + '<button data-rt="vault" class="' + (resultsTab === 'vault' ? 'on' : '') + '">Vault Record</button></span>';
+    return '<div class="eb-wrap"><div class="eb-board">'
+      + '<div class="eb-bh"><div><div class="eb-t">Track Record</div><div class="eb-cn">' + subtitle + '</div></div>'
+      + '<button class="eb-mypicks" id="eb-backboard">← Board</button></div>'
+      + '<div class="tr-tabbar">' + tabs + '</div>' + body + '</div></div>';
+  }
+  function _trHero(a, ctx) {
+    return '<div class="tr-hero">'
+      + '<div class="tr-h-main"><div class="tr-h-rec">' + a.W + '–' + a.L + (a.push ? '–' + a.push : '') + '</div>'
+      + '<div class="tr-h-sub">' + (a.n ? a.n.toLocaleString() + ' settled' : 'nothing settled yet')
+      + (a.pend ? ' · ' + a.pend.toLocaleString() + ' pending' : '') + (ctx ? ' · ' + ctx : '') + '</div></div>'
+      + '<div class="tr-h-kpis">'
+      + '<div class="tr-kpi"><div class="tr-kl">Win rate</div><div class="tr-kv ' + (a.wr != null && a.wr >= betBE ? 'good' : '') + '">' + _trPct(a.wr) + '</div><div class="tr-kt">need ' + Math.round(betBE * 100) + '% to profit</div></div>'
+      + '<div class="tr-kpi"><div class="tr-kl">Units</div><div class="tr-kv ' + _trUC(a.units) + '">' + _trU(a.units) + '</div><div class="tr-kt">at your break-even</div></div>'
+      + '</div></div>';
+  }
+  function _trBars(title, rows, isGrade) {
+    if (!rows.length) return '';
+    const body = rows.map(r => {
+      const cls = _trUC(r.roi), w = Math.round(r.wr * 100);
+      const lbl = isGrade
+        ? '<span class="eb-grade ' + String(r.k).toLowerCase() + '">' + r.k + '</span>'
+        : '<span class="tr-lbl" title="' + _trEsc(r.k) + '">' + _trEsc(r.k) + '</span>';
+      return '<div class="tr-row">'
+        + '<div class="tr-rlbl">' + lbl + '</div>'
+        + '<div class="tr-rbar"><span class="tr-fill ' + cls + '" style="width:' + w + '%"></span></div>'
+        + '<div class="tr-rwr ' + cls + '">' + _trPct(r.wr) + '</div>'
+        + '<div class="tr-rrec">' + r.w + '–' + r.l + '</div>'
+        + '<div class="tr-rroi ' + cls + '">' + _trU(r.roi) + '</div></div>';
+    }).join('');
+    return '<div class="tr-group"><div class="tr-gt">' + title + '</div>'
+      + '<div class="tr-rhead"><span></span><span></span><span>WIN%</span><span>W–L</span><span>UNITS</span></div>'
+      + body + '</div>';
+  }
+  function _trBreak(a) {
+    if (!a.n) return '';
+    return '<div class="tr-breaks">'
+      + _trBars('By grade', a.byGrade, true)
+      + _trBars('Over / Under', a.bySide)
+      + _trBars('By market', a.byMarket)
+      + _trBars('By position', a.byPos) + '</div>';
+  }
+
   function renderResults() {
-    const picks = picksLoad();
-    const G = ['A', 'B', 'C', 'D', 'F'];
-    const draw = () => {
-      const settled = picks.filter(p => p.result);
-      const pend = picks.length - settled.length;
-      const W = settled.filter(p => p.result === 'W').length, L = settled.length - W;
-      const wr = settled.length ? W / settled.length : null;
-      const roi = (w, n) => n ? (w * (1 / betBE - 1) - (n - w)) / n : null;   // units per pick at BE
-      const overall = roi(W, settled.length);
-      const byG = G.map(g => {
-        const s = settled.filter(p => (p.grade || 'F') === g);
-        const w = s.filter(p => p.result === 'W').length;
-        return { g, n: s.length, w, wr: s.length ? w / s.length : null, roi: roi(w, s.length) };
-      });
-      const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
-      const uSign = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + 'u';
-      const uCls = v => v == null ? '' : v > 0 ? 'good' : v < 0 ? 'bad' : '';
-      const rowsH = picks.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).map(p => {
-        const res = p.result ? '<span class="mp-res ' + (p.result === 'W' ? 'w' : 'l') + '">' + p.result + '</span>'
-          : '<span class="mp-res pend">pending</span>';
-        const gl = p.grade ? '<span class="eb-grade ' + p.grade.toLowerCase() + '"><span class="eb-gside">' + (p.side === 'over' ? 'O' : 'U') + '</span>' + p.grade + '</span>' : '—';
-        return '<tr><td>' + p.name + ' <span class="mut">' + (p.marketLabel || p.market) + '</span></td>'
-          + '<td>' + (p.side === 'over' ? 'Over' : 'Under') + ' ' + p.line + '</td>'
-          + '<td class="c">' + gl + '</td>'
-          + '<td class="c">Wk ' + (p.week || '?') + '</td>'
-          + '<td class="c">' + (p.actual != null ? p.actual : '') + ' ' + res + '</td>'
-          + '<td class="c"><button class="mp-del" data-k="' + p.k + '" title="Remove">✕</button></td></tr>';
-      }).join('');
-      _pvInner().innerHTML = '<div class="eb-wrap"><div class="eb-board">'
-        + '<div class="eb-bh"><div><div class="eb-t">My Picks · results</div><div class="eb-cn">'
-        + (picks.length ? settled.length + ' settled · ' + pend + ' pending' : 'no picks logged yet') + '</div></div>'
-        + '<button class="eb-mypicks" id="eb-backboard">← Board</button></div>'
-        + (picks.length ? (
-          '<div class="mp-cards">'
-          + '<div class="mp-card"><div class="tl">Record</div><div class="tv">' + W + '–' + L + (pend ? ' <span class="mut">(' + pend + ' pend)</span>' : '') + '</div></div>'
-          + '<div class="mp-card"><div class="tl">Win rate</div><div class="tv ' + (wr != null && wr >= betBE ? 'good' : '') + '">' + pct(wr) + '</div><div class="ts">need ' + Math.round(betBE * 100) + '% to profit</div></div>'
-          + '<div class="mp-card"><div class="tl">Units</div><div class="tv ' + uCls(overall) + '">' + uSign(overall) + '</div><div class="ts">at your entry break-even</div></div>'
-          + '</div>'
-          + '<div class="eb-tscroll"><table class="eb-table mp-grade"><thead><tr><th>Grade</th><th class="r">Picks</th><th class="r">Win%</th><th class="r">Units</th></tr></thead><tbody>'
-          + byG.map(b => '<tr><td><span class="eb-grade ' + b.g.toLowerCase() + '">' + b.g + '</span></td><td class="r">' + b.n + '</td><td class="r">' + pct(b.wr) + '</td><td class="r ' + uCls(b.roi) + '">' + uSign(b.roi) + '</td></tr>').join('')
-          + '</tbody></table></div>'
-          + '<div class="eb-tscroll"><table class="eb-table mp-list"><thead><tr><th>Pick</th><th>Side/Line</th><th class="c">Grade</th><th class="c">Week</th><th class="c">Result</th><th></th></tr></thead><tbody>' + rowsH + '</tbody></table></div>'
-        ) : '<div class="eb-feat eb-empty"><div class="eb-emk">No picks logged</div><div class="eb-emt">Open a prop and hit “＋ Track pick” to log it. Vault settles it against the real result and shows whether your A-grades actually cash.</div></div>')
-        + '</div></div>';
-      const back = _pvInner().querySelector('#eb-backboard');
+    const wire = () => {
+      const inner = _pvInner();
+      const back = inner.querySelector('#eb-backboard');
       if (back) back.onclick = () => { propsView = 'board'; renderPropsBoard(); };
-      _pvInner().querySelectorAll('.mp-del').forEach(b => b.onclick = () => { picksSave(picksLoad().filter(p => p.k !== b.dataset.k)); renderResults(); });
+      inner.querySelectorAll('.tr-tabs [data-rt]').forEach(b => b.onclick = () => {
+        if (resultsTab === b.dataset.rt) return; resultsTab = b.dataset.rt; renderResults();
+      });
+      inner.querySelectorAll('.mp-del').forEach(b => b.onclick = () => {
+        picksSave(picksLoad().filter(p => p.k !== b.dataset.k)); renderResults();
+      });
+    };
+    if (resultsTab === 'vault') return _drawVault(wire);
+    return _drawMine(wire);
+  }
+
+  function _drawMine(wire) {
+    const rows = _pkMine();
+    const draw = () => {
+      const a = _pkAgg(rows);
+      let body;
+      if (!rows.length) {
+        body = '<div class="tr-empty"><div class="tr-ek">No picks logged</div>'
+          + '<div class="tr-et">Open a prop on the board and hit “＋ Track pick”. Vault settles it against the real box score and shows whether your A-grades actually cash, then breaks your record down by grade, side, market and position.</div></div>';
+      } else {
+        const list = rows.slice().sort((x, y) => (y.ts || 0) - (x.ts || 0)).map(p => {
+          const res = p.res === 'W' ? '<span class="mp-res w">WON</span>' : p.res === 'L' ? '<span class="mp-res l">LOST</span>' : '<span class="mp-res pend">pending</span>';
+          const gl = p.grade ? '<span class="eb-grade ' + p.grade.toLowerCase() + '"><span class="eb-gside">' + (p.side === 'over' ? 'O' : 'U') + '</span>' + p.grade + '</span>' : '<span class="tr-nog">—</span>';
+          return '<div class="tr-pk ' + (p.res ? p.res.toLowerCase() : 'pend') + '">'
+            + '<div class="tr-pk-l">' + gl + '<div class="tr-pk-nm"><b>' + p.name + '</b>'
+            + '<span>' + (p.side === 'over' ? 'Over' : 'Under') + ' ' + p.line + ' ' + p.marketLabel + ' · Wk ' + (p.week || '?') + '</span></div></div>'
+            + '<div class="tr-pk-r">' + (p.actual != null ? '<span class="tr-pk-act">' + p.actual + '</span>' : '') + res
+            + '<button class="mp-del" data-k="' + p.k + '" title="Remove">✕</button></div></div>';
+        }).join('');
+        body = _trHero(a) + _trBreak(a)
+          + '<div class="tr-listwrap"><div class="tr-gt">Your picks</div>' + list + '</div>';
+      }
+      const sub = rows.length ? (a.n + ' settled · ' + a.pend + ' pending') : 'log picks from the board';
+      _pvInner().innerHTML = _trShell(sub, body);
+      wire();
     };
     draw();
-    if (picks.some(p => !p.result)) settlePicks(picks).then(() => { if (propsView === 'results') draw(); });
+    // Settle any played-but-unsettled picks, then re-render ONCE — but only if
+    // settlement actually changed something, or re-rendering would re-enter this
+    // and reschedule settlement forever (a pick that never settles keeps looping).
+    if (rows.some(r => !r.res)) {
+      const stored = picksLoad();
+      if (stored.some(p => !p.result)) {
+        const before = stored.filter(p => p.result).length;
+        settlePicks(stored).then(() => {
+          if (propsView !== 'results' || resultsTab !== 'mine') return;
+          if (picksLoad().filter(p => p.result).length > before) renderResults();
+        });
+      }
+    }
+  }
+
+  function _drawVault(wire) {
+    _pvInner().innerHTML = _trShell('loading Vault results…', '<div class="tr-load"><span class="spinner md"></span></div>');
+    wire();
+    loadLedger().then(ledger => {
+      if (propsView !== 'results' || resultsTab !== 'vault') return;
+      const a = _pkAgg(_pkVault(ledger));
+      let sub, body;
+      if (!a.n) {
+        sub = 'no settled results yet';
+        body = '<div class="tr-empty"><div class="tr-ek">No settled Vault picks yet</div>'
+          + '<div class="tr-et">This fills in automatically once games are played. Every prop Vault grades league-wide is settled against the real box score, then shown here by grade, side, market and position. Thousands of picks, so an A-grade’s win rate is a real read, not a coin flip.</div></div>';
+      } else {
+        sub = a.n.toLocaleString() + ' graded picks settled';
+        body = _trHero(a, 'every Vault-graded prop') + _trBreak(a)
+          + '<div class="tr-note">Settled from real closing lines vs the box score. Grades are Vault’s at flag time; units at your break-even.</div>';
+      }
+      _pvInner().innerHTML = _trShell(sub, body);
+      wire();
+    });
   }
 
   // Filter a chronological game log (oldest→newest) to a window. Defaults to the
@@ -42988,6 +43140,56 @@ window.VaultPropModel = (function () {
 #page-betting .mp-res.l{background:color-mix(in srgb,var(--bt-red,#e23a4e) 16%,transparent);color:var(--bt-red,#ff5a6e)}
 #page-betting .mp-res.pend{color:var(--bt-muted)}
 #page-betting .mp-del{background:none;border:none;color:var(--bt-muted);cursor:pointer;font-size:13px}#page-betting .mp-del:hover{color:var(--bt-red,#ff5a6e)}
+/* ── Track Record (My Picks + Vault Record) ── */
+#page-betting .tr-tabbar{padding:12px 16px 0}
+#page-betting .tr-tabs{display:inline-flex}
+#page-betting .tr-hero{display:flex;flex-wrap:wrap;align-items:center;gap:20px 28px;padding:18px 16px;border-bottom:1px solid var(--bt-border)}
+#page-betting .tr-h-main{flex:1 1 auto;min-width:140px}
+#page-betting .tr-h-rec{font-size:38px;font-weight:800;letter-spacing:-.04em;line-height:1}
+#page-betting .tr-h-sub{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted);margin-top:7px;letter-spacing:.03em}
+#page-betting .tr-h-kpis{display:flex;gap:26px}
+#page-betting .tr-kl{font-family:var(--bt-mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--bt-muted)}
+#page-betting .tr-kv{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:3px;line-height:1}
+#page-betting .tr-kv.good{color:var(--bt-green)}#page-betting .tr-kv.bad{color:var(--bt-red,#ff5a6e)}
+#page-betting .tr-kt{font-family:var(--bt-mono);font-size:9px;color:var(--bt-muted);margin-top:3px}
+#page-betting .tr-breaks{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bt-border)}
+#page-betting .tr-group{background:var(--bt-s1);padding:14px 16px}
+#page-betting .tr-gt{font-family:var(--bt-mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:8px}
+#page-betting .tr-rhead,#page-betting .tr-row{display:grid;grid-template-columns:112px 1fr 44px 46px 52px;align-items:center;gap:9px}
+#page-betting .tr-rhead{padding-bottom:6px}
+#page-betting .tr-rhead span{font-family:var(--bt-mono);font-size:8px;letter-spacing:.05em;color:var(--bt-muted);text-align:right}
+#page-betting .tr-row{padding:5px 0}
+#page-betting .tr-rlbl{display:flex;min-width:0}
+#page-betting .tr-lbl{font-size:12px;font-weight:600;color:var(--bt-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .tr-rbar{height:6px;border-radius:3px;background:var(--bt-s3);overflow:hidden}
+#page-betting .tr-fill{display:block;height:100%;border-radius:3px;background:var(--bt-muted);transition:width var(--dur-rail,400ms) var(--ease-rail,cubic-bezier(.4,0,.2,1))}
+#page-betting .tr-fill.good{background:var(--bt-green)}#page-betting .tr-fill.bad{background:var(--bt-red,#ff5a6e)}
+#page-betting .tr-rwr{font-family:var(--bt-mono);font-size:12px;font-weight:700;text-align:right;color:var(--bt-text)}
+#page-betting .tr-rwr.good{color:var(--bt-green)}#page-betting .tr-rwr.bad{color:var(--bt-red,#ff5a6e)}
+#page-betting .tr-rrec{font-family:var(--bt-mono);font-size:11px;color:var(--bt-muted);text-align:right}
+#page-betting .tr-rroi{font-family:var(--bt-mono);font-size:11px;text-align:right;color:var(--bt-muted)}
+#page-betting .tr-rroi.good{color:var(--bt-green)}#page-betting .tr-rroi.bad{color:var(--bt-red,#ff5a6e)}
+#page-betting .tr-listwrap{padding:14px 16px}
+#page-betting .tr-pk{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--bt-border)}
+#page-betting .tr-pk:last-child{border-bottom:none}
+#page-betting .tr-pk-l{display:flex;align-items:center;gap:11px;min-width:0}
+#page-betting .tr-nog{color:var(--bt-muted);width:28px;text-align:center;flex-shrink:0}
+#page-betting .tr-pk-nm{display:flex;flex-direction:column;min-width:0;gap:2px}
+#page-betting .tr-pk-nm b{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-betting .tr-pk-nm span{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted)}
+#page-betting .tr-pk-r{display:flex;align-items:center;gap:11px;flex-shrink:0}
+#page-betting .tr-pk-act{font-family:var(--bt-mono);font-size:12px;font-weight:700;color:var(--bt-text)}
+#page-betting .tr-pk.pend{opacity:.72}
+#page-betting .tr-note{font-family:var(--bt-mono);font-size:9.5px;line-height:1.5;color:var(--bt-muted);padding:11px 16px;border-top:1px solid var(--bt-border)}
+#page-betting .tr-empty{padding:44px 24px;text-align:center}
+#page-betting .tr-ek{font-size:15px;font-weight:700;margin-bottom:7px}
+#page-betting .tr-et{font-size:12.5px;color:var(--bt-muted);line-height:1.55;max-width:440px;margin:0 auto}
+#page-betting .tr-load{display:flex;justify-content:center;padding:56px}
+@media(max-width:640px){
+  #page-betting .tr-breaks{grid-template-columns:1fr}
+  #page-betting .tr-rhead,#page-betting .tr-row{grid-template-columns:92px 1fr 40px 42px 48px;gap:7px}
+  #page-betting .tr-h-rec{font-size:32px}
+}
 #page-betting .eb-wbtn{font-family:var(--font-sans);font-size:12.5px;font-weight:600;background:var(--bt-s3);color:var(--bt-text2);border:1px solid var(--bt-border2);border-radius:10px;padding:8px 14px;cursor:pointer}
 #page-betting .eb-wbtn.on{background:color-mix(in srgb,var(--bt-gold) 12%,transparent);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);color:var(--bt-gold)}
 #page-betting .eb-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--bt-border);border-bottom:1px solid var(--bt-border)}
