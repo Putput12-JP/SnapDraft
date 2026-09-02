@@ -13419,6 +13419,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-02T21:00', tag:'Fixed', title:'Player Props board no longer goes empty when a book feed comes back thin',
+    items:[
+      'Player Props could suddenly show almost nothing — especially on the default Passing Yards view — when the odds feed briefly returned only a handful of markets.',
+      'A partial refresh can no longer wipe the board: new lines are now merged on top of the ones already there, so passing, rushing and every other market stay put and just update in place.',
+    ],
+  },
+  {
     ts:'2026-09-02T19:00', tag:'New', title:'Track Vault’s best bet on any game',
     items:[
       'Every game card now has a Track button on Vault’s best bet — the one market (spread, total or moneyline) where Vault’s projection leans hardest against the number.',

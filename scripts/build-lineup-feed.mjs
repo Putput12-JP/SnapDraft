@@ -420,29 +420,56 @@ async function main() {
   put(sleeper, 'sleeper'); put(espnOk, 'espn'); put(cbsOk, 'cbs'); put(nflOk, 'nfl'); put(dkOk, 'draftkings');
   for (const id of Object.keys(statlines)) if (players[id]) players[id].stats = statlines[id];
 
-  /* PRESERVE EXISTING PROPS when this run produced none.
-     PrizePicks props are written by a SEPARATE workflow (update-props.yml).
-     Without this guard, every 6h this lineup builder would overwrite their
-     work with `{}` — exactly the race that left vegas_player_props empty
-     for months. We only swap in fresh props when liveProps actually returned
-     a non-empty bundle (ParlayAPI subscribed); otherwise we keep what
-     update-props.yml put there. Same logic for vegas_meta.props_* fields. */
-  let preservedProps = vegas.vegas_player_props || {};
+  /* MERGE FRESH PROPS ONTO THE PREVIOUS FEED — never DELETE a line this run
+     didn't happen to include.
+     Props reach the feed from two workflows: this builder writes ParlayAPI's
+     book lines, and a SEPARATE workflow (update-props.yml) enriches with the
+     richer PrizePicks/Underdog/Sleeper markets (pass_att, long_pass, rush_att,
+     …) that ParlayAPI never returns. A plain wholesale replace here throws all
+     of that away every run, and — worse — when ParlayAPI answers THIN (e.g.
+     mid-week, or when the monthly credit budget throttles it, it returned only
+     rec/rec_yd/anytime_td and dropped every QB passing + rushing market) the
+     old guard, which only fell back on a FULLY EMPTY response, happily
+     overwrote the good feed with the thin one. That emptied the board for the
+     default QB Passing Yards view — "no props pulling in".
+     So merge at the player + per-market-line level: start from what's on disk,
+     overlay this run's fresh lines (fresh wins per player+market, so real book
+     lines still refresh), and KEEP every previous line/player fresh didn't
+     provide. A thin or empty response can now only ever ADD, never subtract.
+     This mirrors the gap-fill/upsert update-props.yml already does. */
+  const freshProps = vegas.vegas_player_props || {};
+  let preservedProps = freshProps;
   let preservedMeta = { ...vegas.meta };
-  if (!Object.keys(preservedProps).length) {
-    try {
-      const prev = JSON.parse(await readFile(OUT, 'utf8'));
-      const prevProps = prev && prev.vegas_player_props;
-      if (prevProps && Object.keys(prevProps).length) {
-        preservedProps = prevProps;
-        preservedMeta.props_source = prev.vegas_meta?.props_source ?? preservedMeta.props_source;
-        preservedMeta.props_players = prev.vegas_meta?.props_players ?? preservedMeta.props_players;
-        preservedMeta.props_events = prev.vegas_meta?.props_events ?? preservedMeta.props_events;
-        if (prev.vegas_meta?.props_generated) preservedMeta.props_generated = prev.vegas_meta.props_generated;
-        log(`  preserved ${Object.keys(prevProps).length} player props from previous feed (${preservedMeta.props_source})`);
+  try {
+    const prev = JSON.parse(await readFile(OUT, 'utf8'));
+    const prevProps = (prev && prev.vegas_player_props) || {};
+    const prevMeta = (prev && prev.vegas_meta) || {};
+    if (Object.keys(prevProps).length) {
+      const merged = {};
+      const ids = new Set([...Object.keys(prevProps), ...Object.keys(freshProps)]);
+      for (const id of ids) {
+        const pv = prevProps[id], fr = freshProps[id];
+        if (!fr) { merged[id] = pv; continue; }          // fresh dropped this player → keep previous
+        if (!pv) { merged[id] = fr; continue; }          // brand-new player from fresh
+        // fresh identity/fields win (this week's opp/commence); union the
+        // per-market lines with fresh winning each cell it provides.
+        merged[id] = { ...pv, ...fr, lines: { ...(pv.lines || {}), ...(fr.lines || {}) } };
       }
-    } catch (e) { /* no previous feed, fine */ }
-  }
+      preservedProps = merged;
+      const freshHas = Object.keys(freshProps).length;
+      // Fresh with real props is the live source; an empty fresh keeps prev's.
+      if (!freshHas) {
+        preservedMeta.props_source = prevMeta.props_source ?? preservedMeta.props_source;
+        preservedMeta.props_events = prevMeta.props_events ?? preservedMeta.props_events;
+        if (prevMeta.props_generated) preservedMeta.props_generated = prevMeta.props_generated;
+      }
+      preservedMeta.props_players = Object.keys(preservedProps).length;
+      // carry the pickem-merge provenance forward so update-props' next diff is clean
+      for (const k of ['props_pp_filled', 'props_pp_refreshed', 'props_pp_generated'])
+        if (prevMeta[k] != null && preservedMeta[k] == null) preservedMeta[k] = prevMeta[k];
+      log(`  props: ${freshHas} fresh (${preservedMeta.props_source}) merged over ${Object.keys(prevProps).length} previous → ${Object.keys(preservedProps).length}`);
+    }
+  } catch (e) { /* no previous feed, fine */ }
 
   const feed = {
     season, week, season_type: seasonType || null, generated: new Date().toISOString(), players,
