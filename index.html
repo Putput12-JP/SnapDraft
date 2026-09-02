@@ -42120,7 +42120,9 @@ window.VaultPropModel = (function () {
       const back = inner.querySelector('#eb-backboard');
       if (back) back.onclick = () => { propsView = 'board'; renderPropsBoard(); };
       inner.querySelectorAll('.tr-tabs [data-rt]').forEach(b => b.onclick = () => {
-        if (resultsTab === b.dataset.rt) return; resultsTab = b.dataset.rt; renderResults();
+        if (resultsTab === b.dataset.rt) return;
+        resultsTab = b.dataset.rt; _trFilter = {};   // each tab starts clean
+        renderResults();
       });
       inner.querySelectorAll('.mp-del').forEach(b => b.onclick = () => {
         picksSave(picksLoad().filter(p => p.k !== b.dataset.k)); renderResults();
