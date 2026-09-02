@@ -13422,7 +13422,7 @@ const VAULT_CHANGELOG = [
     ts:'2026-09-02T16:00', tag:'Improved', title:'Grade is now a column on the props board',
     items:[
       'The player props board shows Vault’s A–F grade as its own sortable column, so you can rank every prop by grade and see the model’s conviction at a glance.',
-      'Dropped the separate Over/Under column to make room — the side Vault leans is on the grade’s hover, and the open pick panel still spells it out.',
+      'Dropped the separate Over/Under column to make room. The side Vault leans is on the grade’s hover, and the open pick panel still spells it out.',
     ],
   },
   {
@@ -41856,7 +41856,7 @@ window.VaultPropModel = (function () {
     const head = '<thead><tr>'
       + '<th class="c-star"></th>'
       + SH('Player &amp; prop', 'name', 'l')
-      + SH('Grade', 'grade', '', 'Vault’s A–F grade on the pick — how strongly the model favors this side')
+      + SH('Grade', 'grade', '', 'Vault’s A–F grade on the pick: how strongly the model favors this side')
       + SH('Line', 'line')
       + SH('Best price', 'best', '', 'Best price across your books')
       + '<th title="Vault’s own per-game projection">Vault proj</th>'
