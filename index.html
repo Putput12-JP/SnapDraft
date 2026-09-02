@@ -40968,9 +40968,12 @@ window.VaultPropModel = (function () {
 #page-betting .bx-gfoot{display:grid;grid-template-columns:248px 1fr;border-top:1px solid var(--bt-border);background:var(--bt-s2)}
 #page-betting .bx-gfoot.simple{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:9px 16px}
 #page-betting .bx-vhead{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:11px 18px;border-right:1px solid var(--bt-border);text-align:center}
-#page-betting .bx-vltag{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:800;letter-spacing:.08em;color:var(--on-primary);background:var(--bt-accent2);border-radius:7px;padding:6px 15px}
+/* Shrink-to-content column: sizes to the wider child (the VAULT LINE tag) and
+   stretches the track button to match it, so the two line up in width. */
+#page-betting .bx-vstack{display:inline-flex;flex-direction:column;align-items:stretch;gap:9px}
+#page-betting .bx-vltag{font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:800;letter-spacing:.08em;color:var(--on-primary);background:var(--bt-accent2);border-radius:7px;padding:6px 15px;text-align:center}
 #page-betting .bx-vcell .bx-foot-btn{font-size:var(--t-nano);margin-top:3px}
-#page-betting .bx-track{font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;color:var(--bt-muted);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:7px;padding:5px 10px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-betting .bx-track{font-family:var(--bt-mono);font-size:var(--t-nano);font-weight:700;color:var(--bt-muted);background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:7px;padding:5px 10px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
 #page-betting .bx-track:hover{color:var(--bt-text);border-color:var(--bt-border3)}
 #page-betting .bx-track.on{color:var(--bt-gold);border-color:color-mix(in srgb,var(--bt-gold) 42%,transparent);background:color-mix(in srgb,var(--bt-gold) 10%,transparent)}
 #page-betting .bx-vproj{display:grid;grid-template-columns:repeat(3,1fr)}
@@ -41117,7 +41120,8 @@ window.VaultPropModel = (function () {
   #page-betting .bx-oc{min-width:0}
   /* footer stacks too: VAULT LINE + track as a top row, projection cells below */
   #page-betting .bx-gfoot{grid-template-columns:1fr}
-  #page-betting .bx-vhead{flex-direction:row;justify-content:space-between;align-items:center;text-align:left;gap:10px;padding:10px 14px;border-right:0;border-bottom:1px solid var(--bt-border)}
+  #page-betting .bx-vhead{align-items:stretch;text-align:left;padding:10px 14px;border-right:0;border-bottom:1px solid var(--bt-border)}
+  #page-betting .bx-vstack{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
   #page-betting .bx-vltag{font-size:var(--t-micro)}
   #page-betting .bx-vcell{padding:9px 8px}
   /* ── mobile props: stacked cards (Outlier-style) ── */
@@ -41486,7 +41490,7 @@ window.VaultPropModel = (function () {
         if (lean) { const tracked = gamePickLogged(g, lean);
           trackBtn = '<button class="bx-track' + (tracked ? ' on' : '') + '" data-track="' + key + '" title="' + (tracked ? 'Tracking this pick in Track Record' : 'Track Vault’s best bet — ' + lean.label) + '">' + (tracked ? '★ Tracking' : '☆ ' + lean.label) + '</button>'; }
         foot = '<div class="bx-gfoot">'
-          + '<div class="bx-vhead"><span class="bx-vltag" title="' + vTitle + '">VAULT LINE</span>' + trackBtn + '</div>'
+          + '<div class="bx-vhead"><div class="bx-vstack"><span class="bx-vltag" title="' + vTitle + '">VAULT LINE</span>' + trackBtn + '</div></div>'
           + '<div class="bx-vproj">' + spCell + totCell + mlCell + '</div></div>';
       } else {
         let mv = '';
