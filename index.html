@@ -13419,6 +13419,14 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T12:00', tag:'Fixed', title:'Vault Best Bets no longer surfaces sky-high phantom edges',
+    items:[
+      'The Best Bets hero was showing implausible edges (like +88% value) that were really data mismatches, not real value.',
+      'Those came from two places: a pick’em app’s whole-number line getting paired with a price from a different line, and a projection built on a player’s old starter role when he’s now a backup (a starting-TE stat line on a player buried behind the new TE1).',
+      'Best Bets now only trusts lines a real sportsbook actually prices, and drops any pick where our projection and the market line disagree wildly — so the list reads like genuine leans instead of glitches.',
+    ],
+  },
+  {
     ts:'2026-09-02T21:00', tag:'Fixed', title:'Player Props board no longer goes empty when a book feed comes back thin',
     items:[
       'Player Props could suddenly show almost nothing — especially on the default Passing Yards view — when the odds feed briefly returned only a handful of markets.',

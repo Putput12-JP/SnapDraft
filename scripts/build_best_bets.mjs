@@ -54,6 +54,25 @@ const BE_REF = 0.524;                         // standard -110 book break-even (
 const MIN_GAMES = 8;                          // enough log to trust the projection
 const PRICE_MIN = -250, PRICE_MAX = 200;      // bettable band: no -300 chalk, no lottery longshots
 const GAMES = 17;                             // season → per-game (workbook projection)
+// Gate 2 — a "consensus" of DFS pick'em apps is not a beatable market. Their
+// yardage lines run low and price flat, so ranking by EV against them surfaces
+// the biggest model-vs-line disagreements (the least trustworthy bets). A best
+// bet must be corroborated by ≥1 TRUE sportsbook at the scored line.
+const DFS_BOOKS = new Set(['prizepicks', 'underdog fantasy', 'underdog', 'sleeper']);
+const isRealBook = b => !!b && !DFS_BOOKS.has(String(b).toLowerCase());
+// Gate 1 — model-vs-market disagreement cap on volume-yardage markets. When the
+// projection strays past this fraction of a corroborated line, the model and
+// the market are describing different situations — a stale-usage projection on
+// a player whose role collapsed (a starter's game logs on a now-backup TE like
+// Cole Kmet: model 23 rec yds vs a 7.5 line Loveland now owns) — not an edge.
+// This fires REGARDLESS of role-corroboration: the role gate only checks
+// depth-chart ORDER, so a correctly-ranked backup (TE2 behind TE1) sails
+// through with a stale projection unless the magnitude is checked too. Applies
+// to every VOLUME market (yards, receptions, attempts, completions) — TD
+// markets are excluded because their low lines make a relative gap meaningless
+// and they carry their own tail guards.
+const VOL_MK = new Set(['pass_yd', 'pass_att', 'pass_cmp', 'rush_yd', 'rush_att', 'rec', 'rec_yd']);
+const MAX_PROJ_GAP = 0.40;
 const WB_WEIGHT = 0.5;                         // how much the role-aware workbook proj pulls the log proj
 const log = (...a) => console.log('[best-bets]', ...a);
 
@@ -203,6 +222,35 @@ const MKT_LABEL = {
   rush_yd: 'Rush Yds', rush_att: 'Rush Att', rec: 'Receptions', rec_yd: 'Rec Yds', rec_td: 'Rec TD',
 };
 
+/* ── role corroboration (mirror index.html roleCorroborated) ─────────────────
+   A depth_chart_order is listing ORDER, not opportunity — a nominal WR3 can be
+   the de-facto WR1 (Golden). The frontend anchor only trusts a depth rank the
+   BOOKS agree with: rank each team's players at a position by their own volume-
+   market line, and mark a player corroborated only when the feed depth rank
+   matches that line rank. Where they DISAGREE, the projection is resting on the
+   player's own (possibly stale) history, so a confident under/over there is a
+   likely role phantom — we cap its grade below B so it can't become a best bet.
+   Returns a Set of corroborated player ids. */
+const ROLE_VOL_MK = { RB: 'rush_yd', WR: 'rec_yd', TE: 'rec_yd' };   // QB excluded
+const ROLE_PROJREL = 0.20;   // |proj − line| / line that makes an unconfirmed role suspect
+function roleCorrobSet(feed) {
+  const props = feed.vegas_player_props || {}, depth = feed.vegas_depth || {};
+  const byTeam = {};
+  for (const id in props) {
+    const p = props[id], mk = ROLE_VOL_MK[p.pos];
+    if (!mk || !p.team) continue;
+    const cell = (p.lines || {})[mk];
+    const line = cell && cell.line != null ? num(cell.line) : null;
+    if (line == null) continue;
+    const dep = depth[id], dr = dep ? dep[0] : null;
+    if (dr == null) continue;
+    (byTeam[p.team + '|' + p.pos] = byTeam[p.team + '|' + p.pos] || []).push({ id, line, dr });
+  }
+  const ok = new Set();
+  for (const k in byTeam) byTeam[k].sort((a, b) => b.line - a.line).forEach((x, i) => { if (x.dr === i + 1) ok.add(String(x.id)); });
+  return ok;
+}
+
 /* ── score every prop ──────────────────────────────────────────────────── */
 function scoreProps(feed, PM) {
   const props = feed.vegas_player_props || {};
@@ -221,7 +269,12 @@ function scoreProps(feed, PM) {
   // committee/rotation players (RB2, WR3) while cutting deep backups.
   const depth = feed.vegas_depth || {};
   const DEPTH_MAX = { QB: 1, RB: 2, WR: 3, TE: 2 };
-  let benchskip = 0;
+  // Role-corroboration guard (mirror the board's edgeCaution role tier): a
+  // volume-market player whose depth rank the market contradicts is projected
+  // off his own, possibly stale, history — a confident under/over there is a
+  // likely role phantom (the Golden case), so it must never become a best bet.
+  const roleOk = roleCorrobSet(feed);
+  let benchskip = 0, roleskip = 0, projskip = 0, dfsskip = 0;
   for (const id in props) {
     const p = props[id];
     if (isPre && p.commence) { const t = new Date(p.commence).getTime(); if (Number.isFinite(t) && t < regCutoff) { preskip++; continue; } }
@@ -234,37 +287,66 @@ function scoreProps(feed, PM) {
     for (const mk in (p.lines || {})) {
       if (!PM.markets[mk]) continue;                       // modeled markets only
       const cell = p.lines[mk];
-      const quotes = (cell.quotes || []).filter(q => q && q.line != null);
-      if (quotes.length < 2) continue;                     // need corroboration to even consider
-      const line = num(cell.line); if (line == null) continue;
+      // Only quotes that actually PRICE a side define a bettable line. A pick'em
+      // placeholder (e.g. PrizePicks Pass TD "1" with null over/under) must never
+      // set the line we score — pairing its whole-number line with a half-point
+      // plus-price from another book invented the phantom "Under 1" edges.
+      const priced = (cell.quotes || []).filter(q => q && q.line != null && (q.over != null || q.under != null));
+      if (priced.length < 2) continue;                     // need ≥2 priced books to even consider
       // role-aware workbook projection (season total → per-game), if we have one
       const wbId = feed.vegas_players && feed.vegas_players[id];
       const wbSeason = wbId && wbId.season && num(wbId.season[mk]);
       const wbProj = wbSeason != null ? wbSeason / GAMES : null;
-      const v = fairProbOver(PM, p.name, mk, line, wbProj);
-      if (!v || v.games < MIN_GAMES) continue;
-      scored++;
-      const g = vaultGrade(v.over, v.under, v.games);
-      const side = g.side;
-      const sideProb = side === 'under' ? v.under : v.over;
-      const bs = bestSide(quotes, side);
-      if (!bs || bs.price == null) continue;
-      const trust = lineTrust(quotes, line);
-      // honest gates: corroborated line, confidence clears the bar, real +EV
-      const ev = evPerDollar(g.padj, bs.price);            // confidence-adjusted EV vs best price
-      const letter = gradeLetter(g.padj, BE_REF);
-      const bettable = bs.price >= PRICE_MIN && bs.price <= PRICE_MAX;   // no chalk, no lottery tickets
-      const pass = trust.corrob && (letter === 'A' || letter === 'B') && ev != null && ev > 0 && bettable;
-      if (!pass) { gated++; continue; }
-      cands.push({
-        id, name: p.name, team: p.team || null, pos: p.pos || null, opp: p.opp || null,
-        market: mk, marketLabel: MKT_LABEL[mk] || mk, line, side,
-        book: bs.book, price: bs.price,
-        ev: round(ev * 100, 1),                            // % EV per $1 at best price
-        proj: v.proj, logProj: v.logProj, wbProj: v.wbProj, // blended / raw-log / role-aware
-        prob: round(g.padj, 3), rawProb: round(sideProb, 3),
-        grade: letter, books: trust.books, games: v.games,
-      });
+      // Score EACH distinct priced line on its own so the probability and the
+      // price we pair always share the same line. The per-player dedup below
+      // keeps only the best line if a market quotes several.
+      const byLine = new Map();
+      for (const q of priced) { const L = num(q.line); if (L == null) continue; if (!byLine.has(L)) byLine.set(L, []); byLine.get(L).push(q); }
+      for (const [line, lq] of byLine) {
+        if (lq.length < 2) continue;                       // need ≥2 books AT this exact line
+        const v = fairProbOver(PM, p.name, mk, line, wbProj);
+        if (!v || v.games < MIN_GAMES) continue;
+        scored++;
+        const g = vaultGrade(v.over, v.under, v.games);
+        const side = g.side;
+        const sideProb = side === 'under' ? v.under : v.over;
+        const bs = bestSide(lq, side);                     // best price for this side AT this line
+        if (!bs || bs.price == null) continue;
+        const trust = lineTrust(lq, line);
+        // honest gates: corroborated line, confidence clears the bar, real +EV
+        const ev = evPerDollar(g.padj, bs.price);          // confidence-adjusted EV vs best price
+        const letter = gradeLetter(g.padj, BE_REF);
+        const bettable = bs.price >= PRICE_MIN && bs.price <= PRICE_MAX; // no chalk, no lottery tickets
+        // Role-unconfirmed phantom: market contradicts the depth chart AND the
+        // projection sits far off this line → demote below B so it can't pass.
+        const roleUnconfirmed = !!ROLE_VOL_MK[p.pos] && !roleOk.has(String(id))
+          && v.proj != null && Math.abs(v.proj - line) / Math.abs(line) >= ROLE_PROJREL;
+        const eff = roleUnconfirmed ? 'C' : letter;
+        // Gate 1: projection strays too far from this corroborated line → stale/context, not edge.
+        const projGap = v.proj != null && Math.abs(line) > 0 ? Math.abs(v.proj - line) / Math.abs(line) : 0;
+        const projBlowout = VOL_MK.has(mk) && projGap >= MAX_PROJ_GAP;
+        // Gate 2: at least one true sportsbook must price this exact line (not DFS-only).
+        const realBookAtLine = lq.some(q => isRealBook(q.book));
+        const wouldPass = trust.corrob && (letter === 'A' || letter === 'B') && ev != null && ev > 0 && bettable;
+        const preGate = trust.corrob && (eff === 'A' || eff === 'B') && ev != null && ev > 0 && bettable;
+        const pass = preGate && !projBlowout && realBookAtLine;
+        if (!pass) {
+          if (roleUnconfirmed && wouldPass) roleskip++;
+          else if (preGate && projBlowout) projskip++;
+          else if (preGate && !realBookAtLine) dfsskip++;
+          else gated++;
+          continue;
+        }
+        cands.push({
+          id, name: p.name, team: p.team || null, pos: p.pos || null, opp: p.opp || null,
+          market: mk, marketLabel: MKT_LABEL[mk] || mk, line, side,
+          book: bs.book, price: bs.price,
+          ev: round(ev * 100, 1),                          // % EV per $1 at best price
+          proj: v.proj, logProj: v.logProj, wbProj: v.wbProj, // blended / raw-log / role-aware
+          prob: round(g.padj, 3), rawProb: round(sideProb, 3),
+          grade: eff, books: trust.books, games: v.games,
+        });
+      }
     }
   }
   // Rank by confidence-adjusted EV — the real value. The price band (above)
@@ -276,7 +358,7 @@ function scoreProps(feed, PM) {
   // not one player's whole card. (Full ranked pool is still counted.)
   const seenPlayer = new Set(), list = [];
   for (const c of cands) { if (seenPlayer.has(c.id)) continue; seenPlayer.add(c.id); list.push(c); if (list.length >= TOP) break; }
-  return { list, scored, gated, preskip, benchskip, total: cands.length };
+  return { list, scored, gated, preskip, benchskip, roleskip, projskip, dfsskip, total: cands.length };
 }
 
 /* ── game leans (CONTEXT only; empty while the model is gated) ──────────── */
@@ -318,7 +400,7 @@ function gameLeans(feed) {
 
     const props = scoreProps(feed, PM);
     const leans = gameLeans(feed);
-    log(`props: ${props.total} qualified of ${props.scored} scored (${props.gated} gated, ${props.benchskip} benched) → top ${props.list.length}`);
+    log(`props: ${props.total} qualified of ${props.scored} scored (${props.gated} gated, ${props.benchskip} benched, ${props.roleskip} role-unconfirmed, ${props.projskip} proj-blowout, ${props.dfsskip} dfs-only) → top ${props.list.length}`);
     log(`game leans: ${leans.gated ? leans.gated : props.total >= 0 ? leans.list.length : 0}${leans.gated ? ' (empty)' : ''}`);
     for (const b of props.list) log(`  • ${b.name} ${b.marketLabel} ${b.side.toUpperCase()} ${b.line} @ ${b.book} ${b.price > 0 ? '+' : ''}${b.price} — ${b.grade}, ${b.ev}% EV, ${b.books} books, ${b.games}g`);
 
