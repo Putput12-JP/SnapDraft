@@ -232,15 +232,30 @@ nflverse play-by-play → `data/team_tendencies.json`:
 
 Ships **dormant** (`active:false`) — data only, wired into nothing yet.
 
-**Remaining Phase-2 work, and why it is gated:**
+**Wiring the baseline anchor into projections — tested, NO-GO.**
 
-1. **Wire the baseline anchor** into the projection. Subtlety: the prop model is
-   autoregressive on each player's OWN game logs, which already encode his team's
-   pace / pass-lean / role. A team-tendency multiplier on top would DOUBLE-COUNT
-   for a continuing player — it only adds signal on a CHANGE (new team, new OC,
-   rookie), exactly the case a player's history misreads. Apply it the way
-   `role_volume`'s `roleShift` does (shift from the role/team the history
-   resembles toward the current one), not as a blanket team multiplier.
+`scripts/backtest_env_shift.py` built and validated the change-only env-shift (the
+correct, non-double-counting design: shift a player's volume by the pace×mix
+difference between the env his logs reflect and his current team's env, damped +
+clamped, no-op when nothing changed). Season-holdout, 2016-2025, with a
+**leakage-free** projected team env (production can't know this season's pace/mix
+pregame):
+
+| group | baseline MAPE | shift lift |
+|---|---|---|
+| ALL | 43.8% | **+0.2%** |
+| CHANGED (new team / new HC) | 51.5% | +0.4% |
+| STABLE | 38.8% | +0.2% |
+| CHANGED · pass-family | 48.8% | +1.0% (best case) |
+| CHANGED · rush-family | 59.7% | **−1.1% (hurts)** |
+
+Verdict: essentially zero, and it actively hurts traded RBs (their carries hinge on
+the job battle, not team rush volume). The reason is that the prop model is
+autoregressive on own logs, and `role_volume`/`roleShift` already re-estimates a
+moved player's ROLE — the part that actually matters — so the team-env layer is
+redundant on top. **Not wired.** The tendencies ship as the Blueprint research
+surface (real standalone value); they are not a projection multiplier. Kept as a
+documented gate, like `backtest_prop_model.py`'s TD-tail finding.
 2. **Role-aware receiving script** — weight Phase-1's `scriptMult` by the player's
    role and his team's target concentration (a check-down back gains more from
    negative script than a deep WR).
