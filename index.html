@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T15:00', tag:'New', title:'See Vault’s Over/Under lean at a glance on the props board — and filter by it',
+    items:[
+      'The Player Props Edge Board has a new O/U column showing which side Vault’s projection favors — a green Over, a red Under, or a PICK when the projection sits right on the line.',
+      'Click the O/U column header to filter the whole board to just Overs, just Unders, or all picks — one click cycles through them.',
+    ],
+  },
+  {
     ts:'2026-09-03T14:00', tag:'New', title:'Offense Blueprints — every team’s play-calling fingerprint',
     items:[
       'New under Research: Offense Blueprints. See how every team plays on neutral downs — its pace, how much it leans pass over what the situation expects (PROE), and how it spreads carries and targets around.',
@@ -40590,6 +40597,7 @@ window.VaultPropModel = (function () {
   let view = 'games', tf = 'weekly', curPos = 'QB', curMarket = 'pass_yd', curGM = 'spread';
   let teamFilter = '', searchQ = '';
   let mineOnly = false;
+  let ouFilter = 'all';   // 'all' | 'over' | 'under' — filters the props board by Vault's leaned side
   let gSort = { key: 'total', dir: -1 }, pSort = { key: 'value', dir: -1 };
 
   /* ── "My Players" · the user's real Sleeper rosters ──────────────────────
@@ -41066,6 +41074,8 @@ window.VaultPropModel = (function () {
 #page-betting .bx-pt thead th.s{cursor:pointer;user-select:none}
 #page-betting .bx-pt thead th.s:hover{color:var(--bt-text)}
 #page-betting .bx-pt thead th.on{color:var(--bt-accent2)}
+#page-betting .bx-pt thead th.eb-ouh:hover{color:var(--bt-text)}
+#page-betting .bx-pt thead th.eb-ouh .bx-side{vertical-align:middle}
 #page-betting .bx-pt tbody td{padding:10px 8px;border-bottom:1px solid var(--bt-border);text-align:center;white-space:nowrap;font-family:var(--bt-mono);font-size:var(--t-secondary)}
 #page-betting .bx-pt tbody tr.pr{cursor:pointer;transition:background .13s}
 #page-betting .bx-pt tbody tr.pr:hover{background:var(--bt-s2)}
@@ -41992,6 +42002,12 @@ window.VaultPropModel = (function () {
     // priced edges (real EV) first, ranked by EV; pickem lines (ev null) after,
     // in propRows order — no ranking signal, just a reference list.
     out.sort((a, b) => (b.fe.ev ?? -Infinity) - (a.fe.ev ?? -Infinity));
+    // O/U filter: keep only rows whose O/U column CHIP matches — the same value
+    // the cell renders (pickem shows PICK, so it's excluded from Over/Under and
+    // only appears under All). resolvePick reads _vaultCache for vault-led rows,
+    // so a filtered board re-applies itself when ebFillVaultCol lands the cache
+    // and re-renders.
+    if (ouFilter !== 'all') return out.filter(r => { const pf = resolvePick(r); return pf && !pf.pickem && pf.side === ouFilter; });
     return out;
   }
 
@@ -42071,15 +42087,15 @@ window.VaultPropModel = (function () {
       // position/market changes and silently empties the board, so blaming the
       // books here ("No book is pricing …") reads as a broken app. When a filter
       // is active, say so and offer to clear it before falling back to that copy.
-      const activeFilter = searchQ || teamFilter || mineOnly;
+      const activeFilter = searchQ || teamFilter || mineOnly || ouFilter !== 'all';
       if (activeFilter) {
-        const what = searchQ ? '“' + searchQ + '”' : (teamFilter ? teamFilter : 'your players');
+        const what = searchQ ? '“' + searchQ + '”' : (teamFilter ? teamFilter : (ouFilter !== 'all' ? ouFilter === 'over' ? 'Overs' : 'Unders' : 'your players'));
         _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No matches for ' + what + '</div>'
           + '<div class="eb-emt">No ' + curPos + ' ' + mLbl + ' line matches your current filters</div>'
           + '<div class="eb-ems">There may be plenty of ' + curPos + ' ' + mLbl + ' lines — a filter is hiding them.</div>'
           + '<button class="bt-in" id="eb-clearf" style="margin-top:12px;cursor:pointer">Clear filters</button></div>';
         const cb = document.getElementById('eb-clearf');
-        if (cb) cb.onclick = () => { searchQ = ''; teamFilter = ''; mineOnly = false; const sb = document.getElementById('bt-search'); if (sb) sb.value = ''; render(); };
+        if (cb) cb.onclick = () => { searchQ = ''; teamFilter = ''; mineOnly = false; ouFilter = 'all'; const sb = document.getElementById('bt-search'); if (sb) sb.value = ''; render(); };
         return;
       }
       _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No live lines</div><div class="eb-emt">No book is pricing '
@@ -42116,7 +42132,7 @@ window.VaultPropModel = (function () {
     const SC = (label, key, cls) => '<th class="ebs' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '">' + label + car(key) + '</th>';
     // Column count for the inline detail row's colspan: rank + player + pick +
     // edge + ev + fair/best + vault proj + vault edge + vault grade + hit + watch + chevron.
-    const nCols = 13;
+    const nCols = 14;
     // Outlier-exact hit-rate table: player+prop, line, best price (book chip),
     // Vault proj, model edge, IP%, opp rank, and the L5/L10/L20/SZN heat columns.
     const SH = (label, key, cls, title) => '<th class="s' + (cls ? ' ' + cls : '') + (ebSort.key === key ? ' on' : '') + '" data-sk="' + key + '"' + (title ? ' title="' + title + '"' : '') + '>' + label + car(key) + '</th>';
@@ -42125,6 +42141,8 @@ window.VaultPropModel = (function () {
       + SH('Player &amp; prop', 'name', 'l')
       + SH('Grade', 'grade', '', 'Vault’s A–F grade on the pick: how strongly the model favors this side')
       + SH('Line', 'line')
+      + '<th class="eb-ouh' + (ouFilter !== 'all' ? ' on ' + ouFilter : '') + '" id="eb-ouh" style="cursor:pointer" title="Filter by Vault’s side — click to cycle All → Over → Under">O/U'
+        + (ouFilter === 'over' ? ' <span class="bx-side over">Over</span>' : ouFilter === 'under' ? ' <span class="bx-side under">Under</span>' : ' <span class="ebs-c">▾</span>') + '</th>'
       + SH('Best price', 'best', '', 'Best price across your books')
       + '<th title="Vault’s own per-game projection">Vault proj</th>'
       + SH('Edge', 'vault', '', 'Vault’s projected win prob vs the best book price — the model edge')
@@ -42145,6 +42163,7 @@ window.VaultPropModel = (function () {
         + '<div><div class="bx-pn">' + r.name + injBadge(r) + '</div><div class="bx-pg">' + sub + '</div></div></div></td>'
         + '<td data-gradek="' + k + '">' + gradeColCell(r) + '</td>'
         + '<td><span class="bx-line">' + (r.line != null ? r.line : '') + '</span>' + (pf.vaultLed ? ' <span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '') + '</td>'
+        + '<td>' + (pf.pickem ? '<span class="bx-side pick">PICK</span>' : '<span class="bx-side ' + pf.side + '">' + (pf.side === 'over' ? 'Over' : 'Under') + '</span>') + '</td>'
         + '<td><span class="bx-px">' + fb.fmtOdds(pf.bestPrice) + bookChip(pf.bestBook) + nBooksTag(r) + '</span></td>'
         + '<td data-vpk="' + k + '">' + projNumCell(r) + '</td>'
         + '<td data-edgek="' + k + '">' + edgeChipHTML(r) + '</td>'
@@ -42196,6 +42215,8 @@ window.VaultPropModel = (function () {
     const mpBtn = _pvInner().querySelector('#eb-mypicks');
     if (mpBtn) mpBtn.onclick = () => { propsView = 'results'; renderPropsBoard(); };
     _pvInner().querySelectorAll('.bx-pt thead th.s').forEach(th => th.onclick = () => { const k = th.dataset.sk; if (ebSort.key === k) ebSort.dir *= -1; else ebSort = { key: k, dir: k === 'name' ? 1 : -1 }; renderPropsBoard(); });
+    const ouh = _pvInner().querySelector('#eb-ouh');
+    if (ouh) ouh.onclick = () => { ouFilter = ouFilter === 'all' ? 'over' : ouFilter === 'over' ? 'under' : 'all'; renderPropsBoard(); };
     // Click a player to load them into the persistent panel — the chart stays up
     // and its data swaps. No full table rebuild (smooth + keeps scroll position).
     _pvInner().querySelectorAll('#eb-rows .pr[data-k]').forEach(tr => tr.onclick = e => {
