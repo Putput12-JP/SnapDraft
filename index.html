@@ -13419,11 +13419,12 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
-    ts:'2026-09-03T12:00', tag:'Fixed', title:'Vault Best Bets no longer surfaces sky-high phantom edges',
+    ts:'2026-09-03T12:30', tag:'Fixed', title:'Betting edges no longer show sky-high phantom value',
     items:[
-      'The Best Bets hero was showing implausible edges (like +88% value) that were really data mismatches, not real value.',
+      'Vault Best Bets and the Player Props Edge Board were both showing implausible edges (like +88% value) that were really data mismatches, not real value.',
       'Those came from two places: a pick’em app’s whole-number line getting paired with a price from a different line, and a projection built on a player’s old starter role when he’s now a backup (a starting-TE stat line on a player buried behind the new TE1).',
-      'Best Bets now only trusts lines a real sportsbook actually prices, and drops any pick where our projection and the market line disagree wildly — so the list reads like genuine leans instead of glitches.',
+      'Best Bets now only trusts lines a real sportsbook actually prices, and drops any pick where our projection and the market line disagree wildly.',
+      'On the Edge Board, a pick whose projection is far off the market line is now flagged “check this” and its grade capped, instead of shown as a confident green edge — so a stale-role number reads as a question, not a trophy.',
     ],
   },
   {
@@ -42001,7 +42002,10 @@ window.VaultPropModel = (function () {
     const ed = (sideProb != null && mp != null) ? BM.findEdge(sideProb, mp) : null;
     const vEv = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
     if (vEv == null || vEv <= 0) return fe;                 // Vault sees no value on the other side → keep market side
-    const unv = edgeUnverified(r, sideProb, vEv);
+    // A projection blowout flags the vault-led side too, so the green edge chip
+    // and the (capped) grade agree — otherwise a vault-led row shows a big green
+    // edge while the grade is capped C, which reads as a contradiction.
+    const unv = edgeUnverified(r, sideProb, vEv) || !!projGapCaution(r, c.proj);
     return Object.assign({}, alt, { vaultLed: true, marketEv: fe.ev, vaultEv: vEv, vaultProb: sideProb, vProj: c.proj, vaultUnv: unv });
   }
 
@@ -42801,8 +42805,32 @@ window.VaultPropModel = (function () {
   // because they apply ONLY to players whose depth rank the market contradicts.
   const ROLE_CAUTION_GAP = 0.08;        // de-vig: Vault vs fair market, in prob pts
   const ROLE_CAUTION_PROJREL = 0.20;    // DFS/pickem: |proj − line| / line
+  // Universal projection-vs-line cap, measured in the YARDAGE/COUNT domain so it
+  // does NOT saturate on low lines the way the #2 probability-gap check does
+  // (over 7.5 is ~certain for proj 20 AND proj 27, so their win-prob gap is tiny
+  // even though the yardage gap is huge — how a now-backup TE's stale starter
+  // projection sails through as grade A). Fires for ANY volume market whether or
+  // not a de-vig two-way exists. Mirrors build_best_bets' MAX_PROJ_GAP gate.
+  const EDGE_PROJ_GAP_MAX = 0.40;
+  const VOL_GAP_MK = { pass_yd: 1, pass_att: 1, pass_cmp: 1, rush_yd: 1, rush_att: 1, rec: 1, rec_yd: 1 };
+  // Projection-vs-line blowout, as a standalone flag: purely |proj − line|/line,
+  // so it does NOT depend on which side leads or the sign of the market-side EV.
+  // That matters for VAULT-LED rows — the cache scores edgeCaution on the MARKET
+  // side, whose EV is negative precisely because Vault disagrees, so without this
+  // the #2c tier below would never be reached (the ev<=0 bail fires first) and a
+  // wildly stale projection keeps grade A. Used in the bail, in #2c, and in
+  // resolvePick's vault-led unverified flag so grade + edge chip agree.
+  function projGapCaution(r, proj) {
+    if (!(VOL_GAP_MK[r && r.market] && proj != null && r.line)) return null;
+    const rel = Math.abs(proj - r.line) / Math.abs(r.line);
+    if (rel < EDGE_PROJ_GAP_MAX) return null;
+    return { kind: 'projgap', label: '?', tip: 'Vault’s projection (' + proj + ') is ' + Math.round(rel * 100) + '% off the ' + r.line + ' line. A gap this large on a volume prop is almost always a projection problem — a stale or collapsed role (a now-backup projected off his starter games), a thin sample, or a bad name match — not a real edge. Sanity-check it before trusting the number.' };
+  }
   function edgeCaution(r, sideProb, marketProb, ev, v, cascade) {
-    if (ev == null || ev <= 0) return null;                 // only caution POSITIVE edges
+    // A projection blowout is a data-quality flag independent of EV sign, so it
+    // must survive the positive-edge bail (vault-led rows arrive here with the
+    // market side's NEGATIVE ev — see projGapCaution).
+    if (ev == null || ev <= 0) return projGapCaution(r, v && v.proj);
     // 1. Injury (this player's own) — projection is built from healthy games, so
     //    the market almost certainly knows something our history doesn't. Uses
     //    the same live source the board's injury badge does (not r.injury, which
@@ -42852,6 +42880,17 @@ window.VaultPropModel = (function () {
       if (rel >= 0.33)
         return { kind: 'projgap', label: '?', tip: 'Vault’s projection (' + v.proj + ') is ' + Math.round(rel * 100) + '% off the ' + r.line + ' line, and no second market confirms it. A gap this big on a DFS line is usually a projection issue — a stale role, thin sample, or name mismatch — so sanity-check it before trusting the edge.' };
     }
+    // 2c. Extreme projection-vs-line gap on a VOLUME market, in the yardage/count
+    //    domain — fires EVEN WHEN a de-vig two-way exists, which is where #2
+    //    saturates and misses (a now-backup TE projected off starter game logs:
+    //    Cole Kmet proj 22 vs a 7.5 line, Noah Gray proj 18 vs 6.5). This is the
+    //    same magnitude the Best Bets builder gates on (MAX_PROJ_GAP 0.40).
+    //    UNLIKE the other tiers this ignores the injury cascade: a same-week book
+    //    line already prices in who's out, so a projection this far off it is
+    //    suspect even when a teammate-cascade "explains" the raw number. The row
+    //    still renders (amber, grade capped) rather than hiding, so a genuine
+    //    next-man-up edge isn't lost — just marked "check this".
+    { const pg = projGapCaution(r, v && v.proj); if (pg) return pg; }
     // 3. Thin history — few games make the projection noisy, so a big edge is low-confidence.
     if (v && v.games != null && v.games < 4)
       return { kind: 'thin', label: v.games + 'g', tip: 'Only ' + v.games + ' game' + (v.games === 1 ? '' : 's') + ' of history — the projection is noisy, so treat a large edge here as low-confidence.' };
