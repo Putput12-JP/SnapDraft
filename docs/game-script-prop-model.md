@@ -144,12 +144,37 @@ read the **same** coefficients:
   surfaces, provenance line, changelog. Null-safe fallback to `×1`.
 - **Phase 2 (follow-up, separate task):** role-weighted receiving script (aDOT /
   check-down backs gain more from negative script than deep WRs) and
-  **playcaller/coordinator tendencies** — pass rate over expected (PROE), pace
-  (plays/game), and neutral-vs-trailing splits per play-caller. This is the
-  layer competitors expose (e.g. Statchasers' "Playcaller Blueprint"); it refines
-  the *baseline* pass/rush mix a team brings before script, whereas Phase 1
-  captures how that mix bends to the scoreboard. Needs nflverse play-by-play
-  (PROE, pace) which the current per-player weekly pipeline does not yet ingest.
+  **playcaller/coordinator tendencies** — the *baseline* pass/rush mix and
+  touch/target concentration a team brings BEFORE script bends it. Phase 1
+  captures how the mix bends to the scoreboard (spread); this is the neutral
+  anchor it bends from.
+
+  Competitive reference — Statchasers' "Playcaller Blueprint" (Redraft Command,
+  inspected 2026-09-03). It fingerprints all 32 **2026 offensive play-callers**
+  on 11 seasons of tape and exposes exactly the signal set Phase 2 needs, all as
+  **deltas vs NFL median**:
+  - **Offensive environment:** plays/game (pace), pass%, run%. (e.g. Mike
+    LaFleur ARI: 61 plays/g −2.5, 65% pass +7, 35% run −7.)
+  - **Backfield split** (share of non-QB carries): RB1 / RB2 / other. (LaFleur:
+    RB1 60% −11%, RB2 27% +12%.)
+  - **Target tree** (share of team targets): WR1 / WR2 / WR3 / TE / RB / other.
+    (LaFleur: WR1 27%, WR3 11% +7%, TE 12% −17%, RB 20% +12%.)
+  - Two-axis archetype map: X = RB1 carry share (Committee ↔ Bellcow), Y = WR1
+    target share (Spread ↔ Stars); quadrants Alpha Factory / Stars Only /
+    Everybody Eats / Bellcow Country.
+  - **Attribution nuance to copy:** the profile is keyed to the actual
+    play-caller and the sample where he called plays (LaFleur judged on his
+    2021–22 Jets tape, not his Rams years where McVay called it), and mapped to
+    2026 roles. A team's baseline should follow the play-caller, and a new
+    HC/OC needs his prior-team sample or a positional prior.
+
+  For Vault this is two things: (a) a per-team **neutral pass/rush baseline and
+  pace** the Phase-1 `scriptMult` bends from (rather than assuming league-median
+  neutral), and (b) **role-share priors** (RB1 carry share, per-role target
+  share) that make the receiving-script skew role-aware. All of it is derivable
+  from nflverse play-by-play (pass/rush by play-caller, PROE, pace, target/carry
+  shares), which the current per-player weekly pipeline does not yet ingest —
+  standing up that ingest is the bulk of the Phase-2 work.
 
 ## Validation (gate before shipping)
 
