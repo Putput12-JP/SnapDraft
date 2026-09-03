@@ -43542,9 +43542,11 @@ window.VaultPropModel = (function () {
 #bp-detail .bpd-sec{margin-top:18px}
 #bp-detail .bpd-st{font:700 9px var(--bt-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:10px;display:flex;justify-content:space-between}
 #bp-detail .bpd-st small{color:var(--bt-faint);font-weight:400;text-transform:none;letter-spacing:0}
-#bp-detail .bpd-row{display:grid;grid-template-columns:104px 1fr 38px;gap:9px;align-items:center;margin-top:7px}
-#bp-detail .bpd-nm{font:12px var(--font-sans);color:var(--bt-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bp-detail .bpd-row{display:grid;grid-template-columns:152px 1fr 38px;gap:9px;align-items:center;margin-top:7px}
+#bp-detail .bpd-nm{display:flex;align-items:center;gap:8px;min-width:0;font:12px var(--font-sans);color:var(--bt-text)}
+#bp-detail .bpd-nm .bpd-nmt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #bp-detail .bpd-nm.mut{color:var(--bt-muted)}
+#bp-detail .bpd-av{width:20px;height:20px;border-radius:50%;object-fit:cover;object-position:top center;background:var(--bt-s3);border:1px solid var(--bt-border);flex:none}
 #bp-detail .bpd-bar{height:8px;border-radius:4px;background:var(--bt-s3);overflow:hidden}
 #bp-detail .bpd-bar>i{display:block;height:100%;border-radius:4px;background:var(--bt-accent2,#5b9dff)}
 #bp-detail .bpd-bar>i.rush{background:color-mix(in srgb,var(--bt-accent2,#5b9dff) 55%,var(--bt-gold))}
@@ -43554,7 +43556,7 @@ window.VaultPropModel = (function () {
 #bp-detail .bpd-spl{font:700 8px var(--bt-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--bt-muted)}
 #bp-detail .bpd-spv{font:800 14px var(--bt-mono);color:var(--bt-text);margin:2px 0 5px}
 #bp-detail .bpd-sp svg{display:block;width:100%;height:26px;overflow:visible}
-@media (max-width:440px){#bp-detail .bpd-env{gap:7px}#bp-detail .bpd-tile{padding:9px}#bp-detail .bpd-tv{font-size:14px;gap:3px}#bp-detail .bpd-td{font-size:8px}#bp-detail .bpd-row{grid-template-columns:92px 1fr 34px}}
+@media (max-width:440px){#bp-detail .bpd-env{gap:7px}#bp-detail .bpd-tile{padding:9px}#bp-detail .bpd-tv{font-size:14px;gap:3px}#bp-detail .bpd-td{font-size:8px}#bp-detail .bpd-row{grid-template-columns:134px 1fr 34px}}
 @media (prefers-reduced-motion:reduce){#bp-detail .bpd-back,#bp-detail .bpd-panel{animation:none}}`;
     document.head.appendChild(s);
   }
@@ -43667,9 +43669,12 @@ window.VaultPropModel = (function () {
       const ds = delta == null ? '' : (delta > 0 ? '+' : '') + delta;
       return '<div class="bpd-tile"><div class="bpd-tl">' + label + '</div><div class="bpd-tv">' + val + (unit || '') + (delta != null ? ' <span class="bpd-td ' + dc + '">' + ds + '</span>' : '') + '</div></div>';
     };
-    const barRow = (nm, pct, rush) => '<div class="bpd-row"><span class="bpd-nm' + (nm === 'Others' ? ' mut' : '') + '">' + nm + '</span><span class="bpd-bar"><i class="' + (rush ? 'rush' : '') + '" style="width:' + Math.max(2, Math.min(100, pct)) + '%"></i></span><span class="bpd-pct">' + Math.round(pct) + '%</span></div>';
-    const recRows = (t.top_receivers || []).map(r => barRow(r[0], r[1], false)).join('') + (t.receivers_other ? barRow('Others', t.receivers_other, false) : '');
-    const rushRows = (t.top_rushers || []).map(r => barRow(r[0], r[1], true)).join('') + (t.rushers_other ? barRow('Others', t.rushers_other, true) : '');
+    const barRow = (nm, pct, hs, rush) => {
+      const av = (nm !== 'Others' && hs) ? '<img class="bpd-av" src="' + hs.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_44,h_44,c_thumb,g_face/') + '" alt="" loading="lazy">' : '<span class="bpd-av"></span>';
+      return '<div class="bpd-row"><span class="bpd-nm' + (nm === 'Others' ? ' mut' : '') + '">' + av + '<span class="bpd-nmt">' + nm + '</span></span><span class="bpd-bar"><i class="' + (rush ? 'rush' : '') + '" style="width:' + Math.max(2, Math.min(100, pct)) + '%"></i></span><span class="bpd-pct">' + Math.round(pct) + '%</span></div>';
+    };
+    const recRows = (t.top_receivers || []).map(r => barRow(r[0], r[1], r[2], false)).join('') + (t.receivers_other ? barRow('Others', t.receivers_other, null, false) : '');
+    const rushRows = (t.top_rushers || []).map(r => barRow(r[0], r[1], r[2], true)).join('') + (t.rushers_other ? barRow('Others', t.rushers_other, null, true) : '');
     const bs = (_bp && _bp.by_season) || {};
     const years = Object.keys(bs).map(Number).sort((a, b) => a - b);
     const serie = key => years.map(y => { const c = bs[String(y)] && bs[String(y)][team]; return c ? c[key] : null; }).filter(v => v != null);

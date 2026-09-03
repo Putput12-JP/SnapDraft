@@ -133,14 +133,40 @@ def process_season(yr):
     return T
 
 
-def top_named(counts, names, n, exclude_id=None):
-    """Top-n [name, share%] by count (+ an 'others' remainder %), from a season's tallies."""
+_ROSTER = {}
+def season_roster(yr):
+    """gsis_id → {name, hs (NFL.com headshot url), pos} from the nflverse roster."""
+    if yr in _ROSTER:
+        return _ROSTER[yr]
+    url = f"https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_{yr}.csv"
+    m = {}
+    try:
+        ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        txt = urllib.request.urlopen(req, timeout=90, context=ctx).read().decode("utf-8", "replace")
+        for r in csv.DictReader(io.StringIO(txt)):
+            gid = r.get("gsis_id")
+            if gid:
+                m[gid] = {"name": r.get("full_name") or None, "hs": r.get("headshot_url") or None, "pos": r.get("position") or None}
+    except Exception as e:
+        print(f"[tendencies] roster {yr}: {e}")
+    _ROSTER[yr] = m
+    return m
+
+
+def top_named(counts, names, n, roster=None, exclude_id=None):
+    """Top-n [name, share%, headshot, pos] by count (+ an 'others' remainder %). Names
+    and photos come from the nflverse roster when available, else the PBP short name."""
+    roster = roster or {}
     items = [(pid, c) for pid, c in counts.items() if pid != exclude_id]
     tot = sum(c for _, c in items)
     if not tot:
         return [], 0.0
     items.sort(key=lambda x: -x[1])
-    top = [[names.get(pid, pid), round(100 * c / tot, 1)] for pid, c in items[:n]]
+    top = []
+    for pid, c in items[:n]:
+        r = roster.get(pid) or {}
+        top.append([r.get("name") or names.get(pid, pid), round(100 * c / tot, 1), r.get("hs"), r.get("pos")])
     other = round(100 * sum(c for _, c in items[n:]) / tot, 1)
     return top, other
 
@@ -233,9 +259,10 @@ def main():
         # detail-view named lists: the latest season's actual target tree + backfield
         rawT = raw_by_season.get(latest, {}).get(tm)
         if rawT:
+            roster = season_roster(latest)
             qb = max(rawT["pass_by"], key=rawT["pass_by"].get) if rawT["pass_by"] else None
-            recs, rec_other = top_named(rawT["targets"], rawT["tgt_nm"], 5)
-            rush, rush_other = top_named(rawT["carries"], rawT["carry_nm"], 3, exclude_id=qb)
+            recs, rec_other = top_named(rawT["targets"], rawT["tgt_nm"], 5, roster=roster)
+            rush, rush_other = top_named(rawT["carries"], rawT["carry_nm"], 3, roster=roster, exclude_id=qb)
             out["top_receivers"] = recs
             out["receivers_other"] = rec_other
             out["top_rushers"] = rush
