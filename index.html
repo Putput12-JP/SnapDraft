@@ -43521,7 +43521,7 @@ window.VaultPropModel = (function () {
 #bp-host .bp-sort{display:inline-flex;align-items:center;gap:7px;font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted)}
 #bp-host .bp-sort .bt-mkt{text-transform:none;letter-spacing:0}
 #bp-host .bp-foot{font-family:var(--bt-mono);font-size:9.5px;color:var(--bt-faint);margin-top:14px;line-height:1.6}
-#bp-detail{--bt-s1:var(--s1);--bt-s2:var(--s2);--bt-s3:var(--s3);--bt-border:var(--border);--bt-border2:var(--border2);--bt-text:var(--text);--bt-text2:var(--text2);--bt-muted:var(--muted);--bt-faint:var(--muted);--bt-accent2:var(--accent2);--bt-gold:var(--gold);--bt-green:var(--value);--bt-red:var(--red);--bt-mono:var(--font-mono);position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}
+#bp-detail{--bt-s1:var(--s1);--bt-s2:var(--s2);--bt-s3:var(--s3);--bt-border:var(--border);--bt-border2:var(--border2);--bt-text:var(--text);--bt-text2:var(--text2);--bt-muted:var(--muted);--bt-faint:var(--muted);--bt-accent2:var(--accent2);--bt-gold:var(--gold);--bt-green:var(--value);--bt-red:var(--red);--bt-qb:var(--qb);--bt-rb:var(--rb);--bt-wr:var(--wr);--bt-te:var(--te);--bt-mono:var(--font-mono);position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}
 #bp-detail .bpd-back{position:absolute;inset:0;background:rgba(0,0,0,.55);animation:bpdFade .2s ease}
 #bp-detail .bpd-panel{position:relative;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:18px;padding:18px 18px 20px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);animation:bpdIn .34s var(--ease-spring,ease)}
 @keyframes bpdFade{from{opacity:0}}
@@ -43544,9 +43544,14 @@ window.VaultPropModel = (function () {
 #bp-detail .bpd-st small{color:var(--bt-faint);font-weight:400;text-transform:none;letter-spacing:0}
 #bp-detail .bpd-row{display:grid;grid-template-columns:152px 1fr 38px;gap:9px;align-items:center;margin-top:7px}
 #bp-detail .bpd-nm{display:flex;align-items:center;gap:8px;min-width:0;font:12px var(--font-sans);color:var(--bt-text)}
-#bp-detail .bpd-nm .bpd-nmt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bp-detail .bpd-nm .bpd-nmt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #bp-detail .bpd-nm.mut{color:var(--bt-muted)}
 #bp-detail .bpd-av{width:20px;height:20px;border-radius:50%;object-fit:cover;object-position:top center;background:var(--bt-s3);border:1px solid var(--bt-border);flex:none}
+#bp-detail .bpd-pos{flex:none;font:700 8px var(--bt-mono);letter-spacing:.03em;padding:1px 4px;border-radius:4px;color:var(--bt-muted);background:var(--bt-s3)}
+#bp-detail .bpd-pos.WR{color:var(--bt-wr);background:color-mix(in srgb,var(--bt-wr) 15%,transparent)}
+#bp-detail .bpd-pos.RB{color:var(--bt-rb);background:color-mix(in srgb,var(--bt-rb) 15%,transparent)}
+#bp-detail .bpd-pos.TE{color:var(--bt-te);background:color-mix(in srgb,var(--bt-te) 15%,transparent)}
+#bp-detail .bpd-pos.QB{color:var(--bt-qb);background:color-mix(in srgb,var(--bt-qb) 15%,transparent)}
 #bp-detail .bpd-bar{height:8px;border-radius:4px;background:var(--bt-s3);overflow:hidden}
 #bp-detail .bpd-bar>i{display:block;height:100%;border-radius:4px;background:var(--bt-accent2,#5b9dff)}
 #bp-detail .bpd-bar>i.rush{background:color-mix(in srgb,var(--bt-accent2,#5b9dff) 55%,var(--bt-gold))}
@@ -43669,12 +43674,13 @@ window.VaultPropModel = (function () {
       const ds = delta == null ? '' : (delta > 0 ? '+' : '') + delta;
       return '<div class="bpd-tile"><div class="bpd-tl">' + label + '</div><div class="bpd-tv">' + val + (unit || '') + (delta != null ? ' <span class="bpd-td ' + dc + '">' + ds + '</span>' : '') + '</div></div>';
     };
-    const barRow = (nm, pct, hs, rush) => {
+    const barRow = (nm, pct, hs, pos, rush) => {
       const av = (nm !== 'Others' && hs) ? '<img class="bpd-av" src="' + hs.replace('/f_auto,q_auto/', '/f_auto,q_auto,w_44,h_44,c_thumb,g_face/') + '" alt="" loading="lazy">' : '<span class="bpd-av"></span>';
-      return '<div class="bpd-row"><span class="bpd-nm' + (nm === 'Others' ? ' mut' : '') + '">' + av + '<span class="bpd-nmt">' + nm + '</span></span><span class="bpd-bar"><i class="' + (rush ? 'rush' : '') + '" style="width:' + Math.max(2, Math.min(100, pct)) + '%"></i></span><span class="bpd-pct">' + Math.round(pct) + '%</span></div>';
+      const tag = pos ? '<span class="bpd-pos ' + pos + '">' + pos + '</span>' : '';
+      return '<div class="bpd-row"><span class="bpd-nm' + (nm === 'Others' ? ' mut' : '') + '">' + av + '<span class="bpd-nmt">' + nm + '</span>' + tag + '</span><span class="bpd-bar"><i class="' + (rush ? 'rush' : '') + '" style="width:' + Math.max(2, Math.min(100, pct)) + '%"></i></span><span class="bpd-pct">' + Math.round(pct) + '%</span></div>';
     };
-    const recRows = (t.top_receivers || []).map(r => barRow(r[0], r[1], r[2], false)).join('') + (t.receivers_other ? barRow('Others', t.receivers_other, null, false) : '');
-    const rushRows = (t.top_rushers || []).map(r => barRow(r[0], r[1], r[2], true)).join('') + (t.rushers_other ? barRow('Others', t.rushers_other, null, true) : '');
+    const recRows = (t.top_receivers || []).map(r => barRow(r[0], r[1], r[2], r[3], false)).join('') + (t.receivers_other ? barRow('Others', t.receivers_other, null, null, false) : '');
+    const rushRows = (t.top_rushers || []).map(r => barRow(r[0], r[1], r[2], null, true)).join('') + (t.rushers_other ? barRow('Others', t.rushers_other, null, null, true) : '');
     const bs = (_bp && _bp.by_season) || {};
     const years = Object.keys(bs).map(Number).sort((a, b) => a - b);
     const serie = key => years.map(y => { const c = bs[String(y)] && bs[String(y)][team]; return c ? c[key] : null; }).filter(v => v != null);
