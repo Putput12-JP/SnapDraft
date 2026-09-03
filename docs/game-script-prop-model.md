@@ -2,7 +2,10 @@
 
 **Status:** Phase 1 BUILT, shipped DORMANT (`active:false`). Pipeline + all three
 surfaces wired null-safe; the term does not move any projection until its gate
-clears in-season and the flag is flipped.
+clears in-season and the flag is flipped. **Phase 2 foundation BUILT** (dormant):
+`scripts/build_team_tendencies.py` → `data/team_tendencies.json`, the neutral
+per-team fingerprint (pace, PROE, carry/target concentration) the script term will
+bend from. Not yet wired into projections — see "Phase 2 progress" below.
 **Owner surface:** `VaultPropModel` (`prop-model.js`, inline in `index.html`) +
 `matchupAdj` (Edge Board) + `scripts/build_best_bets.mjs` (Best Bets builder).
 **Builder:** `scripts/build_game_script.py` → `data/game_script_model.json`.
@@ -210,6 +213,44 @@ read the **same** coefficients:
   from nflverse play-by-play (pass/rush by play-caller, PROE, pace, target/carry
   shares), which the current per-player weekly pipeline does not yet ingest —
   standing up that ingest is the bulk of the Phase-2 work.
+
+## Phase 2 progress (built)
+
+The ingest is stood up. `scripts/build_team_tendencies.py` streams 11 seasons of
+nflverse play-by-play → `data/team_tendencies.json`:
+
+- **Per team-season** (`by_season`): pace (plays/g), pass%, PROE (mean `pass_oe`
+  on neutral-WP plays), RB1/RB2 carry share (QB runs stripped via the team's
+  primary passer id), and top-1/2/3 receiver target concentration — the two
+  archetype axes (Committee vs Bellcow, Spread vs Stars) plus the environment.
+- **Current baseline** (`current`): a recency-weighted (halflife 1.5s), mean-
+  reverted delta-vs-league-median over the last 3 seasons, with a **coaching-
+  change reset** — a team whose head coach changed has its old-staff tape
+  down-weighted (the 2026 hires Vrabel / Coen / Carroll / Moore / Johnson all
+  flag `coach_changed`). Validated against known identities (BAL run-lean PROE
+  -4.3, CIN pass-happy +3.8, PHI/Saquon bellcow rb1 68.9%).
+
+Ships **dormant** (`active:false`) — data only, wired into nothing yet.
+
+**Remaining Phase-2 work, and why it is gated:**
+
+1. **Wire the baseline anchor** into the projection. Subtlety: the prop model is
+   autoregressive on each player's OWN game logs, which already encode his team's
+   pace / pass-lean / role. A team-tendency multiplier on top would DOUBLE-COUNT
+   for a continuing player — it only adds signal on a CHANGE (new team, new OC,
+   rookie), exactly the case a player's history misreads. Apply it the way
+   `role_volume`'s `roleShift` does (shift from the role/team the history
+   resembles toward the current one), not as a blanket team multiplier.
+2. **Role-aware receiving script** — weight Phase-1's `scriptMult` by the player's
+   role and his team's target concentration (a check-down back gains more from
+   negative script than a deep WR).
+3. **Validation** — same gate as Phase 1: no settled in-season prop picks yet, and
+   the market prices known pace/pass tendencies, so this is holdout- and
+   CLV-gated before it can move a live projection.
+
+**Follow-ups the file itself flags:** a gsis-id to position join for a WR/TE/RB
+target split, and a curated play-caller-name map (OC + prior-team sample) for true
+caller attribution rather than the team / head-coach proxy used here.
 
 ## Validation (gate before shipping)
 
