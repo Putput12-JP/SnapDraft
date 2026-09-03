@@ -214,8 +214,9 @@ window.VaultPropModel = (function () {
   }
 
   // ── public: fair prob that a player goes OVER a line ──────────────────────
-  // opts: { seasons:[y1,y2], oppMult, envMult }  (oppMult/envMult default 1,
-  // applied to the projection; the Edge Board supplies them from DvP + Vegas).
+  // opts: { seasons:[y1,y2], oppMult, envMult, scriptMult }  (all default 1,
+  // applied to the projection; the Edge Board supplies oppMult/envMult from DvP +
+  // Vegas and scriptMult from the spread-driven game-script term).
   async function fairProbOver(name, marketKey, line, opts) {
     opts = opts || {};
     const P = await params(); if (!P || !P.markets || !P.markets[marketKey]) return null;
@@ -243,7 +244,9 @@ window.VaultPropModel = (function () {
       ? { params: await roleParams(), pos: opts.pos, rank: num(opts.roleRank) } : null;
     let proj = projectFrom(weeks, m, minPrior, role);
     if (proj == null) return null;
-    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
+    // scriptMult skews pass/rush VOLUME off the spread; folded into the product it
+    // scales the VOLUME term only (proj = vol×eff ⇒ k·vol·eff), never efficiency.
+    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.scriptMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
 
     // #4: the distribution is chosen per market at build time (m.dist). Fall back
     // to kind for pre-#4 model files.

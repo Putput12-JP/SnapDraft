@@ -1,8 +1,43 @@
 # Game-script term for the player-prop model
 
-**Status:** spec / not built. Scoped as its own task.
+**Status:** Phase 1 BUILT, shipped DORMANT (`active:false`). Pipeline + all three
+surfaces wired null-safe; the term does not move any projection until its gate
+clears in-season and the flag is flipped.
 **Owner surface:** `VaultPropModel` (`prop-model.js`, inline in `index.html`) +
 `matchupAdj` (Edge Board) + `scripts/build_best_bets.mjs` (Best Bets builder).
+**Builder:** `scripts/build_game_script.py` → `data/game_script_model.json`.
+
+## What shipped (Phase 1)
+
+- `scripts/build_game_script.py` fits `K_PASS`, `K_RUSH`, `SP_REF` from nflverse
+  team game logs (Σ att / Σ car per team-game) joined to `games.csv` pregame
+  `spread_line`, per team-season baseline SHARE removed to isolate MIX from the
+  total (which `envMult` already carries). Leave-one-season-out holdout in the JSON.
+- `scriptMult` wired into `VaultPropModel.fairProbOver` (inline + `prop-model.js`),
+  `matchupAdj` (returns `scriptMult` + `spread`, with a `script <team spread> ×m`
+  provenance chip), and `build_best_bets.mjs` (which also newly adopts opp + env,
+  closing the hero/board divergence). Every reader falls back to `×1` when the file
+  is absent OR `active:false`.
+
+## Why it ships dormant
+
+The fit is **directionally right but small**, and its hard gate can't run yet:
+
+- Bucket table (holdout, 2014-2025): favorites ≥9 pass ×0.97 / rush ×1.03;
+  moderate dogs pass ×1.01 / rush ×0.98; neutral ≈1.00. The rush effect is the
+  clean one; the pass-VOLUME effect is weak and **reverses for extreme dogs**
+  (dog ≥9 pass ×0.97) because a big underdog is confounded with getting blown out
+  (fewer possessions, garbage time), not throwing more.
+- Out-of-sample RMSE lift on the underlying quantity (attempt share) is ~0.1-0.2%
+  — near zero, consistent with the market already pricing this well-known mix.
+- The spec's hard gate ("don't ship if it doesn't beat the closing line") needs
+  settled in-season prop picks to grade via the CLV loop; `bet_results.json` is
+  empty at season kickoff, so that gate is currently un-runnable.
+
+Given all three, activating live would violate the gate. It ships built, reviewed
+and clamped (±10-12%) but inert, mirroring how the game model shipped as
+gated-off context. **Activation = flip `active` to true once the settlement/CLV
+loop confirms a real lift on large-spread volume props.**
 **Related:** [prop-model.md](prop-model.md),
 [prop-edge-model-plan.md](prop-edge-model-plan.md),
 [edge-feedback-loop.md](edge-feedback-loop.md), [game-model.md](game-model.md).

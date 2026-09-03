@@ -1,0 +1,258 @@
+{
+  "generated": "2026-09-03T12:28:56.654544+00:00",
+  "version": 1,
+  "active": false,
+  "activation_gate": "Holdout is on attempt prediction only; the CLV-vs-closing-line gate needs settled in-season prop picks (currently empty). Flip `active` to true once the settlement loop confirms the term beats the line on large-spread volume props. Holdout attempt lift so far: pass 0.1%, rush 0.2%.",
+  "note": "Spread-driven pass/rush MIX skew for the prop model. Applied to the VOLUME component only, on top of (never instead of) envMult. Clamped to the same \u00b110-12% rail as envMult. Fallback \u00d71 when absent OR inactive.",
+  "SP_REF": 6.5,
+  "K_PASS": 0.0163,
+  "K_RUSH": 0.0226,
+  "K_PASS_raw": 0.0163,
+  "K_RUSH_raw": 0.0226,
+  "clamp": [
+    0.9,
+    1.12
+  ],
+  "td_damp": 0.5,
+  "families": {
+    "pass": [
+      "pass_att",
+      "pass_cmp",
+      "pass_yd",
+      "rec",
+      "rec_yd"
+    ],
+    "rush": [
+      "rush_att",
+      "rush_yd"
+    ],
+    "pass_td": [
+      "pass_td",
+      "rec_td"
+    ]
+  },
+  "provenance": {
+    "source": "nflverse team game logs (\u03a3 att / \u03a3 car per team-game from nflverse_stats_<season>.json) joined to games.csv pregame spread_line",
+    "spread_convention": "team spread, favorite negative (home = \u2212spread_line, away = +spread_line)",
+    "fit": "per team-season baseline pass/rush SHARE removed (isolates MIX from pace/total, which envMult already carries); OLS through 1+K\u00b7clamp(sp/SP_REF,\u00b11); SP_REF chosen by pooled SSE grid search",
+    "seasons": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "n_samples": 6297,
+    "fit_sse": 821.88,
+    "clamp_note": "K_PASS/K_RUSH published pre-clamped into [0, hi-1]; K_*_raw are the unclamped fits"
+  },
+  "backtest": {
+    "method": "leave-one-season-out; fit K on other seasons, score held-out games",
+    "per_season": [
+      {
+        "season": 2014,
+        "n": 512,
+        "K_PASS": 0.0178,
+        "K_RUSH": 0.0243,
+        "pass_rmse_base": 0.1758,
+        "pass_rmse_model": 0.1763,
+        "pass_rmse_impr_pct": -0.3,
+        "rush_rmse_base": 0.2284,
+        "rush_rmse_model": 0.2289,
+        "rush_rmse_impr_pct": -0.2,
+        "bigspread_dir_acc_pct": 52.8
+      },
+      {
+        "season": 2015,
+        "n": 512,
+        "K_PASS": 0.0177,
+        "K_RUSH": 0.0237,
+        "pass_rmse_base": 0.7124,
+        "pass_rmse_model": 0.7125,
+        "pass_rmse_impr_pct": -0.0,
+        "rush_rmse_base": 0.2449,
+        "rush_rmse_model": 0.245,
+        "rush_rmse_impr_pct": -0.1,
+        "bigspread_dir_acc_pct": 62.4
+      },
+      {
+        "season": 2016,
+        "n": 512,
+        "K_PASS": 0.0149,
+        "K_RUSH": 0.0206,
+        "pass_rmse_base": 0.1678,
+        "pass_rmse_model": 0.1666,
+        "pass_rmse_impr_pct": 0.7,
+        "rush_rmse_base": 0.2375,
+        "rush_rmse_model": 0.236,
+        "rush_rmse_impr_pct": 0.6,
+        "bigspread_dir_acc_pct": 57.2
+      },
+      {
+        "season": 2017,
+        "n": 512,
+        "K_PASS": 0.0167,
+        "K_RUSH": 0.0235,
+        "pass_rmse_base": 0.2197,
+        "pass_rmse_model": 0.2196,
+        "pass_rmse_impr_pct": 0.1,
+        "rush_rmse_base": 0.2575,
+        "rush_rmse_model": 0.2575,
+        "rush_rmse_impr_pct": 0.0,
+        "bigspread_dir_acc_pct": 54.0
+      },
+      {
+        "season": 2018,
+        "n": 512,
+        "K_PASS": 0.0152,
+        "K_RUSH": 0.0212,
+        "pass_rmse_base": 0.1824,
+        "pass_rmse_model": 0.1814,
+        "pass_rmse_impr_pct": 0.5,
+        "rush_rmse_base": 0.2443,
+        "rush_rmse_model": 0.2429,
+        "rush_rmse_impr_pct": 0.5,
+        "bigspread_dir_acc_pct": 58.5
+      },
+      {
+        "season": 2019,
+        "n": 512,
+        "K_PASS": 0.0168,
+        "K_RUSH": 0.0232,
+        "pass_rmse_base": 0.1691,
+        "pass_rmse_model": 0.169,
+        "pass_rmse_impr_pct": 0.1,
+        "rush_rmse_base": 0.2256,
+        "rush_rmse_model": 0.2253,
+        "rush_rmse_impr_pct": 0.1,
+        "bigspread_dir_acc_pct": 54.7
+      },
+      {
+        "season": 2020,
+        "n": 512,
+        "K_PASS": 0.0167,
+        "K_RUSH": 0.0229,
+        "pass_rmse_base": 0.1745,
+        "pass_rmse_model": 0.1742,
+        "pass_rmse_impr_pct": 0.1,
+        "rush_rmse_base": 0.2277,
+        "rush_rmse_model": 0.2272,
+        "rush_rmse_impr_pct": 0.2,
+        "bigspread_dir_acc_pct": 54.8
+      },
+      {
+        "season": 2021,
+        "n": 544,
+        "K_PASS": 0.0165,
+        "K_RUSH": 0.023,
+        "pass_rmse_base": 0.1967,
+        "pass_rmse_model": 0.1963,
+        "pass_rmse_impr_pct": 0.2,
+        "rush_rmse_base": 0.2493,
+        "rush_rmse_model": 0.2489,
+        "rush_rmse_impr_pct": 0.2,
+        "bigspread_dir_acc_pct": 57.9
+      },
+      {
+        "season": 2022,
+        "n": 537,
+        "K_PASS": 0.0164,
+        "K_RUSH": 0.0232,
+        "pass_rmse_base": 0.1951,
+        "pass_rmse_model": 0.1947,
+        "pass_rmse_impr_pct": 0.2,
+        "rush_rmse_base": 0.2322,
+        "rush_rmse_model": 0.2319,
+        "rush_rmse_impr_pct": 0.1,
+        "bigspread_dir_acc_pct": 55.1
+      },
+      {
+        "season": 2023,
+        "n": 544,
+        "K_PASS": 0.0162,
+        "K_RUSH": 0.0221,
+        "pass_rmse_base": 0.2364,
+        "pass_rmse_model": 0.2361,
+        "pass_rmse_impr_pct": 0.1,
+        "rush_rmse_base": 0.2319,
+        "rush_rmse_model": 0.2311,
+        "rush_rmse_impr_pct": 0.3,
+        "bigspread_dir_acc_pct": 57.1
+      },
+      {
+        "season": 2024,
+        "n": 544,
+        "K_PASS": 0.015,
+        "K_RUSH": 0.0213,
+        "pass_rmse_base": 0.1784,
+        "pass_rmse_model": 0.1774,
+        "pass_rmse_impr_pct": 0.6,
+        "rush_rmse_base": 0.2201,
+        "rush_rmse_model": 0.2188,
+        "rush_rmse_impr_pct": 0.6,
+        "bigspread_dir_acc_pct": 59.6
+      },
+      {
+        "season": 2025,
+        "n": 544,
+        "K_PASS": 0.0163,
+        "K_RUSH": 0.0223,
+        "pass_rmse_base": 0.2034,
+        "pass_rmse_model": 0.203,
+        "pass_rmse_impr_pct": 0.2,
+        "rush_rmse_base": 0.2308,
+        "rush_rmse_model": 0.23,
+        "rush_rmse_impr_pct": 0.3,
+        "bigspread_dir_acc_pct": 59.2
+      }
+    ],
+    "pooled_holdout": {
+      "pass_rmse_base": 0.2743,
+      "pass_rmse_model": 0.274,
+      "pass_rmse_impr_pct": 0.1,
+      "rush_rmse_base": 0.236,
+      "rush_rmse_model": 0.2354,
+      "rush_rmse_impr_pct": 0.2
+    },
+    "spread_buckets": [
+      {
+        "bucket": "fav \u22659",
+        "n": 434,
+        "mean_passRatio": 0.9688,
+        "mean_rushRatio": 1.0319
+      },
+      {
+        "bucket": "fav 3-9",
+        "n": 1540,
+        "mean_passRatio": 0.9815,
+        "mean_rushRatio": 1.0204
+      },
+      {
+        "bucket": "\u2248pick",
+        "n": 1893,
+        "mean_passRatio": 1.0084,
+        "mean_rushRatio": 0.9988
+      },
+      {
+        "bucket": "dog 3-9",
+        "n": 1975,
+        "mean_passRatio": 1.0132,
+        "mean_rushRatio": 0.9786
+      },
+      {
+        "bucket": "dog \u22659",
+        "n": 455,
+        "mean_passRatio": 1.0002,
+        "mean_rushRatio": 0.9985
+      }
+    ]
+  },
+  "validation_note": "Holdout is on team pass/rush ATTEMPT prediction \u2014 the volume this term moves. The CLV-vs-closing-line gate (settlement loop, edge-feedback-loop.md) needs settled in-season prop picks, which are empty at build time; it is the in-season follow-up."
+}

@@ -82,6 +82,61 @@ const num = v => { const f = Number(v); return Number.isFinite(f) ? f : null; };
 const round = (x, n) => { const f = 10 ** n; return Math.round(x * f) / f; };
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
+/* ── matchup context: opponent (DvP) + environment (implied total) + game script
+   (spread-driven pass/rush skew). The Edge Board applies all three to its
+   projection; the Best Bets builder applied NONE, so the hero and the board
+   scored the same player differently. Adopt the SAME three signals here, from the
+   same feed + fitted model, so they agree. Every term is null-safe → ×1. ─────── */
+const _ENV_AVG = 22.5, _ENV_BETA = 0.5;                 // mirror index.html matchupAdj
+function loadGameScript() {
+  try { return JSON.parse(readFileSync(resolve(ROOT, 'data/game_script_model.json'), 'utf8')); }
+  catch { return null; }
+}
+function gsFamily(gs, mk) {
+  const f = gs && gs.families; if (!f) return null;
+  if ((f.rush || []).includes(mk)) return 'rush';
+  if ((f.pass_td || []).includes(mk)) return 'pass_td';
+  if ((f.pass || []).includes(mk)) return 'pass';
+  return null;
+}
+// Per-market script multiplier — 1× when the model is absent, inactive (its ship
+// gate not yet cleared in-season), off-family, or the spread is unknown.
+function scriptMultOf(gs, mk, spread) {
+  if (!gs || gs.active !== true || spread == null) return 1;
+  const fam = gsFamily(gs, mk); if (!fam) return 1;
+  const spref = gs.SP_REF || 10, lo = (gs.clamp && gs.clamp[0]) || 0.9, hi = (gs.clamp && gs.clamp[1]) || 1.12;
+  const s = clamp(spread / spref, -1, 1);               // favorite < 0, dog > 0
+  let raw = fam === 'rush' ? 1 + (gs.K_RUSH || 0) * (-s) : 1 + (gs.K_PASS || 0) * s;
+  if (fam === 'pass_td') { const d = gs.td_damp == null ? 0.5 : gs.td_damp; raw = 1 + d * (raw - 1); }
+  return clamp(raw, lo, hi);
+}
+function buildMatchupCtx(feed) {
+  const dvp = feed.dvp || {}, leagueFpa = {};
+  for (const pos of ['QB', 'RB', 'WR', 'TE']) {
+    let s = 0, n = 0;
+    for (const t in dvp) { const c = dvp[t] && dvp[t][pos]; if (c && c.fpa != null) { s += c.fpa; n++; } }
+    leagueFpa[pos] = n ? s / n : null;
+  }
+  const spreadByTeam = {}, totalByTeam = {};
+  for (const g of (feed.vegas_games || [])) {
+    const sp = g.spread && g.spread.cons, tot = g.total && g.total.cons;
+    if (sp) { if (g.home) spreadByTeam[g.home] = num(sp.home); if (g.away) spreadByTeam[g.away] = num(sp.away); }
+    if (tot != null) { if (g.home) totalByTeam[g.home] = num(tot); if (g.away) totalByTeam[g.away] = num(tot); }
+  }
+  return { dvp, leagueFpa, spreadByTeam, totalByTeam, gs: loadGameScript() };
+}
+function matchupAdjFor(ctx, p, mk) {
+  let oppMult = 1, envMult = 1;
+  if (p.opp && p.pos) {
+    const c = ctx.dvp[p.opp] && ctx.dvp[p.opp][p.pos], avg = ctx.leagueFpa[p.pos];
+    if (c && c.fpa != null && avg) oppMult = clamp(c.fpa / avg, 0.88, 1.15);
+  }
+  const spread = p.team != null ? (ctx.spreadByTeam[p.team] ?? null) : null;
+  const total = p.team != null ? (ctx.totalByTeam[p.team] ?? null) : null;
+  if (total != null && spread != null) envMult = clamp(1 + _ENV_BETA * ((total / 2 - spread / 2) / _ENV_AVG - 1), 0.92, 1.10);
+  return { oppMult, envMult, scriptMult: scriptMultOf(ctx.gs, mk, spread) };
+}
+
 /* ── nflverse game logs → per-player weeks (mirror prop-history.js) ─────── */
 const _idx = {};   // season → { nameKey → entry }
 function seasonIndex(season) {
@@ -152,7 +207,7 @@ function calibrate(calib, p) {
   for (let i = 0; i < calib.length - 1; i++) { const [x0, y0] = calib[i], [x1, y1] = calib[i + 1]; if (p >= x0 && p <= x1) { const t = x1 === x0 ? 0 : (p - x0) / (x1 - x0); return y0 + t * (y1 - y0); } }
   return p;
 }
-function fairProbOver(PM, name, marketKey, line, wbProj) {
+function fairProbOver(PM, name, marketKey, line, wbProj, adj) {
   const m = PM.markets[marketKey]; if (!m) return null;
   const minPrior = (PM.meta && PM.meta.min_prior) || 3;
   const weeks = weeksFor(name); if (!weeks.length) return null;
@@ -168,7 +223,11 @@ function fairProbOver(PM, name, marketKey, line, wbProj) {
   const Lp = num(line);
   const wbOk = wbProj != null && Number.isFinite(wbProj) && Lp != null && Math.abs(Lp) > 0
     && wbProj >= 0.3 * Math.abs(Lp) && wbProj <= 3 * Math.abs(Lp);
-  const proj = wbOk ? (1 - WB_WEIGHT) * logProj + WB_WEIGHT * wbProj : logProj;
+  let proj = wbOk ? (1 - WB_WEIGHT) * logProj + WB_WEIGHT * wbProj : logProj;
+  // Fold in the matchup context the board already applies — opponent × environment
+  // × game-script. scriptMult scales the VOLUME term only (proj = vol×eff), never
+  // efficiency. All three are null-safe (×1) so a cold model changes nothing.
+  if (adj) proj *= (num(adj.oppMult) ?? 1) * (num(adj.envMult) ?? 1) * (num(adj.scriptMult) ?? 1);
   const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');
   const count = m.kind === 'count';
   const sd = dist === 'poisson' ? Math.sqrt(Math.max(proj, 0))
@@ -274,6 +333,7 @@ function scoreProps(feed, PM) {
   // off his own, possibly stale, history — a confident under/over there is a
   // likely role phantom (the Golden case), so it must never become a best bet.
   const roleOk = roleCorrobSet(feed);
+  const ctx = buildMatchupCtx(feed);   // opponent + environment + game-script, per prop
   let benchskip = 0, roleskip = 0, projskip = 0, dfsskip = 0;
   for (const id in props) {
     const p = props[id];
@@ -304,7 +364,7 @@ function scoreProps(feed, PM) {
       for (const q of priced) { const L = num(q.line); if (L == null) continue; if (!byLine.has(L)) byLine.set(L, []); byLine.get(L).push(q); }
       for (const [line, lq] of byLine) {
         if (lq.length < 2) continue;                       // need ≥2 books AT this exact line
-        const v = fairProbOver(PM, p.name, mk, line, wbProj);
+        const v = fairProbOver(PM, p.name, mk, line, wbProj, matchupAdjFor(ctx, p, mk));
         if (!v || v.games < MIN_GAMES) continue;
         scored++;
         const g = vaultGrade(v.over, v.under, v.games);

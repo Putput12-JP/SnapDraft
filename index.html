@@ -13419,6 +13419,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T13:00', tag:'Improved', title:'Best Bets now reads the matchup, like the Edge Board',
+    items:[
+      'Vault Best Bets now shapes each projection by the opponent and the game environment (the team’s Vegas total), the same context the Player Props Edge Board already uses. Before, the two could rate the same player differently.',
+      'The upshot: a few “edges” that were really just missing matchup context drop off the list, and the picks that remain line up with what you see on the Edge Board.',
+    ],
+  },
+  {
     ts:'2026-09-03T12:30', tag:'Fixed', title:'Betting edges no longer show sky-high phantom value',
     items:[
       'Vault Best Bets and the Player Props Edge Board were both showing implausible edges (like +88% value) that were really data mismatches, not real value.',
@@ -40524,7 +40531,9 @@ window.VaultPropModel = (function () {
       ? { params: await roleParams(), pos: opts.pos, rank: num(opts.roleRank) } : null;
     let proj = projectFrom(weeks, m, minPrior, role);
     if (proj == null) return null;
-    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
+    // scriptMult skews pass/rush VOLUME off the spread; folded into the product,
+    // it scales the VOLUME term only (proj = vol×eff ⇒ k·vol·eff), never efficiency.
+    proj *= (num(opts.oppMult) ?? 1) * (num(opts.envMult) ?? 1) * (num(opts.scriptMult) ?? 1) * (num(opts.usageMult) ?? 1);   // usageMult = measured injury teammate-cascade
     const dist = m.dist || (m.kind === 'poisson' ? 'poisson' : 'normal');   // #4 per-market distribution
     const count = m.kind === 'count';
     const sd = dist === 'poisson' ? Math.sqrt(Math.max(proj, 0))
@@ -42547,14 +42556,17 @@ window.VaultPropModel = (function () {
     const c = vOverride || _vaultCache[propKey(r)], line = r.line;
     if (!c || c.proj == null) return '<div class="ph-main"><div class="l">Vault projection</div><div class="v"><span class="spinner sm"></span></div></div>';
     const proj = c.proj, diff = (line != null) ? (proj - line) : null, lean = (line != null) ? (proj > line ? 'over' : 'under') : null;
-    // Show how the matchup shaped the number: raw history → opponent × environment.
-    const a = matchupAdj(r), applied = Math.abs(a.oppMult - 1) > 0.005 || Math.abs(a.envMult - 1) > 0.005;
-    const base = applied ? (proj / (a.oppMult * a.envMult)) : null;
+    // Show how the matchup shaped the number: raw history → opponent × environment × script.
+    const a = matchupAdj(r), scriptOn = Math.abs((a.scriptMult ?? 1) - 1) > 0.005;
+    const applied = Math.abs(a.oppMult - 1) > 0.005 || Math.abs(a.envMult - 1) > 0.005 || scriptOn;
+    const base = applied ? (proj / (a.oppMult * a.envMult * (a.scriptMult ?? 1))) : null;
+    const _spTxt = a.spread != null ? (r.team ? r.team + ' ' : '') + (a.spread > 0 ? '+' : '') + a.spread : null;
     return '<div class="ph-main"><div class="l">Vault projection</div>'
       + '<div class="v">' + proj + '<span class="vs">vs line ' + (line != null ? line : '—') + '</span></div>'
       + (applied ? '<div class="ph-adj">from <b>' + base.toFixed(1) + '</b> history'
           + (a.oppRank != null ? ' · opp <b>' + r.opp + ' ' + _ord(a.oppRank) + '</b> ×' + a.oppMult.toFixed(2) : '')
-          + (a.teamTotal != null ? ' · env <b>' + a.teamTotal + '</b> implied ×' + a.envMult.toFixed(2) : '') + '</div>' : '')
+          + (a.teamTotal != null ? ' · env <b>' + a.teamTotal + '</b> implied ×' + a.envMult.toFixed(2) : '')
+          + (scriptOn && _spTxt ? ' · script <b>' + _spTxt + '</b> ×' + a.scriptMult.toFixed(2) : '') + '</div>' : '')
       + '</div>'
       + (diff != null ? '<div class="ph-lean ' + lean + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + ' · leans ' + (lean === 'over' ? 'Over' : 'Under') + '</div>' : '');
   }
@@ -42756,7 +42768,7 @@ window.VaultPropModel = (function () {
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
     const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
     const adj = matchupAdj(r);                                                        // DvP opponent + Vegas-total environment
-    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, oppMult: adj.oppMult, envMult: adj.envMult, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
+    PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, oppMult: adj.oppMult, envMult: adj.envMult, scriptMult: adj.scriptMult, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
       const h = document.getElementById('eb-2side');
       if (!h || tok !== _pdTok) return;               // panel moved on
       const vv = (v && v.over != null) ? { over: v.over, under: v.under, proj: v.proj, games: v.games } : null;
@@ -43065,6 +43077,14 @@ window.VaultPropModel = (function () {
     for (const t in _dvp) { const c = _dvp[t] && _dvp[t][pos]; if (c && c.fpa != null) { s += c.fpa; n++; } }
     return (_mAdjCache[pos] = n ? s / n : null);
   }
+  // Team's pregame Vegas spread (favorite negative, dog positive) from MODEL.games.
+  function _teamSpread(team) {
+    if (!team || !MODEL.games) return null;
+    const g = MODEL.games.find(x => x.away === team || x.home === team);
+    if (!g || !g.spread || !g.spread.cons) return null;
+    const sp = (team === g.home) ? g.spread.cons.home : g.spread.cons.away;
+    return sp == null ? null : sp;
+  }
   function _teamTotal(team) {
     if (!team || !MODEL.games) return null;
     const g = MODEL.games.find(x => x.away === team || x.home === team);
@@ -43073,7 +43093,42 @@ window.VaultPropModel = (function () {
     if (sp == null) return null;
     return +(total / 2 - sp / 2).toFixed(1);
   }
-  // { oppMult, envMult, oppRank, teamTotal } — 1× when the data isn't loaded yet.
+  // ── game-script term (data/game_script_model.json, scripts/build_game_script.py)
+  // Skews pass-family vs rush-family VOLUME in opposite directions off the spread:
+  // a trailing (dog) team throws more / runs less, a favorite the reverse. Fit from
+  // real team-games, holdout-validated. Null-safe: absent OR inactive file → ×1,
+  // so nothing changes until the settlement/CLV loop clears it in-season and its
+  // `active` flag is flipped. Mirror of loadDvp's lazy-load + repaint.
+  let _gs = null, _gsTried = false;
+  function loadGs() {
+    if (_gs || _gsTried) return;
+    _gsTried = true;
+    const base = (typeof NFLVERSE_BASE !== 'undefined' && NFLVERSE_BASE) ? NFLVERSE_BASE : '/data';
+    fetch(base + '/game_script_model.json').then(r => (r.ok ? r.json() : null)).then(j => {
+      _gs = j || {};
+      if (_gs.active === true) { for (const kk in _vaultCache) delete _vaultCache[kk]; if (view === 'props') renderPropsBoard(); }
+    }).catch(() => { _gs = {}; });
+  }
+  function _gsFamily(mk) {
+    const f = _gs && _gs.families; if (!f) return null;
+    if ((f.rush || []).indexOf(mk) >= 0) return 'rush';
+    if ((f.pass_td || []).indexOf(mk) >= 0) return 'pass_td';
+    if ((f.pass || []).indexOf(mk) >= 0) return 'pass';
+    return null;
+  }
+  // Per-market script multiplier. 1× until the model lands, when inactive, when the
+  // market isn't in a family, or when the team's spread is unknown.
+  function _scriptMult(market, spread) {
+    if (!_gs) { loadGs(); return 1; }
+    if (_gs.active !== true || spread == null) return 1;
+    const fam = _gsFamily(market); if (!fam) return 1;
+    const spref = _gs.SP_REF || 10, lo = (_gs.clamp && _gs.clamp[0]) || 0.9, hi = (_gs.clamp && _gs.clamp[1]) || 1.12;
+    const s = Math.max(-1, Math.min(1, spread / spref));          // favorite < 0, dog > 0
+    let raw = fam === 'rush' ? 1 + (_gs.K_RUSH || 0) * (-s) : 1 + (_gs.K_PASS || 0) * s;
+    if (fam === 'pass_td') { const d = (_gs.td_damp == null ? 0.5 : _gs.td_damp); raw = 1 + d * (raw - 1); }  // TD Poisson tail: damp
+    return Math.max(lo, Math.min(hi, raw));
+  }
+  // { oppMult, envMult, scriptMult, oppRank, teamTotal, spread } — 1× until data loads.
   function matchupAdj(r) {
     let oppMult = 1, envMult = 1, oppRank = null;
     if (!_dvp) loadDvp();
@@ -43083,7 +43138,9 @@ window.VaultPropModel = (function () {
     }
     const teamTotal = _teamTotal(r.team);
     if (teamTotal != null) envMult = Math.min(1.10, Math.max(0.92, 1 + _ENV_BETA * (teamTotal / _ENV_AVG - 1)));
-    return { oppMult, envMult, oppRank, teamTotal };
+    const spread = _teamSpread(r.team);
+    const scriptMult = _scriptMult(r.market, spread);
+    return { oppMult, envMult, scriptMult, oppRank, teamTotal, spread };
   }
   function oppRankCell(r) {
     if (!r.opp || !r.pos) return '<span class="mut">—</span>';
@@ -43133,7 +43190,7 @@ window.VaultPropModel = (function () {
       const mpo = (r.fe && r.fe.sides && r.fe.sides.over) ? r.fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
       const ci = cascadeInfo(r);                                                                // injury teammate-cascade volume bump (or null)
       const adj = matchupAdj(r);                                                                // DvP opponent + Vegas-total environment → market-native projection
-      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, oppMult: adj.oppMult, envMult: adj.envMult, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
+      return PM.fairProbOver(r.name, r.market, r.line, { seasons: ebVaultSeasons(), marketProbOver: mpo, usageMult: ci ? ci.mult : undefined, oppMult: adj.oppMult, envMult: adj.envMult, scriptMult: adj.scriptMult, pos: r.pos, roleRank: verifiedRoleRank(r) }).then(v => {
         let ev = null, proj = null, g = null, unv = false, over = null, under = null, caution = null;
         if (v && v.proj != null) {
           proj = v.proj; over = v.over; under = v.under;
