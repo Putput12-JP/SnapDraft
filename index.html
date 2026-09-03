@@ -43485,7 +43485,7 @@ window.VaultPropModel = (function () {
 #bp-host select.bt-mkt option{color:var(--bt-text);background:var(--bt-s1)}
 #bp-host .bp-wrap{display:flex;flex-direction:column;gap:16px}
 #bp-host .bp-card{background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:16px;padding:14px}
-#bp-host .bp-mapcard{max-width:660px;width:100%;margin:0 auto}
+#bp-host .bp-mapcard{width:100%}
 #bp-host .bp-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 #bp-host .bp-h b{font-family:var(--font-sans);font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--bt-text)}
 #bp-host .bp-h>span{font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted)}
@@ -43523,7 +43523,7 @@ window.VaultPropModel = (function () {
   }
   const _bpDelta = (v, d) => { if (v == null) return ''; const a = Math.abs(v); const cls = a < (d === 0 ? 0.6 : 0.4) ? 'bp-d0' : (v > 0 ? 'bp-dp' : 'bp-dn'); return '<span class="bp-d ' + cls + '">' + (v >= 0 ? '+' : '') + v.toFixed(d != null ? d : 1) + '</span>'; };
   function bpScatter(teams, med) {
-    const W = 600, H = 420, mL = 46, mR = 16, mT = 30, mB = 46;
+    const W = 1060, H = 440, mL = 46, mR = 20, mT = 30, mB = 46;
     const xs = teams.map(t => t.rb1_carry_pct).filter(v => v != null), ys = teams.map(t => t.wr1_tgt_pct).filter(v => v != null);
     if (!xs.length || !ys.length) return '';
     const xlo = Math.min(...xs) - 3, xhi = Math.max(...xs) + 3, ylo = Math.min(...ys) - 1.5, yhi = Math.max(...ys) + 1.5;
