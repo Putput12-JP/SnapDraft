@@ -13426,6 +13426,7 @@ const VAULT_CHANGELOG = [
       'New under Research: Offense Blueprints. See how every team plays on neutral downs — its pace, how much it leans pass over what the situation expects (PROE), and how it spreads carries and targets around.',
       'An archetype map plots all 32 offenses on two axes — how concentrated the backfield is (committee vs bellcow) and how concentrated the passing game is (spread vs stars) — so you can spot a team’s shape at a glance.',
       'Each team is a card with quick read-out bars, weighted to the current coaching staff, so a team that just changed head coaches (flagged “staff Δ”) leans on the new staff and pulls toward league average instead of trusting old tape.',
+      'Tap any team — a card or a dot on the map — to open its full blueprint: the target tree (who gets the looks), the backfield split (who gets the carries), and how its pace and pass-lean have trended over the years.',
       'Built from 11 seasons of play-by-play. It’s context for reading a player’s week, not a betting pick.',
     ],
   },
@@ -43461,7 +43462,7 @@ window.VaultPropModel = (function () {
      (scripts/build_team_tendencies.py, 11 seasons of play-by-play, weighted to the
      current staff). This is the baseline Vault's matchup model reads from; here
      it's a research surface, no edge claim, so no book/settlement gate applies. */
-  let _bp = null, _bpTried = false, _bpHost = null, bpSort = { key: 'proe', dir: -1 };
+  let _bp = null, _bpTried = false, _bpHost = null, _bpEsc = null, bpSort = { key: 'proe', dir: -1 };
   const BP_ARCH = { hh: 'Alpha Factory', hl: 'Bellcow Country', lh: 'Stars Only', ll: 'Everybody Eats' };
   function loadBlueprint() {
     if (_bp || _bpTried) return;
@@ -43498,8 +43499,9 @@ window.VaultPropModel = (function () {
 #bp-host .bp-dot:hover{transform:scale(1.16)}
 #bp-host .bp-dot image{filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
 #bp-host .bp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(214px,1fr));gap:12px}
-#bp-host .bpc{background:var(--bt-s2);border:1px solid var(--bt-border2);border-radius:14px;padding:12px 13px 13px;transition:border-color .15s ease}
-#bp-host .bpc:hover{border-color:color-mix(in srgb,var(--bt-accent2,#5b9dff) 40%,transparent)}
+#bp-host .bpc{background:var(--bt-s2);border:1px solid var(--bt-border2);border-radius:14px;padding:12px 13px 13px;cursor:pointer;transition:border-color .15s ease,transform var(--dur-release,.5s) var(--ease-spring,ease)}
+#bp-host .bpc:hover{border-color:color-mix(in srgb,var(--bt-accent2,#5b9dff) 55%,transparent)}
+#bp-host .bpc:active{transform:scale(.985)}
 #bp-host .bpc-h{display:flex;align-items:center;gap:9px;margin-bottom:10px}
 #bp-host .bpc-h>img{width:27px;height:27px;object-fit:contain;flex:none}
 #bp-host .bpc-id{display:flex;flex-direction:column;min-width:0}
@@ -43518,7 +43520,42 @@ window.VaultPropModel = (function () {
 #bp-host .bp-new{font-family:var(--bt-mono);font-size:8px;letter-spacing:.05em;color:var(--bt-gold);background:color-mix(in srgb,var(--bt-gold) 16%,transparent);border-radius:4px;padding:1px 4px;margin-left:6px;cursor:help;white-space:nowrap}
 #bp-host .bp-sort{display:inline-flex;align-items:center;gap:7px;font-family:var(--bt-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted)}
 #bp-host .bp-sort .bt-mkt{text-transform:none;letter-spacing:0}
-#bp-host .bp-foot{font-family:var(--bt-mono);font-size:9.5px;color:var(--bt-faint);margin-top:14px;line-height:1.6}`;
+#bp-host .bp-foot{font-family:var(--bt-mono);font-size:9.5px;color:var(--bt-faint);margin-top:14px;line-height:1.6}
+#bp-detail{--bt-s1:var(--s1);--bt-s2:var(--s2);--bt-s3:var(--s3);--bt-border:var(--border);--bt-border2:var(--border2);--bt-text:var(--text);--bt-text2:var(--text2);--bt-muted:var(--muted);--bt-faint:var(--muted);--bt-accent2:var(--accent2);--bt-gold:var(--gold);--bt-green:var(--value);--bt-red:var(--red);--bt-mono:var(--font-mono);position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}
+#bp-detail .bpd-back{position:absolute;inset:0;background:rgba(0,0,0,.55);animation:bpdFade .2s ease}
+#bp-detail .bpd-panel{position:relative;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;background:var(--bt-s1);border:1px solid var(--bt-border2);border-radius:18px;padding:18px 18px 20px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);animation:bpdIn .34s var(--ease-spring,ease)}
+@keyframes bpdFade{from{opacity:0}}
+@keyframes bpdIn{from{opacity:0;transform:translateY(12px) scale(.975)}}
+#bp-detail .bpd-h{display:flex;align-items:center;gap:12px;margin-bottom:2px}
+#bp-detail .bpd-h>img{width:42px;height:42px;object-fit:contain;flex:none}
+#bp-detail .bpd-tm{font:800 20px/1.05 var(--font-sans);color:var(--bt-text);letter-spacing:-.02em}
+#bp-detail .bpd-coach{font:12px/1.3 var(--font-sans);color:var(--bt-muted);margin-top:2px}
+#bp-detail .bpd-arch{font:700 8px var(--bt-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--bt-text2);background:var(--bt-s3);border:1px solid var(--bt-border);border-radius:5px;padding:3px 7px;white-space:nowrap}
+#bp-detail .bpd-x{margin-left:auto;align-self:flex-start;width:30px;height:30px;border-radius:8px;border:1px solid var(--bt-border2);background:var(--bt-s2);color:var(--bt-muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:color .15s ease,border-color .15s ease}
+#bp-detail .bpd-x:hover{color:var(--bt-text);border-color:var(--bt-border3,var(--bt-border2))}
+#bp-detail .bpd-env{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0 4px}
+#bp-detail .bpd-tile{background:var(--bt-s2);border:1px solid var(--bt-border);border-radius:11px;padding:10px 11px}
+#bp-detail .bpd-tl{font:700 8px var(--bt-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted)}
+#bp-detail .bpd-tv{font:800 17px var(--bt-mono);color:var(--bt-text);margin-top:3px;display:flex;align-items:baseline;gap:4px;white-space:nowrap}
+#bp-detail .bpd-td{font:700 9px var(--bt-mono)}
+#bp-detail .bpd-td.p{color:var(--bt-green)} #bp-detail .bpd-td.n{color:var(--bt-red)} #bp-detail .bpd-td.z{color:var(--bt-faint)}
+#bp-detail .bpd-sec{margin-top:18px}
+#bp-detail .bpd-st{font:700 9px var(--bt-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--bt-muted);margin-bottom:10px;display:flex;justify-content:space-between}
+#bp-detail .bpd-st small{color:var(--bt-faint);font-weight:400;text-transform:none;letter-spacing:0}
+#bp-detail .bpd-row{display:grid;grid-template-columns:104px 1fr 38px;gap:9px;align-items:center;margin-top:7px}
+#bp-detail .bpd-nm{font:12px var(--font-sans);color:var(--bt-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bp-detail .bpd-nm.mut{color:var(--bt-muted)}
+#bp-detail .bpd-bar{height:8px;border-radius:4px;background:var(--bt-s3);overflow:hidden}
+#bp-detail .bpd-bar>i{display:block;height:100%;border-radius:4px;background:var(--bt-accent2,#5b9dff)}
+#bp-detail .bpd-bar>i.rush{background:color-mix(in srgb,var(--bt-accent2,#5b9dff) 55%,var(--bt-gold))}
+#bp-detail .bpd-pct{font:700 11px var(--bt-mono);color:var(--bt-text);text-align:right}
+#bp-detail .bpd-spark{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#bp-detail .bpd-sp{background:var(--bt-s2);border:1px solid var(--bt-border);border-radius:11px;padding:9px 10px}
+#bp-detail .bpd-spl{font:700 8px var(--bt-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--bt-muted)}
+#bp-detail .bpd-spv{font:800 14px var(--bt-mono);color:var(--bt-text);margin:2px 0 5px}
+#bp-detail .bpd-sp svg{display:block;width:100%;height:26px;overflow:visible}
+@media (max-width:440px){#bp-detail .bpd-env{gap:7px}#bp-detail .bpd-tile{padding:9px}#bp-detail .bpd-tv{font-size:14px;gap:3px}#bp-detail .bpd-td{font-size:8px}#bp-detail .bpd-row{grid-template-columns:92px 1fr 34px}}
+@media (prefers-reduced-motion:reduce){#bp-detail .bpd-back,#bp-detail .bpd-panel{animation:none}}`;
     document.head.appendChild(s);
   }
   const _bpDelta = (v, d) => { if (v == null) return ''; const a = Math.abs(v); const cls = a < (d === 0 ? 0.6 : 0.4) ? 'bp-d0' : (v > 0 ? 'bp-dp' : 'bp-dn'); return '<span class="bp-d ' + cls + '">' + (v >= 0 ? '+' : '') + v.toFixed(d != null ? d : 1) + '</span>'; };
@@ -43550,7 +43587,7 @@ window.VaultPropModel = (function () {
       if (t.rb1_carry_pct == null || t.wr1_tgt_pct == null) continue;
       const cx = X(t.rb1_carry_pct), cy = Y(t.wr1_tgt_pct), r = 12;
       const tip = `${t.team} · pace ${t.pace} · pass ${t.pass_pct}% · PROE ${t.proe > 0 ? '+' : ''}${t.proe} · RB1 ${t.rb1_carry_pct}% · WR1 ${t.wr1_tgt_pct}%${t.coach ? ' · ' + t.coach : ''}`;
-      g += `<g class="bp-dot"><title>${tip}</title><circle cx="${cx}" cy="${cy}" r="${r + 1.5}" fill="var(--bt-s3)" stroke="var(--bt-border2)"/><image href="${teamLogo(t.team)}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}"/></g>`;
+      g += `<g class="bp-dot" data-team="${t.team}"><title>${tip}</title><circle cx="${cx}" cy="${cy}" r="${r + 1.5}" fill="var(--bt-s3)" stroke="var(--bt-border2)"/><image href="${teamLogo(t.team)}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}"/></g>`;
     }
     g += `</svg>`;
     return g;
@@ -43592,7 +43629,7 @@ window.VaultPropModel = (function () {
       const wrHi = R.wr1_tgt_pct && t.wr1_tgt_pct != null && t.wr1_tgt_pct >= R.wr1_tgt_pct.med;
       const arch = BP_ARCH[(rbHi ? 'h' : 'l') + (wrHi ? 'h' : 'l')];
       const proeCls = t.proe != null ? (t.proe >= (R.proe ? R.proe.med : 0) ? 'pos' : 'neg') : '';
-      return '<div class="bpc">'
+      return '<div class="bpc" data-team="' + t.team + '" role="button" tabindex="0" title="' + t.team + ' offense detail">'
         + '<div class="bpc-h"><img src="' + teamLogo(t.team) + '" alt="" loading="lazy">'
         +   '<div class="bpc-id"><span class="bpc-tm">' + t.team + '</span>'
         +     '<span class="bpc-coach" title="' + (t.coach || '') + '">' + (t.coach || '—') + '</span></div>'
@@ -43604,6 +43641,55 @@ window.VaultPropModel = (function () {
         + '</div>';
     };
     return '<div class="bp-cards">' + rows.map(card).join('') + '</div>';
+  }
+  // Fluid sparkline for a metric's season series (non-scaling stroke so width is
+  // uniform regardless of the box width).
+  function _bpSpark(vals) {
+    if (!vals || vals.length < 2) return '<svg viewBox="0 0 100 26"></svg>';
+    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1, n = vals.length;
+    const pts = vals.map((v, i) => (i / (n - 1) * 100).toFixed(1) + ',' + (24 - (v - min) / rng * 22).toFixed(1));
+    const last = pts[pts.length - 1].split(',');
+    return '<svg viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--bt-accent2)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="' + last[0] + '" cy="' + last[1] + '" r="2" fill="var(--bt-accent2)"/></svg>';
+  }
+  function bpCloseDetail() {
+    const ov = document.getElementById('bp-detail'); if (ov) ov.remove();
+    if (_bpEsc) { document.removeEventListener('keydown', _bpEsc); _bpEsc = null; }
+  }
+  function bpOpenDetail(team) {
+    const t = _bp && _bp.current && _bp.current[team]; if (!t) return;
+    const med = (_bp && _bp.league_median) || {};
+    bpCloseDetail();
+    const rbHi = med.rb1_carry_pct != null && t.rb1_carry_pct != null && t.rb1_carry_pct >= med.rb1_carry_pct;
+    const wrHi = med.wr1_tgt_pct != null && t.wr1_tgt_pct != null && t.wr1_tgt_pct >= med.wr1_tgt_pct;
+    const arch = BP_ARCH[(rbHi ? 'h' : 'l') + (wrHi ? 'h' : 'l')];
+    const tile = (label, val, delta, unit) => {
+      const dc = delta == null ? 'z' : (Math.abs(delta) < 0.4 ? 'z' : (delta > 0 ? 'p' : 'n'));
+      const ds = delta == null ? '' : (delta > 0 ? '+' : '') + delta;
+      return '<div class="bpd-tile"><div class="bpd-tl">' + label + '</div><div class="bpd-tv">' + val + (unit || '') + (delta != null ? ' <span class="bpd-td ' + dc + '">' + ds + '</span>' : '') + '</div></div>';
+    };
+    const barRow = (nm, pct, rush) => '<div class="bpd-row"><span class="bpd-nm' + (nm === 'Others' ? ' mut' : '') + '">' + nm + '</span><span class="bpd-bar"><i class="' + (rush ? 'rush' : '') + '" style="width:' + Math.max(2, Math.min(100, pct)) + '%"></i></span><span class="bpd-pct">' + Math.round(pct) + '%</span></div>';
+    const recRows = (t.top_receivers || []).map(r => barRow(r[0], r[1], false)).join('') + (t.receivers_other ? barRow('Others', t.receivers_other, false) : '');
+    const rushRows = (t.top_rushers || []).map(r => barRow(r[0], r[1], true)).join('') + (t.rushers_other ? barRow('Others', t.rushers_other, true) : '');
+    const bs = (_bp && _bp.by_season) || {};
+    const years = Object.keys(bs).map(Number).sort((a, b) => a - b);
+    const serie = key => years.map(y => { const c = bs[String(y)] && bs[String(y)][team]; return c ? c[key] : null; }).filter(v => v != null);
+    const spark = (label, key, val, unit) => '<div class="bpd-sp"><div class="bpd-spl">' + label + '</div><div class="bpd-spv">' + val + (unit || '') + '</div>' + _bpSpark(serie(key)) + '</div>';
+    const rs = t.roster_season || '';
+    const ov = document.createElement('div'); ov.id = 'bp-detail';
+    ov.innerHTML = '<div class="bpd-back"></div><div class="bpd-panel">'
+      + '<div class="bpd-h"><img src="' + teamLogo(team) + '" alt=""><div style="flex:1;min-width:0"><div class="bpd-tm">' + team + '</div><div class="bpd-coach">' + (t.coach || '—') + (t.coach_changed ? ' · new staff' : '') + '</div></div><span class="bpd-arch">' + arch + '</span><button class="bpd-x" aria-label="Close">✕</button></div>'
+      + '<div class="bpd-env">' + tile('Pace', t.pace, t.pace_delta, '') + tile('Pass %', t.pass_pct, t.pass_pct_delta, '%') + tile('PROE', (t.proe > 0 ? '+' : '') + t.proe, t.proe_delta, '') + '</div>'
+      + '<div class="bpd-sec"><div class="bpd-st"><span>Target tree</span><small>' + rs + ' · share of targets</small></div>' + (recRows || '<div class="bpd-nm mut">No data</div>') + '</div>'
+      + '<div class="bpd-sec"><div class="bpd-st"><span>Backfield</span><small>' + rs + ' · share of carries</small></div>' + (rushRows || '<div class="bpd-nm mut">No data</div>') + '</div>'
+      + '<div class="bpd-sec"><div class="bpd-st"><span>Trend</span><small>' + (years[0] || '') + '–' + (years[years.length - 1] || '') + '</small></div><div class="bpd-spark">'
+      +   spark('Pace', 'pace', t.pace, '') + spark('Pass %', 'pass_pct', t.pass_pct, '%') + spark('PROE', 'proe', (t.proe > 0 ? '+' : '') + t.proe, '')
+      + '</div></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.querySelector('.bpd-back').onclick = bpCloseDetail;
+    ov.querySelector('.bpd-x').onclick = bpCloseDetail;
+    _bpEsc = e => { if (e.key === 'Escape') bpCloseDetail(); };
+    document.addEventListener('keydown', _bpEsc);
   }
   function renderBlueprint(hostArg) {
     injectBlueprintStyles();
@@ -43624,6 +43710,12 @@ window.VaultPropModel = (function () {
       + '<div class="bp-foot">PACE plays/game · PASS LEAN = pass rate over expected on neutral downs (PROE) · BELLCOW/COMMITTEE = RB1 carry share · STARS/SPREAD = WR1 target share · bars are vs the league average. From ' + (yrs || 'recent') + ' play-by-play, recency-weighted with a coaching-change reset. Context, not a betting edge.</div>';
     const sortSel = document.getElementById('bp-sortby');
     if (sortSel) sortSel.onchange = () => { bpSort = { key: sortSel.value, dir: sortSel.value === 'team' ? 1 : -1 }; renderBlueprint(); };
+    // open the per-team detail from a card (or a map dot)
+    host.querySelectorAll('.bpc, .bp-dot').forEach(el => {
+      const go = () => { const tm = el.getAttribute('data-team'); if (tm) bpOpenDetail(tm); };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
   }
   window.vaultRenderBlueprint = function () { const h = document.getElementById('bp-host'); if (h) renderBlueprint(h); };
 

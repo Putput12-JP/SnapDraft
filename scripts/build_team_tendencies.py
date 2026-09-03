@@ -91,6 +91,7 @@ def process_season(yr):
         "proe_sum": 0.0, "proe_n": 0,
         "carries": defaultdict(int), "pass_by": defaultdict(int),
         "targets": defaultdict(int), "coach": defaultdict(int),
+        "carry_nm": {}, "tgt_nm": {},   # id → display name, for the detail-view target tree / backfield
     })
     for r in pbp_rows(yr):
         if r.get("season_type") != "REG":
@@ -118,12 +119,30 @@ def process_season(yr):
             t["proe_sum"] += xoe; t["proe_n"] += 1
         # who ran / who passed (to strip QB runs from carry share)
         if isR and r.get("rusher_player_id"):
-            t["carries"][r["rusher_player_id"]] += 1
+            rid = r["rusher_player_id"]
+            t["carries"][rid] += 1
+            if r.get("rusher_player_name"):
+                t["carry_nm"][rid] = r["rusher_player_name"]
         if isP and r.get("passer_player_id"):
             t["pass_by"][r["passer_player_id"]] += 1
         if r.get("pass_attempt") == "1" and r.get("receiver_player_id"):
-            t["targets"][r["receiver_player_id"]] += 1
+            rec = r["receiver_player_id"]
+            t["targets"][rec] += 1
+            if r.get("receiver_player_name"):
+                t["tgt_nm"][rec] = r["receiver_player_name"]
     return T
+
+
+def top_named(counts, names, n, exclude_id=None):
+    """Top-n [name, share%] by count (+ an 'others' remainder %), from a season's tallies."""
+    items = [(pid, c) for pid, c in counts.items() if pid != exclude_id]
+    tot = sum(c for _, c in items)
+    if not tot:
+        return [], 0.0
+    items.sort(key=lambda x: -x[1])
+    top = [[names.get(pid, pid), round(100 * c / tot, 1)] for pid, c in items[:n]]
+    other = round(100 * sum(c for _, c in items[n:]) / tot, 1)
+    return top, other
 
 
 def team_metrics(t):
@@ -157,6 +176,7 @@ METRIC_KEYS = ["pace", "pass_pct", "proe", "rb1_carry_pct", "rb2_carry_pct", "wr
 def main():
     per_season = {}            # yr → { team → metrics }
     medians = {}               # yr → { metric → league median }
+    raw_by_season = {}         # yr → { team → raw tallies } (for the detail-view named lists)
     for yr in SEASONS:
         try:
             T = process_season(yr)
@@ -167,6 +187,7 @@ def main():
             return {k: (round(v, 2) if isinstance(v, float) else v) for k, v in mm.items()}
         m = {tm: _round(team_metrics(t)) for tm, t in T.items() if len(t["games"]) >= 4}
         per_season[yr] = m
+        raw_by_season[yr] = T
         med = {}
         for k in METRIC_KEYS:
             vals = [mm[k] for mm in m.values() if mm.get(k) is not None]
@@ -209,6 +230,17 @@ def main():
             out[k] = round(med_cur + delta, 2) if med_cur is not None else None
             out[k + "_delta"] = round(delta, 2)
         out["coach_changed"] = coach_changed
+        # detail-view named lists: the latest season's actual target tree + backfield
+        rawT = raw_by_season.get(latest, {}).get(tm)
+        if rawT:
+            qb = max(rawT["pass_by"], key=rawT["pass_by"].get) if rawT["pass_by"] else None
+            recs, rec_other = top_named(rawT["targets"], rawT["tgt_nm"], 5)
+            rush, rush_other = top_named(rawT["carries"], rawT["carry_nm"], 3, exclude_id=qb)
+            out["top_receivers"] = recs
+            out["receivers_other"] = rec_other
+            out["top_rushers"] = rush
+            out["rushers_other"] = rush_other
+            out["roster_season"] = latest
         current[tm] = out
 
     # league medians (latest season) for readers that want the neutral reference
