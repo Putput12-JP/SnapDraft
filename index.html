@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T16:00', tag:'Fixed', title:'Tapping a Best Bet keeps the full board',
+    items:[
+      'Tapping a pick in Vault Best Bets used to filter the props board down to that one player, hiding everyone else at the position.',
+      'Now it jumps to the right position and market, highlights the player and loads them into the chart, and keeps the whole list below so you can keep browsing.',
+    ],
+  },
+  {
     ts:'2026-09-03T15:00', tag:'New', title:'See Vault’s Over/Under lean at a glance on the props board — and filter by it',
     items:[
       'The Player Props Edge Board has a new O/U column showing which side Vault’s projection favors — a green Over, a red Under, or a PICK when the projection sits right on the line.',
@@ -41612,6 +41619,8 @@ window.VaultPropModel = (function () {
      reading the SAME consensus line the edge is computed on, so the two can no
      longer disagree. */
   let ebSel = null;          // selected player's board-market prop key (id:market) — drives the persistent panel
+  let ebPendSel = null;      // pending name-based select (e.g. a Best Bets tap) — resolved to a real ebSel once the board's rows exist
+  let ebScrollSel = false;   // one-shot: scroll the selected row into view after the next board paint (a Best Bets tap)
   let ebInit = false;        // has the board default-selected its top row once
   let ebDetailMkt = null;    // which of the player's props the persistent panel is showing (defaults to the board market)
   let _pdTok = 0;            // panel render token — stale async chart/projection paints bail against it
@@ -42077,10 +42086,11 @@ window.VaultPropModel = (function () {
     // way. It is the one market only Vault's projection can grade, so it gets its
     // own isolated board driven by VaultPropModel. Kept fully separate from the
     // proven de-vig path above.
-    if (curMarket === 'anytime_td') return renderAnytimeBoard(m, col);
+    if (curMarket === 'anytime_td') { ebPendSel = null; ebScrollSel = false; return renderAnytimeBoard(m, col); }
     const rows = ebRows();
     document.getElementById('bt-count').textContent = rows.length + ' live ' + (rows.length === 1 ? 'line' : 'lines');
     if (!rows.length) {
+      ebPendSel = null; ebScrollSel = false;   // nothing to feature on an empty board
       const mLbl = m.short || m.label || '';
       // Distinguish "no book prices this" from "your own filters hid everything".
       // A leftover name search — e.g. one a Best Bets tap dropped in — survives
@@ -42119,6 +42129,16 @@ window.VaultPropModel = (function () {
     // Default to the top edge; when the selection is filtered/sorted away (or the
     // board market changed), fall back to the new top row and reset the panel's
     // prop to the board market.
+    // A Best Bets tap features a player without filtering the board — it drops a
+    // name here (not a full prop key, which needs the row's id). Resolve it to a
+    // real selection now that the rows exist, then let the fallback logic below
+    // keep or replace it. Cleared whether or not it matched so a stale name can't
+    // linger across position/market changes.
+    if (ebPendSel) {
+      const want = _nn(ebPendSel), hit = rows.find(r => _nn(r.name) === want);
+      if (hit) { ebSel = propKey(hit); ebDetailMkt = curMarket; ebInit = true; }
+      ebPendSel = null;
+    }
     if (!ebInit) { ebInit = true; ebSel = propKey(rows[0]); ebDetailMkt = curMarket; }
     else if (ebSel == null || !rows.some(r => propKey(r) === ebSel)) { ebSel = propKey(rows[0]); ebDetailMkt = curMarket; }
     if (!ebDetailMkt) ebDetailMkt = curMarket;
@@ -42249,6 +42269,13 @@ window.VaultPropModel = (function () {
     // (the detail opens inline only when a card is tapped).
     const selRow = (!isMobile() && ebSel) ? rows.find(r => propKey(r) === ebSel) : null;
     if (selRow) renderPropDetail(playerRowFor(selRow, ebDetailMkt));
+    // A Best Bets tap features a row that may be anywhere in the list — bring it
+    // into view (and flag it on mobile, where there's no persistent panel).
+    if (ebScrollSel) {
+      ebScrollSel = false;
+      const selEl = _pvInner().querySelector('#eb-rows .pr.sel');
+      if (selEl) selEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     ebFillHits(rows);      // async hit% into the leaderboard cells
     ebFillVaultCol(rows);  // async Vault-edge (own projection) into its column
   }
@@ -43815,8 +43842,13 @@ window.VaultPropModel = (function () {
       view = 'props';
       const p = el.dataset.bbPos; if (p && ['QB', 'RB', 'WR', 'TE'].includes(p)) curPos = p;
       const mk = el.dataset.bbMkt; if (mk) curMarket = mk;
-      searchQ = el.dataset.bbName;
-      const sb = document.getElementById('bt-search'); if (sb) sb.value = searchQ;
+      // Feature the tapped player in the detail panel + highlight their row, but
+      // keep the FULL list below — a name search here narrowed the board to one
+      // player (or emptied it on a name miss), which read as "the list vanished".
+      searchQ = '';
+      const sb = document.getElementById('bt-search'); if (sb) sb.value = '';
+      ebPendSel = el.dataset.bbName;
+      ebScrollSel = true;      // scroll the featured row into view after the board paints
       render();
     });
   }
