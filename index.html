@@ -13424,6 +13424,7 @@ const VAULT_CHANGELOG = [
     ts:'2026-09-03T18:00', tag:'Improved', title:'Your tracked picks now show the full case for each bet',
     items:[
       'Every prop you’re tracking in My Picks now shows its matchup, position, Vault’s edge and projection when you took it, and the odds and book you locked in.',
+      'Tracked game bets do the same: Vault’s projected line for the game and how far it diverged from the number you took, next to the price and book.',
       'It’s the snapshot of why you made the pick, right next to whether it cashed — no need to remember what the board looked like at the time.',
     ],
   },
@@ -41752,7 +41753,8 @@ window.VaultPropModel = (function () {
         cands.push({ market: 'spread', side: home ? 'home' : 'away', team: home ? g.home : g.away,
           line: home ? mkSp : round05(-mkSp), price: bb ? bb.price : null, book: bb ? bb.book : null,
           label: (home ? g.home : g.away) + ' ' + sline(home ? mkSp : round05(-mkSp)),
-          vault: (home ? g.home : g.away) + ' ' + sline(+(home ? gp.homeSpread : -gp.homeSpread).toFixed(1)), score: d / 1 });
+          vault: (home ? g.home : g.away) + ' ' + sline(+(home ? gp.homeSpread : -gp.homeSpread).toFixed(1)),
+          diff: +d.toFixed(1), unit: 'pt', score: d / 1 });
       }
     }
     const mkT = (g.total && g.total.cons != null) ? g.total.cons : null;
@@ -41762,7 +41764,8 @@ window.VaultPropModel = (function () {
         const over = gp.total > mkT, b = (g.total.best || {}), bb = over ? b.over : b.under;
         cands.push({ market: 'total', side: over ? 'over' : 'under', team: null, line: mkT,
           price: bb ? bb.price : null, book: bb ? bb.book : null,
-          label: (over ? 'Over ' : 'Under ') + mkT, vault: 'total ' + gp.total, score: d / 1.5 });
+          label: (over ? 'Over ' : 'Under ') + mkT, vault: 'total ' + gp.total,
+          diff: +d.toFixed(1), unit: 'pt', score: d / 1.5 });
       }
     }
     const mlP = _mlHomeProb(g);
@@ -41773,7 +41776,8 @@ window.VaultPropModel = (function () {
         const home = gp.homeWinPct > impH, b = (g.ml && g.ml.best) || {}, bb = home ? b.home : b.away;
         cands.push({ market: 'ml', side: home ? 'home' : 'away', team: home ? g.home : g.away, line: null,
           price: bb ? bb.price : null, book: bb ? bb.book : null,
-          label: (home ? g.home : g.away) + ' ML', vault: (home ? g.home : g.away) + ' ' + gp.homeWinPct + '% win', score: d / 6 });
+          label: (home ? g.home : g.away) + ' ML', vault: (home ? g.home : g.away) + ' ' + gp.homeWinPct + '% win',
+          diff: Math.round(d), unit: 'pt%', score: d / 6 });
       }
     }
     if (!cands.length) return null;
@@ -41783,7 +41787,7 @@ window.VaultPropModel = (function () {
   function _leanToPick(g, lean) {
     return { k: null, game: gameKeyOf(g), away: g.away, home: g.home, market: lean.market, side: lean.side,
       team: lean.team, line: lean.line, price: lean.price, book: lean.book, label: lean.label, vault: lean.vault,
-      season: MODEL.season, week: MODEL.week };
+      diff: lean.diff, unit: lean.unit, season: MODEL.season, week: MODEL.week };
   }
   function gamePickLogged(g, lean) { return gamePicksLoad().some(p => p.k === gamePickKey(_leanToPick(g, lean))); }
   function toggleGamePick(g, lean) {
@@ -42512,11 +42516,19 @@ window.VaultPropModel = (function () {
       + '</div></div>';
     const list = picks.slice().sort((x, y) => (y.ts || 0) - (x.ts || 0)).map(p => {
       const res = p.result === 'W' ? '<span class="mp-res w">WON</span>' : p.result === 'L' ? '<span class="mp-res l">LOST</span>' : p.result === 'P' ? '<span class="mp-res pend">PUSH</span>' : '<span class="mp-res pend">pending</span>';
-      const px = p.price != null ? ' <span class="tr-gp-px">' + F().fmtOdds(p.price) + '</span>' : '';
-      const sc = (p.homeScore != null) ? '<span class="tr-pk-act">' + p.awayScore + '–' + p.homeScore + '</span>' : '';
+      const px = p.price != null ? ' <span class="tr-gp-px">' + F().fmtOdds(p.price) + (p.book ? bookChip(p.book) : '') + '</span>' : '';
+      const sc = (p.homeScore != null) ? '<span class="tr-pk-act" title="Final score">' + p.awayScore + '–' + p.homeScore + '</span>' : '';
+      // Vault's own projected line for the game + how far it diverged from the
+      // market number you took — the reason this lean was flagged. Captured at
+      // track time; only shown when present (older game picks lack diff/unit).
+      const gchips = [];
+      if (p.vault) gchips.push('<span class="tr-mk pos" title="Vault’s projected line for this game">Vault ' + _trEsc(p.vault) + '</span>');
+      if (p.diff != null) { const u = p.unit === 'pt' ? ' pt' : '%';   // spread/total in points; ML in win-% points
+        gchips.push('<span class="tr-mk" title="How far Vault’s line diverged from the market number you took">' + p.diff + u + ' off market</span>'); }
+      const gmeta = gchips.length ? '<div class="tr-pk-meta">' + gchips.join('') + '</div>' : '';
       return '<div class="tr-pk ' + (p.result ? ({ W: 'w', L: 'l', P: 'pend' })[p.result] : 'pend') + '">'
         + '<div class="tr-pk-l"><span class="tr-gp-mk">' + (_GMKL[p.market] || p.market) + '</span><div class="tr-pk-nm"><b>' + p.label + '</b>' + px
-        + '<span>' + p.away + ' @ ' + p.home + ' · Wk ' + (p.week || '?') + '</span></div></div>'
+        + '<span>' + p.away + ' @ ' + p.home + ' · Wk ' + (p.week || '?') + '</span>' + gmeta + '</div></div>'
         + '<div class="tr-pk-r">' + sc + res + '<button class="mp-gdel" data-k="' + p.k + '" title="Remove">✕</button></div></div>';
     }).join('');
     return '<div class="tr-gamesec"><div class="tr-gt">Game bets <span class="tr-gtn">· Vault’s leans you’re tracking</span></div>'
@@ -44031,7 +44043,7 @@ window.VaultPropModel = (function () {
 #page-betting .tr-gamesec{border-top:6px solid var(--bt-border)}
 #page-betting .tr-gamesec > .tr-gt{padding:15px 16px 0}
 #page-betting .tr-gp-mk{font-family:var(--bt-mono);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--bt-accent2);border:1px solid color-mix(in srgb,var(--bt-accent2) 34%,transparent);border-radius:5px;padding:3px 7px;flex-shrink:0}
-#page-betting .tr-gp-px{font-family:var(--bt-mono);font-size:11px;font-weight:700;color:var(--bt-muted)}
+#page-betting .tr-gp-px{display:inline-flex;align-items:center;gap:3px;font-family:var(--bt-mono);font-size:11px;font-weight:700;color:var(--bt-muted)}
 #page-betting .tr-empty{padding:44px 24px;text-align:center}
 #page-betting .tr-ek{font-size:15px;font-weight:700;margin-bottom:7px}
 #page-betting .tr-et{font-size:12.5px;color:var(--bt-muted);line-height:1.55;max-width:440px;margin:0 auto}
