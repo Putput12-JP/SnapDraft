@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T19:00', tag:'New', title:'Track the Over or the Under — your choice',
+    items:[
+      'Open any prop and each side now has its own Track button, so you can follow the Over, the Under, or both — not just Vault’s lean.',
+      'Each tracked side records that side’s own price, grade and edge, and the two show as separate picks in My Picks. The header button still one-taps Vault’s lean side.',
+    ],
+  },
+  {
     ts:'2026-09-03T18:00', tag:'Improved', title:'Your tracked picks now show the full case for each bet',
     items:[
       'Every prop you’re tracking in My Picks now shows its matchup, position, Vault’s edge and projection when you took it, and the odds and book you locked in.',
@@ -41667,30 +41674,42 @@ window.VaultPropModel = (function () {
   function picksLoad() { try { return JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch (e) { return []; } }
   function picksSave(a) { try { localStorage.setItem(PKEY, JSON.stringify(a)); } catch (e) {} }
   let propsView = 'board';   // 'board' | 'results'
-  const pickKey = r => propKey(r) + ':' + (MODEL.season || '') + 'w' + (MODEL.week || '');
-  function pickLogged(r) { return picksLoad().some(p => p.k === pickKey(r)); }
-  function logPick(r) {
-    const picks = picksLoad(); const k = pickKey(r);
+  // Pick key is SIDE-aware, so Over and Under of the same prop track as separate
+  // entries — you choose which side (or both) to follow, not just Vault's lean.
+  const pickKey = (r, side) => propKey(r) + ':' + (side || '') + ':' + (MODEL.season || '') + 'w' + (MODEL.week || '');
+  const _sideLbl = s => s === 'under' ? 'Under' : 'Over';
+  // Vault's favoured side for a prop (higher win prob) — the header quick-track
+  // and the accent-ringed card both key on this.
+  function _leanSideOf(r) {
+    const c = _vaultCache[propKey(r)];
+    if (c && c.over != null && c.under != null) return c.over >= c.under ? 'over' : 'under';
+    const g = c && c.g; if (g && g.side) return g.side;
+    return (r.fe && r.fe.side) || 'over';
+  }
+  function pickLogged(r, side) { const k = pickKey(r, side); return picksLoad().some(p => p.k === k); }
+  function logPick(r, side) {
+    const picks = picksLoad(); const k = pickKey(r, side);
     if (picks.some(p => p.k === k)) { return; }
-    const c = _vaultCache[propKey(r)], g = c && c.g;
-    const pf = resolvePick(r);
+    const c = _vaultCache[propKey(r)];
+    const v = _cacheV(r);                 // {over,under,proj,games} or null
+    const sm = _sideMetrics(r, side, v);  // best price/book, grade + edge for THIS side (matches the card)
     picks.push({
       k, id: r.id || null, name: r.name, pos: r.pos, team: r.team || null,
       market: r.market, marketLabel: r.marketLabel, line: r.line,
-      side: g ? g.side : (r.fe && r.fe.side) || 'over',
-      grade: g ? cappedGradeLetter(g.padj, betBE, c && c.caution) : null,
-      vaultEV: c && c.ev != null ? c.ev : null,
+      side: side,
+      grade: sm.letter,
+      vaultEV: sm.vev != null ? sm.vev : null,
       // captured at log time so the tracked pick carries its own context — the
       // odds/book you took, Vault's projection, and the matchup orientation.
-      proj: c && c.proj != null ? c.proj : null,
-      price: pf && pf.bestPrice != null ? pf.bestPrice : null,
-      book: (pf && pf.bestBook) || null,
+      proj: v && v.proj != null ? v.proj : null,
+      price: sm.best != null ? sm.best : null,
+      book: sm.book || null,
       ha: r.ha || null,
       season: MODEL.season, week: MODEL.week, opp: r.opp || null, ts: Date.now(),
     });
     picksSave(picks);
   }
-  function unlogPick(r) { picksSave(picksLoad().filter(p => p.k !== pickKey(r))); }
+  function unlogPick(r, side) { const k = pickKey(r, side); picksSave(picksLoad().filter(p => p.k !== k)); }
   // Settle any pick whose game has been played, against nflverse actuals.
   async function settlePicks(picks) {
     const PH = window.VaultPropHistory; if (!PH) return picks;
@@ -42682,31 +42701,39 @@ window.VaultPropModel = (function () {
       + '</div>'
       + (diff != null ? '<div class="ph-lean ' + lean + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + ' · leans ' + (lean === 'over' ? 'Over' : 'Under') + '</div>' : '');
   }
-  function twoSideInner(r, v, loading) {
-    const fb = F(), BM = window.VaultBettingMath, fe = r.fe, line = r.line, fmt = fb.fmtOdds;
+  // Per-side (over|under) metrics for a prop: best price + book, de-vig fair,
+  // market EV, Vault win-prob, Vault edge, and the shrunk grade letter. Shared by
+  // the OVER|UNDER cards and by logPick so a tracked side records exactly what the
+  // card shows. `v` = Vault projection {over,under,proj,games} or null.
+  function _sideMetrics(r, side, v) {
+    const fb = F(), BM = window.VaultBettingMath, fe = r.fe, line = r.line;
     const sides = (fe && fe.sides) ? fe.sides : null;
     const _caution = (_vaultCache[propKey(r)] || {}).caution;   // demote the favoured side's grade if the edge is flagged
-    const mk = side => {
-      const s = sides ? sides[side] : null;
-      let best = s ? s.bestPrice : null, book = s ? s.bestBook : null, fair = s ? s.fairAmerican : null, mev = s ? s.ev : null;
-      if (!s) { (r.quotes || []).forEach(q => { const on = q.line == null || line == null || q.line === line; if (on && q[side] != null && (best == null || q[side] > best)) { best = q[side]; book = q.book; } }); }
-      const prob = v ? (side === 'over' ? v.over : v.under) : null;
-      const mp = (BM && best != null) ? BM.americanToProb(best) : null;
-      const ed = (BM && prob != null && mp != null) ? BM.findEdge(prob, mp) : null;
-      const vev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
-      let letter = null;
-      if (prob != null) {
-        const n = (v && v.games != null) ? v.games : 0, K = 6;
-        const favored = v && Math.max(v.over, v.under) === prob;   // the side the caution is about
-        letter = cappedGradeLetter(0.5 + (prob - 0.5) * (n / (n + K)), betBE, favored ? _caution : null);
-      }
-      return { side, best, book, fair, mev, prob, vev, letter };
-    };
+    const s = sides ? sides[side] : null;
+    let best = s ? s.bestPrice : null, book = s ? s.bestBook : null, fair = s ? s.fairAmerican : null, mev = s ? s.ev : null;
+    if (!s) { (r.quotes || []).forEach(q => { const on = q.line == null || line == null || q.line === line; if (on && q[side] != null && (best == null || q[side] > best)) { best = q[side]; book = q.book; } }); }
+    const prob = v ? (side === 'over' ? v.over : v.under) : null;
+    const mp = (BM && best != null) ? BM.americanToProb(best) : null;
+    const ed = (BM && prob != null && mp != null) ? BM.findEdge(prob, mp) : null;
+    const vev = ed ? +(ed.evPerDollar * 100).toFixed(1) : null;
+    let letter = null;
+    if (prob != null) {
+      const n = (v && v.games != null) ? v.games : 0, K = 6;
+      const favored = v && Math.max(v.over, v.under) === prob;   // the side the caution is about
+      letter = cappedGradeLetter(0.5 + (prob - 0.5) * (n / (n + K)), betBE, favored ? _caution : null);
+    }
+    return { side, best, book, fair, mev, prob, vev, letter };
+  }
+  function twoSideInner(r, v, loading) {
+    const fb = F(), line = r.line, fmt = fb.fmtOdds;
+    const mk = side => _sideMetrics(r, side, v);
     const O = mk('over'), U = mk('under');
     const evH = e => e == null ? '<span class="mut">—</span>' : '<span class="' + (e > 0 ? 'pos' : 'neg') + '">' + (e > 0 ? '+' : '') + e + '%</span>';
     const vH = s => loading ? '<span class="spinner xs"></span>' : (s.vev == null ? '<span class="mut">—</span>' : '<span class="' + (s.vev > 0 ? 'pos' : 'neg') + '">' + (s.vev > 0 ? '+' : '') + s.vev + '%</span>');
     const sH = s => loading ? '<span class="spinner xs"></span>' : (s.prob == null ? '<span class="mut">—</span>' : '<span class="' + (s.prob >= 0.5 ? 'pos' : 'neg') + '">' + Math.round(s.prob * 100) + '%</span>');
     const gH = s => loading ? '<span class="spinner xs"></span>' : (s.letter == null ? '<span class="mut">—</span>' : '<span class="eb-grade ' + s.letter.toLowerCase() + '">' + s.letter + '</span>');
+    const tracked = s => pickLogged(r, s.side);
+    const trackH = s => '<button class="eb-2track' + (tracked(s) ? ' on' : '') + '" data-side="' + s.side + '" title="' + (tracked(s) ? 'Tracking the ' + _sideLbl(s.side) + ' in Track Record — tap to stop' : 'Track the ' + _sideLbl(s.side) + ' ' + (line != null ? line : '') + ' in Track Record') + '">' + (tracked(s) ? '✓ Tracking' : '＋ Track ' + _sideLbl(s.side)) + '</button>';
     const colH = (s, lab, isLean) => '<div class="eb-2col' + (isLean ? ' lean' : '') + '"><div class="eb-2h"><span>' + lab + '</span><b>' + (line != null ? line : '') + '</b></div>'
       + '<div class="eb-2big">' + fmt(s.best) + '</div><div class="eb-2bk">' + (s.book || '—') + '</div>'
       + '<div class="eb-2rows">'
@@ -42715,7 +42742,7 @@ window.VaultPropModel = (function () {
       + '<div><span title="Value from Vault’s own projection vs this price">Vault edge</span><b>' + vH(s) + '</b></div>'
       + '<div><span title="Vault’s calibrated chance this side hits">Vault sim</span><b>' + sH(s) + '</b></div>'
       + '<div><span title="Vault grade for this side vs your break-even">Grade</span><b>' + gH(s) + '</b></div>'
-      + '</div></div>';
+      + '</div>' + trackH(s) + '</div>';
     // Projection context. When the model's MEAN and its PROBABILITY point at
     // different sides (a skewed stat: a few big games drag the average over the
     // line even though most games land under), say so out loud — that gap is
@@ -42792,7 +42819,9 @@ window.VaultPropModel = (function () {
       + '<div class="eb-pick">' + (fb.MARKET_BY_KEY[r.market].label) + ' · <b>line ' + (r.line != null ? r.line : '—') + '</b> · <span class="mut">both sides below</span></div></div></div>'
       + '<div class="eb-fbadge">'
       + '<button class="eb-wbtn ' + (on ? 'on' : '') + '" data-w="' + propKey(r) + '">' + (on ? '★ On watchlist' : '☆ Add to watchlist') + '</button>'
-      + '<button class="eb-logbtn ' + (pickLogged(r) ? 'on' : '') + '" id="eb-logpick">' + (pickLogged(r) ? '✓ Tracking' : '＋ Track pick') + '</button></div></div>'
+      + (() => { const ls = _leanSideOf(r), lt = pickLogged(r, ls);
+          return '<button class="eb-logbtn ' + (lt ? 'on' : '') + '" id="eb-logpick" title="' + (lt ? 'Tracking Vault’s lean (' + _sideLbl(ls) + ') — tap to stop' : 'Track Vault’s lean side (' + _sideLbl(ls) + '). Or pick a side below.') + '">' + (lt ? '✓ Tracking ' + _sideLbl(ls) : '＋ Track ' + _sideLbl(ls)) + '</button>'; })()
+      + '</div></div>'
       + '<div class="vseg fluid eb-proptabs">' + playerMarkets(r).map(m => '<button class="' + (m.key === r.market ? 'on' : '') + '" data-pm="' + m.key + '">' + m.label + '</button>').join('') + '</div>'
       + '<div class="bx-detail">'
       +   '<div class="bx-projhero" id="eb-projhero">' + projHeroHTML(r) + '</div>'
@@ -42804,7 +42833,8 @@ window.VaultPropModel = (function () {
     paintHeadshots('#eb-feat');
     feat.querySelector('.eb-wbtn').onclick = () => { const k = propKey(r); watch.has(k) ? watch.delete(k) : watch.add(k); _watchSave(); renderPropsBoard(); };
     const logBtn = feat.querySelector('#eb-logpick');
-    if (logBtn) logBtn.onclick = () => { pickLogged(r) ? unlogPick(r) : logPick(r); renderPropsBoard(); };
+    if (logBtn) logBtn.onclick = () => { const ls = _leanSideOf(r); pickLogged(r, ls) ? unlogPick(r, ls) : logPick(r, ls); renderPropsBoard(); };
+    _wire2side(r);   // per-side Track toggles inside the OVER | UNDER cards
     // Prop switcher (Outlier stat tabs): swap which of the player's props the
     // panel shows, without leaving the player or rebuilding the table.
     feat.querySelectorAll('.eb-proptabs button').forEach(b => b.onclick = () => { ebDetailMkt = b.dataset.pm; renderPropDetail(playerRowFor(r, b.dataset.pm)); });
@@ -42872,11 +42902,21 @@ window.VaultPropModel = (function () {
   // so a single fetch fills the whole OVER | UNDER comparison. When the board
   // already cached the projection the block renders filled and this just refreshes
   // it; otherwise it swaps the spinners for real numbers when the fetch lands.
+  // Bind the per-side "＋ Track {side}" toggles inside the OVER | UNDER cards.
+  // Re-called after every twoSideInner paint (the block re-renders async).
+  function _wire2side(r) {
+    const host = document.getElementById('eb-2side'); if (!host) return;
+    host.querySelectorAll('.eb-2track[data-side]').forEach(b => b.onclick = () => {
+      const side = b.dataset.side;
+      pickLogged(r, side) ? unlogPick(r, side) : logPick(r, side);
+      renderPropsBoard();   // rebuilds board + re-renders this panel with the new state
+    });
+  }
   function ebFillVault(r, fe) {
     const PM = window.VaultPropModel, BM = window.VaultBettingMath, tok = _pdTok;
     const host = document.getElementById('eb-2side');
     if (!host) return;
-    if (!PM || !BM || r.line == null) { host.innerHTML = twoSideInner(r, null, false); return; }
+    if (!PM || !BM || r.line == null) { host.innerHTML = twoSideInner(r, null, false); _wire2side(r); return; }
     const mpo = (fe && fe.sides && fe.sides.over) ? fe.sides.over.fairProb : null;   // vig-free market P(over), if de-viggable
     const ci = cascadeInfo(r);                                                        // injury teammate-cascade volume bump (or null)
     const adj = matchupAdj(r);                                                        // DvP opponent + Vegas-total environment
@@ -42884,10 +42924,10 @@ window.VaultPropModel = (function () {
       const h = document.getElementById('eb-2side');
       if (!h || tok !== _pdTok) return;               // panel moved on
       const vv = (v && v.over != null) ? { over: v.over, under: v.under, proj: v.proj, games: v.games } : null;
-      h.innerHTML = twoSideInner(r, vv, false);
+      h.innerHTML = twoSideInner(r, vv, false); _wire2side(r);
       const ph = document.getElementById('eb-projhero');
       if (ph) ph.innerHTML = projHeroHTML(r, vv);
-    }).catch(() => { const h = document.getElementById('eb-2side'); if (h && tok === _pdTok) h.innerHTML = twoSideInner(r, null, false); });
+    }).catch(() => { const h = document.getElementById('eb-2side'); if (h && tok === _pdTok) { h.innerHTML = twoSideInner(r, null, false); _wire2side(r); } });
   }
   // ── phantom-edge guard ────────────────────────────────────────────────
   // A single-source line (only one book quotes it) that Vault's projection
@@ -44105,6 +44145,12 @@ window.VaultPropModel = (function () {
 #page-betting .eb-2rows>div>b{font-family:var(--bt-mono);font-size:var(--t-body);font-weight:700;color:var(--bt-text)}
 #page-betting .eb-2rows .pos{color:var(--bt-green)}
 #page-betting .eb-2rows .neg{color:var(--red)}
+/* Per-side Track toggle inside each OVER | UNDER card. */
+#page-betting .eb-2track{width:100%;margin-top:14px;font-family:var(--font-sans);font-size:12.5px;font-weight:600;color:var(--bt-text2);background:var(--bt-s3);border:1px solid var(--bt-border2);border-radius:10px;padding:8px 12px;cursor:pointer;transition:border-color .15s ease,background .15s ease,transform var(--dur-release,.5s) var(--ease-spring,ease)}
+#page-betting .eb-2track:hover{border-color:color-mix(in srgb,var(--bt-accent2) 42%,transparent);color:var(--bt-text)}
+#page-betting .eb-2track:active{transform:scale(.975)}
+#page-betting .eb-2track.on{background:color-mix(in srgb,var(--bt-green) 14%,transparent);border-color:color-mix(in srgb,var(--bt-green) 42%,transparent);color:var(--bt-green)}
+#page-betting .eb-2col.lean .eb-2track:not(.on){border-color:color-mix(in srgb,var(--bt-accent2) 40%,transparent);color:var(--bt-accent2)}
 #page-betting .eb-bt2{display:flex;flex-direction:column;gap:1px;background:var(--bt-border);border:1px solid var(--bt-border);border-radius:10px;overflow:hidden;margin-top:2px}
 #page-betting .eb-btr{display:grid;grid-template-columns:1fr 82px 82px;gap:1px;background:var(--bt-border)}
 #page-betting .eb-btr>div{background:var(--bt-s1);padding:8px 12px;font-family:var(--bt-mono);font-size:var(--t-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
