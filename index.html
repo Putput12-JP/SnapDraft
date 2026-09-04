@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-04T10:00', tag:'Improved', title:'Player search now finds anyone, whatever position you’re on',
+    items:[
+      'Searching a player on the Player Props board now spans every position and market — type a name and you find them even if you’re on a different position tab.',
+      'Results show all of that player’s live prop lines, each colored by their own position. Clear the search to go back to the position and market you were browsing.',
+    ],
+  },
+  {
     ts:'2026-09-03T19:00', tag:'New', title:'Track the Over or the Under — your choice',
     items:[
       'Open any prop and each side now has its own Track button, so you can follow the Over, the Under, or both — not just Vault’s lean.',
@@ -42044,7 +42051,11 @@ window.VaultPropModel = (function () {
   // reference (fe.pickem, no EV). "Real" = a live book line, not a synth/projected.
   function ebRows() {
     const fb = F();
-    let rows = fb.propRows(MODEL, { timeframe: tf, pos: curPos, market: curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
+    // A name search spans the WHOLE board, not just the active position/market —
+    // type a player and you find them wherever they play, with every real prop
+    // line they have. Without a search we stay scoped to the picked pos + market.
+    const searching = !!(searchQ && searchQ.trim());
+    let rows = fb.propRows(MODEL, { timeframe: tf, pos: searching ? undefined : curPos, market: searching ? undefined : curMarket, team: teamFilter || undefined, search: searchQ || undefined, posMarketOnly: true });
     if (mineOnly && MINE) rows = rows.filter(r => (r.id && MINE.pids.has(String(r.id))) || MINE.names.has(_nn(r.name)));
     const out = [];
     for (const r of rows) {
@@ -42124,13 +42135,15 @@ window.VaultPropModel = (function () {
     // directly without going through renderMkts) would leave m undefined.
     if (!fb.MARKET_BY_KEY[curMarket] || !fb.marketsFor(curPos).some(x => x.key === curMarket)) curMarket = fb.marketsFor(curPos)[0].key;
     const m = fb.MARKET_BY_KEY[curMarket], col = POS_COLOR[curPos];
+    const searching = !!(searchQ && searchQ.trim());
     if (mineOnly && !MINE && !MINE_TRIED) { _pvInner().innerHTML = '<div class="bt-empty"><span class="spinner sm"></span><br>Reading your rosters…</div>'; mineLoad().then(renderProps); return; }
     // Anytime TD is ONE-SIDED (books/feed carry only a "Yes" price), so it can't
     // be de-vigged like the other markets — the ranked board above needs a two-
     // way. It is the one market only Vault's projection can grade, so it gets its
     // own isolated board driven by VaultPropModel. Kept fully separate from the
-    // proven de-vig path above.
-    if (curMarket === 'anytime_td') { ebPendSel = null; ebScrollSel = false; return renderAnytimeBoard(m, col); }
+    // proven de-vig path above. A name search leaves this isolated board so the
+    // player is found on the normal cross-market board like everywhere else.
+    if (curMarket === 'anytime_td' && !searching) { ebPendSel = null; ebScrollSel = false; return renderAnytimeBoard(m, col); }
     const rows = ebRows();
     document.getElementById('bt-count').textContent = rows.length + ' live ' + (rows.length === 1 ? 'line' : 'lines');
     if (!rows.length) {
@@ -42144,9 +42157,14 @@ window.VaultPropModel = (function () {
       const activeFilter = searchQ || teamFilter || mineOnly || ouFilter !== 'all';
       if (activeFilter) {
         const what = searchQ ? '“' + searchQ + '”' : (teamFilter ? teamFilter : (ouFilter !== 'all' ? ouFilter === 'over' ? 'Overs' : 'Unders' : 'your players'));
+        // A search spans every position/market, so don't blame the current one.
+        const emt = searchQ ? 'No player matches that name with a live prop line right now'
+          : 'No ' + curPos + ' ' + mLbl + ' line matches your current filters';
+        const ems = searchQ ? 'Search covers every position and market — check the spelling, or clear it to browse the board.'
+          : 'There may be plenty of ' + curPos + ' ' + mLbl + ' lines — a filter is hiding them.';
         _pvInner().innerHTML = '<div class="eb-feat eb-empty"><div class="eb-emk">No matches for ' + what + '</div>'
-          + '<div class="eb-emt">No ' + curPos + ' ' + mLbl + ' line matches your current filters</div>'
-          + '<div class="eb-ems">There may be plenty of ' + curPos + ' ' + mLbl + ' lines — a filter is hiding them.</div>'
+          + '<div class="eb-emt">' + emt + '</div>'
+          + '<div class="eb-ems">' + ems + '</div>'
           + '<button class="bt-in" id="eb-clearf" style="margin-top:12px;cursor:pointer">Clear filters</button></div>';
         const cb = document.getElementById('eb-clearf');
         if (cb) cb.onclick = () => { searchQ = ''; teamFilter = ''; mineOnly = false; ouFilter = 'all'; const sb = document.getElementById('bt-search'); if (sb) sb.value = ''; render(); };
@@ -42219,11 +42237,12 @@ window.VaultPropModel = (function () {
       const pf = resolvePick(r), init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r)), k = propKey(r);
       const isOpen = k === ebSel;
+      const rcol = POS_COLOR[r.pos] || col;   // colour by the row's own position (a search mixes positions)
       const sub = (r.marketLabel || m.short || m.label || '') + ' · ' + (r.team || '') + ' ' + (r.ha === 'home' ? 'vs' : '@') + ' ' + (r.opp || '');
       const hitCell = w => '<td class="eb-hit" data-hitk="' + k + '" data-hw="' + w + '"><span class="mut">·</span></td>';
       const tr = '<tr class="pr' + (isOpen ? ' sel' : '') + '" data-k="' + k + '">'
         + '<td class="c-star"><button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + k + '">' + (on ? '★' : '☆') + '</button></td>'
-        + '<td class="c-player"><div class="bx-pl"><div class="bx-facewrap"><span class="bt-hs bx-face" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span><span class="bx-posbadge" style="background:' + col + '">' + r.pos + '</span></div>'
+        + '<td class="c-player"><div class="bx-pl"><div class="bx-facewrap"><span class="bt-hs bx-face" data-hs="' + (r.headshot || '') + '" style="color:' + rcol + '">' + init + '</span><span class="bx-posbadge" style="background:' + rcol + '">' + r.pos + '</span></div>'
         + '<div><div class="bx-pn">' + r.name + injBadge(r) + '</div><div class="bx-pg">' + sub + '</div></div></div></td>'
         + '<td data-gradek="' + k + '">' + gradeColCell(r) + '</td>'
         + '<td><span class="bx-line">' + (r.line != null ? r.line : '') + '</span>' + (pf.vaultLed ? ' <span class="eb-vled" title="Vault-led — no market price edge, but Vault’s projection strongly favors this side">V</span>' : '') + '</td>'
@@ -42245,11 +42264,12 @@ window.VaultPropModel = (function () {
     const mbody = isMobile() ? rows.map(r => {
       const pf = resolvePick(r), init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
       const on = watch.has(propKey(r)), k = propKey(r), isOpen = k === ebSel;
+      const rcol = POS_COLOR[r.pos] || col;   // colour by the row's own position (a search mixes positions)
       const sub = (r.marketLabel || m.short || m.label || '') + ' · ' + (r.team || '') + ' ' + (r.ha === 'home' ? 'vs' : '@') + ' ' + (r.opp || '');
       const stat = (lab, inner, attr) => '<div class="mc-stat"><span>' + lab + '</span><b' + (attr || '') + '>' + inner + '</b></div>';
       const hit = w => '<div class="mc-hit"><span class="mc-hl">' + w + '</span><span class="eb-hit" data-hitk="' + k + '" data-hw="' + w + '"><span class="mut">·</span></span></div>';
       return '<div class="bx-mcard pr' + (isOpen ? ' sel' : '') + '" data-k="' + k + '">'
-        + '<div class="mc-top"><div class="bx-facewrap"><span class="bt-hs bx-face" data-hs="' + (r.headshot || '') + '" style="color:' + col + '">' + init + '</span><span class="bx-posbadge" style="background:' + col + '">' + r.pos + '</span></div>'
+        + '<div class="mc-top"><div class="bx-facewrap"><span class="bt-hs bx-face" data-hs="' + (r.headshot || '') + '" style="color:' + rcol + '">' + init + '</span><span class="bx-posbadge" style="background:' + rcol + '">' + r.pos + '</span></div>'
         + '<div class="mc-id"><div class="bx-pn">' + r.name + injBadge(r) + '</div><div class="bx-pg">' + sub + '</div></div>'
         + '<button class="eb-star ' + (on ? 'on' : '') + '" data-w="' + k + '">' + (on ? '★' : '☆') + '</button></div>'
         + '<div class="mc-line">' + (pf.pickem ? '<span class="bx-side pick">PICK</span>' : '<span class="bx-side ' + pf.side + '">' + (pf.side === 'over' ? 'Over' : 'Under') + '</span>') + '<span class="bx-line">' + (r.line != null ? r.line : '') + '</span>' + (pf.vaultLed ? '<span class="eb-vled">V</span>' : '') + '<span class="mc-best"><span class="bx-px">' + fb.fmtOdds(pf.bestPrice) + bookChip(pf.bestBook) + nBooksTag(r) + '</span></span></div>'
@@ -42261,8 +42281,9 @@ window.VaultPropModel = (function () {
     const anyVaultLed = rows.some(r => { const p = resolvePick(r); return p && p.vaultLed; });
     const cn = rows.length + ' · sorted by ' + (SORTLBL[ebSort.key] || 'EV') + (ebSort.dir < 0 ? ' ↓' : ' ↑')
       + (anyVaultLed ? ' · <span title="No market price edge on this line, so the pick follows Vault’s projection instead of the book"><b style="color:var(--bt-accent2)">V</b> = Vault-led</span>' : '');
+    const boardTitle = searching ? 'Search · “' + searchQ.trim() + '”' : 'Edges · ' + curPos + ' ' + (m.short || m.label || '');
     _pvInner().innerHTML = '<div class="eb-wrap">'
-      + '<div class="eb-board"><div class="eb-bh"><div><div class="eb-t">Edges · ' + curPos + ' ' + (m.short || m.label || '') + '</div><div class="eb-cn">' + cn + '</div></div>'
+      + '<div class="eb-board"><div class="eb-bh"><div><div class="eb-t">' + boardTitle + '</div><div class="eb-cn">' + cn + '</div></div>'
       + '<div class="eb-bh-r"><label class="eb-be" title="Vault grade is scored against this break-even. Pick the pickem entry you play — a 3-pick power play needs ~55% per leg to profit.">Grade vs <select id="eb-be-sel" class="bt-in">'
       + BE_PRESETS.map(([lab, be]) => '<option value="' + be + '"' + (Math.abs(be - betBE) < 1e-6 ? ' selected' : '') + '>' + lab + ' · ' + Math.round(be * 100) + '%</option>').join('')
       + '</select></label>'
@@ -42808,7 +42829,9 @@ window.VaultPropModel = (function () {
   // Featured detail: player header + prop switcher + game-log chart (persistent
   // panel). Chart + hit-rate windows load once history lands.
   function renderPropDetail(r) {
-    const fb = F(), fe = resolvePick(r) || r.fe, col = POS_COLOR[curPos], init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+    // Colour by the player's OWN position — a cross-position search can load a
+    // QB into the panel while the board tab still reads WR.
+    const fb = F(), fe = resolvePick(r) || r.fe, col = POS_COLOR[r.pos] || POS_COLOR[curPos], init = r.name.split(' ').map(w => w[0]).slice(0, 2).join('');
     const on = watch.has(propKey(r));
     const feat = document.getElementById('eb-feat'); if (!feat) return;
     const tok = ++_pdTok;   // this render's token; async paints below bail if superseded
