@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T18:00', tag:'Improved', title:'Your tracked picks now show the full case for each bet',
+    items:[
+      'Every prop you’re tracking in My Picks now shows its matchup, position, Vault’s edge and projection when you took it, and the odds and book you locked in.',
+      'It’s the snapshot of why you made the pick, right next to whether it cashed — no need to remember what the board looked like at the time.',
+    ],
+  },
+  {
     ts:'2026-09-03T17:00', tag:'Fixed', title:'Sorting the props board by Grade now matches the letters',
     items:[
       'Sorting the Player Props Edge Board by the Grade column now orders it by the grade you actually see — every A on top, then B, then C, and so on.',
@@ -41665,12 +41672,19 @@ window.VaultPropModel = (function () {
     const picks = picksLoad(); const k = pickKey(r);
     if (picks.some(p => p.k === k)) { return; }
     const c = _vaultCache[propKey(r)], g = c && c.g;
+    const pf = resolvePick(r);
     picks.push({
       k, id: r.id || null, name: r.name, pos: r.pos, team: r.team || null,
       market: r.market, marketLabel: r.marketLabel, line: r.line,
       side: g ? g.side : (r.fe && r.fe.side) || 'over',
       grade: g ? cappedGradeLetter(g.padj, betBE, c && c.caution) : null,
       vaultEV: c && c.ev != null ? c.ev : null,
+      // captured at log time so the tracked pick carries its own context — the
+      // odds/book you took, Vault's projection, and the matchup orientation.
+      proj: c && c.proj != null ? c.proj : null,
+      price: pf && pf.bestPrice != null ? pf.bestPrice : null,
+      book: (pf && pf.bestBook) || null,
+      ha: r.ha || null,
       season: MODEL.season, week: MODEL.week, opp: r.opp || null, ts: Date.now(),
     });
     picksSave(picks);
@@ -42358,6 +42372,7 @@ window.VaultPropModel = (function () {
     return picksLoad().map(p => ({
       name: p.name, pos: p.pos, market: p.market, marketLabel: p.marketLabel || _mkLabel(p.market),
       side: p.side, grade: p.grade, line: p.line, week: p.week, actual: p.actual,
+      team: p.team, opp: p.opp, ha: p.ha, vaultEV: p.vaultEV, proj: p.proj, price: p.price, book: p.book,
       res: p.result === 'W' ? 'W' : p.result === 'L' ? 'L' : null, k: p.k, ts: p.ts,
     }));
   }
@@ -42522,10 +42537,23 @@ window.VaultPropModel = (function () {
         const list = rows.slice().sort((x, y) => (y.ts || 0) - (x.ts || 0)).map(p => {
           const res = p.res === 'W' ? '<span class="mp-res w">WON</span>' : p.res === 'L' ? '<span class="mp-res l">LOST</span>' : '<span class="mp-res pend">pending</span>';
           const gl = p.grade ? '<span class="eb-grade ' + p.grade.toLowerCase() + '"><span class="eb-gside">' + (p.side === 'over' ? 'O' : 'U') + '</span>' + p.grade + '</span>' : '<span class="tr-nog">—</span>';
+          // Matchup orientation (vs / @) when we captured it, else a neutral "vs".
+          const matchup = p.team ? (p.team + ' ' + (p.ha === 'away' ? '@' : 'vs') + ' ' + (p.opp || '')) : '';
+          const posTag = p.pos ? '<span class="tr-pk-pos">' + p.pos + '</span>' : '';
+          // Context captured when the pick was tracked: Vault's edge, its own
+          // projection vs the line, and the odds/book you took. Only rendered when
+          // present, so older picks (logged before capture) just show less.
+          const chips = [];
+          if (p.vaultEV != null) chips.push('<span class="tr-mk ' + (p.vaultEV > 0 ? 'pos' : 'neg') + '" title="Vault’s edge on this pick when you tracked it">' + (p.vaultEV > 0 ? '+' : '') + p.vaultEV + '% edge</span>');
+          if (p.proj != null) { const beats = p.line != null && (p.side === 'over' ? p.proj > p.line : p.proj < p.line);
+            chips.push('<span class="tr-mk ' + (beats ? 'pos' : '') + '" title="Vault’s projection vs the ' + p.line + ' line">proj ' + p.proj + '</span>'); }
+          if (p.price != null) chips.push('<span class="tr-mk tr-mk-px" title="Best price when you tracked it' + (p.book ? ' · ' + p.book : '') + '">' + F().fmtOdds(p.price) + (p.book ? bookChip(p.book) : '') + '</span>');
+          const meta = chips.length ? '<div class="tr-pk-meta">' + chips.join('') + '</div>' : '';
           return '<div class="tr-pk ' + (p.res ? p.res.toLowerCase() : 'pend') + '">'
-            + '<div class="tr-pk-l">' + gl + '<div class="tr-pk-nm"><b>' + p.name + '</b>'
-            + '<span>' + (p.side === 'over' ? 'Over' : 'Under') + ' ' + p.line + ' ' + p.marketLabel + ' · Wk ' + (p.week || '?') + '</span></div></div>'
-            + '<div class="tr-pk-r">' + (p.actual != null ? '<span class="tr-pk-act">' + p.actual + '</span>' : '') + res
+            + '<div class="tr-pk-l">' + gl + '<div class="tr-pk-nm"><b>' + p.name + posTag + '</b>'
+            + '<span>' + (p.side === 'over' ? 'Over' : 'Under') + ' ' + p.line + ' ' + p.marketLabel + (matchup ? ' · ' + matchup : '') + ' · Wk ' + (p.week || '?') + '</span>'
+            + meta + '</div></div>'
+            + '<div class="tr-pk-r">' + (p.actual != null ? '<span class="tr-pk-act" title="Actual result">' + p.actual + '</span>' : '') + res
             + '<button class="mp-del" data-k="' + p.k + '" title="Remove">✕</button></div></div>';
         }).join('');
         const propsPart = all.length
@@ -43987,8 +44015,14 @@ window.VaultPropModel = (function () {
 #page-betting .tr-pk-l{display:flex;align-items:center;gap:11px;min-width:0}
 #page-betting .tr-nog{color:var(--bt-muted);width:28px;text-align:center;flex-shrink:0}
 #page-betting .tr-pk-nm{display:flex;flex-direction:column;min-width:0;gap:2px}
-#page-betting .tr-pk-nm b{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#page-betting .tr-pk-nm span{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted)}
+#page-betting .tr-pk-nm b{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px}
+#page-betting .tr-pk-nm > span{font-family:var(--bt-mono);font-size:10px;color:var(--bt-muted)}
+#page-betting .tr-pk-pos{font-family:var(--bt-mono);font-size:8.5px;font-weight:800;letter-spacing:.03em;color:var(--bt-muted);border:1px solid var(--bt-border2);border-radius:4px;padding:1px 4px;flex-shrink:0}
+#page-betting .tr-pk-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:5px}
+#page-betting .tr-mk{display:inline-flex;align-items:center;gap:4px;font-family:var(--bt-mono);font-size:9.5px;font-weight:700;color:var(--bt-text2);background:var(--bt-s3);border:1px solid var(--bt-border2);border-radius:5px;padding:2px 6px;line-height:1.4}
+#page-betting .tr-mk.pos{color:var(--bt-green);background:color-mix(in srgb,var(--bt-green) 12%,transparent);border-color:color-mix(in srgb,var(--bt-green) 30%,transparent)}
+#page-betting .tr-mk.neg{color:var(--bt-muted)}
+#page-betting .tr-mk-px .bx-book{margin-left:1px}
 #page-betting .tr-pk-r{display:flex;align-items:center;gap:11px;flex-shrink:0}
 #page-betting .tr-pk-act{font-family:var(--bt-mono);font-size:12px;font-weight:700;color:var(--bt-text)}
 #page-betting .tr-pk.pend{opacity:.72}
