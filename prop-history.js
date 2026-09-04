@@ -67,7 +67,7 @@ window.VaultPropHistory = (function () {
     opts = opts || {};
     const field = FIELD[marketKey];
     if (!field) return null;
-    const seasons = opts.seasons || [2024, 2025]; // chronological; newest last
+    const seasons = opts.seasons || (function(){var c=(typeof window!=='undefined'&&window.vaultNflSeason)?Number(window.vaultNflSeason()):new Date().getUTCFullYear();return c>=2025?[c-1,c]:[2024,2025];})(); // [prev, cur], chronological/newest last — rolls over via vaultNflSeason once new-season logs land
     const key = nkey(name);
     const out = [];
     for (const s of seasons) {

@@ -10,6 +10,14 @@ on:
     # Weekly, Wednesday 15:40 UTC — after the week's games are final and
     # nflverse has updated games.csv. Off-hour; commits only when ratings change.
     - cron: '40 15 * * 3'
+    # In-season Saturday refit, 16:00 UTC, Sep–Jan. The Wednesday cron alone
+    # would leave the model's `offseason` gate stuck ON from the Thursday opener
+    # until the following Wednesday, so "Model leans" would sit empty through the
+    # season's first weekend. This Saturday run picks up the Thu/Fri games.csv
+    # rows, flips the gate off, and refreshes ratings before the Sunday slate —
+    # both for Week 1 and every subsequent week's Thursday-night result. Commits
+    # only when ratings actually change, so it's free on quiet weekends.
+    - cron: '0 16 * 9,10,11,12,1 6'
 
 concurrency:
   group: game-model

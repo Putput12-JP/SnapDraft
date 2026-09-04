@@ -49,7 +49,7 @@ const DRY   = !!ARG.dry;
 const TOP   = Number(ARG.top || 4);
 const LEANS = Number(ARG.leans || 3);
 const FEED  = ARG.feed || resolve(ROOT, 'data/lineup-feed.json');
-const SEASONS = [2024, 2025];                 // log window (mirror prop-model.js default)
+let   SEASONS = [2024, 2025];                 // log window [prev, cur] — reset from feed.season in main() so it rolls to [cur-1, cur] once the new season's nflverse logs land (mirrors the client's ebVaultSeasons)
 const BE_REF = 0.524;                         // standard -110 book break-even (entry-agnostic bar)
 const MIN_GAMES = 8;                          // enough log to trust the projection
 const PRICE_MIN = -250, PRICE_MAX = 200;      // bettable band: no -300 chalk, no lottery longshots
@@ -455,6 +455,11 @@ function gameLeans(feed) {
   try {
     if (!existsSync(FEED)) { log('feed not found:', FEED); process.exit(0); }
     const feed = JSON.parse(readFileSync(FEED, 'utf8'));
+    // Roll the game-log window to the feed's season: [cur-1, cur]. seasonIndex
+    // no-ops for any season whose nflverse_stats_<yr>.json isn't published yet,
+    // so pre-Week-1 this still reads only last season — same behaviour as before,
+    // but the hero starts blending in current-season form the moment logs land.
+    { const cur = Number(feed.season); if (cur >= 2024) SEASONS = [cur - 1, cur]; }
     const PM = JSON.parse(readFileSync(resolve(ROOT, 'data/prop_model.json'), 'utf8'));
     if (!PM.markets) { log('prop_model.json has no markets — skipping'); process.exit(0); }
 

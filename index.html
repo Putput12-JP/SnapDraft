@@ -33411,7 +33411,10 @@ window.VaultGradeCal = (function () {
   function scTfBodyHtml() {
     const d = CMP.tfDraft || (CMP.tfDraft = { scope: AS.season, weeks: CMP.weeks.slice(), anchor: null });
     const sel = new Set(d.weeks || []);
-    const scopes = [['all', 'Full Career'], ['2025', '2025']];
+    // Current-season chip is derived from nflverse_meta (via syncSeasons) so it
+    // rolls over on its own instead of pinning to a baked-in year.
+    const _tfCur = String((D.meta && D.meta.current) || (GL_SEASONS && GL_SEASONS[0]) || 2025);
+    const scopes = [['all', 'Full Career'], [_tfCur, _tfCur]];
     const weekLabel = d.scope === 'all' ? 'Full Career' : 'Full ' + d.scope;
     const weekDisabled = d.scope === 'all';
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
@@ -40413,7 +40416,7 @@ window.VaultPropHistory = (function () {
   async function gameLog(name, marketKey, opts) {
     opts = opts || {};
     const field = FIELD[marketKey]; if (!field) return null;
-    const seasons = opts.seasons || [2024, 2025];
+    const seasons = opts.seasons || (function(){var c=(typeof window!=='undefined'&&window.vaultNflSeason)?Number(window.vaultNflSeason()):new Date().getUTCFullYear();return c>=2025?[c-1,c]:[2024,2025];})(); // [prev, cur] — rolls over via vaultNflSeason once the new season's nflverse logs land (a season with no file yet just returns no games)
     const key = nkey(name), out = [];
     for (const s of seasons) { const idx = await index(s); const p = idx && idx[key]; if (!p || !p.weeks) continue; for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field], opp: w.opp || null }); }
     return out;
@@ -40573,7 +40576,7 @@ window.VaultPropModel = (function () {
     if (typeof window.VaultPropHistory === 'undefined') return null;
     const m = P.markets[marketKey];
     const minPrior = (P.meta && P.meta.min_prior) || 3;
-    const seasons = opts.seasons || [2024, 2025];
+    const seasons = opts.seasons || (function(){var c=(typeof window!=='undefined'&&window.vaultNflSeason)?Number(window.vaultNflSeason()):new Date().getUTCFullYear();return c>=2025?[c-1,c]:[2024,2025];})(); // [prev, cur] — rolls over via vaultNflSeason once the new season's nflverse logs land (a season with no file yet just returns no games)
     const nkey = window.vaultNameKey || (window.VaultPropHistory._nkey) ||
                  (s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, ''));
     const key = nkey(name);

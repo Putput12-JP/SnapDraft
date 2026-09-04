@@ -225,7 +225,7 @@ window.VaultPropModel = (function () {
     const minPrior = (P.meta && P.meta.min_prior) || 3;
 
     // gather the player's weeks across the requested seasons, chronological
-    const seasons = opts.seasons || [2024, 2025];
+    const seasons = opts.seasons || (function(){var c=(typeof window!=='undefined'&&window.vaultNflSeason)?Number(window.vaultNflSeason()):new Date().getUTCFullYear();return c>=2025?[c-1,c]:[2024,2025];})(); // [prev, cur] — rolls over via vaultNflSeason once the new season's nflverse logs land
     const nkey = window.vaultNameKey || (window.VaultPropHistory._nkey) ||
                  (s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, ''));
     const key = nkey(name);
