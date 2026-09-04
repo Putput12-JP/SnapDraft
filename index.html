@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-03T17:00', tag:'Fixed', title:'Sorting the props board by Grade now matches the letters',
+    items:[
+      'Sorting the Player Props Edge Board by the Grade column now orders it by the grade you actually see — every A on top, then B, then C, and so on.',
+      'Before, a pick whose grade was capped (for a flagged edge) could still sort as if it were an A or B, so the column looked out of order.',
+    ],
+  },
+  {
     ts:'2026-09-03T16:00', tag:'Fixed', title:'Tapping a Best Bet keeps the full board',
     items:[
       'Tapping a pick in Vault Best Bets used to filter the props board down to that one player, hiding everyone else at the position.',
@@ -42121,7 +42128,7 @@ window.VaultPropModel = (function () {
       : SK === 'lean' ? ((r.proj != null && r.line != null) ? (r.proj - r.line) : -Infinity)
       : SK === 'hit' ? (_hitCache[propKey(r)] ?? -Infinity)
       : SK === 'vault' ? (() => { const c = _vaultCache[propKey(r)]; if (!c || c.ev == null) return -Infinity; return c.unv ? Math.min(c.ev, 0) : c.ev; })()
-      : SK === 'grade' ? ((_vaultCache[propKey(r)] && _vaultCache[propKey(r)].g) ? _vaultCache[propKey(r)].g.padj : -Infinity)
+      : SK === 'grade' ? (() => { const c = _vaultCache[propKey(r)]; if (!c || !c.g) return -Infinity; const L = cappedGradeLetter(c.g.padj, betBE, c.caution); return ({ A: 4, B: 3, C: 2, D: 1, F: 0 }[L] ?? 0) + c.g.padj; })()
       : SK === 'sim' ? (() => { const c = _vaultCache[propKey(r)]; if (!c || c.over == null || c.under == null) return -Infinity; return displaySide(r) === 'over' ? c.over : c.under; })()
       : (r.fe.ev ?? -Infinity);
     rows.sort((a, b) => SK === 'name' ? SD * sv(a).localeCompare(sv(b)) : SD * (sv(a) - sv(b)));
