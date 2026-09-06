@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-06T12:00', tag:'Fixed', title:'The grade on the props board now matches the pick',
+    items:[
+      'The A–F grade in the Player Props table now rates the exact side shown in the O/U column, so an “Over” row can no longer display the Under’s grade.',
+      'Before, a row could read “A · Over” while the actual A belonged to the Under — the letter now flips to match the side you’d bet.',
+    ],
+  },
+  {
     ts:'2026-09-04T10:00', tag:'Improved', title:'Player search now finds anyone, whatever position you’re on',
     items:[
       'Searching a player on the Player Props board now spans every position and market — type a name and you find them even if you’re on a different position tab.',
@@ -43152,10 +43159,19 @@ window.VaultPropModel = (function () {
   function gradeColCell(r) {
     const c = _vaultCache[propKey(r)];
     if (!c) return '<span class="mut">·</span>';
-    if (!c.g) return '<span class="mut">—</span>';
-    const g = c.g, letter = cappedGradeLetter(g.padj, betBE, c.caution), cls = letter.toLowerCase();
-    const sd = g.side === 'over' ? 'Over' : 'Under';
-    const tip = 'Vault leans ' + sd + ' · ' + Math.round(g.p * 100) + '% vs ' + Math.round(betBE * 100) + '% break-even';
+    if (c.over == null || c.under == null || !c.g) return '<span class="mut">—</span>';
+    // Grade the side the row actually DISPLAYS (resolvePick's pick side), NOT
+    // Vault's favourite side. Reading c.g.side pasted the Under's A onto an Over
+    // pick — the letter and the O/U badge described different sides of the prop,
+    // so the table's "A · Over" disagreed with the panel's "Over F / Under A".
+    // Same padj math as gradeCellFor; badge-less because the O/U column already
+    // names the side (the graded side stays in the tooltip).
+    const side = displaySide(r);
+    const p = side === 'over' ? c.over : c.under, n = c.g.n != null ? c.g.n : 0, K = 6;
+    const padj = 0.5 + (p - 0.5) * (n / (n + K));
+    const letter = cappedGradeLetter(padj, betBE, c.caution), cls = letter.toLowerCase();
+    const sd = side === 'over' ? 'Over' : 'Under';
+    const tip = 'Vault ' + sd + ' ' + Math.round(p * 100) + '% · ' + n + ' game' + (n === 1 ? '' : 's') + ' of history · vs ' + Math.round(betBE * 100) + '% break-even';
     return '<span class="eb-grade ' + cls + '" title="' + tip + '">' + letter + '</span>';
   }
 
