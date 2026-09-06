@@ -51,11 +51,13 @@ MARKETS = {
     # TD markets — rare counts, so the projection (λ) drives a POISSON tail, not
     # a Normal. Projected like a count; only the distribution/calibration differ.
     "pass_td":  {"kind": "poisson", "stat": "ptds",  "pos": ["QB"]},
-    # rush_td: HELD. The season-holdout backtest (scripts/backtest_prop_model.py)
-    # proved its confident tail does NOT transfer across seasons — out-of-sample,
-    # predicted 60-90% rush-TD games hit ~20-50%, negative skill overall. A rare
-    # event where a couple recent TDs spike a noisy projection.
-    "rush_td":  {"kind": "poisson", "stat": "rtds",  "pos": ["RB", "QB", "WR"]},
+    # rush_td: SHIPS RAW (no_calib), same story as the combined-TD markets. The
+    # season-holdout first flagged its calibrated tail as non-transferring, but the
+    # culprit was the isotonic calibration, not the projection: raw, its favored-
+    # side grade clears A/B/C at the bettable 0.5 line even at w=1 (A .85/B .65/
+    # C .57), and with the shared 0.85 shrink clears comfortably (A .86/B .72/C .61,
+    # monotonic; A-overs realize .72 honest). Validated scratchpad/validate_rush_td.py.
+    "rush_td":  {"kind": "poisson", "stat": "rtds",  "pos": ["RB", "QB", "WR"], "no_calib": True},
     # rec_td: SHIPS. Backtest = +8.7% out-of-sample log-loss skill and no
     # overconfident tail (receiving TDs rarely produce a high, non-transferring λ).
     # USAGE-projected: λ = projected targets × projected (rec-TD per target),
@@ -90,7 +92,7 @@ NO_CALIB = {mkt for mkt, spec in MARKETS.items() if spec.get("no_calib")}
 # BETTABLE 0.5 line, validated per-market (scratchpad/validate_raw_td.py: rush_rec_td
 # A .84/B .73/C .62, anytime_td A .85/B .72/C .63). Pure raw (w=1) left C at 0.53.
 TD_RAW_SHRINK = 0.85
-HOLD = {"rush_td"}                    # rush_td still held (raw un-hold unvalidated for it)
+HOLD = set()                          # all TD markets now ship raw (validated); nothing held
 
 
 def is_usage(spec):
