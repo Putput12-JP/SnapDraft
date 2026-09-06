@@ -5,6 +5,49 @@ Roadmap to **un-hold the touchdown markets** — `rush_td`, `anytime_td`, and
 opportunity. This is the "NOT yet done" item that closes out the prop model's
 TD story.
 
+---
+
+## Phase 0 result (2026-09-06): red-zone pull is a NO-GO — the lever is calibration
+
+The Phase 0 spike ran (scratchpad `rz_spike.py`, 2017-2024 nflverse PBP,
+walk-forward, test 2021+). **Two findings:**
+
+1. **Goal-line opportunity does NOT improve the combined-TD projection.** An
+   opportunity × conversion projection (carries inside 10/5, red-zone / end-zone
+   targets) beat the recency-TD-rate baseline by only **+0.04% to +0.25%
+   log-loss** (noise), and its **scoring tail got *worse*** (pred≥0.60 gap
+   +0.09 to +0.15 OVERCONFIDENT vs the baseline's +0.067). The exact failure we
+   needed to fix, opportunity made worse. **Do not build the PBP pipeline below.**
+   (Consistent with the box-score-usage NO-GO — total *and* goal-line volume both
+   fail; a back's 0-3 goal-line touches a game are as noisy as the TDs.)
+
+2. **The real culprit was the isotonic CALIBRATION, not the projection.** The
+   spike's baseline was *raw* (no calibration) and its tail was already honest
+   (+0.067). Re-running the full harness with `--no-calib` on the held combined-TD
+   markets flips the grade scoreboard from FAIL to PASS:
+
+   | `rush_rec_td` grade scoreboard (test 2022+) | Calibrated (shipped path) | **Raw (no calib)** |
+   |---|---|---|
+   | A/B/C clear the 55% break-even OOS | **NO** (B 0.54, C 0.34 collapse) | **YES** (A 0.95, B 0.79, C 0.59) |
+
+   Same for `anytime_td` (A 0.95 / B 0.79 / C 0.61, monotonic ✓). The rare-event
+   TD tail is exactly where isotonic PAV overfits (dense in-sample bins that don't
+   transfer) — so calibrating it *destroys* the grade that raw serving gets right.
+
+**Recommendation:** abandon the red-zone data pull. Instead pursue a **code-only**
+un-hold: ship `rush_rec_td` + `anytime_td` **raw** (skip the isotonic calib for
+these markets only — `rec_td`/`pass_td` keep theirs, they validated with it).
+Caveat to validate first: raw's extreme scoring-*over* tail is still ~0.19
+overconfident, so the grade (favored side + game-count shrink, which absorbs it)
+must stay the gate, and the validation pass should focus on the bettable 0.5-line
+over side. No new data, no PBP ingestion.
+
+The pipeline design below is **shelved** by finding (1) — kept only for the record
+and for anyone who later revisits opportunity with a fundamentally different
+feature (e.g. tracking/participation data, not box-score-or-PBP volume).
+
+---
+
 ## Why these markets are held (the wall we're hitting)
 
 All three TD markets are fit + reported but **never written to
