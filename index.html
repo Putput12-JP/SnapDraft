@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-06T14:00', tag:'Fixed', title:'Props from a single book are now flagged, not graded with false confidence',
+    items:[
+      'When only one book is posting a prop line, Vault now labels it “single book” so you know there’s nothing cross-checking the number.',
+      'If that lone line also disagrees sharply with Vault’s own projection, the Over/Under lean and A–F grade are held back until a second book confirms the line — so a stray or stale number can’t push a confident pick.',
+    ],
+  },
+  {
     ts:'2026-09-06T12:00', tag:'Fixed', title:'The grade on the props board now matches the pick',
     items:[
       'The A–F grade in the Player Props table now rates the exact side shown in the O/U column, so an “Over” row can no longer display the Under’s grade.',
@@ -41191,8 +41198,11 @@ window.VaultPropModel = (function () {
 #page-betting .bx-projhero .ph-lean{margin-left:auto;font-family:var(--bt-mono);font-size:var(--t-secondary);font-weight:800;padding:7px 15px;border-radius:999px;white-space:nowrap}
 #page-betting .bx-projhero .ph-lean.over{color:var(--bt-green);background:color-mix(in srgb,var(--bt-green) 14%,transparent);border:1px solid color-mix(in srgb,var(--bt-green) 34%,transparent)}
 #page-betting .bx-projhero .ph-lean.under{color:var(--red);background:color-mix(in srgb,var(--red) 13%,transparent);border:1px solid color-mix(in srgb,var(--red) 32%,transparent)}
+#page-betting .bx-projhero .ph-lean.flag{color:var(--bt-gold);background:color-mix(in srgb,var(--bt-gold) 13%,transparent);border:1px solid color-mix(in srgb,var(--bt-gold) 30%,transparent)}
 #page-betting .bx-projhero .ph-adj{font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.02em;color:var(--bt-muted);margin-top:8px}
 #page-betting .bx-projhero .ph-adj b{color:var(--bt-text2);font-weight:700}
+#page-betting .bx-projhero .ph-src{font-family:var(--bt-mono);font-size:var(--t-nano);letter-spacing:.02em;color:var(--bt-muted);margin-top:8px}
+#page-betting .bx-projhero .ph-src.warn{color:var(--bt-gold);font-weight:700}
 /* keep the chart's line tag out of the bars, in a clear right gutter, solid + readable */
 #page-betting .bx-detail .eb-bars{padding-right:46px}
 #page-betting .bx-detail .eb-ltag{right:4px;background:var(--bt-accent2);color:var(--on-primary);border-color:transparent;font-weight:800;z-index:4}
@@ -42723,14 +42733,29 @@ window.VaultPropModel = (function () {
     const applied = Math.abs(a.oppMult - 1) > 0.005 || Math.abs(a.envMult - 1) > 0.005 || scriptOn;
     const base = applied ? (proj / (a.oppMult * a.envMult * (a.scriptMult ?? 1))) : null;
     const _spTxt = a.spread != null ? (r.team ? r.team + ' ' : '') + (a.spread > 0 ? '+' : '') + a.spread : null;
+    // Line-corroboration provenance. A single-book line is always tagged; when
+    // it's a volume market Vault's projection also rejects, the confident lean
+    // is withheld (see _uncorroboratedLean).
+    const books = _lineBooks(r), single = books.size <= 1, drop = _uncorroboratedLean(r, proj);
+    const oneBook = (single && books.size === 1) ? [...books][0] : null;
+    const srcTag = single
+      ? '<div class="ph-src' + (drop ? ' warn' : '') + '" title="Only ' + (oneBook || 'one book')
+          + ' is posting this line, so Vault has nothing to cross-check it against. Treat the number as unconfirmed.'
+          + (drop ? ' Vault’s projection (' + proj + ') disagrees with it, so the lean and grade are held back until a second book corroborates the line.' : '') + '">'
+          + 'single book' + (oneBook ? ' · ' + oneBook : '') + (drop ? ' · line unconfirmed' : '') + '</div>'
+      : '';
+    const leanBlock = diff == null ? ''
+      : drop ? '<div class="ph-lean flag" title="Lean held back: this line comes from a single book and Vault’s projection disagrees with it. Verify the number before betting.">line unconfirmed</div>'
+        : '<div class="ph-lean ' + lean + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + ' · leans ' + (lean === 'over' ? 'Over' : 'Under') + '</div>';
     return '<div class="ph-main"><div class="l">Vault projection</div>'
       + '<div class="v">' + proj + '<span class="vs">vs line ' + (line != null ? line : '—') + '</span></div>'
       + (applied ? '<div class="ph-adj">from <b>' + base.toFixed(1) + '</b> history'
           + (a.oppRank != null ? ' · opp <b>' + r.opp + ' ' + _ord(a.oppRank) + '</b> ×' + a.oppMult.toFixed(2) : '')
           + (a.teamTotal != null ? ' · env <b>' + a.teamTotal + '</b> implied ×' + a.envMult.toFixed(2) : '')
           + (scriptOn && _spTxt ? ' · script <b>' + _spTxt + '</b> ×' + a.scriptMult.toFixed(2) : '') + '</div>' : '')
+      + srcTag
       + '</div>'
-      + (diff != null ? '<div class="ph-lean ' + lean + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + ' · leans ' + (lean === 'over' ? 'Over' : 'Under') + '</div>' : '');
+      + leanBlock;
   }
   // Per-side (over|under) metrics for a prop: best price + book, de-vig fair,
   // market EV, Vault win-prob, Vault edge, and the shrunk grade letter. Shared by
@@ -42759,10 +42784,13 @@ window.VaultPropModel = (function () {
     const fb = F(), line = r.line, fmt = fb.fmtOdds;
     const mk = side => _sideMetrics(r, side, v);
     const O = mk('over'), U = mk('under');
+    // Single-book line the model rejects: hold back the confident grade (and the
+    // VAULT LEAN ring below), the same call the projection hero makes.
+    const drop = _uncorroboratedLean(r, v && v.proj != null ? v.proj : null);
     const evH = e => e == null ? '<span class="mut">—</span>' : '<span class="' + (e > 0 ? 'pos' : 'neg') + '">' + (e > 0 ? '+' : '') + e + '%</span>';
     const vH = s => loading ? '<span class="spinner xs"></span>' : (s.vev == null ? '<span class="mut">—</span>' : '<span class="' + (s.vev > 0 ? 'pos' : 'neg') + '">' + (s.vev > 0 ? '+' : '') + s.vev + '%</span>');
     const sH = s => loading ? '<span class="spinner xs"></span>' : (s.prob == null ? '<span class="mut">—</span>' : '<span class="' + (s.prob >= 0.5 ? 'pos' : 'neg') + '">' + Math.round(s.prob * 100) + '%</span>');
-    const gH = s => loading ? '<span class="spinner xs"></span>' : (s.letter == null ? '<span class="mut">—</span>' : '<span class="eb-grade ' + s.letter.toLowerCase() + '">' + s.letter + '</span>');
+    const gH = s => drop ? '<span class="mut" title="Grade held back: this line comes from a single book and Vault’s projection disagrees with it, so nothing corroborates a confident grade.">—</span>' : (loading ? '<span class="spinner xs"></span>' : (s.letter == null ? '<span class="mut">—</span>' : '<span class="eb-grade ' + s.letter.toLowerCase() + '">' + s.letter + '</span>'));
     const tracked = s => pickLogged(r, s.side);
     const trackH = s => '<button class="eb-2track' + (tracked(s) ? ' on' : '') + '" data-side="' + s.side + '" title="' + (tracked(s) ? 'Tracking the ' + _sideLbl(s.side) + ' in Track Record — tap to stop' : 'Track the ' + _sideLbl(s.side) + ' ' + (line != null ? line : '') + ' in Track Record') + '">' + (tracked(s) ? '✓ Tracking' : '＋ Track ' + _sideLbl(s.side)) + '</button>';
     const colH = (s, lab, isLean) => '<div class="eb-2col' + (isLean ? ' lean' : '') + '"><div class="eb-2h"><span>' + lab + '</span><b>' + (line != null ? line : '') + '</b></div>'
@@ -42787,7 +42815,7 @@ window.VaultPropModel = (function () {
       // else: the plain "projects X vs line" note is now the big projection hero at the top of the detail (projHeroHTML), so no small duplicate here.
     }
     // The side Vault's projection favours (higher win prob) gets the accent ring.
-    const leanSide = (!loading && O.prob != null && U.prob != null) ? (O.prob >= U.prob ? 'over' : 'under') : null;
+    const leanSide = (!loading && !drop && O.prob != null && U.prob != null) ? (O.prob >= U.prob ? 'over' : 'under') : null;
     return ctx + '<div class="eb-2cols">' + colH(O, 'OVER', leanSide === 'over') + colH(U, 'UNDER', leanSide === 'under') + '</div>';
   }
 
@@ -43023,6 +43051,27 @@ window.VaultPropModel = (function () {
     if (rel < EDGE_PROJ_GAP_MAX) return null;
     return { kind: 'projgap', label: '?', tip: 'Vault’s projection (' + proj + ') is ' + Math.round(rel * 100) + '% off the ' + r.line + ' line. A gap this large on a volume prop is almost always a projection problem — a stale or collapsed role (a now-backup projected off his starter games), a thin sample, or a bad name match — not a real edge. Sanity-check it before trusting the number.' };
   }
+  // ── single-book (uncorroborated) line guard ──────────────────────────────
+  // A market quoted by ONE book has nothing to cross-check its number against,
+  // which is how a stale or wrong line slips through: a lone PrizePicks 5.5 on
+  // Omarion Hampton receptions when the real line (PrizePicks + Underdog) was
+  // 1.5. Tier 1 always marks such a line "single book". Tier 2, on a VOLUME
+  // market whose number Vault's own projection also rejects, withholds the
+  // confident lean + grade. The gap bar is BELOW the 0.40 corroborated blowout
+  // (projGapCaution) on purpose: a lone book carries no corroboration, so a
+  // smaller disagreement is enough to distrust the line. Bars want outcome
+  // validation like the other caution tiers (docs/edge-feedback-loop.md).
+  function _lineBooks(r) {
+    const s = new Set();
+    ((r && r.quotes) || []).forEach(q => { if (q && q.book && q.line != null) s.add(q.book); });
+    return s;
+  }
+  const SINGLE_SRC_GAP_MAX = 0.20;
+  function _uncorroboratedLean(r, proj) {
+    if (_lineBooks(r).size > 1) return false;                    // 2+ books corroborate the number
+    if (!(VOL_GAP_MK[r && r.market] && proj != null && r && r.line)) return false;
+    return Math.abs(proj - r.line) / Math.abs(r.line) >= SINGLE_SRC_GAP_MAX;
+  }
   function edgeCaution(r, sideProb, marketProb, ev, v, cascade) {
     // A projection blowout is a data-quality flag independent of EV sign, so it
     // must survive the positive-edge bail (vault-led rows arrive here with the
@@ -43160,6 +43209,9 @@ window.VaultPropModel = (function () {
     const c = _vaultCache[propKey(r)];
     if (!c) return '<span class="mut">·</span>';
     if (c.over == null || c.under == null || !c.g) return '<span class="mut">—</span>';
+    // Single-book line Vault’s projection rejects: hold the grade back so the
+    // table matches the detail panel (which withholds it too).
+    if (_uncorroboratedLean(r, c.proj)) return '<span class="mut" title="Single-book line that Vault’s projection disagrees with. Grade held back until a second book corroborates it.">—</span>';
     // Grade the side the row actually DISPLAYS (resolvePick's pick side), NOT
     // Vault's favourite side. Reading c.g.side pasted the Under's A onto an Over
     // pick — the letter and the O/U badge described different sides of the prop,
