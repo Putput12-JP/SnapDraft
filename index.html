@@ -13421,10 +13421,11 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
-    ts:'2026-09-06T14:00', tag:'Fixed', title:'Props from a single book are now flagged, not graded with false confidence',
+    ts:'2026-09-06T14:30', tag:'Fixed', title:'Props from a single book are now flagged, not graded with false confidence',
     items:[
       'When only one book is posting a prop line, Vault now labels it “single book” so you know there’s nothing cross-checking the number.',
       'If that lone line also disagrees sharply with Vault’s own projection, the Over/Under lean and A–F grade are held back until a second book confirms the line — so a stray or stale number can’t push a confident pick.',
+      'Fixed a data mismatch that was dropping Underdog’s receptions lines everywhere — receptions props now pull Underdog prices too, so the number is cross-checked instead of standing on one book.',
     ],
   },
   {

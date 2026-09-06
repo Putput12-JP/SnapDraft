@@ -299,7 +299,13 @@ const UD_STAT_MAP = {
   passing_and_rushing_yds: 'pass_rush_yd',
   rushing_yds: 'rush_yd', rushing_tds: 'rush_td', rushing_att: 'rush_att',
   rushing_long: 'long_rush',
-  receiving_yds: 'rec_yd', receiving_tds: 'rec_td', receptions: 'rec',
+  // Underdog's receptions key is `receiving_rec` (NOT `receptions`, which it never
+  // sends). The wrong key silently dropped EVERY Underdog receptions line league-
+  // wide, leaving receptions single-source (PrizePicks-only) — how a lone stale
+  // 5.5 on Omarion Hampton stood with nothing to cross-check it. Keep both keys
+  // mapped in case Underdog renames back. Verified live: receiving_rec = 167 lines.
+  receiving_yds: 'rec_yd', receiving_tds: 'rec_td',
+  receptions: 'rec', receiving_rec: 'rec',
   receiving_long: 'long_rec',
   rushing_and_receiving_yds: 'rush_rec_yd', rush_rec_yds: 'rush_rec_yd',
   field_goals_made: 'fg_made', kicking_points: 'kick_pts',
