@@ -37,10 +37,22 @@ walk-forward, test 2021+). **Two findings:**
 **Recommendation:** abandon the red-zone data pull. Instead pursue a **code-only**
 un-hold: ship `rush_rec_td` + `anytime_td` **raw** (skip the isotonic calib for
 these markets only — `rec_td`/`pass_td` keep theirs, they validated with it).
-Caveat to validate first: raw's extreme scoring-*over* tail is still ~0.19
-overconfident, so the grade (favored side + game-count shrink, which absorbs it)
-must stay the gate, and the validation pass should focus on the bettable 0.5-line
-over side. No new data, no PBP ingestion.
+
+**DONE — shipped (2026-09-06, `f8cc252`).** Un-held both markets as raw
+(`no_calib` → `calib: []`) plus a fixed **0.85 confidence shrink** (`TD_RAW_SHRINK`
+in `build_prop_projections.py`). The focused 0.5-line validation
+(`scratchpad/validate_raw_td.py`) confirmed the caveat and the fix: pure raw
+cleared A/B but left **C at 0.53** at the bettable 0.5 line, and the raw
+scoring-over mid-tail was overconfident; a 0.85 temperature shrink (the *fitted*
+shrink is ~1, it minimizes pooled log-loss and misses the mid-tail — hence the
+explicit constant) makes the grade ladder monotonic and **A/B/C clear per-market
+on both directions** — rush_rec_td A .84/B .73/C .62, anytime_td A .85/B .72/C .63,
+and A-overs ("will score") realize ~0.70 honestly. `prop_model.json` gained only
+these two markets (every other byte-identical); the client auto-grades with no
+code change (Rush + Rec TD tab + the `has()`-gated Anytime TD board). `rush_td`
+stays held (raw un-hold unvalidated for it). Note: the in-season overlay
+(`apply_inseason_overlay`) sharpens via the `calib` table, so it's a no-op for
+these `calib: []` markets — they won't auto-refine in-season; revisit if wanted.
 
 The pipeline design below is **shelved** by finding (1) — kept only for the record
 and for anyone who later revisits opportunity with a fundamentally different
