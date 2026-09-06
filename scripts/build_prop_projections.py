@@ -68,9 +68,23 @@ MARKETS = {
     # projection can reliably flag who WON'T score, not who will. Needs a better
     # projection (not the recency-weighted rate) before it's a real edge.
     "anytime_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE", "QB"]},
+    # Rush + Rec TD O/U — SAME combined-TD λ as anytime_td, but a TWO-SIDED line
+    # market (0.5/1.5/2.5). The hope was that grading the FAVORED side (usually the
+    # calibrated "won't exceed" under) would clear even though anytime_td's over
+    # tail didn't. TESTED (backtest_prop_model.py, 2016→, test 2022+): it does NOT.
+    # The scoring tail is overconfident out-of-sample by the SAME margin as
+    # anytime_td (pred 0.760 vs real 0.315, gap +0.45 vs anytime's +0.44), and the
+    # grade scoreboard's "A clears ✓" (realized 0.915) is a MIRAGE: that mass is
+    # trivial high-line unders (won't get 2+/3+ TDs) that no book prices as a flat
+    # pickem. The bettable middle grades collapse and go non-monotonic (B 0.54,
+    # C 0.34, D 0.36 vs a 0.55 break-even). Same root cause as rush_td/anytime_td —
+    # goal-line TDs aren't projectable from box-score tape. HELD as a NO-GO; the
+    # client tab stays market-only (price/EV/hit-rates, no Vault grade). Un-holding
+    # needs the red-zone/goal-line nflverse pull (see docs/prop-edge-model-plan.md).
+    "rush_rec_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE"]},
 }
 IS_COUNT = {"count", "poisson"}      # projected the same way (direct stat, shrunk)
-HOLD = {"rush_td", "anytime_td"}     # fit + reported, but not written to the model
+HOLD = {"rush_td", "anytime_td", "rush_rec_td"}   # fit + reported, NEVER written to the model (validated NO-GO — overconfident TD tail)
 
 
 def is_usage(spec):
