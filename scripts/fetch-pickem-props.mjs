@@ -308,6 +308,7 @@ const UD_STAT_MAP = {
   receptions: 'rec', receiving_rec: 'rec',
   receiving_long: 'long_rec',
   rushing_and_receiving_yds: 'rush_rec_yd', rush_rec_yds: 'rush_rec_yd',
+  rush_rec_tds: 'rush_rec_td',   // combined rush+rec TD O/U — Underdog's largest market (~380 lines/slate)
   field_goals_made: 'fg_made', kicking_points: 'kick_pts',
   tackles: 'tackles', sacks: 'sacks',
 };

@@ -13421,6 +13421,13 @@ function _sdSetAdp(bucket, field, value){
    ts the user has seen (stored in localStorage 'vault-changelog-seen'). */
 const VAULT_CHANGELOG = [
   {
+    ts:'2026-09-06T15:00', tag:'New', title:'New prop market: Rush + Rec TDs',
+    items:[
+      'Added a Rush + Rec TD tab for running backs, receivers and tight ends — the combined “does he score” market, with both books’ prices, the no-vig fair value and how often he’s hit it (last 5 / 10 / 20 and this season).',
+      'This surfaces a large market Vault wasn’t showing before. Vault’s own projection isn’t on it yet, so it’s marked as market pricing only for now.',
+    ],
+  },
+  {
     ts:'2026-09-06T14:30', tag:'Fixed', title:'Props from a single book are now flagged, not graded with false confidence',
     items:[
       'When only one book is posting a prop line, Vault now labels it “single book” so you know there’s nothing cross-checking the number.',
@@ -39612,6 +39619,11 @@ body .page,body .page.on{background:transparent!important}
     { key: 'rec_yd', label: 'Rec Yds', short: 'ReYd', pos: ['RB', 'WR', 'TE'], kind: 'yd' },
     { key: 'rec_td', label: 'Rec TD', short: 'ReTD', pos: ['WR', 'TE', 'RB'], kind: 'td' },
     { key: 'rush_rec_yd', label: 'Rush + Rec Yds', short: 'Ru+Re', pos: ['RB', 'WR', 'TE'], kind: 'yd' },
+    // Combined rush+rec TD O/U (Underdog's largest market). Market-only for now:
+    // prop_model.json has no fit (rush_td was pulled for overfitting), so the
+    // Vault columns stay dashed like Rush+Rec Yds — de-vig price/EV + hit-rates
+    // only. A validated combined-TD projection is deferred to the TD-model rework.
+    { key: 'rush_rec_td', label: 'Rush + Rec TD', short: 'Ru+ReTD', pos: ['RB', 'WR', 'TE'], kind: 'td' },
     { key: 'long_rec', label: 'Longest Reception', short: 'LngRe', pos: ['WR', 'TE', 'RB'], kind: 'yd' },
     { key: 'anytime_td', label: 'Anytime TD', short: 'ATD', pos: ['QB', 'RB', 'WR', 'TE'], kind: 'prob' },
     { key: 'tackles', label: 'Tackles + Ast', short: 'Tkl', pos: ['DEF', 'LB', 'DB', 'DL'], kind: 'cnt' },
@@ -40411,6 +40423,10 @@ window.VaultPropHistory = (function () {
     pass_yd: 'pyds', pass_td: 'ptds', pass_int: 'ints', pass_cmp: 'cmp', pass_att: 'att',
     rush_yd: 'ryds', rush_td: 'rtds', rush_att: 'car',
     rec_yd: 'recyds', rec: 'rec', rec_td: 'rectds',
+    // Derived: combined rush+rec TDs per game = rtds + rectds. An array field is
+    // summed in gameLog (present if EITHER component is), so the Rush+Rec TD tab
+    // gets a real game-log chart + hit-rates without a new nflverse column.
+    rush_rec_td: ['rtds', 'rectds'],
   };
   const nkey = s => (typeof window.vaultNameKey === 'function')
     ? window.vaultNameKey(s)
@@ -40433,7 +40449,10 @@ window.VaultPropHistory = (function () {
     const field = FIELD[marketKey]; if (!field) return null;
     const seasons = opts.seasons || (function(){var c=(typeof window!=='undefined'&&window.vaultNflSeason)?Number(window.vaultNflSeason()):new Date().getUTCFullYear();return c>=2025?[c-1,c]:[2024,2025];})(); // [prev, cur] — rolls over via vaultNflSeason once the new season's nflverse logs land (a season with no file yet just returns no games)
     const key = nkey(name), out = [];
-    for (const s of seasons) { const idx = await index(s); const p = idx && idx[key]; if (!p || !p.weeks) continue; for (const w of p.weeks) if (w[field] != null) out.push({ season: s, wk: w.wk, val: w[field], opp: w.opp || null }); }
+    const valOf = w => Array.isArray(field)
+      ? (field.some(f => w[f] != null) ? field.reduce((a, f) => a + (w[f] || 0), 0) : null)   // derived: sum components, present if any is
+      : w[field];
+    for (const s of seasons) { const idx = await index(s); const p = idx && idx[key]; if (!p || !p.weeks) continue; for (const w of p.weeks) { const val = valOf(w); if (val != null) out.push({ season: s, wk: w.wk, val, opp: w.opp || null }); } }
     return out;
   }
   function hitRates(gl, line, side) {
