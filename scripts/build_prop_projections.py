@@ -63,28 +63,34 @@ MARKETS = {
     # opportunity; rushing TDs (goal-line) do not, so only rec_td gets vol/eff.
     "rec_td":   {"kind": "poisson", "stat": "rectds", "vol": "tgt", "eff_num": "rectds", "pos": ["WR", "TE", "RB"]},
     # Anytime TD = any non-passing TD; λ = combined rush+rec TD rate, P = 1−e^(−λ).
-    # One-sided market (only Vault can grade it), BUT HELD: the backtest shows it's
-    # net-negative out-of-sample (overconfident above ~0.30). The rare-event
-    # projection can reliably flag who WON'T score, not who will. Needs a better
-    # projection (not the recency-weighted rate) before it's a real edge.
-    "anytime_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE", "QB"]},
-    # Rush + Rec TD O/U — SAME combined-TD λ as anytime_td, but a TWO-SIDED line
-    # market (0.5/1.5/2.5). The hope was that grading the FAVORED side (usually the
-    # calibrated "won't exceed" under) would clear even though anytime_td's over
-    # tail didn't. TESTED (backtest_prop_model.py, 2016→, test 2022+): it does NOT.
-    # The scoring tail is overconfident out-of-sample by the SAME margin as
-    # anytime_td (pred 0.760 vs real 0.315, gap +0.45 vs anytime's +0.44), and the
-    # grade scoreboard's "A clears ✓" (realized 0.915) is a MIRAGE: that mass is
-    # trivial high-line unders (won't get 2+/3+ TDs) that no book prices as a flat
-    # pickem. The bettable middle grades collapse and go non-monotonic (B 0.54,
-    # C 0.34, D 0.36 vs a 0.55 break-even). Same root cause as rush_td/anytime_td —
-    # goal-line TDs aren't projectable from box-score tape. HELD as a NO-GO; the
-    # client tab stays market-only (price/EV/hit-rates, no Vault grade). Un-holding
-    # needs the red-zone/goal-line nflverse pull (see docs/prop-edge-model-plan.md).
-    "rush_rec_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE"]},
+    # SHIPS RAW (no_calib): the season-holdout showed the CALIBRATION was the
+    # problem, not the projection — isotonic PAV overfits the rare-event TD tail,
+    # so calibrating DESTROYS an otherwise-clearing grade. With calibration off the
+    # grade scoreboard passes out-of-sample (A/B/C clear the 55% break-even,
+    # A 0.95 / B 0.79 / C 0.61). See no_calib note below + docs/prop-td-redzone-plan.md.
+    "anytime_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE", "QB"], "no_calib": True},
+    # Rush + Rec TD O/U — SAME combined-TD λ as anytime_td, TWO-SIDED (0.5/1.5/2.5).
+    # Also SHIPS RAW. With the isotonic calib ON its bettable grades collapsed
+    # (B 0.54, C 0.34); with it OFF they clear out-of-sample (A 0.95 / B 0.79 /
+    # C 0.59). The red-zone/goal-line data pull was spiked and REJECTED (goal-line
+    # opportunity adds no OOS lift and worsens the tail — docs/prop-td-redzone-plan.md);
+    # dropping the overfit calibration is what actually un-held these markets.
+    "rush_rec_td": {"kind": "poisson", "stat_sum": ["rtds", "rectds"], "pos": ["RB", "WR", "TE"], "no_calib": True},
 }
 IS_COUNT = {"count", "poisson"}      # projected the same way (direct stat, shrunk)
-HOLD = {"rush_td", "anytime_td", "rush_rec_td"}   # fit + reported, NEVER written to the model (validated NO-GO — overconfident TD tail)
+# no_calib: SHIP the raw distribution prob (calib=[] → identity, shrink=1.0). Only
+# the rare-event combined-TD markets use it — isotonic PAV overfits their tail so
+# badly that calibrating turns a clearing grade into a coin flip. rec_td/pass_td
+# keep their calibration (they validated WITH it).
+NO_CALIB = {mkt for mkt, spec in MARKETS.items() if spec.get("no_calib")}
+# Confidence shrink (temperature toward 0.5) applied to the RAW TD markets instead
+# of a fitted one: fit_shrink minimizes log-loss over pooled probs → w≈1, which
+# misses the overconfident MID-tail. This w is the value at which the season-
+# holdout grade ladder becomes monotonic and A/B/C clear the 55% break-even at the
+# BETTABLE 0.5 line, validated per-market (scratchpad/validate_raw_td.py: rush_rec_td
+# A .84/B .73/C .62, anytime_td A .85/B .72/C .63). Pure raw (w=1) left C at 0.53.
+TD_RAW_SHRINK = 0.85
+HOLD = {"rush_td"}                    # rush_td still held (raw un-hold unvalidated for it)
 
 
 def is_usage(spec):
@@ -690,16 +696,25 @@ def main():
         # sample (bake-off), fit its params, then calibrate + shrink under it.
         dist, extra = choose_dist(spec, best["preds"], best["actuals"])
         entry["dist"] = dist; entry.update(extra)
-        entry["calib"] = fit_calibration_fn(best["preds"], best["actuals"], prob_fn_for(entry), spec["kind"])
+        if spec.get("no_calib"):
+            # Ship the raw distribution prob: isotonic PAV overfits this market's
+            # rare-event tail so badly that calibrating turns a clearing grade into
+            # a coin flip. Empty calib → JS identity. A fixed w<1 shrink (not the
+            # log-loss fit, which misses the mid-tail) then makes the OOS grade
+            # ladder monotonic and A/B/C clear at the bettable 0.5 line.
+            entry["calib"] = []
+            entry["shrink"] = TD_RAW_SHRINK
+        else:
+            entry["calib"] = fit_calibration_fn(best["preds"], best["actuals"], prob_fn_for(entry), spec["kind"])
+            # #3 market shrink: pull overconfident probs toward the market/coin-flip.
+            entry["shrink"] = fit_shrink(spec, best["preds"], best["actuals"], entry)
         dist_desc = {"poisson": f"λ̄={statistics.fmean(best['preds']):.2f} poisson",
                      "nbinom": f"nbinom r={entry.get('nb_r')}",
                      "lognormal": f"log-normal sd²={entry.get('sd_v0',0):.1f}+{entry.get('sd_v1',0):.3f}·μ",
                      "normal": f"normal sd²={entry.get('sd_v0',0):.1f}+{entry.get('sd_v1',0):.3f}·μ"}[dist]
-        # #3 market shrink: pull overconfident probs toward the market/coin-flip.
-        entry["shrink"] = fit_shrink(spec, best["preds"], best["actuals"], entry)
         calib = entry["calib"]
         lift = (best["base_rmse"] - best["rmse"]) / best["base_rmse"] * 100 if best["base_rmse"] else 0
-        held = " [HELD]" if mkt in HOLD else ""
+        held = " [HELD]" if mkt in HOLD else (" [RAW — no calib]" if spec.get("no_calib") else "")
         print(f"[prop-model] {mkt:9s} n={best['n']:6d} hl={best['hl']} kv={best['k_vol']} ke={best['k_eff']} "
               f"| RMSE {best['rmse']:.2f} vs base {best['base_rmse']:.2f} ({lift:+.1f}%) | R2 {best['r2']:.3f} "
               f"| {dist_desc} | calib {len(calib)}pt | shrink {entry['shrink']}{held}")
