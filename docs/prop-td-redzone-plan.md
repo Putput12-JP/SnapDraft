@@ -49,8 +49,11 @@ explicit constant) makes the grade ladder monotonic and **A/B/C clear per-market
 on both directions** — rush_rec_td A .84/B .73/C .62, anytime_td A .85/B .72/C .63,
 and A-overs ("will score") realize ~0.70 honestly. `prop_model.json` gained only
 these two markets (every other byte-identical); the client auto-grades with no
-code change (Rush + Rec TD tab + the `has()`-gated Anytime TD board). `rush_td`
-stays held (raw un-hold unvalidated for it). Note: the in-season overlay
+code change (Rush + Rec TD tab + the `has()`-gated Anytime TD board). **`rush_td`
+also un-held** (`d9d33dd`) on the same treatment — its favored-side grade clears
+A/B/C at the 0.5 line even at pure raw (A .85/B .65/C .57) and comfortably with the
+0.85 shrink (A .86/B .72/C .61). `HOLD` is now empty; `pass_td`/`rec_td` keep their
+calibration, the three combined/rush TD markets ship raw. Note: the in-season overlay
 (`apply_inseason_overlay`) sharpens via the `calib` table, so it's a no-op for
 these `calib: []` markets — they won't auto-refine in-season; revisit if wanted.
 
